@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-sans: "DM Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    font-family: var(--font-sans);
+    background-color: #09090B;
+    color: #F4F4F5;
+    scroll-behavior: smooth;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    text-wrap: balance;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* True alpha transparency & chroma key modes for OBS Studio & vMix Browser Inputs */
+html.overlay-transparent,
+body.overlay-transparent,
+body.overlay-transparent #root {
+  background: transparent !important;
+  background-color: rgba(0, 0, 0, 0) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+html.overlay-chroma-green,
+body.overlay-chroma-green,
+body.overlay-chroma-green #root {
+  background: #00b140 !important;
+  background-color: #00b140 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+html.overlay-chroma-blue,
+body.overlay-chroma-blue,
+body.overlay-chroma-blue #root {
+  background: #0047bb !important;
+  background-color: #0047bb !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
