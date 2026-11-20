@@ -11,12 +11,17 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const ADMIN_PIN = (process.env.OVERLAY_ADMIN_PIN || '9890').trim();
+const UNLOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 const VALID_SKUS = new Set([
   'kabaddi-classic',
   'kabaddi-modern',
   'haldi-classic',
   'haldi-modern',
+  'banner-theme1',
+  'banner-theme2',
+  'banner-theme3',
+  'banner-theme4',
 ]);
 
 export type OrderStatus = 'pending' | 'approved' | 'rejected';
@@ -35,6 +40,17 @@ interface OverlayOrder {
   rejectionReason?: string;
   createdAt: number;
   verifiedAt?: number;
+  expiresAt?: number;
+}
+
+function getOrderExpiresAt(order: OverlayOrder): number {
+  if (typeof order.expiresAt === 'number') return order.expiresAt;
+  const base = order.verifiedAt || order.createdAt;
+  return base + UNLOCK_DURATION_MS;
+}
+
+function isOrderActive(order: OverlayOrder, now = Date.now()): boolean {
+  return order.status === 'approved' && Boolean(order.unlockCode) && getOrderExpiresAt(order) > now;
 }
 
 const DATA_DIR = path.resolve(__dirname, 'data');
@@ -115,6 +131,8 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
 }
 
 function toPublicOrderSummary(order: OverlayOrder) {
+  const expiresAt = order.status === 'approved' ? getOrderExpiresAt(order) : undefined;
+  const expired = Boolean(expiresAt && expiresAt <= Date.now());
   return {
     orderId: order.orderId,
     sku: order.sku,
@@ -122,10 +140,12 @@ function toPublicOrderSummary(order: OverlayOrder) {
     originalPrice: order.originalPrice,
     status: order.status,
     utrRef: order.utrRef,
-    unlockCode: order.status === 'approved' ? order.unlockCode : undefined,
+    unlockCode: order.status === 'approved' && !expired ? order.unlockCode : undefined,
     rejectionReason: order.status === 'rejected' ? order.rejectionReason : undefined,
     createdAt: order.createdAt,
     verifiedAt: order.verifiedAt,
+    expiresAt,
+    expired,
   };
 }
 
@@ -285,7 +305,7 @@ async function startServer() {
     });
   });
 
-  // 4. Verify an owner-issued Unlock Code (STAR-XXXX-XXXX) or approved Order ID
+  // 4. Verify an owner-issued Unlock Code (STAR-XXXX-XXXX) or approved Order ID (strict 24h validity)
   app.post('/api/overlay/verify-unlock', (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const code = String(body.unlockCode || '').trim().toUpperCase();
@@ -312,19 +332,33 @@ async function startServer() {
       return;
     }
 
+    const expiresAt = getOrderExpiresAt(match);
+    if (expiresAt <= Date.now()) {
+      res.status(403).json({
+        ok: false,
+        expired: true,
+        error:
+          'This 24-hour overlay pass has expired and auto-locked. Please pay ₹99 again to unlock for 24 hours.',
+      });
+      return;
+    }
+
     res.json({
       ok: true,
       sku: match.sku,
       orderId: match.orderId,
       unlockCode: match.unlockCode,
+      expiresAt,
     });
   });
 
-  // 5. Server-side validation of locally cached unlock tokens (prevents tampering with localStorage)
+  // 5. Server-side validation of locally cached unlock tokens (auto-drops expired 24h tokens)
   app.post('/api/overlay/validate-tokens', (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const tokens = Array.isArray(body.tokens) ? body.tokens : [];
-    const verified: Array<{ sku: string; orderId: string; unlockCode: string }> = [];
+    const now = Date.now();
+    const verified: Array<{ sku: string; orderId: string; unlockCode: string; expiresAt: number }> =
+      [];
 
     for (const item of tokens) {
       if (!item || typeof item !== 'object') continue;
@@ -333,26 +367,72 @@ async function startServer() {
       const unlockCode = String(item.unlockCode || '').toUpperCase();
       const match = orders.find(
         (o) =>
-          o.status === 'approved' &&
+          isOrderActive(o, now) &&
           o.sku === sku &&
           o.orderId === orderId &&
           o.unlockCode === unlockCode
       );
       if (match && match.unlockCode) {
-        verified.push({ sku: match.sku, orderId: match.orderId, unlockCode: match.unlockCode });
+        verified.push({
+          sku: match.sku,
+          orderId: match.orderId,
+          unlockCode: match.unlockCode,
+          expiresAt: getOrderExpiresAt(match),
+        });
       }
     }
 
     res.json({ ok: true, verified });
   });
 
-  // 6. Owner Admin: list all ₹99 payment verification requests
-  app.get('/api/admin/orders', (req, res) => {
-    if (!requireAdminPin(req, res)) return;
-    res.json({ ok: true, orders });
+  // 5b. Live OBS / vMix Browser Source 24-hour access check
+  app.get('/api/overlay/access', (req, res) => {
+    const sku = String(req.query.sku || '').trim();
+    const token = String(req.query.token || '').trim().toUpperCase();
+    const now = Date.now();
+
+    if (!token) {
+      res.status(403).json({ ok: false, active: false, reason: 'missing_token' });
+      return;
+    }
+
+    const match = orders.find(
+      (o) =>
+        o.status === 'approved' &&
+        o.unlockCode?.toUpperCase() === token &&
+        (!sku || o.sku === sku)
+    );
+
+    if (!match) {
+      res.status(403).json({ ok: false, active: false, reason: 'invalid_token' });
+      return;
+    }
+
+    const expiresAt = getOrderExpiresAt(match);
+    if (expiresAt <= now) {
+      res.status(403).json({ ok: false, active: false, reason: 'expired', expiresAt });
+      return;
+    }
+
+    res.json({ ok: true, active: true, sku: match.sku, expiresAt });
   });
 
-  // 7. Owner Admin: approve ₹99 payment -> generates unlock code & unlocks buyer live over SSE
+  // 6. Owner Admin: list all ₹99 payment verification requests with 24h expiry metadata
+  app.get('/api/admin/orders', (req, res) => {
+    if (!requireAdminPin(req, res)) return;
+    const now = Date.now();
+    const enriched = orders.map((o) => {
+      const expiresAt = o.status === 'approved' ? getOrderExpiresAt(o) : undefined;
+      return {
+        ...o,
+        expiresAt,
+        isExpired: Boolean(expiresAt && expiresAt <= now),
+      };
+    });
+    res.json({ ok: true, orders: enriched });
+  });
+
+  // 7. Owner Admin: approve ₹99 payment -> starts 24-hour unlock window & pushes live over SSE
   app.post('/api/admin/orders/:orderId/approve', (req, res) => {
     if (!requireAdminPin(req, res)) return;
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
@@ -362,14 +442,22 @@ async function startServer() {
       return;
     }
 
+    const now = Date.now();
     order.status = 'approved';
     order.unlockCode = order.unlockCode || generateUnlockCode();
     order.rejectionReason = undefined;
-    order.verifiedAt = Date.now();
+    order.verifiedAt = now;
+    order.expiresAt = now + UNLOCK_DURATION_MS;
     savePersistedOrders(orders);
     notifyOrderWatchers(order);
 
-    res.json({ ok: true, order });
+    res.json({
+      ok: true,
+      order: {
+        ...order,
+        isExpired: false,
+      },
+    });
   });
 
   // 8. Owner Admin: reject unpaid / invalid UTR request
@@ -459,6 +547,15 @@ async function startServer() {
       }
     });
   });
+
+  // Long-lived browser caching for pre-optimized web media assets
+  app.use(
+    '/assets/optimized',
+    express.static(path.resolve(__dirname, 'public/assets/optimized'), {
+      maxAge: '365d',
+      immutable: true,
+    })
+  );
 
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
