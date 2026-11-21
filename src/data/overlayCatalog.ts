@@ -19,12 +19,13 @@ export interface OverlayPlan {
 export const OVERLAY_PLANS: OverlayPlan[] = [
   {
     id: '1day',
-    price: 49,
-    originalPrice: 99,
+    price: 1,
+    originalPrice: 49,
     durationHours: 24,
     shortLabel: { mr: '1 दिवस', en: '1 Day' },
-    label: { mr: '1 दिवस पास (₹49)', en: '1 Day Pass (₹49)' },
-    desc: { mr: '24 तास पूर्ण ॲक्सेस · एका कार्यक्रमासाठी', en: '24 hours full access · Single event' },
+    label: { mr: 'आजची ऑफर · 1 दिवस (₹1)', en: "Today's Offer · 1 Day (₹1)" },
+    badge: { mr: 'आजची ऑफर', en: "TODAY'S OFFER" },
+    desc: { mr: 'आजची खास ऑफर · 24 तास पूर्ण ॲक्सेस', en: "Today's special offer · 24 hours full access" },
   },
   {
     id: '1week',
@@ -137,14 +138,14 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     },
     features: {
       mr: [
-        'कोणत्याही पेमेंट किंवा की शिवाय थेट OBS / vMix URL व 1920×1080 PNG मोफत मिळवा',
+        'कोणत्याही पेमेंट शिवाय थेट OBS / vMix URL व 1920×1080 PNG मोफत मिळवा',
         'दोन्ही बाजूचे टीम लोगो, 30s टायमर, +1/-1, Bonus, All Out, Yellow/Red कार्ड्स व Sin Bin',
-        'स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील (वॉटरमार्क फ्री प्रो फक्त ₹49 पासून)',
+        'स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील (वॉटरमार्क फ्री प्रो आजची ऑफर फक्त ₹1 / 1 दिवस)',
       ],
       en: [
-        'Free OBS / vMix Browser Source URL & 1920×1080 PNG export — no payment or key needed',
+        'Free OBS / vMix Browser Source URL & 1920×1080 PNG export — no payment needed',
         'Dual team logos, 30s timer, +1/-1, Bonus, All Out, Yellow/Red cards & Sin Bin',
-        'Displays a small STAR EVENT LIVE watermark (upgrade to watermark-free Pro from ₹49)',
+        "Displays a small STAR EVENT LIVE watermark (watermark-free Pro is ₹1 for 1 Day today)",
       ],
     },
   },
@@ -152,8 +153,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'kabaddi-classic',
     mode: 'kabaddi',
     style: 'classic',
-    originalPrice: 99,
-    salePrice: 49,
+    originalPrice: 49,
+    salePrice: 1,
     title: {
       mr: 'कबड्डी प्रो स्कोअरबोर्ड (वॉटरमार्क-फ्री · 30s टायमर)',
       en: 'Kabaddi Pro Scoreboard (Watermark-Free · 30s Timer)',
@@ -170,12 +171,12 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       mr: [
         'डाव्या व उजव्या दोन्ही बाजूंनी कस्टम टीम लोगो अपलोड व टीम कलर पिकर',
         '30s लाईव्ह टायमर, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red कार्ड्स व Sin Bin',
-        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट होताच ऑटो अनलॉक',
+        'आजची ऑफर: फक्त ₹1 पेमेंट करा — 1 दिवसासाठी (24 तास) आपोआप अनलॉक, नंतर ऑटो एक्सपायर',
       ],
       en: [
         'Upload custom Left & Right team logos and customize both wing colors live',
         'Live 30s timer, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red cards & Sin Bin',
-        'Flexible plans: 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 — automatic unlock on QR payment',
+        "Today's Offer: Pay ₹1 — instant automatic unlock for 1 Day (24 hours), then auto-expires",
       ],
     },
   },
@@ -183,8 +184,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'haldi-classic',
     mode: 'haldi',
     style: 'classic',
-    originalPrice: 99,
-    salePrice: 49,
+    originalPrice: 49,
+    salePrice: 1,
     title: {
       mr: 'हळदी व लग्न समारंभ · स्टाईल 1 (शाही गोल्ड फ्रेम)',
       en: 'Haldi & Wedding · Style 1 (Shahi Gold Frame)',
@@ -194,19 +195,19 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       en: 'Turmeric-gold ornamental corners + Haldi & Wedding Marathi header + live banner',
     },
     meta: {
-      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'ऑटो QR अनलॉक'],
-      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Auto QR Unlock'],
+      mr: ['हळदी व लग्न', 'OBS & vMix URL', '1 दिवस ऑटो अनलॉक'],
+      en: ['Haldi & Wedding', 'OBS & vMix URL', '1-Day Auto Unlock'],
     },
     features: {
       mr: [
         'हळदी किंवा शुभ विवाह (वधू-वर / कुटुंबाचे नाव) एका क्लिकमध्ये कस्टमाईज करा',
         'OBS Studio व vMix साठी थेट ट्रान्सपरंट लिंक (वॉटरमार्क-फ्री क्लियर सेंटर)',
-        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 + 1920×1080 PNG डाउनलोड',
+        'आजची ऑफर: फक्त ₹1 (1 दिवस / 24 तास) — पेमेंट होताच ऑटो अनलॉक, 24h नंतर एक्सपायर',
       ],
       en: [
         'One-click presets & live editing for Haldi & Wedding bride/groom/family names',
         'Ready-to-paste OBS & vMix transparent browser URL (clean watermark-free center)',
-        'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 + instant 1920×1080 transparent PNG export',
+        "Today's Offer: Just ₹1 (1 Day / 24h) — instant auto-unlock on payment, auto-expires after 24h",
       ],
     },
   },
@@ -214,8 +215,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'haldi-modern',
     mode: 'haldi',
     style: 'modern',
-    originalPrice: 99,
-    salePrice: 49,
+    originalPrice: 49,
+    salePrice: 1,
     title: {
       mr: 'हळदी व लग्न समारंभ · स्टाईल 2 (सिनेमॅटिक रिबन)',
       en: 'Haldi & Wedding · Style 2 (Cinematic Ribbon)',
@@ -225,19 +226,19 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       en: 'Clean open frame + floating warm-gold lower-third ribbon for Haldi & Wedding',
     },
     meta: {
-      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'ऑटो QR अनलॉक'],
-      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Auto QR Unlock'],
+      mr: ['हळदी व लग्न', 'OBS & vMix URL', '1 दिवस ऑटो अनलॉक'],
+      en: ['Haldi & Wedding', 'OBS & vMix URL', '1-Day Auto Unlock'],
     },
     features: {
       mr: [
         '4K जिम्बल हळदी व लग्न शॉट्ससाठी बॉर्डरलेस क्लिन लोअर-थर्ड रिबन डिझाइन',
         'YouTube Live साठी रिअल-टाईम हळदी / लग्न टायटल सिंक (OBS व vMix)',
-        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 + स्वतःचा कस्टम लोगो',
+        'आजची ऑफर: फक्त ₹1 (1 दिवस / 24 तास) — पेमेंट होताच ऑटो अनलॉक, 24h नंतर एक्सपायर',
       ],
       en: [
         'Uncluttered floating ribbon crafted for 4K gimbal Haldi & Wedding shots',
         'Live Haldi & Wedding title updates synced directly to OBS and vMix',
-        'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 + optional custom logo upload',
+        "Today's Offer: Just ₹1 (1 Day / 24h) — instant auto-unlock on payment, auto-expires after 24h",
       ],
     },
   },

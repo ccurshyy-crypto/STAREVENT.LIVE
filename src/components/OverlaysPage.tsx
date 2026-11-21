@@ -3,7 +3,6 @@ import { ArrowLeft, Check, Clock, Eye, Lock, LockOpen } from 'lucide-react';
 import { EventCategoryId, Language, STUDIO_CONTACT } from '../data/content';
 import {
   formatRemainingTime,
-  OVERLAY_PLANS,
   OVERLAY_PRODUCTS,
   OverlayPlanId,
   OverlayProduct,
@@ -290,8 +289,8 @@ export function OverlaysPage({
             <div className="max-w-3xl space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {lang === 'mr'
-                  ? `ओव्हरले स्टोअर · ${STUDIO_CONTACT.domain} · 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499`
-                  : `Broadcast Overlay Store · ${STUDIO_CONTACT.domain} · 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499`}
+                  ? `आजची खास ऑफर · ${STUDIO_CONTACT.domain} · फक्त ₹1 (1 दिवस / 24 तास)`
+                  : `Today's Special Offer · ${STUDIO_CONTACT.domain} · Just ₹1 (1 Day / 24 Hours)`}
               </p>
               <h1
                 className={`font-display font-extrabold text-white text-[clamp(1.95rem,3.4vw,3.05rem)] ${
@@ -306,8 +305,8 @@ export function OverlaysPage({
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
                 {lang === 'mr'
-                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). QR पेमेंट होताच ऑटो अनलॉक — 1 दिवस ₹49, 1 आठवडा ₹149, 1 महिना ₹1,499.'
-                  : 'Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays with automatic QR unlock: 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499.'}
+                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). आजची ऑफर: फक्त ₹1 पेमेंट करा, लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.'
+                  : "Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays for ₹1 (Today's Offer) — instant automatic unlock for 1 Day (24 hours), then auto-expires."}
               </p>
             </div>
 
@@ -386,13 +385,13 @@ export function OverlaysPage({
                       >
                         {isFreeDemo
                           ? lang === 'mr'
-                            ? 'मोफत · की शिवाय'
-                            : 'FREE · NO KEY NEEDED'
+                            ? 'मोफत डेमो'
+                            : 'FREE DEMO'
                           : isUnlocked && token
                             ? `${formatRemainingTime(token.expiresAt, nowTs)} LEFT`
                             : lang === 'mr'
-                              ? '₹49 पासून · ऑटो QR'
-                              : 'FROM ₹49 · AUTO QR'}
+                              ? 'आजची ऑफर ₹1 · 1 दिवस'
+                              : "TODAY'S OFFER ₹1 · 1 DAY"}
                       </span>
                     </div>
 
@@ -405,7 +404,7 @@ export function OverlaysPage({
                       </p>
                     </div>
 
-                    {/* Pricing Row: Free Demo OR 3-Plan Grid (1 Day ₹49 / 1 Week ₹149 / 1 Month ₹1,499) */}
+                    {/* Pricing Row: Free Demo OR Single Clean 1-Day ₹1 Auto-Unlock Offer */}
                     <div className="pt-3 border-t border-white/10">
                       {isFreeDemo ? (
                         <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -424,22 +423,21 @@ export function OverlaysPage({
                           </span>
                         </div>
                       ) : (
-                        <div className="grid grid-cols-3 gap-2">
-                          {OVERLAY_PLANS.map((plan) => (
-                            <button
-                              key={plan.id}
-                              type="button"
-                              onClick={() => handleOpenCheckout(product, plan.id)}
-                              className="bg-[#0D0D11] hover:bg-[#19160E] border border-white/12 hover:border-[#FACC15]/70 rounded-xl px-2.5 py-2 text-left transition-colors"
-                            >
-                              <span className="block text-[10px] font-semibold text-zinc-400">
-                                {plan.shortLabel[lang]}
-                              </span>
-                              <span className="block font-mono text-base sm:text-lg font-extrabold text-[#FACC15] tabular-nums leading-tight mt-0.5">
-                                ₹{plan.price.toLocaleString('en-IN')}
-                              </span>
-                            </button>
-                          ))}
+                        <div className="flex flex-wrap items-baseline justify-between gap-3">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums">
+                              ₹{product.salePrice}
+                            </span>
+                            <span className="font-mono text-sm text-zinc-500 line-through tabular-nums">
+                              ₹{product.originalPrice}
+                            </span>
+                            <span className="text-xs text-zinc-400">
+                              {lang === 'mr' ? '/ 1 दिवस (24 तास)' : '/ 1 Day (24 Hours)'}
+                            </span>
+                          </div>
+                          <span className="font-mono text-[11px] font-semibold text-[#4ADE80]">
+                            {lang === 'mr' ? 'ऑटो अनलॉक · 24h नंतर एक्सपायर' : 'AUTO-UNLOCK · 24H EXPIRY'}
+                          </span>
                         </div>
                       )}
                     </div>
@@ -492,8 +490,8 @@ export function OverlaysPage({
                         <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {lang === 'mr'
-                            ? `₹${pendingOrder?.amount || 49} प्रतीक्षेत · स्टेटस पहा`
-                            : `₹${pendingOrder?.amount || 49} Pending · Check Status`}
+                            ? `₹${pendingOrder?.amount || 1} प्रतीक्षेत · स्टेटस पहा`
+                            : `₹${pendingOrder?.amount || 1} Pending · Check Status`}
                         </span>
                       </button>
                     ) : (
@@ -505,8 +503,8 @@ export function OverlaysPage({
                         <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {lang === 'mr'
-                            ? 'QR पेमेंट करा (₹49 / ₹149 / ₹1,499)'
-                            : 'Unlock via QR (₹49 / ₹149 / ₹1,499)'}
+                            ? '₹1 भरा आणि अनलॉक करा (1 दिवस)'
+                            : 'Pay ₹1 & Unlock (1 Day)'}
                         </span>
                       </button>
                     )}

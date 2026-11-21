@@ -7,7 +7,6 @@ interface FooterProps {
   onNavigateHome: (sectionId?: string) => void;
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
-  onOpenAdmin: () => void;
 }
 
 export function Footer({
@@ -15,7 +14,6 @@ export function Footer({
   onNavigateHome,
   onNavigateOverlays,
   onNavigatePackages,
-  onOpenAdmin,
 }: FooterProps) {
   return (
     <footer className="relative z-10 border-t border-white/10 bg-[#09090B]/88 backdrop-blur-sm py-12">
@@ -141,14 +139,6 @@ export function Footer({
               </a>{' '}
               · © {new Date().getFullYear()} {STUDIO_CONTACT.brand}
             </span>
-            <span aria-hidden="true" className="text-zinc-700">·</span>
-            <button
-              type="button"
-              onClick={onOpenAdmin}
-              className="text-zinc-500 hover:text-[#FACC15] transition-colors whitespace-nowrap"
-            >
-              {lang === 'mr' ? 'ओनर की पॅनेल' : 'Owner Key Panel'}
-            </button>
           </div>
         </div>
       </div>

@@ -195,17 +195,17 @@ export function OverlayOutputView({
         {accessState !== 'checking' && (
           <div className="bg-[#0B0A0E]/92 border-2 border-[#FACC15] rounded-2xl px-8 py-6 text-center max-w-xl shadow-2xl space-y-2">
             <p className="font-mono text-xs font-bold tracking-wider text-[#FACC15]">
-              STAR EVENT LIVE · 1 DAY ₹49 · 1 WEEK ₹149 · 1 MONTH ₹1,499
+              STAR EVENT LIVE · TODAY&apos;S OFFER: ₹1 FOR 1 DAY (24 HOURS)
             </p>
             <h1 className="font-display text-2xl font-extrabold text-white">
               {accessState === 'expired'
-                ? 'Overlay Pass Expired (Auto-Locked)'
-                : 'Paid Overlay Locked — Plans From ₹49'}
+                ? '1-Day Overlay Access Expired'
+                : "Paid Overlay Locked — Pay ₹1 (1 Day)"}
             </h1>
             <p className="text-sm text-zinc-300">
               {accessState === 'expired'
-                ? 'Your overlay validity has ended. Renew via QR (1 Day ₹49 / 1 Week ₹149 / 1 Month ₹1,499) at starevent.live/overlays to unlock again.'
-                : 'Unlock this overlay at starevent.live/overlays (1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499) to get your active OBS/vMix URL.'}
+                ? 'Your 1-Day (24h) overlay access has expired and auto-locked. Pay ₹1 at starevent.live/overlays to unlock again for 24 hours.'
+                : 'Pay ₹1 at starevent.live/overlays to automatically unlock this overlay for 1 Day (24 hours) in OBS & vMix.'}
             </p>
           </div>
         )}

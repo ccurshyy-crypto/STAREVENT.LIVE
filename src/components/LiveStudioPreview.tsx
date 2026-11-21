@@ -597,22 +597,22 @@ export function LiveStudioPreview({
             id: 'classic',
             label: { mr: 'प्रो स्कोअरबोर्ड · वॉटरमार्क-फ्री', en: 'Pro Scoreboard · Watermark-Free' },
             desc: {
-              mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499',
-              en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499',
+              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
+              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
             },
-            badge: 'FROM ₹49',
+            badge: '₹1 OFFER',
           },
         ]
       : [
           {
             id: 'classic',
             label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
-            desc: { mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499', en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499' },
+            desc: { mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक', en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock" },
           },
           {
             id: 'modern',
             label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
-            desc: { mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499', en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499' },
+            desc: { mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक', en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock" },
           },
         ];
 
@@ -1031,15 +1031,15 @@ export function LiveStudioPreview({
                   <p className="text-xs text-zinc-400">
                     {isFreeDemo
                       ? lang === 'mr'
-                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. वॉटरमार्क-फ्री प्रो ₹49 पासून.'
-                        : 'FREE Demo Active · Includes small STAR EVENT LIVE watermark. Upgrade to watermark-free Pro from ₹49.'
+                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. आजची ऑफर: वॉटरमार्क-फ्री प्रो फक्त ₹1.'
+                        : "FREE Demo Active · Includes small STAR EVENT LIVE watermark. Today's Offer: Watermark-free Pro just ₹1."
                       : isCurrentUnlocked && activeToken
                         ? lang === 'mr'
                           ? `पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
                           : `Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
                         : lang === 'mr'
-                          ? '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट करून लगेच OBS/vMix URL अनलॉक करा.'
-                          : 'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 to unlock live OBS URL, vMix URL & PNG export.'}
+                          ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — 1 दिवसासाठी (24 तास) OBS/vMix URL आपोआप अनलॉक होईल, त्यानंतर एक्सपायर होईल.'
+                          : "Today's Offer: Pay ₹1 — auto-unlocks OBS/vMix URL & PNG export for 1 Day (24h), then auto-expires."}
                   </p>
                 </div>
 
@@ -1090,7 +1090,7 @@ export function LiveStudioPreview({
                       className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
                     >
                       <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      <span className="font-mono font-extrabold text-[#FACC15]">₹49+</span>
+                      <span className="font-mono font-extrabold text-[#FACC15]">₹1 OFFER</span>
                       <span>{lang === 'mr' ? 'अनलॉक करा' : 'Unlock Overlay'}</span>
                     </button>
                   )}
@@ -1253,8 +1253,8 @@ export function LiveStudioPreview({
                     </p>
                     <p className="text-xs text-zinc-400">
                       {lang === 'mr'
-                        ? '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट होताच OBS/vMix URL आपोआप अनलॉक होईल.'
-                        : 'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 — automatic unlock on verified QR payment.'}
+                        ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.'
+                        : "Today's Offer: Pay ₹1 — unlocks automatically for 1 Day (24 hours), then auto-expires."}
                     </p>
                   </div>
                   <button
@@ -1262,8 +1262,8 @@ export function LiveStudioPreview({
                     onClick={() => onRequestPurchase(currentSku)}
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs sm:text-sm font-semibold text-black bg-[#FACC15] hover:bg-[#EAB308] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
                   >
-                    <span className="font-mono font-extrabold">₹49 / ₹149 / ₹1,499</span>
-                    <span>{lang === 'mr' ? 'अनलॉक करा' : 'Unlock Now'}</span>
+                    <span className="font-mono font-extrabold">₹1 · 1 DAY</span>
+                    <span>{lang === 'mr' ? 'पेमेंट करून अनलॉक करा' : 'Pay & Unlock'}</span>
                   </button>
                 </div>
               )}

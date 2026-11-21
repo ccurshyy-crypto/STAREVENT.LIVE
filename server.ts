@@ -1395,7 +1395,7 @@ async function startServer() {
 
       res.status(403).json({
         ok: false,
-        error: 'Invalid or locked Unlock Key. Pay via QR (₹49 / ₹149 / ₹1,499) to unlock.',
+        error: 'Invalid or locked Unlock Key. Pay via QR (₹1 Today Offer / ₹149 / ₹1,499) to unlock.',
       });
       return;
     }
@@ -1406,7 +1406,7 @@ async function startServer() {
         ok: false,
         expired: true,
         error:
-          'This Unlock Key has expired and auto-locked. Please select a fresh plan (₹49 / ₹149 / ₹1,499).',
+          'This Unlock Key has expired and auto-locked. Please select a fresh plan (₹1 Today Offer / ₹149 / ₹1,499).',
       });
       return;
     }

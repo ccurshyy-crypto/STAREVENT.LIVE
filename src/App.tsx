@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Layers, LockOpen } from 'lucide-react';
-import { AdminOrdersModal } from './components/AdminOrdersModal';
 import { BookingSection } from './components/BookingSection';
 import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
@@ -94,12 +93,6 @@ function getInitialPage(): PageRoute {
   return 'home';
 }
 
-function getInitialAdminOpen(): boolean {
-  if (typeof window === 'undefined') return false;
-  const params = new URLSearchParams(window.location.search);
-  return window.location.pathname.startsWith('/admin') || params.get('admin') === '1';
-}
-
 function parseOverlayRoute() {
   if (typeof window === 'undefined') return null;
 
@@ -167,7 +160,6 @@ export default function App() {
 
   const [lang, setLang] = useState<Language>('mr');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
-  const [adminOpen, setAdminOpen] = useState<boolean>(() => getInitialAdminOpen());
   const [previewMode, setPreviewMode] = useState<PreviewMode>('kabaddi');
   const [activeStyle, setActiveStyle] = useState<OverlayStyle>('classic');
   const [verifiedTokens, setVerifiedTokens] = useState<VerifiedOverlayToken[]>([]);
@@ -301,9 +293,6 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       setCurrentPage(getInitialPage());
-      if (window.location.pathname.startsWith('/admin')) {
-        setAdminOpen(true);
-      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
@@ -493,8 +482,8 @@ export default function App() {
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न ओव्हरले (2 स्टाईल) — 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499.'
-                        : 'FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499.'}
+                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न ओव्हरले (2 स्टाईल) — आजची ऑफर: फक्त ₹1 पेमेंट करा, 1 दिवसासाठी (24 तास) आपोआप अनलॉक होईल.'
+                        : "FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — Today's Offer: Pay ₹1 for instant 1-Day (24h) auto-unlock."}
                     </p>
                   </div>
 
@@ -506,8 +495,8 @@ export default function App() {
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
                       {lang === 'mr'
-                        ? 'सर्व ओव्हरले पहा (मोफत डेमो + ₹49 पासून)'
-                        : 'Open Overlays Store (Free Demo + From ₹49)'}
+                        ? 'सर्व ओव्हरले पहा (आजची ऑफर ₹1)'
+                        : "Open Overlays Store (Today's Offer ₹1)"}
                     </span>
                     <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
@@ -555,7 +544,9 @@ export default function App() {
                                 {lang === 'mr' ? 'अनलॉक' : 'OWNED'}
                               </span>
                             ) : (
-                              <span className="text-[#4ADE80] font-semibold">₹49 / ₹149 / ₹1,499</span>
+                              <span className="text-[#4ADE80] font-semibold">
+                                {lang === 'mr' ? 'आजची ऑफर ₹1' : "TODAY'S OFFER ₹1"}
+                              </span>
                             )}
                           </div>
 
@@ -577,8 +568,11 @@ export default function App() {
                               <span className="font-mono text-xl font-extrabold text-[#FACC15] tabular-nums">
                                 ₹{product.salePrice}
                               </span>
+                              <span className="font-mono text-xs text-zinc-500 line-through tabular-nums">
+                                ₹{product.originalPrice}
+                              </span>
                               <span className="text-[11px] text-zinc-400">
-                                {lang === 'mr' ? '/ 1 दिवस · ₹149/आठवडा' : '/ 1 Day · ₹149/Wk'}
+                                {lang === 'mr' ? '/ 1 दिवस (24 तास)' : '/ 1 Day (24h)'}
                               </span>
                             </div>
                           )}
@@ -617,20 +611,6 @@ export default function App() {
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
-        onOpenAdmin={() => setAdminOpen(true)}
-      />
-
-      {/* Owner PIN-Protected ₹99 UPI Payment Verification Console */}
-      <AdminOrdersModal
-        lang={lang}
-        open={adminOpen}
-        onClose={() => {
-          setAdminOpen(false);
-          if (window.location.pathname.startsWith('/admin')) {
-            window.history.pushState({}, '', '/overlays');
-            setCurrentPage('overlays');
-          }
-        }}
       />
     </div>
   );

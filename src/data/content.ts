@@ -122,7 +122,7 @@ export const UI_COPY = {
       en: '4K multi-camera setups, custom on-screen scoreboards and lower-thirds, full HD recording, and professional editing streamed live on YouTube (@stareventlive01).',
     },
     primaryCta: { mr: 'कार्यक्रम बुक करा', en: 'Book Your Event' },
-    secondaryCta: { mr: 'ओव्हरले पहा (₹49 पासून)', en: 'Overlays Store (From ₹49)' },
+    secondaryCta: { mr: 'ओव्हरले पहा (आजची ऑफर ₹1)', en: "Overlays Store (₹1 Today's Offer)" },
     bannerCaption: {
       mr: 'अधिकृत स्टुडिओ बॅनर · YouTube (@stareventlive01) वर 4K LIVE उपलब्ध',
       en: 'Official Studio Banner · 4K LIVE on YouTube (@stareventlive01)',
@@ -160,7 +160,7 @@ export const UI_COPY = {
       mr: 'क्रीडा स्पर्धा असो वा कौटुंबिक सोहळा — आमची अनुभवी टीम प्रत्येक क्षण स्पष्ट व्हिडिओ आणि स्वच्छ ऑडिओसह जगाच्या कानाकोपऱ्यात पोहोचवते.',
       en: 'From packed night cricket tournaments to family wedding rituals, our crew delivers uninterrupted feeds, clean mixer audio, and permanent archival recordings.',
     },
-    previewBtn: { mr: 'ओव्हरले पहा (₹49+)', en: 'Open Overlay (₹49+)' },
+    previewBtn: { mr: 'ओव्हरले पहा (₹1 ऑफर)', en: 'Open Overlay (₹1 Offer)' },
     selectBtn: { mr: 'बुकिंगसाठी निवडा', en: 'Book This Event' },
   },
   studioSection: {

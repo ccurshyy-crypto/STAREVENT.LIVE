@@ -49,7 +49,7 @@ interface AdminOrdersModalProps {
 }
 
 const DURATION_OPTIONS = [
-  { planId: '1day', hours: 24, label: { mr: '1 दिवस — ₹49 (1 Day)', en: '1 Day — ₹49' } },
+  { planId: '1day', hours: 24, label: { mr: '1 दिवस — ₹1 (आजची ऑफर)', en: "1 Day — ₹1 (Today's Offer)" } },
   { planId: '1week', hours: 168, label: { mr: '1 आठवडा — ₹149 (1 Week)', en: '1 Week — ₹149' } },
   { planId: '1month', hours: 720, label: { mr: '1 महिना — ₹1,499 (1 Month)', en: '1 Month — ₹1,499' } },
 ];
@@ -408,13 +408,13 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
           </p>
           <h3 id="admin-verify-title" className="font-display text-xl sm:text-2xl font-bold text-white">
             {lang === 'mr'
-              ? 'ओनर की जनरेटर व पेमेंट पॅनेल (₹49 / ₹149 / ₹1,499)'
-              : 'Owner Unlock Key & Payment Console (₹49 / ₹149 / ₹1,499)'}
+              ? 'ओनर की जनरेटर व पेमेंट पॅनेल (₹1 ऑफर / ₹149 / ₹1,499)'
+              : 'Owner Unlock Key & Payment Console (₹1 Offer / ₹149 / ₹1,499)'}
           </h3>
           <p className="text-xs text-zinc-400">
             {lang === 'mr'
-              ? 'तुमच्या Google Pay मध्ये पेमेंट आल्यावर 1 दिवस (₹49), 1 आठवडा (₹149) किंवा 1 महिना (₹1,499) साठी Unlock Key तयार करा किंवा ऑटो-QR ऑर्डर्स पहा.'
-              : 'Track automatic Cashfree QR unlocks or generate verified 1-Day (₹49), 1-Week (₹149), or 1-Month (₹1,499) Unlock Keys in 1 click.'}
+              ? 'तुमच्या पेमेंटनंतर 1 दिवस (₹1 आजची ऑफर), 1 आठवडा (₹149) किंवा 1 महिना (₹1,499) साठी Unlock Key तयार करा किंवा ऑटो-QR ऑर्डर्स पहा.'
+              : "Track automatic Cashfree QR unlocks or generate verified 1-Day (₹1 Today's Offer), 1-Week (₹149), or 1-Month (₹1,499) Unlock Keys in 1 click."}
           </p>
         </div>
 

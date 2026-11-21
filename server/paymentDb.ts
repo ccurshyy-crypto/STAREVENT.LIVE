@@ -21,7 +21,7 @@ export interface ServerPlan {
 }
 
 export const SERVER_PLANS: Record<PlanId, ServerPlan> = {
-  '1day': { id: '1day', amount: 49, originalPrice: 99, durationHours: 24, label: '1 Day Pass' },
+  '1day': { id: '1day', amount: 1, originalPrice: 49, durationHours: 24, label: "1 Day Pass (Today's Offer)" },
   '1week': { id: '1week', amount: 149, originalPrice: 299, durationHours: 168, label: '1 Week Pass' },
   '1month': { id: '1month', amount: 1499, originalPrice: 2499, durationHours: 720, label: '1 Month Pass' },
 };
