@@ -22,7 +22,7 @@ interface KabaddiControlDeskProps {
   onUpdateState: (patch: Partial<LiveOverlayState>) => void;
   onScoreDelta: (team: 'A' | 'B', delta: number, alertText?: string) => void;
   onToggleMatchTimer: () => void;
-  onAdjustMatchMinutes: (deltaMin: number) => void;
+  onAdjustMatchSeconds: (deltaSec: number) => void;
   onSetMatchPreset: (seconds: number, autoStart?: boolean) => void;
   onToggleRaidTimer: () => void;
   onResetRaidTimer: () => void;
@@ -330,7 +330,7 @@ export function KabaddiControlDesk({
   onUpdateState,
   onScoreDelta,
   onToggleMatchTimer,
-  onAdjustMatchMinutes,
+  onAdjustMatchSeconds,
   onSetMatchPreset,
   onToggleRaidTimer,
   onResetRaidTimer,
@@ -397,24 +397,24 @@ export function KabaddiControlDesk({
           <div className="flex items-center gap-1 flex-wrap">
             <button
               type="button"
-              onClick={() => onAdjustMatchMinutes(-1)}
+              onClick={() => onAdjustMatchSeconds(-5)}
               className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#2A3340] rounded-lg text-zinc-200"
             >
-              −1m
+              −5s
             </button>
             <button
               type="button"
-              onClick={() => onAdjustMatchMinutes(1)}
+              onClick={() => onAdjustMatchSeconds(5)}
               className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#2A3340] rounded-lg text-zinc-200"
             >
-              +1m
+              +5s
             </button>
             <button
               type="button"
-              onClick={() => onSetMatchPreset(30 * 60, true)}
-              className="px-2 py-1 text-[11px] font-mono font-bold bg-[#1F2A22] hover:bg-[#28382C] border border-[#3B9E6D]/70 rounded-lg text-[#86EFAC]"
+              onClick={() => onSetMatchPreset(30, true)}
+              className="px-2.5 py-1 text-[11px] font-mono font-bold bg-[#1F2A22] hover:bg-[#28382C] border border-[#3B9E6D]/70 rounded-lg text-[#86EFAC]"
             >
-              30:00
+              30s Start
             </button>
             <button
               type="button"
@@ -422,13 +422,6 @@ export function KabaddiControlDesk({
               className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#2A3340] rounded-lg text-zinc-300"
             >
               20:00
-            </button>
-            <button
-              type="button"
-              onClick={() => onSetMatchPreset(30, true)}
-              className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#FACC15]/50 rounded-lg text-[#FACC15]"
-            >
-              00:30
             </button>
           </div>
         </div>

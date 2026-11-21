@@ -103,14 +103,21 @@ export function OverlayOutputView({
     lockStyle && initialStyle ? initialStyle : state.style
   );
   const activeSku = getOverlaySku(activeMode, activeStyle);
+  const isFreeDemo = activeSku === 'kabaddi-demo';
 
   const [accessState, setAccessState] = useState<'checking' | 'active' | 'expired' | 'locked'>(
-    token ? 'checking' : 'locked'
+    isFreeDemo ? 'active' : token ? 'checking' : 'locked'
   );
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
 
-  // Verify 24-hour paid access token against server
+  // Verify 1-day paid access token against server (kabaddi-demo is free with small watermark)
   useEffect(() => {
+    if (isFreeDemo) {
+      setAccessState('active');
+      setExpiresAt(null);
+      return;
+    }
+
     if (!token) {
       setAccessState('locked');
       setExpiresAt(null);
@@ -146,7 +153,7 @@ export function OverlayOutputView({
       cancelled = true;
       window.clearInterval(recheckInterval);
     };
-  }, [activeSku, token]);
+  }, [activeSku, isFreeDemo, token]);
 
   // Auto-lock the exact moment the 24-hour expiry timestamp is reached
   useEffect(() => {
@@ -187,17 +194,17 @@ export function OverlayOutputView({
         {accessState !== 'checking' && (
           <div className="bg-[#0B0A0E]/92 border-2 border-[#FACC15] rounded-2xl px-8 py-6 text-center max-w-xl shadow-2xl space-y-2">
             <p className="font-mono text-xs font-bold tracking-wider text-[#FACC15]">
-              STAR EVENT LIVE · 24-HOUR PASS
+              STAR EVENT LIVE · 1-DAY PASS
             </p>
             <h1 className="font-display text-2xl font-extrabold text-white">
               {accessState === 'expired'
-                ? 'Overlay 24-Hour Pass Expired (Auto-Locked)'
-                : 'Paid Overlay Locked — ₹99 / 24 Hours'}
+                ? 'Overlay 1-Day Pass Expired (Auto-Locked)'
+                : 'Paid Overlay Locked — ₹99 / 1 Day'}
             </h1>
             <p className="text-sm text-zinc-300">
               {accessState === 'expired'
-                ? 'Your 24-hour broadcast validity has ended. Renew for ₹99 at starevent.live/overlays to unlock again.'
-                : 'Unlock this overlay for 24 hours at starevent.live/overlays (UPI: crushyyphotography@oksbi) to get your active OBS/vMix URL.'}
+                ? 'Your 1-day broadcast validity has ended. Renew for ₹99 at starevent.live/overlays to unlock again.'
+                : 'Unlock this overlay for 1 Day at starevent.live/overlays (UPI: crushyyphotography@oksbi) to get your active OBS/vMix URL.'}
             </p>
           </div>
         )}
@@ -205,7 +212,7 @@ export function OverlayOutputView({
     );
   }
 
-  // KABADDI MODE: Clean Borderless 1920x1080 Curved Dual-Logo Scoreboard
+  // KABADDI MODE: Clean Borderless 1920x1080 Curved Dual-Logo Scoreboard (Free Demo includes small watermark)
   if (activeMode === 'kabaddi') {
     return (
       <div
@@ -246,6 +253,7 @@ export function OverlayOutputView({
             halfLabel={merged.kabaddiHalf}
             doOrDie={merged.doOrDie}
             subtitle={merged.kabaddiSubtitle}
+            showDemoWatermark={isFreeDemo}
           />
         </div>
       </div>

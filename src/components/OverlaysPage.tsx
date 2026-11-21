@@ -45,7 +45,9 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
       >
         <div className="my-auto text-center">
           <span className="font-mono text-[9px] text-zinc-200 bg-black/65 px-2.5 py-0.5 rounded border border-white/10">
-            1920×1080 DUAL-LOGO SCOREBOARD
+            {style === 'demo'
+              ? 'FREE DEMO · SMALL WATERMARK'
+              : '1920×1080 DUAL-LOGO SCOREBOARD'}
           </span>
         </div>
         <KabaddiScoreboardBar
@@ -58,8 +60,9 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           teamBCode="KAR"
           teamBColor="#131D8A"
           teamBScore={21}
-          matchSeconds={30 * 60}
+          matchSeconds={30}
           halfLabel="1ST HALF"
+          showDemoWatermark={style === 'demo'}
         />
       </div>
     );
@@ -170,6 +173,10 @@ export function OverlaysPage({
 
   const handleRequestPurchaseBySku = (sku: OverlaySku) => {
     const prod = OVERLAY_PRODUCTS.find((p) => p.sku === sku) ?? OVERLAY_PRODUCTS[0];
+    if (prod.isFreeDemo) {
+      handleOpenPreview(prod);
+      return;
+    }
     setCheckoutProduct(prod);
   };
 
@@ -251,8 +258,8 @@ export function OverlaysPage({
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
                 {lang === 'mr'
-                  ? 'वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). स्वतःचा लोगो व नावे लाईव्ह बदलता येतात — फक्त ₹99 मध्ये अनलॉक.'
-                  : 'Watermark-free Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays. Customize names & upload your own logos live — unlock at ₹99 (was ₹149).'}
+                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). प्रो अनलॉक फक्त ₹99 / 1 दिवस.'
+                  : 'Try the FREE Kabaddi Demo Scoreboard (with a small STAR EVENT LIVE watermark & 30s timer), or unlock the watermark-free Kabaddi Pro Scoreboard and 2 Haldi & Wedding overlays at ₹99 / 1 Day (was ₹149).'}
               </p>
             </div>
 
@@ -264,8 +271,8 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { mr: 'सर्व (3)', en: 'All (3)' } },
-                  { id: 'kabaddi', label: { mr: 'कबड्डी (1)', en: 'Kabaddi (1)' } },
+                  { id: 'all', label: { mr: 'सर्व (4)', en: 'All (4)' } },
+                  { id: 'kabaddi', label: { mr: 'कबड्डी (2)', en: 'Kabaddi (2)' } },
                   { id: 'haldi', label: { mr: 'हळदी व लग्न (2)', en: 'Haldi & Wedding (2)' } },
                 ] as const
               ).map((tab) => (
@@ -285,13 +292,14 @@ export function OverlaysPage({
             </div>
           </div>
 
-          {/* Paid Overlay Product Cards (₹149 slashed to ₹99) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Overlay Product Cards (Free Kabaddi Demo + Paid ₹99 / 1 Day Overlays) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {visibleProducts.map((product) => {
+              const isFreeDemo = Boolean(product.isFreeDemo);
               const token = verifiedTokens.find((t) => t.sku === product.sku && t.expiresAt > nowTs);
-              const isUnlocked = Boolean(token && unlockedSkus.includes(product.sku));
+              const isUnlocked = isFreeDemo || Boolean(token && unlockedSkus.includes(product.sku));
               const pendingOrder = pendingOrders[product.sku];
-              const isPending = !isUnlocked && pendingOrder?.status === 'pending';
+              const isPending = !isFreeDemo && !isUnlocked && pendingOrder?.status === 'pending';
               const isActiveInStudio =
                 activeMode === product.mode && activeStyle === product.style;
 
@@ -299,7 +307,11 @@ export function OverlaysPage({
                 <article
                   key={product.sku}
                   className={`bg-[#121216]/84 backdrop-blur-sm border rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-5 transition-colors ${
-                    isActiveInStudio ? 'border-[#FACC15]/80' : 'border-white/12 hover:border-white/25'
+                    isActiveInStudio
+                      ? 'border-[#FACC15]/80'
+                      : isFreeDemo
+                        ? 'border-[#4ADE80]/40 hover:border-[#4ADE80]/70'
+                        : 'border-white/12 hover:border-white/25'
                   }`}
                 >
                   <div className="space-y-4">
@@ -321,14 +333,18 @@ export function OverlaysPage({
                       </div>
                       <span
                         className={`font-mono font-bold tabular-nums ${
-                          isUnlocked ? 'text-[#4ADE80]' : 'text-[#FACC15]'
+                          isFreeDemo || isUnlocked ? 'text-[#4ADE80]' : 'text-[#FACC15]'
                         }`}
                       >
-                        {isUnlocked && token
-                          ? `${formatRemainingTime(token.expiresAt, nowTs)} LEFT`
-                          : lang === 'mr'
-                            ? '24 तास पास · ₹50 सूट'
-                            : '24H PASS · SAVE ₹50'}
+                        {isFreeDemo
+                          ? lang === 'mr'
+                            ? 'मोफत · की शिवाय'
+                            : 'FREE · NO KEY NEEDED'
+                          : isUnlocked && token
+                            ? `${formatRemainingTime(token.expiresAt, nowTs)} LEFT`
+                            : lang === 'mr'
+                              ? '1 दिवस पास · ₹50 सूट'
+                              : '1 DAY PASS · SAVE ₹50'}
                       </span>
                     </div>
 
@@ -341,28 +357,53 @@ export function OverlaysPage({
                       </p>
                     </div>
 
-                    {/* Slashed Pricing Row: ₹149 -> ₹99 / 24 hours */}
+                    {/* Pricing Row: Free Demo OR Slashed ₹149 -> ₹99 / 1 Day */}
                     <div className="pt-3 border-t border-white/10 flex flex-wrap items-baseline justify-between gap-3">
-                      <div className="flex items-baseline gap-2.5">
-                        <span className="font-mono text-base sm:text-lg text-zinc-500 line-through tabular-nums">
-                          ₹{product.originalPrice}
-                        </span>
-                        <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums">
-                          ₹{product.salePrice}
-                        </span>
-                        <span className="text-xs text-zinc-400">
-                          {lang === 'mr' ? '/ 24 तास वैध (Auto-Lock)' : '/ 24 hours (auto-locks)'}
-                        </span>
-                      </div>
-                      <span className="font-mono text-xs font-semibold text-[#4ADE80] tabular-nums">
-                        33% OFF
-                      </span>
+                      {isFreeDemo ? (
+                        <>
+                          <div className="flex items-baseline gap-2.5">
+                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#4ADE80] tabular-nums">
+                              {lang === 'mr' ? 'मोफत (FREE)' : 'FREE · ₹0'}
+                            </span>
+                            <span className="text-xs text-zinc-400">
+                              {lang === 'mr'
+                                ? 'छोटा STAR EVENT LIVE वॉटरमार्क'
+                                : 'Small STAR EVENT LIVE Watermark'}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xs font-semibold text-[#4ADE80]">
+                            DEMO
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-baseline gap-2.5">
+                            <span className="font-mono text-base sm:text-lg text-zinc-500 line-through tabular-nums">
+                              ₹{product.originalPrice}
+                            </span>
+                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums">
+                              ₹{product.salePrice}
+                            </span>
+                            <span className="text-xs text-zinc-400">
+                              {lang === 'mr' ? '/ 1 दिवस वैध (Auto-Lock)' : '/ 1 Day (auto-locks)'}
+                            </span>
+                          </div>
+                          <span className="font-mono text-xs font-semibold text-[#4ADE80] tabular-nums">
+                            33% OFF
+                          </span>
+                        </>
+                      )}
                     </div>
 
                     <ul className="space-y-2.5 text-xs sm:text-sm text-zinc-300 leading-relaxed">
                       {product.features[lang].map((feat) => (
                         <li key={feat} className="flex items-start gap-2.5">
-                          <Check className="w-4 h-4 text-[#FACC15] shrink-0 mt-1" aria-hidden="true" />
+                          <Check
+                            className={`w-4 h-4 shrink-0 mt-1 ${
+                              isFreeDemo ? 'text-[#4ADE80]' : 'text-[#FACC15]'
+                            }`}
+                            aria-hidden="true"
+                          />
                           <span>{feat}</span>
                         </li>
                       ))}
@@ -371,7 +412,18 @@ export function OverlaysPage({
 
                   {/* Card Actions */}
                   <div className="pt-4 border-t border-white/10 flex flex-wrap items-center gap-3">
-                    {isUnlocked ? (
+                    {isFreeDemo ? (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreview(product)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-black bg-[#4ADE80] hover:bg-[#22C55E] rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>
+                          {lang === 'mr' ? 'मोफत वापरा · स्टुडिओत उघडा' : 'Use Free · Open in Studio'}
+                        </span>
+                      </button>
+                    ) : isUnlocked ? (
                       <button
                         type="button"
                         onClick={() => handleOpenPreview(product)}

@@ -117,9 +117,10 @@ export function LiveStudioPreview({
 
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
   const isClassic = resolvedStyle === 'classic';
+  const isFreeDemo = activeMode === 'kabaddi' && resolvedStyle === 'demo';
   const currentSku = getOverlaySku(activeMode, resolvedStyle);
   const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
-  const isCurrentUnlocked = Boolean(activeToken && unlockedSkus.includes(currentSku));
+  const isCurrentUnlocked = isFreeDemo || Boolean(activeToken && unlockedSkus.includes(currentSku));
 
   useEffect(() => {
     if (!activeToken) return;
@@ -140,7 +141,7 @@ export function LiveStudioPreview({
     updateState({ style: nextStyle });
   };
 
-  // Real-time ticking 30s Kabaddi raid timer, 30:00 match clock & 2:00 sin-bin timers
+  // Real-time ticking 30s Kabaddi timer, 30s raid timer & 2:00 sin-bin timers
   const [displayRaidSeconds, setDisplayRaidSeconds] = useState(state.raidSeconds);
   const [displayMatchSeconds, setDisplayMatchSeconds] = useState(state.matchSeconds);
   const [binTickNow, setBinTickNow] = useState(() => Date.now());
@@ -260,7 +261,7 @@ export function LiveStudioPreview({
         matchUpdatedAt: Date.now(),
       });
     } else {
-      const startFrom = displayMatchSeconds === 0 ? 30 * 60 : displayMatchSeconds;
+      const startFrom = displayMatchSeconds === 0 ? 30 : displayMatchSeconds;
       updateState({
         matchRunning: true,
         matchSeconds: startFrom,
@@ -269,8 +270,8 @@ export function LiveStudioPreview({
     }
   };
 
-  const handleAdjustMatchMinutes = (deltaMin: number) => {
-    const nextSec = Math.max(0, Math.min(99 * 60, displayMatchSeconds + deltaMin * 60));
+  const handleAdjustMatchSeconds = (deltaSec: number) => {
+    const nextSec = Math.max(0, Math.min(99 * 60, displayMatchSeconds + deltaSec));
     updateState({
       matchSeconds: nextSec,
       matchUpdatedAt: Date.now(),
@@ -355,7 +356,7 @@ export function LiveStudioPreview({
       teamBRedCards: 0,
       teamABinEndAt: null,
       teamBBinEndAt: null,
-      matchSeconds: 30 * 60,
+      matchSeconds: 30,
       matchRunning: true,
       matchUpdatedAt: now,
       raidSeconds: 30,
@@ -367,7 +368,7 @@ export function LiveStudioPreview({
     });
   };
 
-  // Build real OBS & vMix Browser Source URLs (including active style & 24h access token!)
+  // Build real OBS & vMix Browser Source URLs (including active style & 1-day access token!)
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://starevent.live';
   const buildOutputUrl = (extraParams?: Record<string, string>) => {
     const params = new URLSearchParams();
@@ -375,10 +376,10 @@ export function LiveStudioPreview({
     params.set('style', resolvedStyle);
     params.set('room', roomId);
     params.set('bg', outputBg);
-    if (activeToken?.unlockCode) {
+    if (!isFreeDemo && activeToken?.unlockCode) {
       params.set('token', activeToken.unlockCode);
     }
-    if (lockModeInUrl) {
+    if (lockModeInUrl || isFreeDemo) {
       params.set('lock', '1');
     }
     if (extraParams) {
@@ -393,29 +394,31 @@ export function LiveStudioPreview({
   const vmixBrowserUrl = buildOutputUrl({ client: 'vmix' });
 
   const handleDownloadOverlay = async () => {
-    if (!isCurrentUnlocked || !activeToken) {
-      onRequestPurchase(currentSku);
-      return;
-    }
-
-    // Re-verify live access on the server before PNG export (blocks expired/revoked passes)
-    try {
-      const checkRes = await fetch(
-        `/api/overlay/access?sku=${encodeURIComponent(currentSku)}&token=${encodeURIComponent(activeToken.unlockCode)}`
-      );
-      const checkData = await checkRes.json();
-      if (!checkRes.ok || !checkData?.active) {
+    if (!isFreeDemo) {
+      if (!isCurrentUnlocked || !activeToken) {
         onRequestPurchase(currentSku);
         return;
       }
-    } catch {
-      onRequestPurchase(currentSku);
-      return;
+
+      // Re-verify live access on the server before PNG export (blocks expired/revoked passes)
+      try {
+        const checkRes = await fetch(
+          `/api/overlay/access?sku=${encodeURIComponent(currentSku)}&token=${encodeURIComponent(activeToken.unlockCode)}`
+        );
+        const checkData = await checkRes.json();
+        if (!checkRes.ok || !checkData?.active) {
+          onRequestPurchase(currentSku);
+          return;
+        }
+      } catch {
+        onRequestPurchase(currentSku);
+        return;
+      }
     }
 
     if (activeMode === 'kabaddi') {
       await downloadKabaddiOverlayPng({
-        style: 'classic',
+        style: resolvedStyle,
         title: state.kabaddiTitle,
         subtitle: state.kabaddiSubtitle,
         tag: state.kabaddiTag,
@@ -438,6 +441,7 @@ export function LiveStudioPreview({
         raidRunning: state.raidRunning,
         halfLabel: state.kabaddiHalf,
         doOrDie: state.doOrDie,
+        showDemoWatermark: isFreeDemo,
       });
     } else {
       await downloadHaldiOverlayPng({
@@ -539,26 +543,51 @@ export function LiveStudioPreview({
     { id: 'haldi', label: { mr: 'हळदी व लग्न ओव्हरले (2)', en: 'Haldi & Wedding (2)' } },
   ];
 
-  const haldiStyleOptions: {
+  const styleOptions: {
     id: OverlayStyle;
     label: Record<Language, string>;
     desc: Record<Language, string>;
-  }[] = [
-    {
-      id: 'classic',
-      label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
-      desc: { mr: 'कॉर्नर डिझाईन + टॉप बॅनर', en: 'Ornamental corners + top plaque' },
-    },
-    {
-      id: 'modern',
-      label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
-      desc: { mr: 'क्लिन ओपन व्ह्यू + फ्लोटिंग रिबन', en: 'Open viewport + floating ribbon' },
-    },
-  ];
+    badge?: string;
+  }[] =
+    activeMode === 'kabaddi'
+      ? [
+          {
+            id: 'demo',
+            label: { mr: 'फ्री डेमो · छोटा वॉटरमार्क', en: 'FREE Demo · Small Watermark' },
+            desc: {
+              mr: 'मोफत OBS/vMix URL व PNG — छोटा STAR EVENT LIVE वॉटरमार्क',
+              en: 'Free OBS/vMix URL & PNG with small STAR EVENT LIVE watermark',
+            },
+            badge: 'FREE',
+          },
+          {
+            id: 'classic',
+            label: { mr: 'प्रो स्कोअरबोर्ड · वॉटरमार्क-फ्री', en: 'Pro Scoreboard · Watermark-Free' },
+            desc: {
+              mr: 'वॉटरमार्कशिवाय क्लिन ब्रॉडकास्ट आउटपुट (₹99 / 1 दिवस)',
+              en: 'Clean watermark-free broadcast output (₹99 / 1 Day)',
+            },
+            badge: '₹99 / 1 DAY',
+          },
+        ]
+      : [
+          {
+            id: 'classic',
+            label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
+            desc: { mr: 'कॉर्नर डिझाईन + टॉप बॅनर (₹99 / 1 दिवस)', en: 'Ornamental corners + top plaque (₹99 / 1 Day)' },
+          },
+          {
+            id: 'modern',
+            label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
+            desc: { mr: 'क्लिन ओपन व्ह्यू + फ्लोटिंग रिबन (₹99 / 1 दिवस)', en: 'Open viewport + floating ribbon (₹99 / 1 Day)' },
+          },
+        ];
 
   const activeStyleLabel =
     activeMode === 'kabaddi'
-      ? 'PRO SCOREBOARD'
+      ? isFreeDemo
+        ? 'FREE DEMO'
+        : 'PRO SCOREBOARD'
       : resolvedStyle === 'classic'
         ? 'STYLE 1'
         : 'STYLE 2';
@@ -628,51 +657,54 @@ export function LiveStudioPreview({
           </div>
         </div>
 
-        {/* Haldi & Wedding 2-Style Visual Picker Bar */}
-        {activeMode === 'haldi' && (
-          <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {haldiStyleOptions.map((opt) => {
-              const selected = resolvedStyle === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => handleSelectStyle(opt.id)}
-                  aria-pressed={selected}
-                  className={`flex flex-col justify-between gap-2.5 px-4 py-3 rounded-xl border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
-                    selected
-                      ? 'bg-[#1A1315] border-[#FACC15] text-white'
-                      : 'bg-[#121216] border-white/10 text-zinc-300 hover:border-white/25'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3 w-full">
-                    <div className="space-y-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-bold text-white leading-normal">
-                        {opt.label[lang]}
-                      </p>
-                      <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed">
-                        {opt.desc[lang]}
-                      </p>
-                    </div>
-                    <span
-                      className={`font-mono text-[10px] font-bold whitespace-nowrap shrink-0 mt-0.5 ${
-                        selected ? 'text-[#FACC15]' : 'text-zinc-500'
-                      }`}
-                    >
-                      {selected
-                        ? lang === 'mr'
-                          ? 'सक्रिय'
-                          : 'ACTIVE'
-                        : lang === 'mr'
-                          ? 'निवडा'
-                          : 'SELECT'}
-                    </span>
+        {/* Style / Tier Visual Picker Bar (Kabaddi Free Demo vs Pro, or Haldi Style 1 vs Style 2) */}
+        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {styleOptions.map((opt) => {
+            const selected = resolvedStyle === opt.id;
+            const isFreeOption = opt.id === 'demo';
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => handleSelectStyle(opt.id)}
+                aria-pressed={selected}
+                className={`flex flex-col justify-between gap-2.5 px-4 py-3 rounded-xl border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                  selected
+                    ? isFreeOption
+                      ? 'bg-[#101D16] border-[#4ADE80] text-white'
+                      : 'bg-[#1A1315] border-[#FACC15] text-white'
+                    : 'bg-[#121216] border-white/10 text-zinc-300 hover:border-white/25'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3 w-full">
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-white leading-normal">
+                      {opt.label[lang]}
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed">
+                      {opt.desc[lang]}
+                    </p>
                   </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
+                  <span
+                    className={`font-mono text-[10px] font-bold whitespace-nowrap shrink-0 mt-0.5 ${
+                      selected
+                        ? isFreeOption
+                          ? 'text-[#4ADE80]'
+                          : 'text-[#FACC15]'
+                        : isFreeOption
+                          ? 'text-[#4ADE80]/80'
+                          : 'text-zinc-500'
+                    }`}
+                  >
+                    {selected
+                      ? opt.badge || (lang === 'mr' ? 'सक्रिय' : 'ACTIVE')
+                      : opt.badge || (lang === 'mr' ? 'निवडा' : 'SELECT')}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
 
         {/* Main Studio Grid: Monitor + Control Desk */}
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
@@ -920,6 +952,7 @@ export function LiveStudioPreview({
                     halfLabel={state.kabaddiHalf}
                     doOrDie={state.doOrDie}
                     subtitle={state.kabaddiSubtitle}
+                    showDemoWatermark={isFreeDemo}
                   />
                 ) : isClassic ? (
                   <div className="bg-gradient-to-r from-[#78350F]/95 via-[#B45309]/95 to-[#78350F]/95 border-2 border-[#FACC15] rounded-xl px-4 py-2.5 text-center shadow-lg">
@@ -948,7 +981,7 @@ export function LiveStudioPreview({
               </div>
             </div>
 
-            {/* OBS Studio & vMix Live Browser Source URL Support Panel (Paid ₹99 Unlock Gate) */}
+            {/* OBS Studio & vMix Live Browser Source URL Support Panel */}
             <div className="pt-4 border-t border-white/10 space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="space-y-0.5">
@@ -961,13 +994,17 @@ export function LiveStudioPreview({
                     </span>
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {isCurrentUnlocked && activeToken
+                    {isFreeDemo
                       ? lang === 'mr'
-                        ? `24 तासांचा पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
-                        : `24-Hour Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
-                      : lang === 'mr'
-                        ? 'OBS URL, vMix URL आणि 1920×1080 ट्रान्सपरंट PNG (24 तास वैध) साठी ₹99 पेमेंट करून अनलॉक करा.'
-                        : 'Unlock for 24 hours at ₹99 (was ₹149) to access live OBS URL, vMix URL, and 1920×1080 PNG export.'}
+                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. वॉटरमार्कशिवाय प्रो साठी ₹99 / 1 दिवस.'
+                        : 'FREE Demo Active · Includes small STAR EVENT LIVE watermark. Upgrade to ₹99 / 1 Day Pro to remove watermark.'
+                      : isCurrentUnlocked && activeToken
+                        ? lang === 'mr'
+                          ? `1 दिवसाचा पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
+                          : `1-Day Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
+                        : lang === 'mr'
+                          ? 'OBS URL, vMix URL आणि 1920×1080 ट्रान्सपरंट PNG (1 दिवस वैध) साठी ₹99 पेमेंट करून अनलॉक करा.'
+                          : 'Unlock for 1 Day at ₹99 (was ₹149) to access live OBS URL, vMix URL, and 1920×1080 PNG export.'}
                   </p>
                 </div>
 
@@ -1234,7 +1271,7 @@ export function LiveStudioPreview({
                   onUpdateState={updateState}
                   onScoreDelta={handleKabaddiScore}
                   onToggleMatchTimer={handleToggleMatchTimer}
-                  onAdjustMatchMinutes={handleAdjustMatchMinutes}
+                  onAdjustMatchSeconds={handleAdjustMatchSeconds}
                   onSetMatchPreset={handleSetMatchPreset}
                   onToggleRaidTimer={handleToggleRaidTimer}
                   onResetRaidTimer={handleResetRaidTimer}

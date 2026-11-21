@@ -626,6 +626,11 @@ async function startServer() {
     const token = String(req.query.token || '').trim().toUpperCase();
     const now = Date.now();
 
+    if (sku === 'kabaddi-demo') {
+      res.json({ ok: true, active: true, freeDemo: true, sku: 'kabaddi-demo' });
+      return;
+    }
+
     if (!token) {
       res.status(403).json({ ok: false, active: false, reason: 'missing_token' });
       return;

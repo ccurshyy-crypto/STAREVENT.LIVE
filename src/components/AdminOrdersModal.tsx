@@ -46,8 +46,8 @@ interface AdminOrdersModalProps {
 }
 
 const DURATION_OPTIONS = [
-  { hours: 24, label: { mr: '24 तास (1 दिवस)', en: '24 Hours (1 Day)' } },
-  { hours: 48, label: { mr: '48 तास (2 दिवस)', en: '48 Hours (2 Days)' } },
+  { hours: 24, label: { mr: '1 दिवस (1 Day)', en: '1 Day' } },
+  { hours: 48, label: { mr: '2 दिवस (2 Days)', en: '2 Days' } },
   { hours: 168, label: { mr: '7 दिवस', en: '7 Days' } },
   { hours: 720, label: { mr: '30 दिवस', en: '30 Days' } },
 ];
@@ -534,7 +534,7 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
                         ? '★ सर्व ओव्हरले (All Overlays Master Key)'
                         : '★ All Overlays (Master Key)'}
                     </option>
-                    {OVERLAY_PRODUCTS.map((p) => (
+                    {OVERLAY_PRODUCTS.filter((p) => !p.isFreeDemo).map((p) => (
                       <option key={p.sku} value={p.sku}>
                         {p.title[lang]}
                       </option>

@@ -27,6 +27,7 @@ export interface KabaddiOverlayExportOptions {
   doOrDie?: boolean;
   customLogoUrl?: string;
   logoCorner?: 'top-right' | 'top-left';
+  showDemoWatermark?: boolean;
 }
 
 export interface HaldiOverlayExportOptions {
@@ -323,12 +324,33 @@ export async function downloadKabaddiOverlayPng(opts: KabaddiOverlayExportOption
     );
   }
 
+  // Small STAR EVENT LIVE Watermark on Free Demo PNG
+  if (opts.showDemoWatermark) {
+    const wmW = 248;
+    const wmH = 28;
+    const wmX = (1920 - wmW) / 2;
+    const wmY = offsetY + barH - 8;
+    drawRoundedRect(ctx, wmX, wmY, wmW, wmH, 14);
+    ctx.fillStyle = 'rgba(9, 11, 14, 0.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(250, 204, 21, 0.65)';
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+
+    ctx.fillStyle = '#FEF08A';
+    ctx.font = '800 14px "JetBrains Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('★ STAR EVENT LIVE', 960, wmY + wmH / 2 + 0.5);
+    ctx.textAlign = 'left';
+  }
+
   // Optional bottom ticker ribbon
   if (opts.subtitle && opts.subtitle.trim().length > 0) {
     const pillW = 760;
     const pillH = 38;
     const pillX = (1920 - pillW) / 2;
-    const pillY = offsetY + barH + 14;
+    const pillY = offsetY + barH + (opts.showDemoWatermark ? 26 : 14);
     drawRoundedRect(ctx, pillX, pillY, pillW, pillH, 19);
     ctx.fillStyle = 'rgba(17, 24, 28, 0.88)';
     ctx.fill();
@@ -346,7 +368,9 @@ export async function downloadKabaddiOverlayPng(opts: KabaddiOverlayExportOption
 
   triggerCanvasDownload(
     canvas,
-    isTopMode ? 'kabaddi-pro-top-1920x1080.png' : 'kabaddi-pro-bottom-1920x1080.png'
+    opts.showDemoWatermark
+      ? 'kabaddi-demo-watermark-1920x1080.png'
+      : 'kabaddi-pro-1920x1080.png'
   );
 }
 

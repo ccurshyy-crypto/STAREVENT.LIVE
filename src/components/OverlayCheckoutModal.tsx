@@ -412,8 +412,8 @@ export function OverlayCheckoutModal({
             </span>
             <span className="text-xs font-semibold text-[#4ADE80] tabular-nums">
               {lang === 'mr'
-                ? `₹${savings} सूट · 24 तास वैध`
-                : `Save ₹${savings} · 24 Hours Pass`}
+                ? `₹${savings} सूट · 1 दिवस वैध`
+                : `Save ₹${savings} · 1 Day Pass`}
             </span>
           </div>
         </div>

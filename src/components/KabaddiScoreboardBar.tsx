@@ -25,6 +25,7 @@ export interface KabaddiScoreboardBarProps {
   halfLabel: KabaddiHalf | string;
   doOrDie?: boolean;
   subtitle?: string;
+  showDemoWatermark?: boolean;
 }
 
 function clampByte(n: number): number {
@@ -91,6 +92,7 @@ export function KabaddiScoreboardBar({
   halfLabel,
   doOrDie = false,
   subtitle,
+  showDemoWatermark = false,
 }: KabaddiScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
   const leftDark = shadeHexColor(teamAColor, -0.58);
@@ -390,11 +392,40 @@ export function KabaddiScoreboardBar({
             </div>
           </div>
         </div>
+        {/* Small STAR EVENT LIVE Watermark (Free Demo Scoreboard Only) */}
+        {showDemoWatermark && (
+          <div className="pointer-events-none absolute -bottom-[7%] left-1/2 -translate-x-1/2 z-20">
+            <span
+              className={`inline-flex items-center gap-1 rounded-full bg-[#090B0E]/88 border border-[#FACC15]/60 font-mono font-bold tracking-[0.14em] text-[#FEF08A]/95 uppercase whitespace-nowrap shadow-[0_2px_10px_rgba(0,0,0,0.7)] ${
+                isMini
+                  ? 'px-1.5 py-[1px] text-[5.5px]'
+                  : isOutput
+                    ? 'px-3.5 py-0.5 text-[clamp(9px,0.72vw,14px)]'
+                    : 'px-2 py-0.5 text-[7px] sm:text-[9px]'
+              }`}
+            >
+              <span className="text-[#FACC15]" aria-hidden="true">
+                ★
+              </span>
+              <span>STAR EVENT LIVE</span>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Optional clean tournament ticker line underneath */}
       {!isMini && subtitle && subtitle.trim().length > 0 && (
-        <div className={isOutput ? 'mt-2 text-center' : 'mt-1 text-center'}>
+        <div
+          className={
+            isOutput
+              ? showDemoWatermark
+                ? 'mt-4 text-center'
+                : 'mt-2 text-center'
+              : showDemoWatermark
+                ? 'mt-2.5 text-center'
+                : 'mt-1 text-center'
+          }
+        >
           <span
             className={`inline-block bg-[#11181C]/88 border border-white/15 rounded-full text-zinc-200 font-medium max-w-full truncate ${
               isOutput

@@ -170,8 +170,8 @@ export const UI_COPY = {
       en: 'Kabaddi Pro Scoreboard & Haldi-Wedding Overlays',
     },
     intro: {
-      mr: 'वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल) — OBS Studio व vMix साठी थेट कंट्रोल.',
-      en: 'Control watermark-free 1920×1080 transparent Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays for OBS Studio & vMix.',
+      mr: 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न समारंभ ओव्हरले (2 स्टाईल) — OBS व vMix साठी थेट कंट्रोल.',
+      en: 'FREE Kabaddi Demo Scoreboard (with small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS Studio & vMix.',
     },
   },
   packagesSection: {

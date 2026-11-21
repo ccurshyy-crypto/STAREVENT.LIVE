@@ -1,12 +1,13 @@
 import { Language } from './content';
 import { normalizeStyleForMode, OverlayMode, OverlayStyle } from '../types/overlay';
 
-export type OverlaySku = 'kabaddi-classic' | 'haldi-classic' | 'haldi-modern';
+export type OverlaySku = 'kabaddi-demo' | 'kabaddi-classic' | 'haldi-classic' | 'haldi-modern';
 
 export interface OverlayProduct {
   sku: OverlaySku;
   mode: OverlayMode;
   style: OverlayStyle;
+  isFreeDemo?: boolean;
   originalPrice: number;
   salePrice: number;
   title: Record<Language, string>;
@@ -54,33 +55,65 @@ export function getOverlaySku(mode: OverlayMode, style: OverlayStyle): OverlaySk
 
 export const OVERLAY_PRODUCTS: OverlayProduct[] = [
   {
+    sku: 'kabaddi-demo',
+    mode: 'kabaddi',
+    style: 'demo',
+    isFreeDemo: true,
+    originalPrice: 0,
+    salePrice: 0,
+    title: {
+      mr: 'कबड्डी डेमो स्कोअरबोर्ड (मोफत · छोटा वॉटरमार्क)',
+      en: 'Kabaddi Demo Scoreboard (FREE · Small Watermark)',
+    },
+    subtitle: {
+      mr: 'OBS व vMix साठी मोफत वापरा — स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील',
+      en: 'Free live scoreboard for OBS & vMix — includes a small STAR EVENT LIVE watermark',
+    },
+    meta: {
+      mr: ['100% मोफत डेमो', 'छोटा वॉटरमार्क', 'OBS & vMix URL'],
+      en: ['100% FREE Demo', 'Small Watermark', 'OBS & vMix URL'],
+    },
+    features: {
+      mr: [
+        'कोणत्याही पेमेंट किंवा की शिवाय थेट OBS / vMix URL व 1920×1080 PNG मोफत मिळवा',
+        'दोन्ही बाजूचे टीम लोगो, 30s टायमर, +1/-1, Bonus, All Out, Yellow/Red कार्ड्स व Sin Bin',
+        'स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील (वॉटरमार्क फ्री साठी ₹99 / 1 दिवस प्रो घ्या)',
+      ],
+      en: [
+        'Free OBS / vMix Browser Source URL & 1920×1080 PNG export — no payment or key needed',
+        'Dual team logos, 30s timer, +1/-1, Bonus, All Out, Yellow/Red cards & Sin Bin',
+        'Displays a small STAR EVENT LIVE watermark (upgrade to ₹99 / 1 Day Pro for watermark-free)',
+      ],
+    },
+  },
+  {
     sku: 'kabaddi-classic',
     mode: 'kabaddi',
     style: 'classic',
     originalPrice: 149,
     salePrice: 99,
     title: {
-      mr: 'कबड्डी प्रो स्कोअरबोर्ड (ड्युअल लोगो + 30:00 टायमर)',
-      en: 'Kabaddi Pro Scoreboard (Dual Logo + 30:00 Timer)',
+      mr: 'कबड्डी प्रो स्कोअरबोर्ड (वॉटरमार्क-फ्री · 30s टायमर)',
+      en: 'Kabaddi Pro Scoreboard (Watermark-Free · 30s Timer)',
     },
     subtitle: {
       mr: 'कर्व्ह्ड ड्युअल-कलर स्कोअरबोर्ड + दोन्ही बाजू टीम लोगो + प्रो कंट्रोल डेस्क',
       en: 'Curved dual-color broadcast bar + left & right team logos + pro control desk',
     },
     meta: {
-      mr: ['दोन्ही बाजू लोगो', '30:00 टायमर', 'OBS & vMix URL'],
-      en: ['Dual Team Logos', '30:00 Timer', 'OBS & vMix URL'],
+      mr: ['दोन्ही बाजू लोगो', '30s टायमर', 'OBS & vMix URL'],
+      en: ['Dual Team Logos', '30s Timer', 'OBS & vMix URL'],
     },
     features: {
       mr: [
         'डाव्या व उजव्या दोन्ही बाजूंनी कस्टम टीम लोगो अपलोड व टीम कलर पिकर',
-        '30:00 लाईव्ह मॅच क्लॉक, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red कार्ड्स व Sin Bin टायमर',
-        'OBS Studio व vMix ट्रान्सपरंट Browser Source URL + 1920×1080 PNG डाउनलोड',
+        '30s लाईव्ह टायमर, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red कार्ड्स व Sin Bin',
+        'वॉटरमार्क-फ्री OBS Studio व vMix Browser Source URL + 1920×1080 PNG (1 दिवस पास)',
       ],
       en: [
         'Upload custom Left & Right team logos and customize both wing colors live',
-        'Live 30:00 match clock, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red cards & Sin Bin timer',
-        'Live transparent OBS & vMix Browser Source URL + 1920×1080 PNG export',
+        'Live 30s timer, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red cards & Sin Bin',
+        'Watermark-free OBS & vMix Browser Source URL + 1920×1080 PNG export (1 Day pass)',
       ],
     },
   },

@@ -467,8 +467,8 @@ export default function App() {
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल) — फक्त ₹99 मध्ये अनलॉक.'
-                        : 'Watermark-free 1920×1080 transparent Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays for OBS Studio & vMix — unlock at ₹99.'}
+                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न समारंभ ओव्हरले (2 स्टाईल) — प्रो फक्त ₹99 / 1 दिवस.'
+                        : 'FREE Kabaddi Demo Scoreboard (with small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — Pro at ₹99 / 1 Day.'}
                     </p>
                   </div>
 
@@ -480,19 +480,21 @@ export default function App() {
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
                       {lang === 'mr'
-                        ? 'सर्व ओव्हरले पहा — ₹99'
-                        : 'Open Overlays Store — ₹99'}
+                        ? 'सर्व ओव्हरले पहा (मोफत डेमो + ₹99)'
+                        : 'Open Overlays Store (Free Demo + ₹99)'}
                     </span>
                     <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   {OVERLAY_PRODUCTS.map((product) => {
-                    const isUnlocked = unlockedSkus.includes(product.sku);
+                    const isUnlocked = Boolean(product.isFreeDemo) || unlockedSkus.includes(product.sku);
                     const styleBadge =
                       product.mode === 'kabaddi'
-                        ? 'PRO SCOREBOARD'
+                        ? product.isFreeDemo
+                          ? 'FREE DEMO'
+                          : 'PRO SCOREBOARD'
                         : product.style === 'classic'
                           ? 'STYLE 1'
                           : 'STYLE 2';
@@ -501,7 +503,11 @@ export default function App() {
                         key={product.sku}
                         type="button"
                         onClick={() => navigateToOverlays(product.mode, product.style)}
-                        className="group text-left bg-[#121216] border border-white/10 hover:border-[#FACC15]/70 rounded-2xl p-5 flex flex-col justify-between gap-5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                        className={`group text-left bg-[#121216] border rounded-2xl p-5 flex flex-col justify-between gap-5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                          product.isFreeDemo
+                            ? 'border-[#4ADE80]/40 hover:border-[#4ADE80]'
+                            : 'border-white/10 hover:border-[#FACC15]/70'
+                        }`}
                       >
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between gap-2 text-xs font-mono">
@@ -515,13 +521,15 @@ export default function App() {
                                   : 'HALDI & WEDDING'}{' '}
                               · {styleBadge}
                             </span>
-                            {isUnlocked ? (
+                            {product.isFreeDemo ? (
+                              <span className="text-[#4ADE80] font-bold">FREE</span>
+                            ) : isUnlocked ? (
                               <span className="inline-flex items-center gap-1 text-[#4ADE80] font-bold">
                                 <LockOpen className="w-3.5 h-3.5" aria-hidden="true" />
                                 {lang === 'mr' ? 'अनलॉक' : 'OWNED'}
                               </span>
                             ) : (
-                              <span className="text-[#4ADE80] font-semibold">33% OFF</span>
+                              <span className="text-[#4ADE80] font-semibold">1 DAY PASS</span>
                             )}
                           </div>
 
@@ -534,16 +542,25 @@ export default function App() {
                         </div>
 
                         <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-mono text-sm text-zinc-500 line-through tabular-nums">
-                              ₹{product.originalPrice}
+                          {product.isFreeDemo ? (
+                            <span className="font-mono text-xl font-extrabold text-[#4ADE80]">
+                              {lang === 'mr' ? 'मोफत (FREE)' : 'FREE'}
                             </span>
-                            <span className="font-mono text-xl font-extrabold text-[#FACC15] tabular-nums">
-                              ₹{product.salePrice}
-                            </span>
-                          </div>
+                          ) : (
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-mono text-sm text-zinc-500 line-through tabular-nums">
+                                ₹{product.originalPrice}
+                              </span>
+                              <span className="font-mono text-xl font-extrabold text-[#FACC15] tabular-nums">
+                                ₹{product.salePrice}
+                              </span>
+                              <span className="text-[11px] text-zinc-400">
+                                {lang === 'mr' ? '/ 1 दिवस' : '/ 1 Day'}
+                              </span>
+                            </div>
+                          )}
                           <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-200 group-hover:text-white whitespace-nowrap">
-                            <span>{lang === 'mr' ? 'उघडा' : 'Open'}</span>
+                            <span>{product.isFreeDemo ? (lang === 'mr' ? 'वापरा' : 'Use Free') : (lang === 'mr' ? 'उघडा' : 'Open')}</span>
                             <ArrowRight className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
                           </span>
                         </div>

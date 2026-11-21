@@ -1,6 +1,6 @@
 export type OverlayMode = 'kabaddi' | 'haldi';
 
-export type OverlayStyle = 'classic' | 'modern';
+export type OverlayStyle = 'classic' | 'modern' | 'demo';
 
 export type OverlayBackground = 'transparent' | 'green' | 'blue';
 
@@ -10,7 +10,7 @@ export type KabaddiHalf = '1ST HALF' | '2ND HALF' | 'HALF TIME' | 'FULL TIME';
 
 export function normalizeStyleForMode(mode: OverlayMode, style?: string): OverlayStyle {
   if (mode === 'kabaddi') {
-    return 'classic';
+    return style === 'demo' ? 'demo' : 'classic';
   }
   return style === 'modern' ? 'modern' : 'classic';
 }
@@ -90,7 +90,7 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     teamBYellowCards: 0,
     teamBRedCards: 0,
     teamBBinEndAt: null,
-    matchSeconds: 30 * 60,
+    matchSeconds: 30,
     matchRunning: true,
     matchUpdatedAt: now,
     raidSeconds: 30,
