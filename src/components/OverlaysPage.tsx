@@ -9,8 +9,7 @@ import {
   PendingOverlayOrder,
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
-import { isBannerTheme, OverlayMode, OverlayStyle } from '../types/overlay';
-import { BottomBannerFrame } from './BottomBannerFrame';
+import { OverlayMode, OverlayStyle } from '../types/overlay';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 import { LiveStudioPreview } from './LiveStudioPreview';
 import { OverlayCheckoutModal } from './OverlayCheckoutModal';
@@ -26,62 +25,13 @@ interface OverlaysPageProps {
   verifiedTokens: VerifiedOverlayToken[];
   pendingOrders: Partial<Record<OverlaySku, PendingOverlayOrder>>;
   onPendingOrderChange: (sku: OverlaySku, order: PendingOverlayOrder | null) => void;
-  onVerifiedUnlock: (token: VerifiedOverlayToken) => void;
+  onVerifiedUnlock: (tokens: VerifiedOverlayToken | VerifiedOverlayToken[]) => void;
   onBackHome: () => void;
   onBookFromOverlay: (category: EventCategoryId) => void;
 }
 
 function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: OverlayStyle }) {
-  if (mode === 'banner') {
-    const bannerTheme = isBannerTheme(style) ? style : 'theme1';
-    return (
-      <div
-        className="relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between border border-white/15"
-        style={{
-          backgroundColor: '#18181B',
-          backgroundImage:
-            'linear-gradient(45deg, #27272A 25%, transparent 25%), linear-gradient(-45deg, #27272A 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272A 75%), linear-gradient(-45deg, transparent 75%, #27272A 75%)',
-          backgroundSize: '18px 18px',
-          backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
-        }}
-      >
-        <div className="my-auto text-center px-3">
-          <span className="font-mono text-[9px] text-zinc-200 bg-black/65 px-2.5 py-0.5 rounded border border-white/10">
-            1920×1080 ANIMATED BOTTOM FRAME
-          </span>
-        </div>
-
-        <BottomBannerFrame
-          variant="mini"
-          theme={bannerTheme}
-          title="जय हनुमान क्रिकेट संघ चाहूचीवाडी पर्व ४"
-          subtitle="भव्य टेनिस स्पर्धा २०२६"
-          icon="cricket"
-          showTrophy
-          showBrandLogo={false}
-          animated
-        />
-      </div>
-    );
-  }
-
   if (mode === 'kabaddi') {
-    const isTopPlacement = style === 'modern';
-    const bar = (
-      <KabaddiScoreboardBar
-        variant="mini"
-        teamAName="NERAL"
-        teamACode="NER"
-        teamAColor="#C8102E"
-        teamAScore={24}
-        teamBName="KARJAT"
-        teamBCode="KAR"
-        teamBColor="#131D8A"
-        teamBScore={21}
-        matchSeconds={20 * 60}
-        halfLabel="1ST HALF"
-      />
-    );
     return (
       <div
         className="relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between p-2.5 border border-white/15"
@@ -93,13 +43,24 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
         }}
       >
-        <div>{isTopPlacement ? bar : null}</div>
         <div className="my-auto text-center">
           <span className="font-mono text-[9px] text-zinc-200 bg-black/65 px-2.5 py-0.5 rounded border border-white/10">
             1920×1080 DUAL-LOGO SCOREBOARD
           </span>
         </div>
-        <div>{!isTopPlacement ? bar : null}</div>
+        <KabaddiScoreboardBar
+          variant="mini"
+          teamAName="NERAL"
+          teamACode="NER"
+          teamAColor="#C8102E"
+          teamAScore={24}
+          teamBName="KARJAT"
+          teamBCode="KAR"
+          teamBColor="#131D8A"
+          teamBScore={21}
+          matchSeconds={30 * 60}
+          halfLabel="1ST HALF"
+        />
       </div>
     );
   }
@@ -290,8 +251,8 @@ export function OverlaysPage({
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
                 {lang === 'mr'
-                  ? 'पूर्ण कस्टमाईज होणारी वॉटरमार्क-फ्री अॅनिमेटेड बॉटम फ्रेम (4 थीम्स), कबड्डी महासंग्राम स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले. स्वतःचा लोगो व नावे लाईव्ह बदलता येतात — फक्त ₹99 मध्ये 24 तासांसाठी अनलॉक.'
-                  : 'Watermark-free Customizable Animated Bottom Frames (4 Themes), Kabaddi Scoreboard, and Haldi & Wedding overlays. Customize names & upload your own logo — unlock for 24 hours at ₹99 (was ₹149).'}
+                  ? 'वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). स्वतःचा लोगो व नावे लाईव्ह बदलता येतात — फक्त ₹99 मध्ये अनलॉक.'
+                  : 'Watermark-free Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays. Customize names & upload your own logos live — unlock at ₹99 (was ₹149).'}
               </p>
             </div>
 
@@ -303,9 +264,8 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { mr: 'सर्व (8)', en: 'All (8)' } },
-                  { id: 'banner', label: { mr: 'बॉटम फ्रेम (4)', en: 'Bottom Frame (4)' } },
-                  { id: 'kabaddi', label: { mr: 'कबड्डी (2)', en: 'Kabaddi (2)' } },
+                  { id: 'all', label: { mr: 'सर्व (3)', en: 'All (3)' } },
+                  { id: 'kabaddi', label: { mr: 'कबड्डी (1)', en: 'Kabaddi (1)' } },
                   { id: 'haldi', label: { mr: 'हळदी व लग्न (2)', en: 'Haldi & Wedding (2)' } },
                 ] as const
               ).map((tab) => (
@@ -326,7 +286,7 @@ export function OverlaysPage({
           </div>
 
           {/* Paid Overlay Product Cards (₹149 slashed to ₹99) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {visibleProducts.map((product) => {
               const token = verifiedTokens.find((t) => t.sku === product.sku && t.expiresAt > nowTs);
               const isUnlocked = Boolean(token && unlockedSkus.includes(product.sku));

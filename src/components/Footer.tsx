@@ -147,7 +147,7 @@ export function Footer({
               onClick={onOpenAdmin}
               className="text-zinc-500 hover:text-[#FACC15] transition-colors whitespace-nowrap"
             >
-              {lang === 'mr' ? 'ओनर व्हेरिफाय' : 'Owner Verify'}
+              {lang === 'mr' ? 'ओनर की पॅनेल' : 'Owner Key Panel'}
             </button>
           </div>
         </div>

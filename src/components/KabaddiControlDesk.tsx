@@ -23,7 +23,7 @@ interface KabaddiControlDeskProps {
   onScoreDelta: (team: 'A' | 'B', delta: number, alertText?: string) => void;
   onToggleMatchTimer: () => void;
   onAdjustMatchMinutes: (deltaMin: number) => void;
-  onResetMatchTimer: () => void;
+  onSetMatchPreset: (seconds: number, autoStart?: boolean) => void;
   onToggleRaidTimer: () => void;
   onResetRaidTimer: () => void;
   onToggleSinBin: (team: 'A' | 'B') => void;
@@ -331,7 +331,7 @@ export function KabaddiControlDesk({
   onScoreDelta,
   onToggleMatchTimer,
   onAdjustMatchMinutes,
-  onResetMatchTimer,
+  onSetMatchPreset,
   onToggleRaidTimer,
   onResetRaidTimer,
   onToggleSinBin,
@@ -394,7 +394,7 @@ export function KabaddiControlDesk({
             </button>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 flex-wrap">
             <button
               type="button"
               onClick={() => onAdjustMatchMinutes(-1)}
@@ -411,10 +411,24 @@ export function KabaddiControlDesk({
             </button>
             <button
               type="button"
-              onClick={onResetMatchTimer}
+              onClick={() => onSetMatchPreset(30 * 60, true)}
+              className="px-2 py-1 text-[11px] font-mono font-bold bg-[#1F2A22] hover:bg-[#28382C] border border-[#3B9E6D]/70 rounded-lg text-[#86EFAC]"
+            >
+              30:00
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetMatchPreset(20 * 60, true)}
               className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#2A3340] rounded-lg text-zinc-300"
             >
               20:00
+            </button>
+            <button
+              type="button"
+              onClick={() => onSetMatchPreset(30, true)}
+              className="px-2 py-1 text-[11px] font-mono font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#FACC15]/50 rounded-lg text-[#FACC15]"
+            >
+              00:30
             </button>
           </div>
         </div>

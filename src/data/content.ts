@@ -166,12 +166,12 @@ export const UI_COPY = {
   studioSection: {
     kicker: { mr: 'लाईव्ह ओव्हरले स्टुडिओ · OBS व vMix सपोर्ट', en: 'Live Overlay Studio · OBS & vMix Ready' },
     heading: {
-      mr: 'कस्टमाईज बॉटम फ्रेम, कबड्डी आणि हळदी-लग्न ओव्हरले',
-      en: 'Custom Bottom Frames, Kabaddi & Haldi-Wedding Overlays',
+      mr: 'कबड्डी प्रो स्कोअरबोर्ड आणि हळदी-लग्न ओव्हरले',
+      en: 'Kabaddi Pro Scoreboard & Haldi-Wedding Overlays',
     },
     intro: {
-      mr: 'वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट बॉटम फ्रेम (4 थीम), कबड्डी स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले — स्वतःचा लोगो, नाव व रंग लाईव्ह बदला (OBS Studio व vMix सपोर्ट).',
-      en: 'Control watermark-free 1920×1080 transparent Animated Bottom Frames (4 themes), Kabaddi scoreboards, and Haldi & Wedding overlays — customize text, colors & upload your own logo for OBS & vMix.',
+      mr: 'वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल) — OBS Studio व vMix साठी थेट कंट्रोल.',
+      en: 'Control watermark-free 1920×1080 transparent Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays for OBS Studio & vMix.',
     },
   },
   packagesSection: {

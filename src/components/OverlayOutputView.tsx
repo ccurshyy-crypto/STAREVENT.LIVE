@@ -2,14 +2,12 @@ import { useEffect, useState } from 'react';
 import { getOverlaySku } from '../data/overlayCatalog';
 import { useOverlaySync } from '../hooks/useOverlaySync';
 import {
-  isBannerTheme,
   LiveOverlayState,
   normalizeStyleForMode,
   OverlayBackground,
   OverlayMode,
   OverlayStyle,
 } from '../types/overlay';
-import { BottomBannerFrame } from './BottomBannerFrame';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 
 interface OverlayOutputViewProps {
@@ -172,8 +170,6 @@ export function OverlayOutputView({
     ...(urlOverrides?.kabaddiSubtitle ? { kabaddiSubtitle: urlOverrides.kabaddiSubtitle } : {}),
     ...(urlOverrides?.haldiTitle ? { haldiTitle: urlOverrides.haldiTitle } : {}),
     ...(urlOverrides?.haldiSubtitle ? { haldiSubtitle: urlOverrides.haldiSubtitle } : {}),
-    ...(urlOverrides?.bannerTitle ? { bannerTitle: urlOverrides.bannerTitle } : {}),
-    ...(urlOverrides?.bannerSubtitle ? { bannerSubtitle: urlOverrides.bannerSubtitle } : {}),
   };
 
   const teamABinRemaining = merged.teamABinEndAt
@@ -209,72 +205,14 @@ export function OverlayOutputView({
     );
   }
 
-  if (activeMode === 'banner') {
-    const bannerTheme = isBannerTheme(activeStyle) ? activeStyle : 'theme1';
-    return (
-      <div
-        className={`fixed inset-0 w-screen h-screen overflow-hidden select-none flex flex-col justify-end transition-opacity duration-300 ${
-          merged.visible ? 'opacity-100' : 'opacity-0'
-        }`}
-      >
-        <div className="relative z-10 w-full">
-          <BottomBannerFrame
-            variant="output"
-            theme={bannerTheme}
-            title={merged.bannerTitle}
-            subtitle={merged.bannerSubtitle}
-            icon={merged.bannerIcon}
-            titleColor={merged.bannerTitleColor}
-            subtitleColor={merged.bannerSubtitleColor}
-            showTrophy={merged.bannerShowTrophy}
-            showBrandLogo={Boolean(merged.customLogoUrl) && merged.bannerShowBrandLogo}
-            customLogoUrl={merged.customLogoUrl}
-            animated={merged.bannerAnimated}
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // KABADDI MODE: Clean Borderless 1920x1080 Curved Dual-Logo Scoreboard (Bottom = classic, Top = modern)
+  // KABADDI MODE: Clean Borderless 1920x1080 Curved Dual-Logo Scoreboard
   if (activeMode === 'kabaddi') {
-    const isTopPlacement = activeStyle === 'modern';
-    const scoreboardEl = (
-      <KabaddiScoreboardBar
-        variant="output"
-        teamAName={merged.teamAName}
-        teamACode={merged.teamACode}
-        teamAColor={merged.teamAColor}
-        teamAScore={merged.teamAScore}
-        teamALogoUrl={merged.teamALogoUrl}
-        teamAYellowCards={merged.teamAYellowCards}
-        teamARedCards={merged.teamARedCards}
-        teamABinRemaining={teamABinRemaining}
-        teamBName={merged.teamBName}
-        teamBCode={merged.teamBCode}
-        teamBColor={merged.teamBColor}
-        teamBScore={merged.teamBScore}
-        teamBLogoUrl={merged.teamBLogoUrl}
-        teamBYellowCards={merged.teamBYellowCards}
-        teamBRedCards={merged.teamBRedCards}
-        teamBBinRemaining={teamBBinRemaining}
-        matchSeconds={displayMatchSeconds}
-        raidSeconds={displayRaidSeconds}
-        raidRunning={merged.raidRunning}
-        halfLabel={merged.kabaddiHalf}
-        doOrDie={merged.doOrDie}
-        subtitle={merged.kabaddiSubtitle}
-      />
-    );
-
     return (
       <div
         className={`fixed inset-0 w-screen h-screen overflow-hidden select-none flex flex-col justify-between p-[2.2vw] transition-opacity duration-300 ${
           merged.visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
-        <div className="relative z-10 w-full">{isTopPlacement ? scoreboardEl : null}</div>
-
         <div className="relative z-10 my-auto flex items-center justify-center pointer-events-none">
           {merged.kabaddiAlert && (
             <div className="bg-[#DC2626] border-4 border-[#FACC15] px-10 py-4 rounded-2xl text-white font-display font-extrabold text-[clamp(24px,3.2vw,60px)] tracking-tight shadow-2xl">
@@ -283,7 +221,33 @@ export function OverlayOutputView({
           )}
         </div>
 
-        <div className="relative z-10 w-full">{!isTopPlacement ? scoreboardEl : null}</div>
+        <div className="relative z-10 w-full">
+          <KabaddiScoreboardBar
+            variant="output"
+            teamAName={merged.teamAName}
+            teamACode={merged.teamACode}
+            teamAColor={merged.teamAColor}
+            teamAScore={merged.teamAScore}
+            teamALogoUrl={merged.teamALogoUrl}
+            teamAYellowCards={merged.teamAYellowCards}
+            teamARedCards={merged.teamARedCards}
+            teamABinRemaining={teamABinRemaining}
+            teamBName={merged.teamBName}
+            teamBCode={merged.teamBCode}
+            teamBColor={merged.teamBColor}
+            teamBScore={merged.teamBScore}
+            teamBLogoUrl={merged.teamBLogoUrl}
+            teamBYellowCards={merged.teamBYellowCards}
+            teamBRedCards={merged.teamBRedCards}
+            teamBBinRemaining={teamBBinRemaining}
+            matchSeconds={displayMatchSeconds}
+            raidSeconds={displayRaidSeconds}
+            raidRunning={merged.raidRunning}
+            halfLabel={merged.kabaddiHalf}
+            doOrDie={merged.doOrDie}
+            subtitle={merged.kabaddiSubtitle}
+          />
+        </div>
       </div>
     );
   }

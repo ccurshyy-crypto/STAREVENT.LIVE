@@ -1,10 +1,6 @@
-export type OverlayMode = 'kabaddi' | 'haldi' | 'banner';
+export type OverlayMode = 'kabaddi' | 'haldi';
 
-export type BannerThemeId = 'theme1' | 'theme2' | 'theme3' | 'theme4';
-
-export type OverlayStyle = 'classic' | 'modern' | BannerThemeId;
-
-export type BannerIconType = 'cricket' | 'kabaddi' | 'trophy' | 'kalash' | 'wedding' | 'none';
+export type OverlayStyle = 'classic' | 'modern';
 
 export type OverlayBackground = 'transparent' | 'green' | 'blue';
 
@@ -12,13 +8,9 @@ export type LogoCorner = 'top-right' | 'top-left';
 
 export type KabaddiHalf = '1ST HALF' | '2ND HALF' | 'HALF TIME' | 'FULL TIME';
 
-export function isBannerTheme(style: string | undefined): style is BannerThemeId {
-  return style === 'theme1' || style === 'theme2' || style === 'theme3' || style === 'theme4';
-}
-
 export function normalizeStyleForMode(mode: OverlayMode, style?: string): OverlayStyle {
-  if (mode === 'banner') {
-    return isBannerTheme(style) ? style : 'theme1';
+  if (mode === 'kabaddi') {
+    return 'classic';
   }
   return style === 'modern' ? 'modern' : 'classic';
 }
@@ -61,28 +53,19 @@ export interface LiveOverlayState {
   kabaddiHalf: KabaddiHalf;
   doOrDie: boolean;
   kabaddiAlert: string | null;
-  // Haldi & Wedding Ceremony Overlay state
+  // Haldi & Wedding Ceremony Overlay state (2 Styles)
   haldiTag: string;
   haldiHeader: string;
   haldiTitle: string;
   haldiSubtitle: string;
-  // Animated Customizable Bottom Frame Banner (4 Themes)
-  bannerTitle: string;
-  bannerSubtitle: string;
-  bannerIcon: BannerIconType;
-  bannerTitleColor: string;
-  bannerSubtitleColor: string;
-  bannerShowTrophy: boolean;
-  bannerShowBrandLogo: boolean;
-  bannerAnimated: boolean;
 }
 
 export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlayState {
   const now = Date.now();
   return {
     roomId,
-    mode: 'banner',
-    style: 'theme1',
+    mode: 'kabaddi',
+    style: 'classic',
     visible: true,
     showLogo: false,
     logoCorner: 'top-right',
@@ -107,8 +90,8 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     teamBYellowCards: 0,
     teamBRedCards: 0,
     teamBBinEndAt: null,
-    matchSeconds: 20 * 60,
-    matchRunning: false,
+    matchSeconds: 30 * 60,
+    matchRunning: true,
     matchUpdatedAt: now,
     raidSeconds: 30,
     raidRunning: false,
@@ -120,13 +103,5 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     haldiHeader: '|| श्री गणेशाय नमः || शुभ हळदी व लग्न समारंभ',
     haldiTitle: 'देशमुख कुटुंब — शुभ हळदी व लग्न समारंभ',
     haldiSubtitle: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
-    bannerTitle: 'जय हनुमान क्रिकेट संघ चाहूचीवाडी पर्व ४',
-    bannerSubtitle: 'भव्य टेनिस स्पर्धा २०२६',
-    bannerIcon: 'cricket',
-    bannerTitleColor: '#FF9F0A',
-    bannerSubtitleColor: '#FFFFFF',
-    bannerShowTrophy: true,
-    bannerShowBrandLogo: false,
-    bannerAnimated: true,
   };
 }

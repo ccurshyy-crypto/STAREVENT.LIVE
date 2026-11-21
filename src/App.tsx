@@ -29,7 +29,7 @@ import {
   OverlayStyle,
 } from './types/overlay';
 
-const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'haldi', 'banner'];
+const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'haldi'];
 const VERIFIED_TOKENS_KEY = 'star_event_verified_tokens_v2';
 const PENDING_ORDERS_KEY = 'star_event_pending_orders_v2';
 
@@ -135,8 +135,6 @@ function parseOverlayRoute() {
   const subtitle = params.get('subtitle');
   const haldi = params.get('haldi');
   const haldiSub = params.get('haldiSub');
-  const bannerTitle = params.get('bannerTitle');
-  const bannerSubtitle = params.get('bannerSubtitle');
 
   if (teamA) urlOverrides.teamAName = teamA;
   if (teamB) urlOverrides.teamBName = teamB;
@@ -144,8 +142,6 @@ function parseOverlayRoute() {
   if (subtitle) urlOverrides.kabaddiSubtitle = subtitle;
   if (haldi) urlOverrides.haldiTitle = haldi;
   if (haldiSub) urlOverrides.haldiSubtitle = haldiSub;
-  if (bannerTitle) urlOverrides.bannerTitle = bannerTitle;
-  if (bannerSubtitle) urlOverrides.bannerSubtitle = bannerSubtitle;
 
   return { mode, style, roomId, background, token, lockMode, lockStyle, urlOverrides };
 }
@@ -156,8 +152,8 @@ export default function App() {
   const [lang, setLang] = useState<Language>('mr');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [adminOpen, setAdminOpen] = useState<boolean>(() => getInitialAdminOpen());
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('banner');
-  const [activeStyle, setActiveStyle] = useState<OverlayStyle>('theme1');
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('kabaddi');
+  const [activeStyle, setActiveStyle] = useState<OverlayStyle>('classic');
   const [verifiedTokens, setVerifiedTokens] = useState<VerifiedOverlayToken[]>([]);
   const [pendingOrders, setPendingOrders] = useState<
     Partial<Record<OverlaySku, PendingOverlayOrder>>
@@ -175,16 +171,19 @@ export default function App() {
     document.documentElement.lang = lang;
   }, [lang]);
 
-  const handleVerifiedUnlock = useCallback((token: VerifiedOverlayToken) => {
-    setVerifiedTokens((prev) => {
-      if (prev.some((t) => t.sku === token.sku && t.unlockCode === token.unlockCode)) {
-        return prev;
-      }
-      const next = [...prev.filter((t) => t.sku !== token.sku), token];
-      saveStoredTokens(next);
-      return next;
-    });
-  }, []);
+  const handleVerifiedUnlock = useCallback(
+    (incoming: VerifiedOverlayToken | VerifiedOverlayToken[]) => {
+      const list = Array.isArray(incoming) ? incoming : [incoming];
+      if (list.length === 0) return;
+      setVerifiedTokens((prev) => {
+        const incomingSkus = new Set(list.map((t) => t.sku));
+        const next = [...prev.filter((t) => !incomingSkus.has(t.sku)), ...list];
+        saveStoredTokens(next);
+        return next;
+      });
+    },
+    []
+  );
 
   const handlePendingOrderChange = useCallback(
     (sku: OverlaySku, order: PendingOverlayOrder | null) => {
@@ -468,8 +467,8 @@ export default function App() {
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट बॉटम फ्रेम (4 थीम्स), कबड्डी स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले — स्वतःचा लोगो व नावे लाईव्ह कस्टमाईज करा. फक्त ₹99 मध्ये 24 तासांसाठी अनलॉक.'
-                        : 'Watermark-free 1920×1080 transparent 4-Theme Customizable Bottom Frames, Kabaddi Scoreboard, and Haldi & Wedding overlays for OBS Studio & vMix — upload your own logo & edit names live. ₹99 / 24h.'}
+                        ? 'OBS Studio आणि vMix साठी वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट कबड्डी प्रो स्कोअरबोर्ड (दोन्ही बाजू लोगो + 30:00 टायमर) आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल) — फक्त ₹99 मध्ये अनलॉक.'
+                        : 'Watermark-free 1920×1080 transparent Kabaddi Pro Scoreboard (dual team logos + 30:00 timer) and 2 Haldi & Wedding overlays for OBS Studio & vMix — unlock at ₹99.'}
                     </p>
                   </div>
 
@@ -488,12 +487,12 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   {OVERLAY_PRODUCTS.map((product) => {
                     const isUnlocked = unlockedSkus.includes(product.sku);
                     const styleBadge =
-                      product.mode === 'banner'
-                        ? product.style.toUpperCase().replace('THEME', 'THEME ')
+                      product.mode === 'kabaddi'
+                        ? 'PRO SCOREBOARD'
                         : product.style === 'classic'
                           ? 'STYLE 1'
                           : 'STYLE 2';
@@ -507,17 +506,13 @@ export default function App() {
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between gap-2 text-xs font-mono">
                             <span className="text-zinc-400">
-                              {product.mode === 'banner'
+                              {product.mode === 'kabaddi'
                                 ? lang === 'mr'
-                                  ? 'बॉटम फ्रेम'
-                                  : 'BOTTOM FRAME'
-                                : product.mode === 'kabaddi'
-                                  ? lang === 'mr'
-                                    ? 'कबड्डी'
-                                    : 'KABADDI'
-                                  : lang === 'mr'
-                                    ? 'हळदी व लग्न'
-                                    : 'HALDI & WEDDING'}{' '}
+                                  ? 'कबड्डी'
+                                  : 'KABADDI'
+                                : lang === 'mr'
+                                  ? 'हळदी व लग्न'
+                                  : 'HALDI & WEDDING'}{' '}
                               · {styleBadge}
                             </span>
                             {isUnlocked ? (
