@@ -57,7 +57,7 @@ export function getCashfreePublicConfig() {
     cashfreeEnv: creds.env,
     webhookConfigured: creds.webhookConfigured,
     autoUnlockEnabled: creds.enabled,
-    ownerKeyFlow: true,
+    ownerKeyFlow: false,
     plans: Object.values(SERVER_PLANS),
   };
 }
@@ -155,7 +155,8 @@ export async function createCashfreeOrderAndQr(
   const customerId = `cust_${crypto.randomBytes(6).toString('hex')}`;
   const baseUrl = sanitizeBaseUrl(input.baseUrl);
   const apiBase = getCashfreeApiBase();
-  const closeBy = Date.now() + 15 * 60 * 1000; // 15-minute payment window
+  // Cashfree PG strictly requires order_expiry_time to be MORE than 15 minutes and less than 30 days
+  const closeBy = Date.now() + 30 * 60 * 1000; // 30-minute payment window
   const expiryIso = new Date(closeBy).toISOString();
 
   // Cashfree requires https notify_url & return_url in order_meta; include when https is available

@@ -137,7 +137,6 @@ export function OverlayCheckoutModal({
         }
       } catch {
         if (!cancelled) {
-          setGatewayReady(false);
           setError(
             lang === 'mr'
               ? 'पेमेंट सर्व्हरशी संपर्क होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.'
@@ -435,7 +434,7 @@ export function OverlayCheckoutModal({
               {/* Dynamic Cashfree QR */}
               <div className="sm:col-span-5 flex flex-col items-center gap-2">
                 <div className="bg-white rounded-xl p-2.5 w-44 sm:w-full max-w-[185px] aspect-square flex items-center justify-center shadow-md overflow-hidden">
-                  {creatingOrder || gatewayReady === null ? (
+                  {creatingOrder || (gatewayReady === null && !error) ? (
                     <div className="flex flex-col items-center gap-2 text-zinc-700">
                       <Loader2 className="w-7 h-7 animate-spin text-[#DC2626]" />
                       <span className="text-[10px] font-mono font-bold">Creating Cashfree QR...</span>
