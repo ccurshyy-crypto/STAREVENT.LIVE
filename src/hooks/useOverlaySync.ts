@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createDefaultOverlayState,
   LiveOverlayState,
+  RemoteHistoryInfo,
   RemotePresenceInfo,
 } from '../types/overlay';
 
@@ -59,6 +60,12 @@ export function useOverlaySync({
   const [connectedDisplays, setConnectedDisplays] = useState(0);
   const [connectedControllers, setConnectedControllers] = useState(0);
   const [controllerNames, setControllerNames] = useState<string[]>([]);
+  const [history, setHistory] = useState<RemoteHistoryInfo>({
+    canUndo: false,
+    canRedo: false,
+    undoCount: 0,
+    redoCount: 0,
+  });
 
   const viewerIdRef = useRef<string>(createViewerId());
   const lastVersionRef = useRef<number>(0);
@@ -80,6 +87,7 @@ export function useOverlaySync({
       serverNow?: number;
       connectedDisplays?: number;
       presence?: RemotePresenceInfo;
+      history?: RemoteHistoryInfo;
       unchanged?: boolean;
     }) => {
       if (typeof payload.serverNow === 'number') {
@@ -91,6 +99,9 @@ export function useOverlaySync({
         setControllerNames(payload.presence.controllerNames ?? []);
       } else if (typeof payload.connectedDisplays === 'number') {
         setConnectedDisplays(payload.connectedDisplays);
+      }
+      if (payload.history) {
+        setHistory(payload.history);
       }
       if (payload.unchanged || !payload.state) return;
 
@@ -201,6 +212,9 @@ export function useOverlaySync({
           setControllerNames(data.presence.controllerNames ?? []);
         } else if (typeof data?.connectedDisplays === 'number') {
           setConnectedDisplays(data.connectedDisplays);
+        }
+        if (data?.history) {
+          setHistory(data.history);
         }
         if (data?.state && nextAction) {
           setState((prev) => ({ ...prev, ...data.state }));
@@ -426,7 +440,15 @@ export function useOverlaySync({
         flushWriteQueue();
       }
     };
+    const handleVisibility = () => {
+      if (!isCancelled && document.visibilityState === 'visible') {
+        if (!wsOpen) connectWebSocket();
+        pollOnce(true);
+        flushWriteQueue();
+      }
+    };
     window.addEventListener('online', handleOnline);
+    document.addEventListener('visibilitychange', handleVisibility);
 
     // 1. Immediate initial state snapshot
     pollOnce(true);
@@ -442,6 +464,7 @@ export function useOverlaySync({
     return () => {
       isCancelled = true;
       window.removeEventListener('online', handleOnline);
+      document.removeEventListener('visibilitychange', handleVisibility);
       if (ws) {
         ws.onclose = null;
         ws.onerror = null;
@@ -515,6 +538,10 @@ export function useOverlaySync({
     connectedDisplays,
     connectedControllers,
     controllerNames,
+    canUndo: history.canUndo,
+    canRedo: history.canRedo,
+    undoCount: history.undoCount,
+    redoCount: history.redoCount,
     roomId: safeRoom,
     getServerNow,
   };

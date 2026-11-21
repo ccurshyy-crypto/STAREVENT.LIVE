@@ -160,6 +160,46 @@ export function OverlaysPage({
     return () => window.clearInterval(id);
   }, [verifiedTokens.length]);
 
+  // Auto-verify Cashfree return redirect (?cf_order_id=OVL-...) via backend PG API
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cfOrderId = params.get('cf_order_id')?.trim();
+    if (!cfOrderId) return;
+
+    let cancelled = false;
+    fetch(`/api/payment/cashfree/verify?orderId=${encodeURIComponent(cfOrderId)}`, {
+      cache: 'no-store',
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        const order = data?.order;
+        if (data?.paid && order?.status === 'approved' && order?.unlockCode && order?.sku) {
+          onVerifiedUnlock({
+            sku: order.sku as OverlaySku,
+            orderId: order.orderId,
+            unlockCode: order.unlockCode,
+            planId: order.planId,
+            expiresAt:
+              order.expiresAt || Date.now() + (order.durationHours || 24) * 60 * 60 * 1000,
+          });
+          onPendingOrderChange(order.sku as OverlaySku, null);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('cf_order_id');
+          window.history.replaceState({}, '', url.toString());
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [onVerifiedUnlock, onPendingOrderChange]);
+
   const visibleProducts =
     filterMode === 'all'
       ? OVERLAY_PRODUCTS

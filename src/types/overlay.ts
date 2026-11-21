@@ -18,6 +18,13 @@ export interface RemotePresenceInfo {
   controllerNames?: string[];
 }
 
+export interface RemoteHistoryInfo {
+  canUndo: boolean;
+  canRedo: boolean;
+  undoCount: number;
+  redoCount: number;
+}
+
 export function normalizeStyleForMode(mode: OverlayMode, style?: string): OverlayStyle {
   if (mode === 'kabaddi') {
     return style === 'demo' ? 'demo' : 'classic';

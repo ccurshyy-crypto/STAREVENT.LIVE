@@ -29,7 +29,8 @@ interface AdminOrderRecord {
   utrRef: string;
   proofImage?: string;
   proofHash?: string;
-  paymentMethod?: 'razorpay_qr' | 'upi_manual' | 'owner_key';
+  paymentMethod?: 'cashfree_qr' | 'upi_manual' | 'owner_key';
+  gatewayEnv?: 'sandbox' | 'production';
   planId?: '1day' | '1week' | '1month';
   durationHours?: number;
   status: 'pending' | 'approved' | 'rejected' | 'revoked';
@@ -413,7 +414,7 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
           <p className="text-xs text-zinc-400">
             {lang === 'mr'
               ? 'तुमच्या Google Pay मध्ये पेमेंट आल्यावर 1 दिवस (₹49), 1 आठवडा (₹149) किंवा 1 महिना (₹1,499) साठी Unlock Key तयार करा किंवा ऑटो-QR ऑर्डर्स पहा.'
-              : 'Track automatic Razorpay QR unlocks or generate verified 1-Day (₹49), 1-Week (₹149), or 1-Month (₹1,499) Unlock Keys in 1 click.'}
+              : 'Track automatic Cashfree QR unlocks or generate verified 1-Day (₹49), 1-Week (₹149), or 1-Month (₹1,499) Unlock Keys in 1 click.'}
           </p>
         </div>
 

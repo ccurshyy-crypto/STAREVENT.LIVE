@@ -4,13 +4,13 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Globe,
   KeyRound,
   Monitor,
   RefreshCw,
   ShieldCheck,
   Smartphone,
   Wifi,
-  WifiOff,
   X,
 } from 'lucide-react';
 import { Language } from '../data/content';
@@ -51,6 +51,15 @@ export function KabaddiRemoteModal({
   const [networkMode, setNetworkMode] = useState<'cloud' | 'lan'>('cloud');
   const [lanUrls, setLanUrls] = useState<string[]>([]);
   const [customLanBase, setCustomLanBase] = useState('');
+  const [customInternetBase, setCustomInternetBase] = useState(() => {
+    if (typeof window === 'undefined') return 'https://starevent.live';
+    const origin = window.location.origin;
+    // If operator opened private dev preview (ais-dev-), suggest public shared host (ais-pre-) so 4G/5G phones can connect
+    if (window.location.hostname.startsWith('ais-dev-')) {
+      return origin.replace('://ais-dev-', '://ais-pre-');
+    }
+    return origin;
+  });
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -95,6 +104,9 @@ export function KabaddiRemoteModal({
     };
   }, [open, matchId]);
 
+  const isPrivateDevHost =
+    typeof window !== 'undefined' && window.location.hostname.startsWith('ais-dev-');
+
   const effectiveBaseUrl = useMemo(() => {
     if (networkMode === 'lan') {
       const cleaned = customLanBase.trim().replace(/\/+$/, '');
@@ -103,8 +115,12 @@ export function KabaddiRemoteModal({
       }
       return cleaned ? `http://${cleaned}` : 'http://192.168.1.10:3000';
     }
+    const cleanedNet = customInternetBase.trim().replace(/\/+$/, '');
+    if (cleanedNet.startsWith('http://') || cleanedNet.startsWith('https://')) {
+      return cleanedNet;
+    }
     return typeof window !== 'undefined' ? window.location.origin : 'https://starevent.live';
-  }, [networkMode, customLanBase]);
+  }, [networkMode, customLanBase, customInternetBase]);
 
   const safeMatchId = sanitizeRoomIdClient(matchId);
 
@@ -122,16 +138,14 @@ export function KabaddiRemoteModal({
     try {
       const parsed = new URL(vmixBrowserUrl);
       parsed.searchParams.set('room', safeMatchId);
-      if (networkMode === 'lan') {
-        const lan = new URL(effectiveBaseUrl);
-        parsed.protocol = lan.protocol;
-        parsed.host = lan.host;
-      }
+      const targetBase = new URL(effectiveBaseUrl);
+      parsed.protocol = targetBase.protocol;
+      parsed.host = targetBase.host;
       return parsed.toString();
     } catch {
       return vmixBrowserUrl;
     }
-  }, [vmixBrowserUrl, safeMatchId, networkMode, effectiveBaseUrl]);
+  }, [vmixBrowserUrl, safeMatchId, effectiveBaseUrl]);
 
   // Generate crisp QR Code whenever Remote Controller URL changes
   useEffect(() => {
@@ -454,45 +468,60 @@ export function KabaddiRemoteModal({
 
             {/* RIGHT: QR Code + Cloud / Offline Local Wi-Fi LAN Mode */}
             <div className="md:col-span-6 space-y-4 bg-[#141A23] border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between gap-2">
+              <div className="space-y-2">
                 <p className="text-xs font-bold text-[#FACC15] uppercase tracking-wider">
-                  Step 2 · Scan QR on Phone / Tablet
+                  Step 2 · Choose Connection Mode & Scan QR
                 </p>
-                <div className="inline-flex rounded-lg bg-[#0B0F14] p-0.5 border border-white/10">
+                <div className="grid grid-cols-2 gap-1.5 rounded-xl bg-[#0B0F14] p-1 border border-white/10">
                   <button
                     type="button"
                     onClick={() => setNetworkMode('cloud')}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                    className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors ${
                       networkMode === 'cloud'
                         ? 'bg-[#3B9E6D] text-white'
                         : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <Wifi className="w-3 h-3" aria-hidden="true" />
-                    <span>Internet</span>
+                    <Globe className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Anywhere Internet</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNetworkMode('lan')}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-semibold rounded-md transition-colors ${
+                    className={`inline-flex items-center justify-center gap-1.5 px-2.5 py-2 text-[11px] font-bold rounded-lg transition-colors ${
                       networkMode === 'lan'
                         ? 'bg-[#FACC15] text-black'
                         : 'text-zinc-400 hover:text-white'
                     }`}
                   >
-                    <WifiOff className="w-3 h-3" aria-hidden="true" />
-                    <span>Local LAN</span>
+                    <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    <span>Same Wi-Fi / LAN</span>
                   </button>
                 </div>
               </div>
 
+              {networkMode === 'cloud' && isPrivateDevHost && (
+                <div className="bg-[#10221A] border border-[#4ADE80]/35 rounded-lg p-2.5 space-y-1.5">
+                  <p className="text-[11px] text-[#BBF7D0] leading-relaxed">
+                    <strong>Anywhere Internet Mode:</strong> Auto-switched QR & vMix links to your Public Shared URL so any 4G/5G phone or vMix PC connects without login:
+                  </p>
+                  <input
+                    type="text"
+                    value={customInternetBase}
+                    onChange={(e) => setCustomInternetBase(e.target.value)}
+                    aria-label="Public Internet App Base URL"
+                    className="w-full px-2.5 py-1.5 text-[11px] font-mono bg-[#0B0F14] border border-white/15 rounded text-white focus:outline-none focus:border-[#4ADE80]"
+                  />
+                </div>
+              )}
+
               {networkMode === 'lan' && (
                 <div className="bg-[#1B180C] border border-[#FACC15]/40 rounded-lg p-3 space-y-2">
                   <p className="text-[11px] text-[#FEF08A] leading-relaxed">
-                    <strong>Offline Local Network Mode:</strong>{' '}
+                    <strong>Same Wi-Fi / Offline LAN Mode:</strong>{' '}
                     {lang === 'mr'
                       ? 'इंटरनेट बंद झाल्यावर vMix PC व मोबाईल एकाच Wi-Fi राऊटर किंवा हॉटस्पॉटवर कनेक्ट करा आणि खालील LAN IP वापरा.'
-                      : 'When internet disconnects, connect vMix PC & mobile to the same Wi-Fi router/hotspot and use the PC local IP below (no internet required).'}
+                      : 'Connect vMix PC & mobile to the same Wi-Fi router or hotspot (no internet needed) and scan the LAN QR below.'}
                   </p>
                   <div className="flex items-center gap-1.5">
                     <input

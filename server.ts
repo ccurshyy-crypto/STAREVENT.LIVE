@@ -13,8 +13,46 @@ import {
   type KabaddiMatchStatus,
   type KabaddiTimeoutTeam,
   type LiveOverlayState,
+  type RemoteHistoryInfo,
   type RemotePresenceInfo,
 } from './src/types/overlay.ts';
+
+import {
+  activateOrderAndSubscription,
+  findApprovedOrderByUnlockCode,
+  findPaymentOrderByProofHash,
+  findPaymentOrderByUtr,
+  generateOrderId,
+  generateUnlockCode,
+  getOrderExpiresAt,
+  getPaymentDbPath,
+  getPaymentOrderById,
+  getSubscriptionByUnlockCode,
+  isOrderActive,
+  listPaymentOrders,
+  orderCoversSku,
+  rejectPaymentOrder,
+  resolvePlan,
+  revokeOrderAndSubscription,
+  SERVER_PLANS,
+  toPublicOrderSummary,
+  upsertPaymentOrder,
+  upsertSubscriptionForOrder,
+  VALID_SKUS,
+  type OrderStatus,
+  type PaymentOrderRecord,
+  type PlanId,
+  type ServerPlan,
+} from './server/paymentDb.ts';
+import {
+  createCashfreeOrderAndQr,
+  getCashfreePublicConfig,
+  processCashfreeWebhookPayload,
+  verifyCashfreeOrderOnServer,
+  verifyCashfreeWebhookSignature,
+} from './server/cashfree.ts';
+
+export type { OrderStatus };
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,66 +60,7 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const ENV_ADMIN_PIN = (process.env.OVERLAY_ADMIN_PIN || '').trim();
-const RAZORPAY_KEY_ID = (process.env.RAZORPAY_KEY_ID || '').trim();
-const RAZORPAY_KEY_SECRET = (process.env.RAZORPAY_KEY_SECRET || '').trim();
-const RAZORPAY_WEBHOOK_SECRET = (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
-const RAZORPAY_ENABLED = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
-const UNLOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 1 Day default
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
-
-type PlanId = '1day' | '1week' | '1month';
-
-interface ServerPlan {
-  id: PlanId;
-  amount: number;
-  originalPrice: number;
-  durationHours: number;
-  label: string;
-}
-
-const SERVER_PLANS: Record<PlanId, ServerPlan> = {
-  '1day': { id: '1day', amount: 49, originalPrice: 99, durationHours: 24, label: '1 Day Pass' },
-  '1week': { id: '1week', amount: 149, originalPrice: 299, durationHours: 168, label: '1 Week Pass' },
-  '1month': { id: '1month', amount: 1499, originalPrice: 2499, durationHours: 720, label: '1 Month Pass' },
-};
-
-function resolvePlan(rawPlanId: unknown): ServerPlan {
-  const key = String(rawPlanId || '1day').trim().toLowerCase() as PlanId;
-  return SERVER_PLANS[key] ?? SERVER_PLANS['1day'];
-}
-
-const VALID_SKUS = new Set([
-  'kabaddi-classic',
-  'haldi-classic',
-  'haldi-modern',
-]);
-
-export type OrderStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
-
-interface OverlayOrder {
-  orderId: string;
-  sku: string; // specific SKU or 'all' for master unlock key
-  planId?: PlanId;
-  durationHours?: number;
-  amount: number;
-  originalPrice: number;
-  buyerName: string;
-  buyerPhone: string;
-  utrRef: string;
-  proofImage?: string;
-  proofHash?: string;
-  paymentMethod?: 'razorpay_qr' | 'upi_manual' | 'owner_key';
-  gatewayQrId?: string;
-  gatewayQrImageUrl?: string;
-  gatewayPaymentId?: string;
-  qrCloseBy?: number;
-  status: OrderStatus;
-  unlockCode?: string;
-  rejectionReason?: string;
-  createdAt: number;
-  verifiedAt?: number;
-  expiresAt?: number;
-}
 
 interface StoredAdminAuth {
   salt: string;
@@ -90,7 +69,6 @@ interface StoredAdminAuth {
 }
 
 const DATA_DIR = path.resolve(__dirname, 'data');
-const ORDERS_FILE = path.join(DATA_DIR, 'overlay-orders.json');
 const ROOMS_FILE = path.join(DATA_DIR, 'overlay-rooms.json');
 const REMOTE_MATCHES_FILE = path.join(DATA_DIR, 'remote-matches.json');
 const ADMIN_AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
@@ -186,68 +164,6 @@ function requireAdminAuth(req: express.Request, res: express.Response): boolean 
 
   res.status(401).json({ ok: false, error: 'Owner authentication required. Please sign in.' });
   return false;
-}
-
-function getOrderDurationMs(order: OverlayOrder): number {
-  const hours = typeof order.durationHours === 'number' && order.durationHours > 0
-    ? order.durationHours
-    : order.planId && SERVER_PLANS[order.planId]
-      ? SERVER_PLANS[order.planId].durationHours
-      : 24;
-  return hours * 60 * 60 * 1000;
-}
-
-function getOrderExpiresAt(order: OverlayOrder): number {
-  if (typeof order.expiresAt === 'number') return order.expiresAt;
-  const base = order.verifiedAt || order.createdAt;
-  return base + getOrderDurationMs(order);
-}
-
-function isOrderActive(order: OverlayOrder, now = Date.now()): boolean {
-  return order.status === 'approved' && Boolean(order.unlockCode) && getOrderExpiresAt(order) > now;
-}
-
-function orderCoversSku(order: OverlayOrder, requestedSku?: string): boolean {
-  if (!requestedSku) return true;
-  return order.sku === 'all' || order.sku === requestedSku;
-}
-
-function loadPersistedOrders(): OverlayOrder[] {
-  try {
-    if (!fs.existsSync(ORDERS_FILE)) return [];
-    const raw = fs.readFileSync(ORDERS_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function savePersistedOrders(orders: OverlayOrder[]) {
-  try {
-    ensureDataDir();
-    fs.writeFileSync(ORDERS_FILE, JSON.stringify(orders, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to persist overlay orders:', err);
-  }
-}
-
-function generateOrderId(): string {
-  const rand = crypto.randomInt(100000, 999999);
-  return `OVL-${rand}`;
-}
-
-function generateUnlockCode(): string {
-  // 12 uppercase alphanumeric characters (easy to type, cryptographically unguessable)
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  const makeBlock = () => {
-    let out = '';
-    for (let i = 0; i < 4; i++) {
-      out += alphabet[crypto.randomInt(0, alphabet.length)];
-    }
-    return out;
-  };
-  return `STAR-${makeBlock()}-${makeBlock()}-${makeBlock()}`;
 }
 
 function isFakeUtr(utr: string): boolean {
@@ -474,8 +390,8 @@ function getRemotePresence(roomId: string): RemotePresenceInfo {
   };
 }
 
-// Authoritative server-side payment orders & owner-issued unlock keys store
-const orders: OverlayOrder[] = loadPersistedOrders();
+// Initialize SQLite payment & subscription database and SSE client map
+getPaymentDbPath();
 const orderSseClients = new Map<string, Set<express.Response>>();
 
 function sanitizeRoomId(raw: string): string {
@@ -502,10 +418,36 @@ function getRoomVersion(roomId: string): number {
   return roomVersions.get(safeId) ?? 1;
 }
 
+const MAX_HISTORY_STEPS = 40;
+const roomUndoStacks = new Map<string, LiveOverlayState[]>();
+const roomRedoStacks = new Map<string, LiveOverlayState[]>();
+
+function getHistoryInfo(roomId: string): RemoteHistoryInfo {
+  const safeId = sanitizeRoomId(roomId);
+  const undoCount = roomUndoStacks.get(safeId)?.length ?? 0;
+  const redoCount = roomRedoStacks.get(safeId)?.length ?? 0;
+  return {
+    canUndo: undoCount > 0,
+    canRedo: redoCount > 0,
+    undoCount,
+    redoCount,
+  };
+}
+
+function snapshotStateForHistory(state: LiveOverlayState, now: number): LiveOverlayState {
+  return {
+    ...state,
+    matchSeconds: computeLiveMatchSeconds(state, now),
+    raidSeconds: computeLiveRaidSeconds(state, now),
+    kabaddiAlert: null,
+  };
+}
+
 function broadcastRoomState(roomId: string, state: LiveOverlayState) {
   const version = getRoomVersion(roomId);
   const serverNow = Date.now();
   const presence = getRemotePresence(roomId);
+  const history = getHistoryInfo(roomId);
   const connectedDisplays = presence.displays;
 
   const wsPayload = JSON.stringify({
@@ -515,6 +457,7 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
     serverNow,
     connectedDisplays,
     presence,
+    history,
   });
 
   const dispSet = wsDisplays.get(roomId);
@@ -556,6 +499,7 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
     serverNow,
     connectedDisplays,
     presence,
+    history,
   });
 
   for (const res of clients) {
@@ -567,10 +511,31 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
   }
 }
 
-function applyOverlayPatch(roomId: string, rawPatch: Partial<LiveOverlayState>) {
+function applyOverlayPatch(
+  roomId: string,
+  rawPatch: Partial<LiveOverlayState>,
+  options: { recordHistory?: boolean } = {}
+) {
   const safeId = sanitizeRoomId(roomId);
   const current = getOrCreateRoom(safeId);
   const now = Date.now();
+  const patchKeys = Object.keys(rawPatch);
+  const isOnlyAlertClear =
+    patchKeys.length === 1 && patchKeys[0] === 'kabaddiAlert' && rawPatch.kabaddiAlert === null;
+  const shouldRecord = options.recordHistory !== false && patchKeys.length > 0 && !isOnlyAlertClear;
+
+  if (shouldRecord) {
+    let undoStack = roomUndoStacks.get(safeId);
+    if (!undoStack) {
+      undoStack = [];
+      roomUndoStacks.set(safeId, undoStack);
+    }
+    undoStack.push(snapshotStateForHistory(current, now));
+    if (undoStack.length > MAX_HISTORY_STEPS) {
+      undoStack.shift();
+    }
+    roomRedoStacks.set(safeId, []);
+  }
 
   // Normalize timer timestamps against server clock so OBS/vMix on other PCs never suffer clock skew
   const normalizedPatch: Partial<LiveOverlayState> = { ...rawPatch };
@@ -602,7 +567,13 @@ function applyOverlayPatch(roomId: string, rawPatch: Partial<LiveOverlayState>) 
   scheduleSaveRooms();
   broadcastRoomState(safeId, nextState);
 
-  return { state: nextState, version: nextVersion, serverNow: now, presence: getRemotePresence(safeId) };
+  return {
+    state: nextState,
+    version: nextVersion,
+    serverNow: now,
+    presence: getRemotePresence(safeId),
+    history: getHistoryInfo(safeId),
+  };
 }
 
 function computeLiveMatchSeconds(state: LiveOverlayState, now: number): number {
@@ -626,7 +597,7 @@ function scheduleAlertClear(roomId: string, ms = 2200) {
     activeAlertTimers.delete(roomId);
     const curr = rooms.get(roomId);
     if (curr && curr.kabaddiAlert) {
-      applyOverlayPatch(roomId, { kabaddiAlert: null });
+      applyOverlayPatch(roomId, { kabaddiAlert: null }, { recordHistory: false });
     }
   }, ms);
   activeAlertTimers.set(roomId, timer);
@@ -882,6 +853,103 @@ function applyKabaddiRemoteAction(
       });
     }
 
+    case 'timer_reset': {
+      const sec = Math.max(0, Math.min(99 * 60, Math.round(Number(payload.seconds ?? 30))));
+      const autoStart = payload.autoStart === true;
+      return applyOverlayPatch(safeId, {
+        matchSeconds: sec,
+        matchRunning: autoStart,
+        matchStatus: autoStart ? 'LIVE' : 'PAUSED',
+        timeoutTeam: null,
+      });
+    }
+
+    case 'undo': {
+      const undoStack = roomUndoStacks.get(safeId);
+      if (!undoStack || undoStack.length === 0) {
+        return {
+          state: current,
+          version: getRoomVersion(safeId),
+          serverNow: now,
+          presence: getRemotePresence(safeId),
+          history: getHistoryInfo(safeId),
+        };
+      }
+      const prevSnapshot = undoStack.pop()!;
+      let redoStack = roomRedoStacks.get(safeId);
+      if (!redoStack) {
+        redoStack = [];
+        roomRedoStacks.set(safeId, redoStack);
+      }
+      redoStack.push(snapshotStateForHistory(current, now));
+      if (redoStack.length > MAX_HISTORY_STEPS) {
+        redoStack.shift();
+      }
+      const restored: LiveOverlayState = {
+        ...prevSnapshot,
+        roomId: safeId,
+        kabaddiAlert: null,
+        matchUpdatedAt: now,
+        raidUpdatedAt: now,
+        updatedAt: now,
+      };
+      const nextVersion = getRoomVersion(safeId) + 1;
+      rooms.set(safeId, restored);
+      roomVersions.set(safeId, nextVersion);
+      scheduleSaveRooms();
+      broadcastRoomState(safeId, restored);
+      return {
+        state: restored,
+        version: nextVersion,
+        serverNow: now,
+        presence: getRemotePresence(safeId),
+        history: getHistoryInfo(safeId),
+      };
+    }
+
+    case 'redo': {
+      const redoStack = roomRedoStacks.get(safeId);
+      if (!redoStack || redoStack.length === 0) {
+        return {
+          state: current,
+          version: getRoomVersion(safeId),
+          serverNow: now,
+          presence: getRemotePresence(safeId),
+          history: getHistoryInfo(safeId),
+        };
+      }
+      const nextSnapshot = redoStack.pop()!;
+      let undoStack = roomUndoStacks.get(safeId);
+      if (!undoStack) {
+        undoStack = [];
+        roomUndoStacks.set(safeId, undoStack);
+      }
+      undoStack.push(snapshotStateForHistory(current, now));
+      if (undoStack.length > MAX_HISTORY_STEPS) {
+        undoStack.shift();
+      }
+      const restored: LiveOverlayState = {
+        ...nextSnapshot,
+        roomId: safeId,
+        kabaddiAlert: null,
+        matchUpdatedAt: now,
+        raidUpdatedAt: now,
+        updatedAt: now,
+      };
+      const nextVersion = getRoomVersion(safeId) + 1;
+      rooms.set(safeId, restored);
+      roomVersions.set(safeId, nextVersion);
+      scheduleSaveRooms();
+      broadcastRoomState(safeId, restored);
+      return {
+        state: restored,
+        version: nextVersion,
+        serverNow: now,
+        presence: getRemotePresence(safeId),
+        history: getHistoryInfo(safeId),
+      };
+    }
+
     case 'reset': {
       return applyOverlayPatch(safeId, {
         teamAScore: 0,
@@ -916,38 +984,12 @@ function applyKabaddiRemoteAction(
         version: getRoomVersion(safeId),
         serverNow: now,
         presence: getRemotePresence(safeId),
+        history: getHistoryInfo(safeId),
       };
   }
 }
 
-function toPublicOrderSummary(order: OverlayOrder) {
-  const expiresAt = order.status === 'approved' ? getOrderExpiresAt(order) : undefined;
-  const expired = Boolean(expiresAt && expiresAt <= Date.now());
-  return {
-    orderId: order.orderId,
-    sku: order.sku,
-    planId: order.planId || '1day',
-    durationHours: order.durationHours || 24,
-    amount: order.amount,
-    originalPrice: order.originalPrice,
-    paymentMethod: order.paymentMethod || 'upi_manual',
-    gatewayQrImageUrl: order.status === 'pending' ? order.gatewayQrImageUrl : undefined,
-    status: order.status,
-    utrRef:
-      order.utrRef.length === 12
-        ? `${order.utrRef.slice(0, 4)}••••${order.utrRef.slice(-4)}`
-        : order.utrRef,
-    unlockCode: order.status === 'approved' && !expired ? order.unlockCode : undefined,
-    rejectionReason:
-      order.status === 'rejected' || order.status === 'revoked' ? order.rejectionReason : undefined,
-    createdAt: order.createdAt,
-    verifiedAt: order.verifiedAt,
-    expiresAt,
-    expired,
-  };
-}
-
-function notifyOrderWatchers(order: OverlayOrder) {
+function notifyOrderWatchers(order: PaymentOrderRecord) {
   const clients = orderSseClients.get(order.orderId);
   if (!clients || clients.size === 0) return;
   const payload = JSON.stringify({ order: toPublicOrderSummary(order) });
@@ -960,84 +1002,21 @@ function notifyOrderWatchers(order: OverlayOrder) {
   }
 }
 
-// Track last Razorpay poll timestamp per order to avoid excessive gateway calls
-const lastGatewayCheckAt = new Map<string, number>();
-
-function getRazorpayAuthHeader(): string {
-  return `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`;
-}
-
-function approvePaidGatewayOrder(order: OverlayOrder, gatewayPaymentId: string, rrn?: string): boolean {
-  if (order.status === 'approved') return true;
-  const now = Date.now();
-  order.status = 'approved';
-  order.unlockCode = order.unlockCode || generateUnlockCode();
-  order.gatewayPaymentId = gatewayPaymentId;
-  if (rrn && /^\d{12}$/.test(rrn)) {
-    order.utrRef = rrn;
-  } else if (gatewayPaymentId) {
-    order.utrRef = gatewayPaymentId;
-  }
-  order.rejectionReason = undefined;
-  order.verifiedAt = now;
-  order.expiresAt = now + getOrderDurationMs(order);
-  savePersistedOrders(orders);
-  notifyOrderWatchers(order);
-  return true;
-}
-
-async function syncRazorpayQrPayment(order: OverlayOrder): Promise<boolean> {
-  if (!RAZORPAY_ENABLED) return false;
-  if (order.paymentMethod !== 'razorpay_qr' || order.status !== 'pending' || !order.gatewayQrId) {
-    return false;
-  }
-
-  const now = Date.now();
-  const lastCheck = lastGatewayCheckAt.get(order.orderId) || 0;
-  if (now - lastCheck < 2500) {
-    return false;
-  }
-  lastGatewayCheckAt.set(order.orderId, now);
-
-  try {
-    const qrId = encodeURIComponent(order.gatewayQrId);
-    const resp = await fetch(`https://api.razorpay.com/v1/payments/qr_codes/${qrId}/payments?count=5`, {
-      method: 'GET',
-      headers: {
-        Authorization: getRazorpayAuthHeader(),
-      },
-    });
-    if (!resp.ok) return false;
-    const data = (await resp.json()) as {
-      items?: Array<{
-        id?: string;
-        status?: string;
-        amount?: number;
-        acquirer_data?: { rrn?: string; upi_transaction_id?: string };
-      }>;
-    };
-    const items = Array.isArray(data?.items) ? data.items : [];
-    const expectedPaise = order.amount * 100;
-    const captured = items.find(
-      (p) => p && p.status === 'captured' && Number(p.amount) >= expectedPaise && typeof p.id === 'string'
-    );
-    if (captured && captured.id) {
-      return approvePaidGatewayOrder(
-        order,
-        captured.id,
-        captured.acquirer_data?.rrn || captured.acquirer_data?.upi_transaction_id
-      );
-    }
-    return false;
-  } catch (err) {
-    console.error('Razorpay QR status sync error:', err);
-    return false;
-  }
+function getExpressRequestBaseUrl(req: express.Request): string {
+  const envUrl = (process.env.APP_URL || '').trim();
+  if (envUrl) return envUrl.replace(/\/+$/, '');
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || `localhost:${PORT}`)
+    .split(',')[0]
+    .trim();
+  return `${proto}://${host}`;
 }
 
 async function startServer() {
   const app = express();
-  // Allow up to 1.5MB for compressed payment screenshot proof or team logos, and capture rawBody for webhook HMAC
+  // Allow up to 1.5MB for compressed payment screenshot proof or team logos, and capture rawBody for Cashfree webhook HMAC
   app.use(
     express.json({
       limit: '1.5mb',
@@ -1050,7 +1029,11 @@ async function startServer() {
   // Allow OBS / vMix local browser inputs to fetch public overlay state cleanly
   // Never set wildcard CORS on authenticated /api/admin or /api/remote/match endpoints
   app.use('/api', (req, res, next) => {
-    if (!req.path.startsWith('/admin') && !req.path.startsWith('/remote/match')) {
+    if (
+      !req.path.startsWith('/admin') &&
+      !req.path.startsWith('/remote/match') &&
+      !req.path.startsWith('/payment/cashfree/webhook')
+    ) {
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -1062,179 +1045,88 @@ async function startServer() {
     next();
   });
 
-  // Payment config & plans info
+  // Payment gateway config & plans info (Cashfree PG API - Sandbox/Production)
   app.get('/api/payment/config', (_req, res) => {
-    res.json({
-      ok: true,
-      razorpayEnabled: RAZORPAY_ENABLED,
-      webhookConfigured: Boolean(RAZORPAY_WEBHOOK_SECRET),
-      autoUnlockEnabled: RAZORPAY_ENABLED,
-      ownerKeyFlow: true,
-      plans: Object.values(SERVER_PLANS),
-    });
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(getCashfreePublicConfig());
   });
 
-  // Create a live single-use amount-locked UPI QR for instant automatic unlock
-  app.post('/api/payment/qr/create', async (req, res) => {
+  // Create Cashfree PG payment order + dynamic UPI QR securely on the backend
+  const handleCreateCashfreeOrder = async (req: express.Request, res: express.Response) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const sku = String(body.sku || '').trim();
-    const plan = resolvePlan(body.planId);
-    const buyerName = String(body.buyerName || 'Live Broadcaster').trim().slice(0, 80) || 'Live Broadcaster';
-    const buyerPhone = String(body.buyerPhone || '').replace(/\D/g, '').slice(0, 15);
+    const result = await createCashfreeOrderAndQr({
+      sku: String(body.sku || ''),
+      planId: body.planId ? String(body.planId) : undefined,
+      buyerName: body.buyerName ? String(body.buyerName) : undefined,
+      buyerPhone: body.buyerPhone ? String(body.buyerPhone) : undefined,
+      buyerEmail: body.buyerEmail ? String(body.buyerEmail) : undefined,
+      baseUrl: getExpressRequestBaseUrl(req),
+    });
 
-    if (!VALID_SKUS.has(sku)) {
-      res.status(400).json({ ok: false, error: 'Invalid overlay selection.' });
+    const { statusCode, ...payload } = result;
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(statusCode).json(payload);
+  };
+
+  app.post('/api/payment/cashfree/create-order', handleCreateCashfreeOrder);
+  app.post('/api/payment/qr/create', handleCreateCashfreeOrder);
+
+  // Authoritative server-side Cashfree payment verification (queries Cashfree PG API directly)
+  const handleVerifyCashfreePayment = async (req: express.Request, res: express.Response) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const orderId = String(
+      req.query.orderId || req.query.order_id || body.orderId || body.order_id || ''
+    ).trim();
+
+    const result = await verifyCashfreeOrderOnServer(orderId, { force: true });
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (!result.ok) {
+      res.status(result.statusCode).json({ ok: false, paid: false, error: result.error });
       return;
     }
 
-    if (!RAZORPAY_ENABLED) {
-      res.json({
-        ok: true,
-        mode: 'direct_upi',
-        autoUnlockEnabled: false,
-        plan,
-      });
-      return;
+    if (result.paid && result.order) {
+      notifyOrderWatchers(result.order);
     }
 
-    const orderId = generateOrderId();
-    const closeBy = Math.floor(Date.now() / 1000) + 15 * 60; // 15-minute live QR window
+    res.status(result.statusCode).json({
+      ok: true,
+      paid: result.paid,
+      cashfreeStatus: result.cashfreeStatus,
+      order: result.order ? toPublicOrderSummary(result.order) : undefined,
+    });
+  };
 
-    try {
-      const rzpRes = await fetch('https://api.razorpay.com/v1/payments/qr_codes', {
-        method: 'POST',
-        headers: {
-          Authorization: getRazorpayAuthHeader(),
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          type: 'upi_qr',
-          name: 'Star Event Live',
-          usage: 'single_use',
-          fixed_amount: true,
-          payment_amount: plan.amount * 100,
-          description: `${sku} (${plan.label})`,
-          close_by: closeBy,
-          notes: {
-            orderId,
-            sku,
-            planId: plan.id,
-          },
-        }),
-      });
+  app.get('/api/payment/cashfree/verify', handleVerifyCashfreePayment);
+  app.post('/api/payment/cashfree/verify', handleVerifyCashfreePayment);
 
-      const rzpData = (await rzpRes.json()) as {
-        id?: string;
-        image_url?: string;
-        error?: { description?: string };
-      };
-
-      if (!rzpRes.ok || !rzpData?.id || !rzpData?.image_url) {
-        console.error('Razorpay QR creation failed:', rzpData);
-        res.status(502).json({
-          ok: false,
-          error:
-            rzpData?.error?.description ||
-            'Could not generate live bank-verified UPI QR. Please try again.',
-        });
-        return;
-      }
-
-      const order: OverlayOrder = {
-        orderId,
-        sku,
-        planId: plan.id,
-        durationHours: plan.durationHours,
-        amount: plan.amount,
-        originalPrice: plan.originalPrice,
-        buyerName,
-        buyerPhone,
-        utrRef: `RZP-${rzpData.id.slice(-8).toUpperCase()}`,
-        paymentMethod: 'razorpay_qr',
-        gatewayQrId: rzpData.id,
-        gatewayQrImageUrl: rzpData.image_url,
-        qrCloseBy: closeBy * 1000,
-        status: 'pending',
-        createdAt: Date.now(),
-      };
-
-      orders.unshift(order);
-      savePersistedOrders(orders);
-
-      res.status(201).json({
-        ok: true,
-        mode: 'razorpay_auto',
-        autoUnlockEnabled: true,
-        qrImageUrl: rzpData.image_url,
-        closeBy: closeBy * 1000,
-        order: toPublicOrderSummary(order),
-      });
-    } catch (err) {
-      console.error('Razorpay QR create request error:', err);
-      res.status(502).json({
-        ok: false,
-        error: 'Payment gateway temporarily unreachable. Please retry in a moment.',
-      });
-    }
-  });
-
-  // Razorpay signed webhook: instantly unlocks the overlay the exact second QR payment settles
-  app.post('/api/payment/razorpay/webhook', (req, res) => {
-    if (!RAZORPAY_WEBHOOK_SECRET) {
-      res.status(503).json({ ok: false, error: 'Webhook secret not configured on server.' });
-      return;
-    }
-
-    const signature = String(req.headers['x-razorpay-signature'] || '').trim();
+  // Cashfree signed webhook: Base64(HMAC-SHA256(CASHFREE_CLIENT_SECRET, timestamp + rawBody))
+  app.post('/api/payment/cashfree/webhook', (req, res) => {
+    const rawTs = req.headers['x-webhook-timestamp'];
+    const rawSig = req.headers['x-webhook-signature'];
+    const timestamp = Array.isArray(rawTs) ? String(rawTs[0] || '') : String(rawTs || '');
+    const signature = Array.isArray(rawSig) ? String(rawSig[0] || '') : String(rawSig || '');
     const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
-    if (!signature || !rawBody) {
-      res.status(400).json({ ok: false, error: 'Missing webhook signature or payload.' });
+
+    if (!rawBody || rawBody.length === 0) {
+      res.status(400).json({ ok: false, error: 'Missing raw webhook payload.' });
       return;
     }
 
-    const expectedSig = crypto
-      .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
-      .update(rawBody)
-      .digest('hex');
-
-    if (!safeEqualStrings(signature, expectedSig)) {
-      res.status(401).json({ ok: false, error: 'Invalid webhook signature.' });
+    const sigCheck = verifyCashfreeWebhookSignature(rawBody, timestamp, signature);
+    if (!sigCheck.valid) {
+      const status = sigCheck.reason?.includes('not configured') ? 503 : 401;
+      res.status(status).json({ ok: false, error: sigCheck.reason || 'Invalid webhook signature.' });
       return;
     }
 
-    const event = String(req.body?.event || '');
-    const paymentEntity = req.body?.payload?.payment?.entity;
-    const qrEntity = req.body?.payload?.qr_code?.entity;
-
-    if (
-      (event === 'qr_code.credited' || event === 'payment.captured') &&
-      paymentEntity &&
-      paymentEntity.status === 'captured'
-    ) {
-      const qrId = typeof qrEntity?.id === 'string' ? qrEntity.id : undefined;
-      const noteOrderId =
-        typeof paymentEntity?.notes?.orderId === 'string'
-          ? paymentEntity.notes.orderId.toUpperCase()
-          : typeof qrEntity?.notes?.orderId === 'string'
-            ? qrEntity.notes.orderId.toUpperCase()
-            : undefined;
-
-      const order = orders.find(
-        (o) =>
-          (qrId && o.gatewayQrId === qrId) ||
-          (noteOrderId && o.orderId === noteOrderId)
-      );
-
-      if (order && Number(paymentEntity.amount) >= order.amount * 100 && typeof paymentEntity.id === 'string') {
-        approvePaidGatewayOrder(
-          order,
-          paymentEntity.id,
-          paymentEntity.acquirer_data?.rrn || paymentEntity.acquirer_data?.upi_transaction_id
-        );
-      }
+    const processed = processCashfreeWebhookPayload(req.body);
+    if (processed.handled && processed.unlockedOrder) {
+      notifyOrderWatchers(processed.unlockedOrder);
     }
 
-    res.json({ ok: true });
+    res.json({ ok: true, handled: processed.handled, eventType: processed.eventType });
   });
 
   // ---------------------------------------------------------------------------
@@ -1306,7 +1198,7 @@ async function startServer() {
   // ---------------------------------------------------------------------------
   // CUSTOMER PAYMENT SUBMISSION & UNLOCK KEY VERIFICATION
   // ---------------------------------------------------------------------------
-  // 1. Submit a direct UPI payment proof -> creates PENDING order (NEVER auto-unlocks!)
+  // 1. Submit a direct UPI payment proof -> creates PENDING order in SQLite (NEVER auto-unlocks!)
   app.post('/api/overlay/orders', (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const sku = String(body.sku || '').trim();
@@ -1348,7 +1240,7 @@ async function startServer() {
     const proofHash = crypto.createHash('sha256').update(proofImage).digest('hex');
 
     // Block reusing a rejected/fraudulent UTR or duplicate screenshot
-    const duplicate = orders.find((o) => o.utrRef === utrRef);
+    const duplicate = findPaymentOrderByUtr(utrRef);
     if (duplicate) {
       if (duplicate.status === 'pending' && duplicate.sku === sku && duplicate.buyerPhone === buyerPhone) {
         res.json({ ok: true, order: toPublicOrderSummary(duplicate), existing: true });
@@ -1364,7 +1256,7 @@ async function startServer() {
       return;
     }
 
-    const duplicateProof = orders.find((o) => o.proofHash && o.proofHash === proofHash);
+    const duplicateProof = findPaymentOrderByProofHash(proofHash);
     if (duplicateProof) {
       res.status(409).json({
         ok: false,
@@ -1373,13 +1265,14 @@ async function startServer() {
       return;
     }
 
-    const order: OverlayOrder = {
+    const order: PaymentOrderRecord = {
       orderId: generateOrderId(),
       sku,
       planId: plan.id,
       durationHours: plan.durationHours,
       amount: plan.amount,
       originalPrice: plan.originalPrice,
+      currency: 'INR',
       buyerName,
       buyerPhone,
       utrRef,
@@ -1390,8 +1283,7 @@ async function startServer() {
       createdAt: Date.now(),
     };
 
-    orders.unshift(order);
-    savePersistedOrders(orders);
+    upsertPaymentOrder(order);
 
     res.status(201).json({
       ok: true,
@@ -1399,24 +1291,31 @@ async function startServer() {
     });
   });
 
-  // 2. Poll current payment verification status (auto-checks Razorpay QR settlement if applicable)
+  // 2. Poll current payment verification status (auto-checks Cashfree PG API if applicable)
   app.get('/api/overlay/orders/:orderId/status', async (req, res) => {
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
-    const order = orders.find((o) => o.orderId === orderId);
+    let order = getPaymentOrderById(orderId);
     if (!order) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
     }
-    if (order.paymentMethod === 'razorpay_qr' && order.status === 'pending') {
-      await syncRazorpayQrPayment(order);
+    if (order.paymentMethod === 'cashfree_qr' && order.status === 'pending') {
+      const verified = await verifyCashfreeOrderOnServer(order.orderId);
+      if (verified.order) {
+        order = verified.order;
+        if (verified.paid) {
+          notifyOrderWatchers(order);
+        }
+      }
     }
+    res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, order: toPublicOrderSummary(order) });
   });
 
-  // 3. Real-time SSE stream for instant auto-unlock the second QR payment settles
+  // 3. Real-time SSE stream for instant auto-unlock the second Cashfree payment settles
   app.get('/api/overlay/orders/:orderId/stream', (req, res) => {
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
-    const order = orders.find((o) => o.orderId === orderId);
+    const order = getPaymentOrderById(orderId);
     if (!order) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
@@ -1438,13 +1337,20 @@ async function startServer() {
     res.write(`data: ${JSON.stringify({ order: toPublicOrderSummary(order) })}\n\n`);
 
     let gatewayPoll: ReturnType<typeof setInterval> | null = null;
-    if (order.paymentMethod === 'razorpay_qr' && order.status === 'pending') {
+    if (order.paymentMethod === 'cashfree_qr' && order.status === 'pending') {
       gatewayPoll = setInterval(() => {
-        if (order.status !== 'pending') {
+        const latest = getPaymentOrderById(orderId);
+        if (!latest || latest.status !== 'pending') {
           if (gatewayPoll) clearInterval(gatewayPoll);
           return;
         }
-        syncRazorpayQrPayment(order).catch(() => {});
+        verifyCashfreeOrderOnServer(orderId)
+          .then((result) => {
+            if (result.paid && result.order) {
+              notifyOrderWatchers(result.order);
+            }
+          })
+          .catch(() => {});
       }, 3500);
     }
 
@@ -1463,7 +1369,7 @@ async function startServer() {
     });
   });
 
-  // 4. Verify an Owner-Issued Unlock Key (STAR-XXXX-XXXX-XXXX) -> unlocks single overlay OR all overlays!
+  // 4. Verify an Unlock Key (STAR-XXXX-XXXX-XXXX) -> unlocks single overlay OR all overlays!
   app.post('/api/overlay/verify-unlock', (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const code = String(body.unlockCode || '').trim().toUpperCase();
@@ -1474,18 +1380,10 @@ async function startServer() {
       return;
     }
 
-    const match = orders.find(
-      (o) =>
-        o.status === 'approved' &&
-        o.unlockCode?.toUpperCase() === code &&
-        orderCoversSku(o, requestedSku)
-    );
+    const match = findApprovedOrderByUnlockCode(code, requestedSku || undefined);
 
     if (!match || !match.unlockCode) {
-      // Check if code exists for a different overlay SKU to give a helpful message
-      const wrongSkuMatch = orders.find(
-        (o) => o.status === 'approved' && o.unlockCode?.toUpperCase() === code
-      );
+      const wrongSkuMatch = findApprovedOrderByUnlockCode(code);
       if (wrongSkuMatch) {
         res.status(403).json({
           ok: false,
@@ -1544,16 +1442,15 @@ async function startServer() {
       const sku = String(item.sku || '');
       const orderId = String(item.orderId || '').toUpperCase();
       const unlockCode = String(item.unlockCode || '').toUpperCase();
-      if (!VALID_SKUS.has(sku)) continue;
+      if (!VALID_SKUS.has(sku) || !orderId || !unlockCode) continue;
 
-      const match = orders.find(
-        (o) =>
-          isOrderActive(o, now) &&
-          orderCoversSku(o, sku) &&
-          o.orderId === orderId &&
-          o.unlockCode?.toUpperCase() === unlockCode
-      );
-      if (match && match.unlockCode) {
+      const match = getPaymentOrderById(orderId);
+      if (
+        match &&
+        isOrderActive(match, now) &&
+        orderCoversSku(match, sku) &&
+        match.unlockCode?.toUpperCase() === unlockCode
+      ) {
         verified.push({
           sku,
           orderId: match.orderId,
@@ -1567,11 +1464,13 @@ async function startServer() {
     res.json({ ok: true, verified });
   });
 
-  // 5b. Live OBS / vMix Browser Source access check
+  // 5b. Live OBS / vMix Browser Source access check (enforces DB subscription expiry)
   app.get('/api/overlay/access', (req, res) => {
     const sku = String(req.query.sku || '').trim();
     const token = String(req.query.token || '').trim().toUpperCase();
     const now = Date.now();
+
+    res.setHeader('Cache-Control', 'no-store');
 
     if (sku === 'kabaddi-demo') {
       res.json({ ok: true, active: true, freeDemo: true, sku: 'kabaddi-demo' });
@@ -1583,13 +1482,31 @@ async function startServer() {
       return;
     }
 
-    const match = orders.find(
-      (o) =>
-        o.status === 'approved' &&
-        o.unlockCode?.toUpperCase() === token &&
-        orderCoversSku(o, sku)
-    );
+    const sub = getSubscriptionByUnlockCode(token);
+    if (sub) {
+      if (sub.status === 'revoked') {
+        res.status(403).json({ ok: false, active: false, reason: 'revoked' });
+        return;
+      }
+      if (sku && sub.sku !== 'all' && sub.sku !== sku) {
+        res.status(403).json({ ok: false, active: false, reason: 'sku_mismatch' });
+        return;
+      }
+      if (sub.expiresAt <= now) {
+        res.status(403).json({ ok: false, active: false, reason: 'expired', expiresAt: sub.expiresAt });
+        return;
+      }
+      res.json({
+        ok: true,
+        active: true,
+        sku: sku || sub.sku,
+        planId: sub.planId,
+        expiresAt: sub.expiresAt,
+      });
+      return;
+    }
 
+    const match = findApprovedOrderByUnlockCode(token, sku || undefined);
     if (!match) {
       res.status(403).json({ ok: false, active: false, reason: 'invalid_token' });
       return;
@@ -1607,11 +1524,11 @@ async function startServer() {
   // ---------------------------------------------------------------------------
   // OWNER ADMIN ENDPOINTS (Generate Unlock Keys, Approve/Reject/Revoke)
   // ---------------------------------------------------------------------------
-  // 6. Owner Admin: list all keys & payment verification requests
+  // 6. Owner Admin: list all keys & payment verification requests from SQLite DB
   app.get('/api/admin/orders', (req, res) => {
     if (!requireAdminAuth(req, res)) return;
     const now = Date.now();
-    const enriched = orders.map((o) => {
+    const enriched = listPaymentOrders().map((o) => {
       const expiresAt = o.status === 'approved' ? getOrderExpiresAt(o) : undefined;
       return {
         ...o,
@@ -1656,13 +1573,14 @@ async function startServer() {
 
     const now = Date.now();
     const unlockCode = generateUnlockCode();
-    const order: OverlayOrder = {
+    const order: PaymentOrderRecord = {
       orderId: generateOrderId(),
       sku,
       planId: inferredPlan.id,
       durationHours,
       amount: inferredPlan.amount,
       originalPrice: inferredPlan.originalPrice,
+      currency: 'INR',
       buyerName,
       buyerPhone,
       utrRef: note || `KEY-${inferredPlan.id.toUpperCase()}`,
@@ -1674,8 +1592,8 @@ async function startServer() {
       expiresAt: now + durationHours * 60 * 60 * 1000,
     };
 
-    orders.unshift(order);
-    savePersistedOrders(orders);
+    upsertPaymentOrder(order);
+    upsertSubscriptionForOrder(order);
 
     res.status(201).json({
       ok: true,
@@ -1690,7 +1608,7 @@ async function startServer() {
   app.post('/api/admin/orders/:orderId/approve', (req, res) => {
     if (!requireAdminAuth(req, res)) return;
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
-    const order = orders.find((o) => o.orderId === orderId);
+    const order = getPaymentOrderById(orderId);
     if (!order) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
@@ -1706,19 +1624,17 @@ async function startServer() {
       return;
     }
 
-    const now = Date.now();
-    order.status = 'approved';
-    order.unlockCode = order.unlockCode || generateUnlockCode();
-    order.rejectionReason = undefined;
-    order.verifiedAt = now;
-    order.expiresAt = now + getOrderDurationMs(order);
-    savePersistedOrders(orders);
-    notifyOrderWatchers(order);
+    const activated = activateOrderAndSubscription(order.orderId);
+    if (!activated) {
+      res.status(500).json({ ok: false, error: 'Failed to activate order subscription.' });
+      return;
+    }
+    notifyOrderWatchers(activated.order);
 
     res.json({
       ok: true,
       order: {
-        ...order,
+        ...activated.order,
         isExpired: false,
       },
     });
@@ -1728,43 +1644,28 @@ async function startServer() {
   app.post('/api/admin/orders/:orderId/reject', (req, res) => {
     if (!requireAdminAuth(req, res)) return;
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
-    const order = orders.find((o) => o.orderId === orderId);
-    if (!order) {
+    const reason = String(req.body?.reason || '').trim().slice(0, 140);
+    const updated = rejectPaymentOrder(orderId, reason);
+    if (!updated) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
     }
-
-    const reason = String(req.body?.reason || '').trim().slice(0, 140);
-    order.status = 'rejected';
-    order.unlockCode = undefined;
-    order.rejectionReason =
-      reason || `₹${order.amount} payment not received for this UTR. Please check and resubmit.`;
-    order.verifiedAt = Date.now();
-    savePersistedOrders(orders);
-    notifyOrderWatchers(order);
-
-    res.json({ ok: true, order });
+    notifyOrderWatchers(updated);
+    res.json({ ok: true, order: updated });
   });
 
-  // 9. Owner Admin: immediately revoke & lock an active Unlock Key
+  // 9. Owner Admin: immediately revoke & lock an active Unlock Key & subscription
   app.post('/api/admin/orders/:orderId/revoke', (req, res) => {
     if (!requireAdminAuth(req, res)) return;
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
-    const order = orders.find((o) => o.orderId === orderId);
-    if (!order) {
+    const reason = String(req.body?.reason || '').trim().slice(0, 140);
+    const updated = revokeOrderAndSubscription(orderId, reason);
+    if (!updated) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
     }
-
-    const reason = String(req.body?.reason || '').trim().slice(0, 140);
-    order.status = 'revoked';
-    order.unlockCode = undefined;
-    order.rejectionReason = reason || 'Unlock Key revoked by owner.';
-    order.verifiedAt = Date.now();
-    savePersistedOrders(orders);
-    notifyOrderWatchers(order);
-
-    res.json({ ok: true, order });
+    notifyOrderWatchers(updated);
+    res.json({ ok: true, order: updated });
   });
 
   // ---------------------------------------------------------------------------
@@ -1922,6 +1823,7 @@ async function startServer() {
       version: getRoomVersion(matchId),
       serverNow: now,
       presence,
+      history: getHistoryInfo(matchId),
     });
   });
 
@@ -1965,6 +1867,7 @@ async function startServer() {
       serverNow: result.serverNow,
       connectedDisplays: result.presence.displays,
       presence: result.presence,
+      history: result.history,
     });
   });
 
@@ -1992,15 +1895,16 @@ async function startServer() {
     res.setHeader('Expires', '0');
 
     const presence = getRemotePresence(roomId);
+    const history = getHistoryInfo(roomId);
     const connectedDisplays = presence.displays;
     const serverNow = Date.now();
 
     if (sinceVersion > 0 && sinceVersion === version) {
-      res.json({ unchanged: true, version, serverNow, connectedDisplays, presence });
+      res.json({ unchanged: true, version, serverNow, connectedDisplays, presence, history });
       return;
     }
 
-    res.json({ state, version, serverNow, connectedDisplays, presence });
+    res.json({ state, version, serverNow, connectedDisplays, presence, history });
   });
 
   app.post('/api/overlay/:roomId', (req, res) => {
@@ -2022,6 +1926,7 @@ async function startServer() {
       serverNow: result.serverNow,
       connectedDisplays: result.presence.displays,
       presence: result.presence,
+      history: result.history,
     });
   });
 

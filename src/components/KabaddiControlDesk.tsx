@@ -4,8 +4,10 @@ import {
   ImagePlus,
   Pause,
   Play,
+  Redo2,
   RotateCcw,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react';
 import { Language } from '../data/content';
@@ -23,7 +25,12 @@ interface KabaddiControlDeskProps {
   onScoreDelta: (team: 'A' | 'B', delta: number, alertText?: string) => void;
   onQuickPoint?: (team: 'A' | 'B', kind: 'raid' | 'bonus' | 'tackle' | 'super_tackle' | 'all_out' | 'super_raid') => void;
   onTimeout?: (target: KabaddiTimeoutTeam) => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  onUndo?: () => void;
+  onRedo?: () => void;
   onToggleMatchTimer: () => void;
+  onResetMatchTimer?: () => void;
   onAdjustMatchSeconds: (deltaSec: number) => void;
   onSetMatchPreset: (seconds: number, autoStart?: boolean) => void;
   onToggleRaidTimer: () => void;
@@ -357,7 +364,12 @@ export function KabaddiControlDesk({
   onScoreDelta,
   onQuickPoint,
   onTimeout,
+  canUndo = false,
+  canRedo = false,
+  onUndo,
+  onRedo,
   onToggleMatchTimer,
+  onResetMatchTimer,
   onAdjustMatchSeconds,
   onSetMatchPreset,
   onToggleRaidTimer,
@@ -371,14 +383,38 @@ export function KabaddiControlDesk({
   const isTimeout = state.matchStatus === 'TIMEOUT' || Boolean(state.timeoutTeam);
   return (
     <div className="space-y-3.5 pt-4 border-t border-white/10">
-      {/* Header Row: Desk Title + Swap + Reset */}
+      {/* Header Row: Desk Title + Undo / Redo + Swap + Reset */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs font-semibold text-zinc-200">
           {lang === 'mr'
             ? 'कबड्डी प्रो स्कोअरबोर्ड कंट्रोल (दोन्ही बाजू लोगो)'
             : 'Kabaddi Pro Control Desk (Dual Logos)'}
         </p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {onUndo && (
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={!canUndo}
+              title="Undo"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-[#161C24] hover:bg-[#222B37] disabled:opacity-40 disabled:pointer-events-none border border-[#2A3340] rounded-lg text-zinc-200 hover:text-white transition-colors"
+            >
+              <Undo2 className="w-3 h-3 text-[#FACC15]" aria-hidden="true" />
+              <span>Undo</span>
+            </button>
+          )}
+          {onRedo && (
+            <button
+              type="button"
+              onClick={onRedo}
+              disabled={!canRedo}
+              title="Redo"
+              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium bg-[#161C24] hover:bg-[#222B37] disabled:opacity-40 disabled:pointer-events-none border border-[#2A3340] rounded-lg text-zinc-200 hover:text-white transition-colors"
+            >
+              <Redo2 className="w-3 h-3 text-[#38BDF8]" aria-hidden="true" />
+              <span>Redo</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={onSwapTeams}
@@ -421,6 +457,17 @@ export function KabaddiControlDesk({
               )}
               <span>{state.matchRunning ? 'Pause' : 'Start'}</span>
             </button>
+            {onResetMatchTimer && (
+              <button
+                type="button"
+                onClick={onResetMatchTimer}
+                title="Reset timer to 00:30"
+                className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold bg-[#1B222C] hover:bg-[#242D3A] border border-[#2A3340] rounded-lg text-zinc-200"
+              >
+                <RotateCcw className="w-3 h-3 text-[#FACC15]" aria-hidden="true" />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
 
           <div className="flex items-center gap-1 flex-wrap">

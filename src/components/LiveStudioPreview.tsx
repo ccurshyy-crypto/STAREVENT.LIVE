@@ -117,6 +117,8 @@ export function LiveStudioPreview({
     connectedDisplays,
     connectedControllers,
     controllerNames,
+    canUndo,
+    canRedo,
     roomId,
     getServerNow,
   } = useOverlaySync({
@@ -1332,7 +1334,12 @@ export function LiveStudioPreview({
                   onScoreDelta={handleKabaddiScore}
                   onQuickPoint={handleKabaddiQuickPoint}
                   onTimeout={handleKabaddiTimeout}
+                  canUndo={canUndo}
+                  canRedo={canRedo}
+                  onUndo={() => sendAction('undo')}
+                  onRedo={() => sendAction('redo')}
                   onToggleMatchTimer={handleToggleMatchTimer}
+                  onResetMatchTimer={() => sendAction('timer_reset', { seconds: 30, autoStart: false })}
                   onAdjustMatchSeconds={handleAdjustMatchSeconds}
                   onSetMatchPreset={handleSetMatchPreset}
                   onToggleRaidTimer={handleToggleRaidTimer}

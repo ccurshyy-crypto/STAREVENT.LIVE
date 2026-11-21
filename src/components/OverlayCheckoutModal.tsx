@@ -107,8 +107,12 @@ export function OverlayCheckoutModal({
   const [tab, setTab] = useState<'pay' | 'key'>('pay');
   const [selectedPlanId, setSelectedPlanId] = useState<OverlayPlanId>(initialPlanId);
   const [autoGatewayEnabled, setAutoGatewayEnabled] = useState<boolean>(false);
+  const [cashfreeEnv, setCashfreeEnv] = useState<'sandbox' | 'production'>('sandbox');
   const [creatingQr, setCreatingQr] = useState<boolean>(false);
+  const [openingCheckout, setOpeningCheckout] = useState<boolean>(false);
   const [gatewayQrUrl, setGatewayQrUrl] = useState<string | null>(null);
+  const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
+  const [gatewayUpiIntent, setGatewayUpiIntent] = useState<string | null>(null);
   const [dynamicUpiQrUrl, setDynamicUpiQrUrl] = useState<string | null>(null);
 
   const [showUtrForm, setShowUtrForm] = useState(false);
@@ -133,6 +137,8 @@ export function OverlayCheckoutModal({
     if (!product) {
       setActiveOrder(null);
       setGatewayQrUrl(null);
+      setPaymentSessionId(null);
+      setGatewayUpiIntent(null);
       setError(null);
       setKeyError(null);
       setShowUtrForm(false);
@@ -147,17 +153,25 @@ export function OverlayCheckoutModal({
       if (existingPendingOrder.gatewayQrImageUrl) {
         setGatewayQrUrl(existingPendingOrder.gatewayQrImageUrl);
       }
+      if (existingPendingOrder.paymentSessionId) {
+        setPaymentSessionId(existingPendingOrder.paymentSessionId);
+      }
+      if (existingPendingOrder.upiIntentUrl) {
+        setGatewayUpiIntent(existingPendingOrder.upiIntentUrl);
+      }
       setTab('pay');
     } else {
       setActiveOrder(null);
       setGatewayQrUrl(null);
+      setPaymentSessionId(null);
+      setGatewayUpiIntent(null);
       setSelectedPlanId(initialPlanId);
     }
     setError(null);
     setKeyError(null);
   }, [product, existingPendingOrder, initialPlanId]);
 
-  // Fetch gateway config + generate live Razorpay QR (when configured) OR crisp amount-locked dynamic UPI QR
+  // Fetch Cashfree gateway config + create Cashfree order & dynamic UPI QR (when configured) OR local UPI QR
   useEffect(() => {
     if (!product) return;
     let cancelled = false;
@@ -181,36 +195,41 @@ export function OverlayCheckoutModal({
         if (!cancelled) setDynamicUpiQrUrl(null);
       });
 
-    // Check server gateway config & auto-generate Razorpay live QR if configured
-    const initGatewayQr = async () => {
+    // Check server Cashfree gateway config & auto-create Cashfree order + dynamic UPI QR
+    const initCashfreeOrder = async () => {
       try {
-        const cfgRes = await fetch('/api/payment/config');
+        const cfgRes = await fetch('/api/payment/config', { cache: 'no-store' });
         const cfg = await cfgRes.json();
         if (cancelled) return;
         const enabled = Boolean(cfgRes.ok && cfg?.autoUnlockEnabled);
         setAutoGatewayEnabled(enabled);
+        setCashfreeEnv(cfg?.cashfreeEnv === 'production' ? 'production' : 'sandbox');
 
         if (!enabled) {
           setGatewayQrUrl(null);
+          setPaymentSessionId(null);
+          setGatewayUpiIntent(null);
           return;
         }
 
-        // Reuse existing pending Razorpay QR if it matches the exact SKU & selected plan
+        // Reuse existing pending Cashfree order if it matches the exact SKU & selected plan
         if (
           activeOrder &&
           activeOrder.status === 'pending' &&
-          activeOrder.paymentMethod === 'razorpay_qr' &&
+          activeOrder.paymentMethod === 'cashfree_qr' &&
           activeOrder.sku === product.sku &&
           activeOrder.planId === selectedPlan.id &&
-          activeOrder.gatewayQrImageUrl
+          (activeOrder.gatewayQrImageUrl || activeOrder.paymentSessionId)
         ) {
-          setGatewayQrUrl(activeOrder.gatewayQrImageUrl);
+          setGatewayQrUrl(activeOrder.gatewayQrImageUrl || null);
+          setPaymentSessionId(activeOrder.paymentSessionId || null);
+          setGatewayUpiIntent(activeOrder.upiIntentUrl || null);
           return;
         }
 
         setCreatingQr(true);
         setError(null);
-        const qrRes = await fetch('/api/payment/qr/create', {
+        const qrRes = await fetch('/api/payment/cashfree/create-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -221,13 +240,15 @@ export function OverlayCheckoutModal({
         const qrData = await qrRes.json();
         if (cancelled) return;
 
-        if (qrRes.ok && qrData?.mode === 'razorpay_auto' && qrData?.order && qrData?.qrImageUrl) {
+        if (qrRes.ok && qrData?.mode === 'cashfree_auto' && qrData?.order) {
           const orderObj = qrData.order as PendingOverlayOrder;
-          setGatewayQrUrl(qrData.qrImageUrl);
+          setGatewayQrUrl(qrData.qrImageUrl || orderObj.gatewayQrImageUrl || null);
+          setPaymentSessionId(qrData.paymentSessionId || orderObj.paymentSessionId || null);
+          setGatewayUpiIntent(qrData.upiIntentUrl || orderObj.upiIntentUrl || null);
           setActiveOrder(orderObj);
           onPendingOrderChange(orderObj);
         } else if (!qrRes.ok) {
-          setError(qrData?.error || 'Could not generate automatic QR code.');
+          setError(qrData?.error || 'Could not initialize Cashfree payment order.');
         }
       } catch {
         if (!cancelled) setAutoGatewayEnabled(false);
@@ -236,7 +257,7 @@ export function OverlayCheckoutModal({
       }
     };
 
-    initGatewayQr();
+    initCashfreeOrder();
     return () => {
       cancelled = true;
     };
@@ -277,13 +298,14 @@ export function OverlayCheckoutModal({
       }
     };
 
-    // Backup poll every 3s for automatic Razorpay QR settlement detection
+    // Backup poll every 3s for automatic Cashfree PG payment verification
     const pollId = window.setInterval(async () => {
       try {
-        const res = await fetch(
-          `/api/overlay/orders/${encodeURIComponent(activeOrder.orderId)}/status`,
-          { cache: 'no-store' }
-        );
+        const endpoint =
+          activeOrder.paymentMethod === 'cashfree_qr'
+            ? `/api/payment/cashfree/verify?orderId=${encodeURIComponent(activeOrder.orderId)}`
+            : `/api/overlay/orders/${encodeURIComponent(activeOrder.orderId)}/status`;
+        const res = await fetch(endpoint, { cache: 'no-store' });
         const data = await res.json();
         if (res.ok && data?.order) {
           applyUpdate(data.order as PendingOverlayOrder);
@@ -301,6 +323,7 @@ export function OverlayCheckoutModal({
     product,
     activeOrder?.orderId,
     activeOrder?.status,
+    activeOrder?.paymentMethod,
     selectedPlan.durationHours,
     selectedPlan.id,
     onPendingOrderChange,
@@ -310,18 +333,20 @@ export function OverlayCheckoutModal({
   if (!product) return null;
 
   const isManualPending =
-    activeOrder?.status === 'pending' && activeOrder.paymentMethod !== 'razorpay_qr';
+    activeOrder?.status === 'pending' && activeOrder.paymentMethod !== 'cashfree_qr';
   const isAutoQrListening =
     autoGatewayEnabled &&
     activeOrder?.status === 'pending' &&
-    activeOrder.paymentMethod === 'razorpay_qr' &&
-    Boolean(gatewayQrUrl);
+    activeOrder.paymentMethod === 'cashfree_qr' &&
+    Boolean(gatewayQrUrl || paymentSessionId);
 
-  const upiDeepLink = `upi://pay?pa=${encodeURIComponent(STUDIO_CONTACT.upiId)}&pn=${encodeURIComponent(
-    STUDIO_CONTACT.upiPayeeName
-  )}&am=${selectedPlan.price}&cu=INR&tn=${encodeURIComponent(
-    `StarEventLive-${product.sku}-${selectedPlan.id}`
-  )}`;
+  const upiDeepLink =
+    gatewayUpiIntent ||
+    `upi://pay?pa=${encodeURIComponent(STUDIO_CONTACT.upiId)}&pn=${encodeURIComponent(
+      STUDIO_CONTACT.upiPayeeName
+    )}&am=${selectedPlan.price}&cu=INR&tn=${encodeURIComponent(
+      `StarEventLive-${product.sku}-${selectedPlan.id}`
+    )}`;
 
   const whatsappPaymentHref = `https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
     `Hello Star Event Live! I have paid ₹${selectedPlan.price} (${selectedPlan.label.en}) on UPI (${STUDIO_CONTACT.upiId}) for ${product.title.en} (${product.sku}). Attaching my payment screenshot — please activate/send my Unlock Key.`
@@ -341,9 +366,78 @@ export function OverlayCheckoutModal({
     if (planId === selectedPlanId) return;
     setSelectedPlanId(planId);
     setError(null);
-    if (activeOrder?.status === 'pending' && activeOrder.paymentMethod === 'razorpay_qr') {
+    if (activeOrder?.status === 'pending' && activeOrder.paymentMethod === 'cashfree_qr') {
       setActiveOrder(null);
       setGatewayQrUrl(null);
+      setPaymentSessionId(null);
+      setGatewayUpiIntent(null);
+    }
+  };
+
+  // Load official Cashfree JS SDK v3 on demand and launch Sandbox/Production UPI/QR Checkout modal
+  const handleLaunchCashfreeCheckout = async () => {
+    if (!paymentSessionId || !activeOrder) return;
+    setOpeningCheckout(true);
+    setError(null);
+    try {
+      const w = window as unknown as {
+        Cashfree?: (opts: { mode: 'sandbox' | 'production' }) => {
+          checkout: (opts: { paymentSessionId: string; redirectTarget: string }) => Promise<{
+            error?: { message?: string };
+            paymentDetails?: unknown;
+          }>;
+        };
+      };
+
+      if (typeof w.Cashfree !== 'function') {
+        await new Promise<void>((resolve, reject) => {
+          const existing = document.querySelector<HTMLScriptElement>(
+            'script[src="https://sdk.cashfree.com/js/v3/cashfree.js"]'
+          );
+          if (existing) {
+            if (typeof w.Cashfree === 'function') {
+              resolve();
+              return;
+            }
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('Cashfree SDK load failed')), {
+              once: true,
+            });
+            return;
+          }
+          const script = document.createElement('script');
+          script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error('Cashfree SDK load failed'));
+          document.head.appendChild(script);
+        });
+      }
+
+      if (typeof w.Cashfree !== 'function') {
+        throw new Error('Cashfree checkout SDK unavailable.');
+      }
+
+      const cashfree = w.Cashfree({ mode: cashfreeEnv });
+      const result = await cashfree.checkout({
+        paymentSessionId,
+        redirectTarget: '_modal',
+      });
+
+      if (result?.error?.message) {
+        setError(result.error.message);
+      }
+
+      // Immediately run authoritative server-side verification after checkout closes
+      await handleManualStatusCheck();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Could not open Cashfree checkout modal. Please scan the QR code or retry.'
+      );
+    } finally {
+      setOpeningCheckout(false);
     }
   };
 
@@ -509,10 +603,11 @@ export function OverlayCheckoutModal({
     setCheckingStatus(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/overlay/orders/${encodeURIComponent(activeOrder.orderId)}/status`,
-        { cache: 'no-store' }
-      );
+      const endpoint =
+        activeOrder.paymentMethod === 'cashfree_qr'
+          ? `/api/payment/cashfree/verify?orderId=${encodeURIComponent(activeOrder.orderId)}`
+          : `/api/overlay/orders/${encodeURIComponent(activeOrder.orderId)}/status`;
+      const res = await fetch(endpoint, { cache: 'no-store' });
       const data = await res.json();
       if (res.ok && data?.order) {
         const orderData = data.order as PendingOverlayOrder;
@@ -879,23 +974,55 @@ export function OverlayCheckoutModal({
                 </div>
 
                 {isAutoQrListening ? (
-                  <div className="bg-[#0D1A12] border border-[#4ADE80]/40 rounded-lg px-3 py-2.5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs text-[#4ADE80] font-semibold">
-                      <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-ping shrink-0" />
-                      <span>
-                        {lang === 'mr'
-                          ? 'पेमेंटची वाट पाहत आहे (ऑटो अनलॉक चालू)...'
-                          : 'Listening for payment (Auto-Unlock ON)...'}
-                      </span>
+                  <div className="space-y-2.5">
+                    {cashfreeEnv === 'sandbox' && (
+                      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#FACC15]">
+                        CASHFREE SANDBOX MODE · TEST ENVIRONMENT
+                      </p>
+                    )}
+
+                    {paymentSessionId && (
+                      <button
+                        type="button"
+                        onClick={handleLaunchCashfreeCheckout}
+                        disabled={openingCheckout}
+                        className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-black bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap tabular-nums"
+                      >
+                        {openingCheckout ? (
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                        ) : (
+                          <QrCode className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        )}
+                        <span>
+                          {openingCheckout
+                            ? lang === 'mr'
+                              ? 'Cashfree उघडत आहे...'
+                              : 'Opening Cashfree...'
+                            : lang === 'mr'
+                              ? `Cashfree UPI / QR ने ₹${selectedPlan.price} भरा`
+                              : `Pay ₹${selectedPlan.price} via Cashfree Checkout`}
+                        </span>
+                      </button>
+                    )}
+
+                    <div className="bg-[#0D1A12] border border-[#4ADE80]/40 rounded-lg px-3 py-2.5 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs text-[#4ADE80] font-semibold">
+                        <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-ping shrink-0" />
+                        <span>
+                          {lang === 'mr'
+                            ? 'Cashfree पेमेंटची वाट पाहत आहे (ऑटो अनलॉक)...'
+                            : 'Listening for Cashfree payment (Auto-Unlock)...'}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleManualStatusCheck}
+                        disabled={checkingStatus}
+                        className="text-[11px] font-mono font-bold text-[#FACC15] hover:text-white shrink-0"
+                      >
+                        {checkingStatus ? '...' : 'Verify'}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleManualStatusCheck}
-                      disabled={checkingStatus}
-                      className="text-[11px] font-mono font-bold text-[#FACC15] hover:text-white shrink-0"
-                    >
-                      {checkingStatus ? '...' : 'Refresh'}
-                    </button>
                   </div>
                 ) : (
                   <>
@@ -937,7 +1064,7 @@ export function OverlayCheckoutModal({
 
             {error && <p className="text-xs text-[#F87171]">{error}</p>}
 
-            {/* When Razorpay isn't configured yet, show clear honest verification steps (Zero Fake Fraud!) */}
+            {/* When Cashfree credentials aren't configured yet, show clear honest verification steps */}
             {!isAutoQrListening && (
               <>
                 <div className="bg-[#0D1A12] border border-[#4ADE80]/30 rounded-xl p-3.5 space-y-2">
@@ -948,8 +1075,8 @@ export function OverlayCheckoutModal({
                   </p>
                   <p className="text-[11px] text-zinc-400 leading-relaxed">
                     {lang === 'mr'
-                      ? 'खोट्या पेमेंटपासून सुरक्षेसाठी पेमेंट कन्फर्म झाल्यावरच अनलॉक होते. (ऑटो-अनलॉक गेटवेसाठी ओनर Secrets मध्ये Razorpay Keys जोडू शकतात.)'
-                      : 'Anti-fraud verified unlock: instant automatic QR unlock activates once Razorpay keys are set in Secrets, or verify via WhatsApp / UTR below.'}
+                      ? 'खोट्या पेमेंटपासून सुरक्षेसाठी पेमेंट कन्फर्म झाल्यावरच अनलॉक होते. (ऑटो Cashfree QR अनलॉकसाठी Cashfree Sandbox / Live Keys सेट करा किंवा खालील WhatsApp / UTR ने व्हेरिफाय करा.)'
+                      : 'Verified unlock only after confirmed payment: automatic Cashfree dynamic QR unlock activates once Cashfree API keys are configured, or verify via WhatsApp / UTR below.'}
                   </p>
                   <a
                     href={whatsappPaymentHref}
