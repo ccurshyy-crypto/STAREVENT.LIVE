@@ -12,11 +12,45 @@
     background-color: #09090B;
     color: #F4F4F5;
     scroll-behavior: smooth;
+    line-height: 1.65;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
     text-wrap: balance;
+  }
+
+  /* Devanagari (Marathi) script needs neutral letter-spacing, subtle word breathing room, and taller line boxes so top/bottom matras never collide */
+  html[lang="mr"] body {
+    letter-spacing: 0;
+    word-spacing: 0.05em;
+    line-height: 1.72;
+  }
+
+  html[lang="mr"] h1,
+  html[lang="mr"] h2,
+  html[lang="mr"] h3,
+  html[lang="mr"] h4 {
+    letter-spacing: 0 !important;
+    word-spacing: 0.05em;
+  }
+
+  html[lang="mr"] h1 {
+    line-height: 1.38;
+  }
+
+  html[lang="mr"] h2,
+  html[lang="mr"] h3 {
+    line-height: 1.42;
+  }
+
+  html[lang="mr"] h4 {
+    line-height: 1.48;
+  }
+
+  html[lang="mr"] p,
+  html[lang="mr"] li {
+    line-height: 1.72;
   }
 }
 
@@ -53,6 +87,159 @@ body.overlay-chroma-blue #root {
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
+}
+
+@keyframes broadcastGradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes broadcastBeamSweep {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(220%);
+  }
+}
+
+@keyframes broadcastSheen {
+  0% {
+    transform: translateX(-120%) skewX(-20deg);
+  }
+  65%,
+  100% {
+    transform: translateX(260%) skewX(-20deg);
+  }
+}
+
+.topbar-animated-bg {
+  background: linear-gradient(
+    105deg,
+    rgba(11, 10, 14, 0.94) 0%,
+    rgba(64, 10, 16, 0.9) 28%,
+    rgba(22, 16, 12, 0.92) 52%,
+    rgba(74, 48, 8, 0.86) 76%,
+    rgba(11, 10, 14, 0.95) 100%
+  );
+  background-size: 260% 260%;
+  animation: broadcastGradientShift 12s ease-in-out infinite;
+}
+
+.studio-strip-animated-bg {
+  background: linear-gradient(
+    110deg,
+    rgba(32, 8, 12, 0.86) 0%,
+    rgba(18, 15, 22, 0.9) 35%,
+    rgba(66, 40, 6, 0.84) 68%,
+    rgba(46, 10, 14, 0.88) 100%
+  );
+  background-size: 240% 240%;
+  animation: broadcastGradientShift 9s ease-in-out infinite;
+}
+
+.topbar-beam-sweep {
+  animation: broadcastBeamSweep 5.5s linear infinite;
+}
+
+.studio-strip-sheen {
+  animation: broadcastSheen 6.5s ease-in-out infinite;
+}
+
+@keyframes ganeshTextShimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes ganeshGlowPulse {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+    filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.35)) drop-shadow(0 0 24px rgba(220, 38, 38, 0.28));
+  }
+  50% {
+    transform: translateY(-2px) scale(1.025);
+    filter: drop-shadow(0 0 18px rgba(250, 204, 21, 0.65)) drop-shadow(0 0 34px rgba(239, 68, 68, 0.45));
+  }
+}
+
+.ganesh-invocation-text {
+  background: linear-gradient(
+    90deg,
+    #f59e0b 0%,
+    #fef08a 26%,
+    #facc15 50%,
+    #fff7d6 74%,
+    #f97316 100%
+  );
+  background-size: 240% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation:
+    ganeshTextShimmer 5.5s ease-in-out infinite,
+    ganeshGlowPulse 4.2s ease-in-out infinite;
+}
+
+@keyframes bannerGradientFlow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes bannerSheenGlide {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+  }
+  55%,
+  100% {
+    transform: translateX(340%) skewX(-22deg);
+  }
+}
+
+@keyframes bannerTrophyGleam {
+  0%,
+  100% {
+    transform: translateY(0px) scale(1);
+    filter: drop-shadow(0 2px 6px rgba(250, 204, 21, 0.45));
+  }
+  50% {
+    transform: translateY(-2px) scale(1.06);
+    filter: drop-shadow(0 4px 14px rgba(250, 204, 21, 0.85));
+  }
+}
+
+.banner-strip-animated {
+  background-size: 200% 200%;
+  animation: bannerGradientFlow 8s ease-in-out infinite;
+}
+
+.banner-sheen-animated {
+  animation: bannerSheenGlide 5.2s ease-in-out infinite;
+}
+
+.banner-trophy-animated {
+  animation: bannerTrophyGleam 3.4s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

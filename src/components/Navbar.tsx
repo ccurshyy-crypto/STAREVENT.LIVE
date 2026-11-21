@@ -4,9 +4,10 @@ import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 
 interface NavbarProps {
   lang: Language;
-  currentPage: 'home' | 'overlays';
+  currentPage: 'home' | 'overlays' | 'packages';
   onNavigateHome: (sectionId?: string) => void;
   onNavigateOverlays: () => void;
+  onNavigatePackages: () => void;
 }
 
 export function Navbar({
@@ -14,6 +15,7 @@ export function Navbar({
   currentPage,
   onNavigateHome,
   onNavigateOverlays,
+  onNavigatePackages,
 }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -21,11 +23,12 @@ export function Navbar({
     id: string;
     href: string;
     label: string;
-    isOverlays?: boolean;
+    page?: 'home' | 'overlays' | 'packages';
   }> = [
+    { id: 'top', href: '/', label: UI_COPY.nav.home[lang], page: 'home' },
     { id: 'services', href: '/#services', label: UI_COPY.nav.services[lang] },
-    { id: 'overlays', href: '/overlays', label: UI_COPY.nav.studio[lang], isOverlays: true },
-    { id: 'packages', href: '/#packages', label: UI_COPY.nav.packages[lang] },
+    { id: 'overlays', href: '/overlays', label: UI_COPY.nav.studio[lang], page: 'overlays' },
+    { id: 'packages', href: '/packages', label: UI_COPY.nav.packages[lang], page: 'packages' },
     { id: 'book', href: '/#book', label: UI_COPY.nav.book[lang] },
   ];
 
@@ -35,16 +38,34 @@ export function Navbar({
   ) => {
     e.preventDefault();
     setMobileOpen(false);
-    if (item.isOverlays) {
+    if (item.page === 'home') {
+      onNavigateHome('top');
+    } else if (item.page === 'overlays') {
       onNavigateOverlays();
+    } else if (item.page === 'packages') {
+      onNavigatePackages();
     } else {
       onNavigateHome(item.id);
     }
   };
 
   return (
-    <header className="sticky top-0 z-40 h-16 bg-[#09090B]/92 backdrop-blur-md border-b border-white/10">
-      <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-8">
+    <header className="sticky top-0 z-40 h-16 topbar-animated-bg backdrop-blur-md border-b border-[#FACC15]/20 overflow-x-clip">
+      {/* Subtle animated crimson-gold light beam sweeping along the bottom edge */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
+      >
+        <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FACC15] via-50% to-[#EF4444] opacity-85 topbar-beam-sweep" />
+      </div>
+
+      {/* Soft top edge glow */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#FACC15]/45 to-transparent"
+      />
+
+      <div className="relative z-10 max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-8">
         {/* Zone 1: Single-element brand wordmark */}
         <a
           href="/"
@@ -65,7 +86,7 @@ export function Navbar({
           className="hidden md:flex items-center gap-7 text-sm font-medium text-zinc-300"
         >
           {navItems.map((item) => {
-            const isActive = Boolean(item.isOverlays && currentPage === 'overlays');
+            const isActive = Boolean(item.page && currentPage === item.page);
             return (
               <a
                 key={item.id}
@@ -113,7 +134,7 @@ export function Navbar({
           className="md:hidden bg-[#111115] border-b border-white/10 px-4 py-4 space-y-1"
         >
           {navItems.map((item) => {
-            const isActive = Boolean(item.isOverlays && currentPage === 'overlays');
+            const isActive = Boolean(item.page && currentPage === item.page);
             return (
               <a
                 key={item.id}

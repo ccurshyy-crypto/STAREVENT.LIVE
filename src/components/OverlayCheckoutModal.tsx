@@ -10,9 +10,11 @@ import {
   MessageCircle,
   QrCode,
   RefreshCw,
+  ShieldAlert,
   ShieldCheck,
   Upload,
   X,
+  Zap,
 } from 'lucide-react';
 import { Language, STUDIO_CONTACT } from '../data/content';
 import {
@@ -28,6 +30,54 @@ interface OverlayCheckoutModalProps {
   onClose: () => void;
   onPendingOrderChange: (order: PendingOverlayOrder | null) => void;
   onVerifiedUnlock: (token: VerifiedOverlayToken) => void;
+}
+
+interface RazorpayResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+}
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+function loadRazorpayCheckoutScript(): Promise<boolean> {
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (window.Razorpay) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve(Boolean(window.Razorpay));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+function validateUtrClient(utr: string, lang: Language): string | null {
+  if (!/^\d{12}$/.test(utr)) {
+    return lang === 'mr'
+      ? 'कृपया GPay / PhonePe मधील अचूक 12 अंकी UPI UTR नंबर प्रविष्ट करा.'
+      : 'Please enter the exact 12-digit UPI UTR / Reference Number.';
+  }
+  const fakePatterns = new Set([
+    '123456789012',
+    '012345678901',
+    '987654321098',
+    '123456123456',
+    '111111222222',
+    '112233445566',
+    '999999888888',
+  ]);
+  if (/^(\d)\1{11}$/.test(utr) || fakePatterns.has(utr) || new Set(utr.split('')).size < 4 || /(\d)\1{6,}/.test(utr)) {
+    return lang === 'mr'
+      ? 'खोटा / चुकीचा UTR नंबर स्वीकारला जात नाही. फक्त खऱ्या ₹99 UPI पेमेंटचा UTR टाका.'
+      : 'Fake or invalid UTR pattern blocked. Enter the real 12-digit UTR from your ₹99 UPI receipt.';
+  }
+  return null;
 }
 
 async function compressProofImage(file: File): Promise<string> {
@@ -77,6 +127,26 @@ export function OverlayCheckoutModal({
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [activeOrder, setActiveOrder] = useState<PendingOverlayOrder | null>(null);
+  const [razorpayEnabled, setRazorpayEnabled] = useState(false);
+
+  // Check if instant bank-verified Razorpay gateway is configured on the server
+  useEffect(() => {
+    if (!product) return;
+    let active = true;
+    fetch('/api/payment/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (active && data?.ok) {
+          setRazorpayEnabled(Boolean(data.razorpayEnabled));
+        }
+      })
+      .catch(() => {
+        if (active) setRazorpayEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [product]);
 
   // Sync existing pending order when modal opens for a SKU
   useEffect(() => {
@@ -94,7 +164,7 @@ export function OverlayCheckoutModal({
     setError(null);
   }, [product, existingPendingOrder]);
 
-  // Real-time SSE listener while order is pending — auto-unlocks ONLY when server approves ₹99 payment
+  // Real-time SSE listener while order is pending — unlocks ONLY when server confirms real ₹99 payment
   useEffect(() => {
     if (!product || !activeOrder || activeOrder.status !== 'pending') return;
 
@@ -108,8 +178,9 @@ export function OverlayCheckoutModal({
           sku: product.sku,
           orderId: orderData.orderId,
           unlockCode: orderData.unlockCode,
+          expiresAt: orderData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
         });
-      } else if (orderData.status === 'rejected') {
+      } else if (orderData.status === 'rejected' || orderData.status === 'revoked') {
         onPendingOrderChange(null);
       } else {
         onPendingOrderChange(orderData);
@@ -140,7 +211,7 @@ export function OverlayCheckoutModal({
   )}&am=${product.salePrice}&cu=INR&tn=${encodeURIComponent(`StarEventLive-${product.sku}`)}`;
 
   const whatsappReceiptHref = `https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-    `Hello Star Event Live, I paid ₹${product.salePrice} on UPI ${STUDIO_CONTACT.upiId} for ${product.title.en} (${product.sku}). Order ID: ${activeOrder?.orderId || '-'}, UTR: ${activeOrder?.utrRef || utrRef || '-'}, Name: ${buyerName || '-'}, Mobile: ${buyerPhone || '-'}. Please verify & unlock.`
+    `Hello Star Event Live, I paid ₹${product.salePrice} on UPI ${STUDIO_CONTACT.upiId} for ${product.title.en} (${product.sku}). Order ID: ${activeOrder?.orderId || '-'}, Name: ${buyerName || '-'}, Mobile: ${buyerPhone || '-'}. Please verify & unlock.`
   )}`;
 
   const handleCopyUpi = async () => {
@@ -178,6 +249,87 @@ export function OverlayCheckoutModal({
     }
   };
 
+  const handleRazorpayInstantPay = async () => {
+    const cleanedPhone = buyerPhone.replace(/\D/g, '');
+    if (buyerName.trim().length < 2 || cleanedPhone.length < 10) {
+      setError(
+        lang === 'mr'
+          ? 'थेट पेमेंटसाठी कृपया तुमचे नाव आणि 10 अंकी मोबाईल नंबर भरा.'
+          : 'Enter your name and 10-digit mobile number first for instant verified checkout.'
+      );
+      return;
+    }
+
+    setError(null);
+    setSubmitting(true);
+    try {
+      const loaded = await loadRazorpayCheckoutScript();
+      if (!loaded || !window.Razorpay) {
+        setError('Could not load Razorpay checkout. Please use UPI QR verification below.');
+        return;
+      }
+
+      const orderRes = await fetch('/api/payment/razorpay/create-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sku: product.sku,
+          buyerName: buyerName.trim(),
+          buyerPhone: cleanedPhone,
+        }),
+      });
+      const orderData = await orderRes.json();
+      if (!orderRes.ok || !orderData?.ok) {
+        setError(orderData?.error || 'Could not start online payment.');
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        key: orderData.razorpayKeyId,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'STAR EVENT LIVE',
+        description: `${product.title.en} (24-Hour Pass)`,
+        order_id: orderData.razorpayOrderId,
+        prefill: {
+          name: buyerName.trim(),
+          contact: cleanedPhone,
+        },
+        theme: { color: '#DC2626' },
+        handler: async (response: RazorpayResponse) => {
+          try {
+            const verifyRes = await fetch('/api/payment/razorpay/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(response),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok || !verifyData?.ok || !verifyData?.order?.unlockCode) {
+              setError(verifyData?.error || 'Bank verification failed. Overlay remains locked.');
+              return;
+            }
+            const verifiedOrder = verifyData.order as PendingOverlayOrder;
+            setActiveOrder(verifiedOrder);
+            onPendingOrderChange(null);
+            onVerifiedUnlock({
+              sku: product.sku,
+              orderId: verifiedOrder.orderId,
+              unlockCode: verifiedOrder.unlockCode!,
+              expiresAt: verifiedOrder.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
+            });
+          } catch {
+            setError('Could not verify payment with server.');
+          }
+        },
+      });
+      rzp.open();
+    } catch {
+      setError('Could not connect to payment gateway.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleSubmitOrder = async (e: FormEvent) => {
     e.preventDefault();
     const cleanedPhone = buyerPhone.replace(/\D/g, '');
@@ -195,11 +347,18 @@ export function OverlayCheckoutModal({
       );
       return;
     }
-    if (!/^\d{12}$/.test(cleanedUtr)) {
+
+    const utrError = validateUtrClient(cleanedUtr, lang);
+    if (utrError) {
+      setError(utrError);
+      return;
+    }
+
+    if (!proofImage) {
       setError(
         lang === 'mr'
-          ? 'कृपया GPay / PhonePe मधील अचूक 12 अंकी UPI UTR नंबर प्रविष्ट करा.'
-          : 'Please enter the exact 12-digit UPI UTR / Transaction Reference Number.'
+          ? 'खोट्या पेमेंटपासून सुरक्षेसाठी ₹99 UPI पेमेंटचा खरा स्क्रीनशॉट अपलोड करणे अनिवार्य आहे.'
+          : 'Uploading your real ₹99 UPI payment screenshot is mandatory to prevent fake submissions.'
       );
       return;
     }
@@ -216,7 +375,7 @@ export function OverlayCheckoutModal({
           buyerName: buyerName.trim(),
           buyerPhone: cleanedPhone,
           utrRef: cleanedUtr,
-          proofImage: proofImage || undefined,
+          proofImage,
         }),
       });
       const data = await res.json();
@@ -233,6 +392,7 @@ export function OverlayCheckoutModal({
           sku: product.sku,
           orderId: orderData.orderId,
           unlockCode: orderData.unlockCode,
+          expiresAt: orderData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
         });
       } else {
         onPendingOrderChange(orderData);
@@ -264,8 +424,9 @@ export function OverlayCheckoutModal({
             sku: product.sku,
             orderId: orderData.orderId,
             unlockCode: orderData.unlockCode,
+            expiresAt: orderData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
           });
-        } else if (orderData.status === 'rejected') {
+        } else if (orderData.status === 'rejected' || orderData.status === 'revoked') {
           onPendingOrderChange(null);
         }
       }
@@ -279,11 +440,11 @@ export function OverlayCheckoutModal({
   const handleVerifyUnlockCode = async (e: FormEvent) => {
     e.preventDefault();
     const cleaned = unlockCodeInput.trim().toUpperCase();
-    if (cleaned.length < 6) {
+    if (!cleaned.startsWith('STAR-') || cleaned.length < 14) {
       setError(
         lang === 'mr'
-          ? 'कृपया मिळालेला वैध अनलॉक कोड प्रविष्ट करा (उदा. STAR-XXXX-XXXX).'
-          : 'Please enter a valid unlock code (e.g. STAR-XXXX-XXXX).'
+          ? 'कृपया पेमेंट कन्फर्म झाल्यावर मिळालेला वैध अनलॉक कोड प्रविष्ट करा (STAR-XXXX-XXXX-XXXX).'
+          : 'Please enter your verified Unlock Code (e.g. STAR-XXXX-XXXX-XXXX).'
       );
       return;
     }
@@ -315,6 +476,7 @@ export function OverlayCheckoutModal({
         sku: product.sku,
         orderId: data.orderId,
         unlockCode: data.unlockCode,
+        expiresAt: Number(data.expiresAt) || Date.now() + 24 * 60 * 60 * 1000,
       });
       onClose();
     } catch {
@@ -350,8 +512,8 @@ export function OverlayCheckoutModal({
         <div className="space-y-1.5 pr-8">
           <p className="text-xs font-mono font-semibold text-[#FACC15]">
             {lang === 'mr'
-              ? 'पेमेंट व्हेरिफिकेशननंतरच अनलॉक · STAR EVENT LIVE'
-              : 'VERIFIED ₹99 PAYMENT UNLOCK · STAR EVENT LIVE'}
+              ? 'फक्त खऱ्या ₹99 पेमेंटनंतरच अनलॉक · ANTI-FRAUD PROTECTED'
+              : 'REAL ₹99 PAYMENT VERIFICATION · ANTI-FRAUD PROTECTED'}
           </p>
           <h3 id="checkout-modal-title" className="font-display text-lg sm:text-2xl font-bold text-white">
             {product.title[lang]}
@@ -365,7 +527,9 @@ export function OverlayCheckoutModal({
               ₹{product.salePrice}
             </span>
             <span className="text-xs font-semibold text-[#4ADE80] tabular-nums">
-              {lang === 'mr' ? `₹${savings} सूट (33% OFF)` : `Save ₹${savings} · 33% OFF`}
+              {lang === 'mr'
+                ? `₹${savings} सूट · 24 तास अनलॉक`
+                : `Save ₹${savings} · 24 Hours Pass`}
             </span>
           </div>
         </div>
@@ -383,7 +547,7 @@ export function OverlayCheckoutModal({
             }`}
           >
             <QrCode className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>{lang === 'mr' ? '₹99 UPI QR पेमेंट' : 'Pay ₹99 via UPI QR'}</span>
+            <span>{lang === 'mr' ? '₹99 UPI पेमेंट' : 'Pay ₹99 Verified'}</span>
           </button>
           <button
             type="button"
@@ -405,26 +569,26 @@ export function OverlayCheckoutModal({
             <div className="bg-[#0D0D11] border border-white/10 rounded-xl p-4 space-y-1.5">
               <p className="text-xs font-semibold text-white">
                 {lang === 'mr'
-                  ? 'पेमेंट व्हेरिफाय झाल्यानंतर मिळालेला अनलॉक कोड प्रविष्ट करा'
+                  ? 'खरे ₹99 पेमेंट व्हेरिफाय झाल्यावर मिळालेला अनलॉक कोड प्रविष्ट करा'
                   : 'Enter your server-verified Unlock Code'}
               </p>
               <p className="text-xs text-zinc-400">
                 {lang === 'mr'
-                  ? '₹99 पेमेंट कन्फर्म झाल्यावर दिलेला कोड (उदा. STAR-A1B2-C3D4) किंवा Order ID टाका.'
-                  : 'Enter the code issued after ₹99 payment confirmation (e.g. STAR-A1B2-C3D4) to restore access on this device.'}
+                  ? 'फक्त व्हेरिफायड अनलॉक कोड (STAR-XXXX-XXXX-XXXX) चालेल.'
+                  : 'Only verified codes issued after real ₹99 bank confirmation (STAR-XXXX-XXXX-XXXX) are accepted.'}
               </p>
             </div>
 
             <div className="space-y-1">
               <label htmlFor="unlock-code-input" className="block text-xs text-zinc-400">
-                {lang === 'mr' ? 'अनलॉक कोड / Order ID *' : 'Unlock Code or Approved Order ID *'}
+                {lang === 'mr' ? 'व्हेरिफायड अनलॉक कोड *' : 'Verified Unlock Code *'}
               </label>
               <input
                 id="unlock-code-input"
                 type="text"
                 value={unlockCodeInput}
                 onChange={(e) => setUnlockCodeInput(e.target.value.toUpperCase())}
-                placeholder="STAR-XXXX-XXXX"
+                placeholder="STAR-XXXX-XXXX-XXXX"
                 className="w-full px-3.5 py-2.5 text-sm font-mono uppercase bg-[#18181D] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
               />
             </div>
@@ -454,22 +618,30 @@ export function OverlayCheckoutModal({
             <CheckCircle2 className="w-10 h-10 text-[#4ADE80] mx-auto" aria-hidden="true" />
             <div className="space-y-1">
               <h4 className="font-display text-lg font-bold text-white">
-                {lang === 'mr' ? '₹99 पेमेंट कन्फर्म — ओव्हरले अनलॉक झाले!' : '₹99 Payment Verified — Overlay Unlocked!'}
+                {lang === 'mr'
+                  ? '₹99 खरे पेमेंट कन्फर्म — 24 तासांसाठी अनलॉक झाले!'
+                  : '₹99 Real Payment Verified — Unlocked for 24 Hours!'}
               </h4>
               <p className="text-xs text-zinc-300">
                 {lang === 'mr'
-                  ? 'आता तुम्ही OBS Browser Source URL, vMix URL आणि 1920×1080 PNG वापरू शकता.'
-                  : 'Your OBS Browser Source URL, vMix URL, and 1920×1080 PNG download are now active.'}
+                  ? 'आता तुम्ही 24 तासांसाठी OBS Browser Source URL, vMix URL आणि 1920×1080 PNG वापरू शकता.'
+                  : 'Your OBS URL, vMix URL, and 1920×1080 PNG export are active for 24 hours, then automatically lock.'}
               </p>
             </div>
             {activeOrder.unlockCode && (
-              <div className="bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 inline-block">
+              <div className="bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 inline-block space-y-1">
                 <p className="text-[11px] text-zinc-400">
-                  {lang === 'mr' ? 'तुमचा कायमचा अनलॉक कोड' : 'Your Permanent Unlock Code'}
+                  {lang === 'mr' ? 'तुमचा 24 तासांचा अनलॉक कोड' : 'Your 24-Hour Unlock Code'}
                 </p>
                 <p className="font-mono text-base font-extrabold text-[#FACC15] tracking-wider">
                   {activeOrder.unlockCode}
                 </p>
+                {activeOrder.expiresAt && (
+                  <p className="text-[11px] font-mono text-zinc-400">
+                    {lang === 'mr' ? 'वैधता समाप्त:' : 'Auto-locks at:'}{' '}
+                    {new Date(activeOrder.expiresAt).toLocaleString()}
+                  </p>
+                )}
               </div>
             )}
             <div>
@@ -483,7 +655,7 @@ export function OverlayCheckoutModal({
             </div>
           </div>
         ) : activeOrder?.status === 'pending' ? (
-          /* Waiting for Real ₹99 Payment Verification (Does NOT unlock until approved!) */
+          /* Waiting for Real ₹99 Bank Confirmation (NEVER auto-unlocks!) */
           <div className="space-y-4">
             <div className="bg-[#17130B] border border-[#FACC15]/45 rounded-xl p-5 space-y-3">
               <div className="flex items-start gap-3">
@@ -491,13 +663,13 @@ export function OverlayCheckoutModal({
                 <div className="space-y-1">
                   <h4 className="font-display text-base font-bold text-white">
                     {lang === 'mr'
-                      ? '₹99 पेमेंट व्हेरिफिकेशन प्रतीक्षेत आहे'
-                      : 'Waiting for ₹99 Payment Confirmation'}
+                      ? 'बँक / UPI पेमेंट व्हेरिफिकेशन प्रतीक्षेत आहे'
+                      : 'Strict ₹99 Payment Verification Pending'}
                   </h4>
                   <p className="text-xs text-zinc-300 leading-relaxed">
                     {lang === 'mr'
-                      ? `${STUDIO_CONTACT.upiId} वर ₹99 जमा झाल्याची खात्री होताच हा ओव्हरले आपोआप अनलॉक होईल. पेमेंट पूर्ण झाले नसेल तर ओव्हरले अनलॉक होणार नाही.`
-                      : `This overlay unlocks automatically the moment ₹99 receipt is verified on ${STUDIO_CONTACT.upiId}. It stays locked until actual payment is confirmed.`}
+                      ? `${STUDIO_CONTACT.upiId} वर खरोखर ₹99 जमा झाल्याचे बँक/GPay मध्ये तपासून कन्फर्म झाल्यावरच ओव्हरले आपोआप अनलॉक होईल. खोटे पेमेंट किंवा चुकीचा UTR ब्लॉक केला जातो.`
+                      : `This overlay stays strictly locked until real ₹99 receipt is matched in our bank / Google Pay statement for ${STUDIO_CONTACT.upiId}. Fake or unpaid UTRs are permanently blocked.`}
                   </p>
                 </div>
               </div>
@@ -508,7 +680,7 @@ export function OverlayCheckoutModal({
                   <span className="font-mono font-bold text-white">{activeOrder.orderId}</span>
                 </div>
                 <div>
-                  <span className="text-zinc-400 block">Submitted 12-Digit UTR</span>
+                  <span className="text-zinc-400 block">Submitted UTR (Masked)</span>
                   <span className="font-mono font-bold text-[#FACC15] tabular-nums">
                     {activeOrder.utrRef}
                   </span>
@@ -555,26 +727,38 @@ export function OverlayCheckoutModal({
               }}
               className="w-full text-center text-xs text-zinc-400 hover:text-white underline-offset-4 hover:underline"
             >
-              {lang === 'mr' ? 'चुकीचा UTR टाकला? पुन्हा भरा' : 'Entered wrong UTR? Submit again'}
+              {lang === 'mr' ? 'दुसरा खरा UTR सबमिट करा' : 'Submit a different real payment'}
             </button>
           </div>
         ) : (
-          /* Step 1 + Step 2: Real Uploaded Google Pay QR Code + Strict 12-Digit UTR Proof Form */
+          /* Step 1 + Step 2: Strict Anti-Fraud Payment Form */
           <div className="space-y-5">
-            {activeOrder?.status === 'rejected' && (
+            {(activeOrder?.status === 'rejected' || activeOrder?.status === 'revoked') && (
               <div className="bg-[#230B0D] border border-[#EF4444]/50 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-[#FCA5A5]">
                 <AlertCircle className="w-4 h-4 text-[#EF4444] shrink-0 mt-0.5" aria-hidden="true" />
                 <div>
                   <p className="font-bold text-white">
-                    {lang === 'mr' ? 'पेमेंट व्हेरिफिकेशन नाकारले गेले' : 'Payment Verification Rejected'}
+                    {lang === 'mr'
+                      ? 'पेमेंट व्हेरिफिकेशन नाकारले / ब्लॉक केले गेले'
+                      : 'Payment Rejected / Blocked'}
                   </p>
                   <p className="mt-0.5">
                     {activeOrder.rejectionReason ||
-                      '₹99 payment was not found for that UTR. Please pay ₹99 via QR and enter the real 12-digit UTR.'}
+                      'Real ₹99 payment was not received for that UTR. Please pay exact ₹99 via QR and submit a genuine receipt.'}
                   </p>
                 </div>
               </div>
             )}
+
+            {/* Anti-Fraud Notice Banner */}
+            <div className="bg-[#18120B] border border-[#FACC15]/30 rounded-xl px-3.5 py-2.5 flex items-start gap-2.5 text-[11px] sm:text-xs text-zinc-300">
+              <ShieldAlert className="w-4 h-4 text-[#FACC15] shrink-0 mt-0.5" aria-hidden="true" />
+              <p className="leading-relaxed">
+                {lang === 'mr'
+                  ? 'सुरक्षा सूचना: खोटा UTR किंवा जुना स्क्रीनशॉट अपलोड केल्यास सिस्टीम आपोआप ब्लॉक करते. ₹99 बँक/UPI मध्ये जमा झाल्याची खात्री झाल्यावरच ओव्हरले अनलॉक होईल.'
+                  : 'Anti-Fraud Protection: Fake UTRs and duplicate screenshots are automatically blocked. Overlay unlocks ONLY after real ₹99 bank/UPI settlement is verified.'}
+              </p>
+            </div>
 
             {/* Real Google Pay UPI QR Code Box */}
             <div className="bg-[#0D0D11] border border-white/12 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
@@ -634,12 +818,12 @@ export function OverlayCheckoutModal({
               </div>
             </div>
 
-            {/* Step 2: Strict 12-Digit UTR + Screenshot Proof Submission */}
+            {/* Step 2: Strict 12-Digit UTR + MANDATORY Screenshot Proof Submission */}
             <form onSubmit={handleSubmitOrder} noValidate className="space-y-3.5">
               <p className="text-xs font-semibold text-white">
                 {lang === 'mr'
-                  ? 'पायरी 2 · ₹99 पेमेंट झाल्यानंतर 12 अंकी UTR नंबर आणि स्क्रीनशॉट सबमिट करा'
-                  : 'Step 2 · Submit 12-Digit UPI UTR & Screenshot After Paying ₹99'}
+                  ? 'पायरी 2 · ₹99 पेमेंट झाल्यानंतर 12 अंकी UTR आणि खरा स्क्रीनशॉट (अनिवार्य) सबमिट करा'
+                  : 'Step 2 · Submit Real 12-Digit UPI UTR & Payment Screenshot (Mandatory)'}
               </p>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -672,6 +856,22 @@ export function OverlayCheckoutModal({
                 </div>
               </div>
 
+              {razorpayEnabled && (
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={handleRazorpayInstantPay}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-sm font-semibold text-black bg-[#4ADE80] hover:bg-[#22C55E] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <Zap className="w-4 h-4 shrink-0" aria-hidden="true" />
+                  <span>
+                    {lang === 'mr'
+                      ? '₹99 इन्स्टंट बँक-व्हेरिफायड पेमेंट (ऑटो अनलॉक)'
+                      : 'Pay ₹99 Online (Instant Bank-Verified Unlock)'}
+                  </span>
+                </button>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label htmlFor="buyer-utr" className="block text-xs text-zinc-400">
@@ -691,15 +891,20 @@ export function OverlayCheckoutModal({
 
                 <div className="space-y-1">
                   <label htmlFor="payment-screenshot" className="block text-xs text-zinc-400">
-                    {lang === 'mr' ? 'पेमेंट स्क्रीनशॉट (ऐच्छिक)' : 'Payment Screenshot (Recommended)'}
+                    {lang === 'mr' ? 'पेमेंट स्क्रीनशॉट (अनिवार्य) *' : 'Payment Screenshot (Required) *'}
                   </label>
                   <label
                     htmlFor="payment-screenshot"
-                    className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-[#18181D] hover:bg-[#22222B] border border-dashed border-white/25 rounded-lg text-zinc-200 cursor-pointer transition-colors truncate"
+                    className={`flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium bg-[#18181D] hover:bg-[#22222B] border border-dashed rounded-lg cursor-pointer transition-colors truncate ${
+                      proofImage
+                        ? 'border-[#4ADE80]/70 text-[#4ADE80]'
+                        : 'border-[#FACC15]/50 text-zinc-200'
+                    }`}
                   >
                     <Upload className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span className="truncate">
-                      {proofFileName || (lang === 'mr' ? 'स्क्रीनशॉट अपलोड करा' : 'Upload ₹99 Receipt')}
+                      {proofFileName ||
+                        (lang === 'mr' ? '₹99 स्क्रीनशॉट अपलोड करा *' : 'Upload ₹99 Receipt *')}
                     </span>
                   </label>
                   <input
@@ -712,6 +917,22 @@ export function OverlayCheckoutModal({
                 </div>
               </div>
 
+              {proofImage && (
+                <div className="flex items-center gap-3 bg-[#0D0D11] border border-[#4ADE80]/30 rounded-lg p-2.5">
+                  <img
+                    src={proofImage}
+                    alt="Uploaded UPI receipt preview"
+                    className="w-12 h-12 rounded object-cover border border-white/15 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-[#4ADE80]">
+                      {lang === 'mr' ? 'पेमेंट स्क्रीनशॉट जोडला गेला' : 'Payment Screenshot Attached'}
+                    </p>
+                    <p className="text-[11px] text-zinc-400 truncate">{proofFileName}</p>
+                  </div>
+                </div>
+              )}
+
               {error && <p className="text-xs text-[#F87171]">{error}</p>}
 
               <button
@@ -723,18 +944,18 @@ export function OverlayCheckoutModal({
                 <span>
                   {submitting
                     ? lang === 'mr'
-                      ? 'सबमिट होत आहे...'
-                      : 'Submitting Proof...'
+                      ? 'तपासणीसाठी सबमिट होत आहे...'
+                      : 'Submitting for Verification...'
                     : lang === 'mr'
                       ? '₹99 पेमेंट प्रूफ सबमिट करा (व्हेरिफिकेशनसाठी)'
-                      : 'Submit ₹99 Payment for Verification'}
+                      : 'Submit ₹99 Receipt for Verification'}
                 </span>
               </button>
 
               <p className="text-[11px] text-zinc-400 text-center">
                 {lang === 'mr'
-                  ? 'फक्त ₹99 पेमेंट यशस्वीपणे व्हेरिफाय झाल्यावरच OBS/vMix URL व PNG अनलॉक होईल.'
-                  : 'OBS/vMix URLs & PNG export unlock strictly after ₹99 payment is verified on crushyyphotography@oksbi.'}
+                  ? 'बँक / GPay मध्ये ₹99 जमा झाल्याची खात्री होताच ओव्हरले 24 तासांसाठी अनलॉक होईल.'
+                  : 'Unlocks strictly after real ₹99 credit is verified on crushyyphotography@oksbi, then auto-locks after 24 hours.'}
               </p>
             </form>
           </div>

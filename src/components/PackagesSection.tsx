@@ -9,6 +9,7 @@ import {
 
 interface PackagesSectionProps {
   lang: Language;
+  asPage?: boolean;
   selectedPackageId: string;
   selectedAddOns: string[];
   onToggleAddOn: (addonId: string) => void;
@@ -17,6 +18,7 @@ interface PackagesSectionProps {
 
 export function PackagesSection({
   lang,
+  asPage = false,
   selectedPackageId,
   selectedAddOns,
   onToggleAddOn,
@@ -28,23 +30,42 @@ export function PackagesSection({
   );
 
   return (
-    <section id="packages" className="py-20 sm:py-24 border-b border-white/10">
+    <section
+      id="packages"
+      className={`${asPage ? 'pt-10 pb-20 sm:pt-12 sm:pb-24' : 'py-20 sm:py-24'} border-b border-white/10`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Heading */}
-        <div className="max-w-3xl space-y-3 mb-12">
+        <div className="max-w-3xl space-y-3.5 mb-12">
           <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
             {UI_COPY.packagesSection.kicker[lang]}
           </p>
-          <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white">
-            {UI_COPY.packagesSection.heading[lang]}
-          </h2>
-          <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+          {asPage ? (
+            <h1
+              className={`font-display font-extrabold text-white text-[clamp(1.95rem,3.4vw,3.05rem)] ${
+                lang === 'mr'
+                  ? 'leading-[1.38] tracking-normal'
+                  : 'leading-[1.16] tracking-tight'
+              }`}
+            >
+              {UI_COPY.packagesSection.heading[lang]}
+            </h1>
+          ) : (
+            <h2
+              className={`font-display text-2xl sm:text-4xl font-bold text-white ${
+                lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+              }`}
+            >
+              {UI_COPY.packagesSection.heading[lang]}
+            </h2>
+          )}
+          <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
             {UI_COPY.packagesSection.intro[lang]}
           </p>
         </div>
 
         {/* Optional Add-ons Selector Bar */}
-        <div className="mb-10 bg-[#121216] border border-white/10 rounded-2xl p-5 sm:p-6">
+        <div className="mb-10 bg-[#121216]/84 backdrop-blur-sm border border-white/10 rounded-2xl p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-sm font-semibold text-white">
               {UI_COPY.packagesSection.addonsHeading[lang]}
@@ -69,7 +90,7 @@ export function PackagesSection({
                       : 'bg-[#16161B] border-white/10 text-zinc-300 hover:border-white/25'
                   }`}
                 >
-                  <span className="text-xs font-medium leading-snug">{addon.label[lang]}</span>
+                  <span className="text-xs font-medium leading-relaxed">{addon.label[lang]}</span>
                   <span className="font-mono text-xs font-semibold text-[#FACC15] whitespace-nowrap tabular-nums">
                     +₹{addon.price.toLocaleString('en-IN')}
                   </span>
@@ -88,18 +109,18 @@ export function PackagesSection({
             return (
               <div
                 key={pkg.id}
-                className={`rounded-2xl p-6 sm:p-7 flex flex-col justify-between border transition-colors duration-150 ${
+                className={`rounded-2xl p-6 sm:p-7 flex flex-col justify-between border backdrop-blur-sm transition-colors duration-150 ${
                   pkg.featured || isSelected
-                    ? 'bg-[#151317] border-[#DC2626]/70'
-                    : 'bg-[#121216] border-white/10 hover:border-white/25'
+                    ? 'bg-[#151317]/88 border-[#DC2626]/70'
+                    : 'bg-[#121216]/84 border-white/10 hover:border-white/25'
                 }`}
               >
                 <div className="space-y-5">
-                  <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-zinc-400">
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-zinc-400 leading-relaxed">
                       {pkg.cameras[lang]} · {pkg.platforms[lang]}
                     </p>
-                    <h3 className="font-display text-xl sm:text-2xl font-bold text-white">
+                    <h3 className="font-display text-xl sm:text-2xl font-bold text-white leading-[1.38]">
                       {pkg.name[lang]}
                     </h3>
                     <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
@@ -155,11 +176,15 @@ export function PackagesSection({
 
         {/* Adjacent Broadcast Proof & Client Outcomes */}
         <div className="mt-20 pt-14 border-t border-white/10">
-          <div className="max-w-2xl space-y-2 mb-10">
+          <div className="max-w-2xl space-y-2.5 mb-10">
             <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
               {UI_COPY.packagesSection.proofKicker[lang]}
             </p>
-            <h3 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-white">
+            <h3
+              className={`font-display text-2xl sm:text-3xl font-bold text-white ${
+                lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+              }`}
+            >
               {UI_COPY.packagesSection.proofHeading[lang]}
             </h3>
           </div>
@@ -168,7 +193,7 @@ export function PackagesSection({
             {CLIENT_OUTCOMES.map((study) => (
               <article
                 key={study.id}
-                className="bg-[#121216] border border-white/10 rounded-2xl p-6 flex flex-col justify-between space-y-5"
+                className="bg-[#121216]/84 backdrop-blur-sm border border-white/10 rounded-2xl p-6 flex flex-col justify-between space-y-5"
               >
                 <div className="space-y-3">
                   <p className="text-xs text-zinc-400">{study.category[lang]}</p>

@@ -2,7 +2,7 @@ export type Language = 'mr' | 'en';
 
 export type EventCategoryId = 'cricket' | 'kabaddi' | 'wedding' | 'haldi' | 'birthday' | 'other';
 
-export type PlatformId = 'youtube' | 'facebook' | 'instagram';
+export type PlatformId = 'youtube-public' | 'youtube-unlisted' | 'led-wall';
 
 export interface CustomOverlayPromptConfig {
   title: string;
@@ -36,6 +36,10 @@ export interface EventService {
   meta: Record<Language, string[]>;
   description: Record<Language, string>;
   deliverables: Record<Language, string[]>;
+  image?: string;
+  imageAlt?: string;
+  imagePosition?: string;
+  imageFit?: 'cover' | 'contain';
   wide?: boolean;
   fullSpan?: boolean;
   previewMode?: 'kabaddi' | 'haldi';
@@ -75,11 +79,25 @@ export const STUDIO_CONTACT = {
   phoneDisplay: '9890175727',
   phoneHref: 'tel:+919890175727',
   whatsappNumber: '919890175727',
-  bannerPath: '/assets/aistudio/star_event_live_c1dad2fc.png',
-  logoVideoPath: '/assets/aistudio/STAREVENTLIVE_LOGO__ROTAION_VIDEO_742a3c44.mp4',
+  bannerPath: '/assets/optimized/hero-banner.webp',
+  promoPosterPath: '/assets/optimized/promo-poster.webp',
+  logoVideoPath: '/assets/optimized/logo-rotation.mp4',
+  stingerVideoPath: '/assets/optimized/stinger-web.mp4',
   upiQrPath: '/assets/aistudio/WhatsApp_Image_2026-11-19_at_2.32.59_AM_c3b23480.jpeg',
   upiId: 'crushyyphotography@oksbi',
   upiPayeeName: 'Crushyyphotography',
+  youtubeUrl: 'https://youtube.com/@stareventlive01?si=-IocoxT5fJemBNPu',
+  youtubeHandle: '@stareventlive01',
+  instagramAccounts: [
+    {
+      handle: '@stareventlive',
+      url: 'https://www.instagram.com/stareventlive?bqrl=MTNrZWZlejRlZmtnNg==',
+    },
+    {
+      handle: '@crushyy___01',
+      url: 'https://www.instagram.com/crushyy___01?hvrq=ZG95NW5jbDIyZG82',
+    },
+  ],
   invocation: '|| श्री गणेशाय नमः ||',
   promiseMr: 'तुमचा कार्यक्रम... आमची जबाबदारी... आठवणी राहतील कायमच्या',
   promiseEn: 'Your event... our responsibility... memories that last forever.',
@@ -87,10 +105,11 @@ export const STUDIO_CONTACT = {
 
 export const UI_COPY = {
   nav: {
+    home: { mr: 'होम', en: 'Home' },
     services: { mr: 'सेवा', en: 'Services' },
     studio: { mr: 'ओव्हरले', en: 'Overlays' },
     packages: { mr: 'पॅकेजेस', en: 'Packages' },
-    book: { mr: 'बुकिंग', en: 'Book Event' },
+    book: { mr: 'बुकिंग', en: 'Book' },
     callCta: { mr: 'कॉल 9890175727', en: 'Call 9890175727' },
   },
   hero: {
@@ -99,14 +118,14 @@ export const UI_COPY = {
       en: 'Broadcast-Grade Live Streaming for Every Event',
     },
     subcopy: {
-      mr: 'क्रिकेट सामने, लग्न समारंभ, हळदी, वाढदिवस आणि इतर सर्व कार्यक्रमांसाठी 4K मल्टी-कॅमेरा सेटअप, कस्टम स्क्रीन ग्राफिक्स, रेकॉर्डिंग आणि एडिटिंगसह YouTube, Facebook व Instagram वर थेट प्रक्षेपण.',
-      en: '4K multi-camera setups, custom on-screen scoreboards and lower-thirds, full HD recording, and professional editing streamed simultaneously to YouTube, Facebook, and Instagram.',
+      mr: 'क्रिकेट सामने, कबड्डी स्पर्धा, लग्न समारंभ, हळदी, वाढदिवस आणि इतर सर्व कार्यक्रमांसाठी 4K मल्टी-कॅमेरा सेटअप, कस्टम स्क्रीन ग्राफिक्स, रेकॉर्डिंग आणि एडिटिंगसह YouTube (@stareventlive01) वर थेट प्रक्षेपण.',
+      en: '4K multi-camera setups, custom on-screen scoreboards and lower-thirds, full HD recording, and professional editing streamed live on YouTube (@stareventlive01).',
     },
     primaryCta: { mr: 'कार्यक्रम बुक करा', en: 'Book Your Event' },
     secondaryCta: { mr: 'ओव्हरले पहा (₹99)', en: 'Overlays Store (₹99)' },
     bannerCaption: {
-      mr: 'अधिकृत स्टुडिओ बॅनर · YouTube, Facebook व Instagram वर LIVE उपलब्ध',
-      en: 'Official Studio Banner · Multi-platform LIVE on YouTube, Facebook & Instagram',
+      mr: 'अधिकृत स्टुडिओ बॅनर · YouTube (@stareventlive01) वर 4K LIVE उपलब्ध',
+      en: 'Official Studio Banner · 4K LIVE on YouTube (@stareventlive01)',
     },
     stats: [
       {
@@ -115,9 +134,9 @@ export const UI_COPY = {
         detail: { mr: 'ब्रॉडकास्ट कॅमकॉर्डर व जिम्बल रिंग', en: 'Broadcast camcorders & cinema lenses' },
       },
       {
-        value: '3 Platforms',
-        label: { mr: 'एकाच वेळी थेट प्रक्षेपण', en: 'Simultaneous Live Streaming' },
-        detail: { mr: 'YouTube · Facebook · Instagram', en: 'YouTube · Facebook · Instagram' },
+        value: 'YouTube Live',
+        label: { mr: 'अखंडित थेट प्रक्षेपण', en: 'Uninterrupted Live Streaming' },
+        detail: { mr: 'YouTube @stareventlive01 · 1080p / 4K', en: 'YouTube @stareventlive01 · 1080p / 4K' },
       },
       {
         value: 'Live GFX',
@@ -147,12 +166,12 @@ export const UI_COPY = {
   studioSection: {
     kicker: { mr: 'लाईव्ह ओव्हरले स्टुडिओ · OBS व vMix सपोर्ट', en: 'Live Overlay Studio · OBS & vMix Ready' },
     heading: {
-      mr: 'कबड्डी स्कोअरबोर्ड आणि हळदी लाईव्ह ओव्हरले',
-      en: 'Kabaddi Scoreboard & Haldi Transparent Overlays',
+      mr: 'कस्टमाईज बॉटम फ्रेम, कबड्डी आणि हळदी-लग्न ओव्हरले',
+      en: 'Custom Bottom Frames, Kabaddi & Haldi-Wedding Overlays',
     },
     intro: {
-      mr: 'कबड्डी महासंग्राम स्कोअरबोर्ड (30-सेकंद रेड टायमरसह) आणि हळदी समारंभ ट्रान्सपरंट 1920×1080 ओव्हरले थेट नियंत्रित करा — OBS Studio व vMix Browser Source URL सह.',
-      en: 'Control live Kabaddi Mahasangram scoreboards (with 30s raid timer) and festive Haldi transparent 1920×1080 overlays — complete with real-time OBS Studio and vMix Browser Source URLs.',
+      mr: 'वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट बॉटम फ्रेम (4 थीम), कबड्डी स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले — स्वतःचा लोगो, नाव व रंग लाईव्ह बदला (OBS Studio व vMix सपोर्ट).',
+      en: 'Control watermark-free 1920×1080 transparent Animated Bottom Frames (4 themes), Kabaddi scoreboards, and Haldi & Wedding overlays — customize text, colors & upload your own logo for OBS & vMix.',
     },
   },
   packagesSection: {
@@ -207,7 +226,10 @@ export const EVENT_SERVICES: EventService[] = [
       mr: ['लाईव्ह स्कोअरकार्ड व रन-रेट ग्राफिक्स', 'मॅच हायलाइट्स व बक्षीस वितरण कव्हरेज'],
       en: ['Live scorecard & run-rate graphics', 'Match highlights & trophy ceremony coverage'],
     },
-    wide: true,
+    image: '/assets/optimized/service-cricket.webp',
+    imageAlt:
+      'Star Event Live outdoor sunset cricket tournament live broadcast desk and switching monitor on the ground',
+    imagePosition: 'object-[50%_72%]',
   },
   {
     id: 'kabaddi',
@@ -229,11 +251,41 @@ export const EVENT_SERVICES: EventService[] = [
       mr: ['1920×1080 ट्रान्सपरंट कबड्डी अरेना ओव्हरले', 'सुपर रेड, टॅकल व मॅच समरी ग्राफिक्स'],
       en: ['1920×1080 transparent Kabaddi arena overlay', 'Super Raid, Tackle & match summary graphics'],
     },
+    image: '/assets/optimized/service-kabaddi.webp',
+    imageAlt:
+      'Star Event Live night floodlit tournament dual-screen live broadcast console beside the arena and audience',
+    imagePosition: 'object-center',
     previewMode: 'kabaddi',
   },
   {
-    id: 'wedding',
+    id: 'haldi',
     index: '03.',
+    title: { mr: 'हळदी समारंभ', en: 'Haldi Ceremonies' },
+    subtitle: {
+      mr: 'रंगीत आणि आनंददायी क्षणांचे जिवंत प्रक्षेपण',
+      en: 'Vibrant wireless coverage of festive family rituals',
+    },
+    meta: {
+      mr: ['रोमिंग जिम्बल कॅमेरा', 'कलर-ग्रेडेड फीड', 'रील एडिट'],
+      en: ['Wireless gimbal cam', 'Rich color profile', 'Highlight reel edit'],
+    },
+    description: {
+      mr: 'हळदीच्या प्रत्येक पारंपरिक विधीचे आणि नृत्याचे स्थिर जिम्बल कॅमेऱ्याने थेट प्रक्षेपण. सोहळ्यानंतर लगेच शेअर करता येतील असे हायलाइट्स.',
+      en: 'Smooth roaming camera movement through crowded courtyards, balanced outdoor exposure, live YouTube broadcasting, and shareable celebration highlights.',
+    },
+    deliverables: {
+      mr: ['उत्सवी मराठी टायटल फ्रेम', 'YouTube Live पब्लिक किंवा प्रायव्हेट लिंक सेटअप'],
+      en: ['Festive ceremonial frame overlay', 'YouTube Live public or unlisted stream link'],
+    },
+    image: '/assets/optimized/service-haldi.webp',
+    imageAlt:
+      'Star Event Live Haldi ceremony night live streaming setup with Sony NXCAM broadcast camera, DJ mixer, and live monitor',
+    imagePosition: 'object-center',
+    previewMode: 'haldi',
+  },
+  {
+    id: 'wedding',
+    index: '04.',
     title: { mr: 'शुभ विवाह सोहळा', en: 'Wedding Ceremonies' },
     subtitle: {
       mr: 'शाही मरून-सोनेरी फ्रेमसह देश-विदेशातील नातेवाईकांसाठी LIVE',
@@ -251,28 +303,10 @@ export const EVENT_SERVICES: EventService[] = [
       mr: ['1920×1080 शाही विवाह ओव्हरले फ्रेम', 'पूर्ण सोहळ्याचे एडिटेड व्हिडिओ रेकॉर्डिंग'],
       en: ['1920×1080 Shahi wedding overlay frame', 'Full edited ceremony recording'],
     },
-  },
-  {
-    id: 'haldi',
-    index: '04.',
-    title: { mr: 'हळदी समारंभ', en: 'Haldi Ceremonies' },
-    subtitle: {
-      mr: 'रंगीत आणि आनंददायी क्षणांचे जिवंत प्रक्षेपण',
-      en: 'Vibrant wireless coverage of festive family rituals',
-    },
-    meta: {
-      mr: ['रोमिंग जिम्बल कॅमेरा', 'कलर-ग्रेडेड फीड', 'रील एडिट'],
-      en: ['Wireless gimbal cam', 'Rich color profile', 'Highlight reel edit'],
-    },
-    description: {
-      mr: 'हळदीच्या प्रत्येक पारंपरिक विधीचे आणि नृत्याचे स्थिर जिम्बल कॅमेऱ्याने थेट प्रक्षेपण. सोहळ्यानंतर लगेच शेअर करता येतील असे हायलाइट्स.',
-      en: 'Smooth roaming camera movement through crowded courtyards, balanced outdoor exposure, live Instagram & YouTube simulcasting, and shareable celebration highlights.',
-    },
-    deliverables: {
-      mr: ['उत्सवी मराठी टायटल फ्रेम', 'YouTube व Instagram लाईव्ह सेटअप'],
-      en: ['Festive ceremonial frame overlay', 'YouTube & Instagram Live delivery'],
-    },
-    previewMode: 'haldi',
+    image: '/assets/optimized/service-wedding.webp',
+    imageAlt:
+      'Star Event Live wedding mandap coverage with professional broadcast camcorder on tripod capturing the ceremony',
+    imagePosition: 'object-[50%_54%]',
   },
   {
     id: 'birthday',
@@ -287,13 +321,17 @@ export const EVENT_SERVICES: EventService[] = [
       en: ['Custom birthday frame', 'Cake-cutting closeups', 'Fast video edit'],
     },
     description: {
-      mr: 'वाढदिवसाचे नाव व शुभेच्छा ग्राफिक्ससह YouTube किंवा Facebook वर थेट प्रक्षेपण, पूर्ण रेकॉर्डिंग आणि आठवणी जपणारे व्हिडिओ एडिटिंग.',
+      mr: 'वाढदिवसाचे नाव व शुभेच्छा ग्राफिक्ससह YouTube वर थेट प्रक्षेपण, पूर्ण रेकॉर्डिंग आणि आठवणी जपणारे व्हिडिओ एडिटिंग.',
       en: 'Custom on-screen birthday greetings, warm low-light camera capture for indoor banquets, live guest wishes, and cleanly edited keepsake video delivery.',
     },
     deliverables: {
       mr: ['पर्सनलाइज्ड वाढदिवस ग्राफिक्स', 'पूर्ण रेकॉर्डिंग व शॉर्ट हायलाइट व्हिडिओ'],
       en: ['Personalized birthday screen graphics', 'Full recording & short highlight film'],
     },
+    image: '/assets/optimized/service-birthday.webp',
+    imageAlt:
+      'Star Event Live OBS streaming, editing, and studio audio desk setup for birthday broadcasts and highlight reels',
+    imagePosition: 'object-center',
   },
   {
     id: 'other',
@@ -304,8 +342,8 @@ export const EVENT_SERVICES: EventService[] = [
       en: 'Cultural festivals, stage shows, corporate & community gatherings',
     },
     meta: {
-      mr: ['स्टेज व LED आउटपुट', 'मल्टी-प्लॅटफॉर्म', 'ऑन-साईट टीम'],
-      en: ['Stage & LED wall feed', 'Multi-platform live', 'On-site technical crew'],
+      mr: ['स्टेज व LED आउटपुट', 'YouTube Live HD', 'ऑन-साईट टीम'],
+      en: ['Stage & LED wall feed', 'YouTube Live HD', 'On-site technical crew'],
     },
     description: {
       mr: 'उद्घाटन सोहळे, कीर्तन-प्रवचन, गणेशोत्सव, शाळा-महाविद्यालयीन स्नेहसंमेलन, सेमिनार आणि सांस्कृतिक कार्यक्रमांसाठी विश्वासार्ह थेट प्रक्षेपण.',
@@ -315,6 +353,10 @@ export const EVENT_SERVICES: EventService[] = [
       mr: ['LED वॉलसाठी थेट व्हिडिओ आउटपुट', 'स्पीकर नेम-प्लेट व इव्हेंट टिकर'],
       en: ['Live video feed to venue LED walls', 'Speaker lower-thirds & event announcements'],
     },
+    image: '/assets/optimized/promo-poster.webp',
+    imageAlt:
+      'Star Event Live official poster — Capture, Stream, Share. Your Event, Our Coverage for all cultural, religious, sports, and community events',
+    imageFit: 'contain',
     fullSpan: true,
   },
 ];
@@ -330,7 +372,7 @@ export const PRODUCTION_PACKAGES: ProductionPackage[] = [
     priceRange: { mr: '₹6,500 पासून', en: 'From ₹6,500' },
     basePrice: 6500,
     cameras: { mr: '1 हाय-क्वालिटी 4K ब्रॉडकास्ट कॅमेरा', en: '1 High-Quality 4K Broadcast Camera' },
-    platforms: { mr: 'YouTube किंवा Facebook वर LIVE', en: 'Live on YouTube or Facebook' },
+    platforms: { mr: 'YouTube (@stareventlive01) वर LIVE', en: 'Live on YouTube (@stareventlive01)' },
     features: {
       mr: [
         '1080p Full HD थेट प्रक्षेपण व संपूर्ण रेकॉर्डिंग',
@@ -356,7 +398,7 @@ export const PRODUCTION_PACKAGES: ProductionPackage[] = [
     priceRange: { mr: '₹14,500 पासून', en: 'From ₹14,500' },
     basePrice: 14500,
     cameras: { mr: '2–3 प्रोफेशनल कॅमेरे + लाईव्ह स्विचर', en: '2–3 Pro Cameras + Live Vision Switcher' },
-    platforms: { mr: 'YouTube + Facebook + Instagram एकाच वेळी', en: 'Simulcast to YouTube, Facebook & Instagram' },
+    platforms: { mr: 'YouTube Live 4K + प्रायव्हेट / पब्लिक लिंक', en: 'YouTube Live 4K + Public / Unlisted Link' },
     featured: true,
     features: {
       mr: [
@@ -442,7 +484,7 @@ export const CLIENT_OUTCOMES: ClientCaseStudy[] = [
   {
     id: 'deshmukh-wedding',
     eventTitle: { mr: 'देशमुख कुटुंब लग्न व हळदी समारंभ', en: 'Deshmukh Family Wedding & Haldi' },
-    category: { mr: 'लग्न व हळदी · YouTube + Instagram', en: 'Wedding & Haldi · YouTube + Instagram' },
+    category: { mr: 'लग्न व हळदी · YouTube Live 4K', en: 'Wedding & Haldi · YouTube Live 4K' },
     metric: { mr: '210+ कुटुंबीय परदेशातून थेट सहभागी', en: '210+ Remote Relatives Joined Live' },
     summary: {
       mr: 'पुणे, मुंबई आणि अमेरिकेतील नातेवाईकांना मंगलाष्टके व हळदी सोहळा स्पष्ट आवाजात व 4K दर्जात पाहता आला; दुसऱ्याच दिवशी एडिटेड व्हिडिओ मिळाला.',
@@ -456,11 +498,11 @@ export const CLIENT_OUTCOMES: ClientCaseStudy[] = [
   {
     id: 'cultural-utsav',
     eventTitle: { mr: 'सार्वजनिक सांस्कृतिक महोत्सव व कीर्तन सोहळा', en: 'Sarvajanik Cultural Festival & Kirtan' },
-    category: { mr: 'इतर कार्यक्रम · मल्टी-प्लॅटफॉर्म + LED', en: 'Stage Event · Multi-Platform + LED Feed' },
-    metric: { mr: 'YouTube व Facebook वर एकाच वेळी 6 तास अखंड LIVE', en: '6-Hour Uninterrupted Dual-Platform Live' },
+    category: { mr: 'इतर कार्यक्रम · YouTube Live + LED', en: 'Stage Event · YouTube Live + LED Feed' },
+    metric: { mr: 'YouTube वर 6 तास अखंड Full HD LIVE', en: '6-Hour Uninterrupted YouTube HD Live' },
     summary: {
       mr: 'स्टेजवरील प्रमुख पाहुण्यांची नावे, कार्यक्रमाचे वेळापत्रक आणि ग्राउंडवरील दोन LED स्क्रीनवर थेट व्हिडिओ आउटपुट अचूकपणे हाताळले.',
-      en: 'Managed dual LED wall feeds alongside simultaneous YouTube and Facebook broadcasts with live speaker lower-thirds throughout the evening.',
+      en: 'Managed dual LED wall feeds alongside uninterrupted YouTube Live broadcasting with live speaker lower-thirds throughout the evening.',
     },
     attribution: {
       mr: 'प्रवीण कुलकर्णी · सांस्कृतिक समिती सचिव',

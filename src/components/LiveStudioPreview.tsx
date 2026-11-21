@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -7,11 +7,11 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  ImagePlus,
   Lock,
-  Pause,
-  Play,
   Radio,
   RotateCcw,
+  Trash2,
   Tv,
 } from 'lucide-react';
 import {
@@ -21,14 +21,31 @@ import {
   PlatformId,
   UI_COPY,
 } from '../data/content';
-import { getOverlaySku, OverlaySku } from '../data/overlayCatalog';
-import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
-import { OverlayBackground, OverlayMode, OverlayStyle } from '../types/overlay';
 import {
+  BANNER_THEME_LIST,
+  BANNER_THEMES,
+  formatRemainingTime,
+  getOverlaySku,
+  OverlaySku,
+  VerifiedOverlayToken,
+} from '../data/overlayCatalog';
+import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
+import {
+  BannerIconType,
+  isBannerTheme,
+  normalizeStyleForMode,
+  OverlayBackground,
+  OverlayMode,
+  OverlayStyle,
+} from '../types/overlay';
+import {
+  downloadBottomBannerOverlayPng,
   downloadHaldiOverlayPng,
   downloadKabaddiOverlayPng,
 } from '../utils/exportOverlayPng';
-import { SpinningLogoVideo } from './SpinningLogoVideo';
+import { BottomBannerFrame } from './BottomBannerFrame';
+import { KabaddiControlDesk } from './KabaddiControlDesk';
+import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 
 export type PreviewMode = OverlayMode;
 
@@ -39,6 +56,7 @@ interface LiveStudioPreviewProps {
   activeStyle: OverlayStyle;
   onChangeStyle: (style: OverlayStyle) => void;
   unlockedSkus: OverlaySku[];
+  verifiedTokens: VerifiedOverlayToken[];
   onRequestPurchase: (sku: OverlaySku) => void;
   onBookFromPreview: (category: EventCategoryId) => void;
 }
@@ -46,30 +64,34 @@ interface LiveStudioPreviewProps {
 const PLATFORMS: {
   id: PlatformId;
   label: string;
+  shortLabel: string;
   spec: Record<Language, string>;
 }[] = [
   {
-    id: 'youtube',
+    id: 'youtube-public',
     label: 'YouTube Live',
+    shortLabel: 'YouTube Public',
     spec: {
-      mr: '1920×1080 · 60fps · पब्लिक किंवा अनलिस्टेड लिंक',
-      en: '1920×1080 · 60fps · Public or Unlisted Link',
+      mr: '1920×1080 · 60fps · YouTube पब्लिक लाईव्ह',
+      en: '1920×1080 · 60fps · YouTube Public Live',
     },
   },
   {
-    id: 'facebook',
-    label: 'Facebook Live',
+    id: 'youtube-unlisted',
+    label: 'YouTube Private',
+    shortLabel: 'YouTube Link',
     spec: {
-      mr: '1920×1080 · 60fps · पेज व ग्रुप सिमलकास्ट',
-      en: '1920×1080 · 60fps · Page & Group Simulcast',
+      mr: '1920×1080 · 60fps · प्रायव्हेट / अनलिस्टेड लिंक',
+      en: '1920×1080 · 60fps · Unlisted Private Link',
     },
   },
   {
-    id: 'instagram',
-    label: 'Instagram Live',
+    id: 'led-wall',
+    label: 'Venue LED Wall',
+    shortLabel: 'LED Screen',
     spec: {
-      mr: '9:16 व 16:9 फीड · स्टुडिओ कॅमेरा इनपुट',
-      en: '9:16 & 16:9 Feed · Studio Camera Ingest',
+      mr: '1920×1080 · 60fps · ग्राउंड / स्टेज LED आउटपुट',
+      en: '1920×1080 · 60fps · Venue LED Wall Output',
     },
   },
 ];
@@ -84,36 +106,61 @@ export function LiveStudioPreview({
   activeStyle,
   onChangeStyle,
   unlockedSkus,
+  verifiedTokens,
   onRequestPurchase,
   onBookFromPreview,
 }: LiveStudioPreviewProps) {
-  const [platform, setPlatform] = useState<PlatformId>('youtube');
+  const [platform, setPlatform] = useState<PlatformId>('youtube-public');
   const [transparentBg, setTransparentBg] = useState(true);
   const [roomInput, setRoomInput] = useState('star-live-1');
   const [outputBg, setOutputBg] = useState<OverlayBackground>('transparent');
   const [lockModeInUrl, setLockModeInUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
 
   const { state, updateState, connected, connectedDisplays, roomId } = useOverlaySync({
     roomId: roomInput,
   });
 
-  const isClassic = activeStyle === 'classic';
-  const currentSku = getOverlaySku(activeMode, activeStyle);
-  const isCurrentUnlocked = unlockedSkus.includes(currentSku);
+  const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
+  const activeBannerTheme = isBannerTheme(resolvedStyle) ? resolvedStyle : 'theme1';
+  const isClassic = activeMode !== 'banner' && resolvedStyle === 'classic';
+  const currentSku = getOverlaySku(activeMode, resolvedStyle);
+  const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
+  const isCurrentUnlocked = Boolean(activeToken && unlockedSkus.includes(currentSku));
+
+  useEffect(() => {
+    if (!activeToken) return;
+    const id = window.setInterval(() => setNowTs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [activeToken]);
 
   const handleSelectMode = (mode: PreviewMode) => {
+    const nextStyle = normalizeStyleForMode(mode, activeStyle);
     onChangeMode(mode);
-    updateState({ mode });
+    onChangeStyle(nextStyle);
+    updateState({ mode, style: nextStyle });
   };
 
   const handleSelectStyle = (style: OverlayStyle) => {
-    onChangeStyle(style);
-    updateState({ style });
+    const nextStyle = normalizeStyleForMode(activeMode, style);
+    onChangeStyle(nextStyle);
+    if (activeMode === 'banner' && isBannerTheme(nextStyle)) {
+      const themeCfg = BANNER_THEMES[nextStyle];
+      updateState({
+        style: nextStyle,
+        bannerTitleColor: themeCfg.defaultTitleColor,
+        bannerSubtitleColor: themeCfg.defaultSubtitleColor,
+      });
+    } else {
+      updateState({ style: nextStyle });
+    }
   };
 
-  // Real-time ticking 30s Kabaddi raid timer
+  // Real-time ticking 30s Kabaddi raid timer, 20:00 match clock & 2:00 sin-bin timers
   const [displayRaidSeconds, setDisplayRaidSeconds] = useState(state.raidSeconds);
+  const [displayMatchSeconds, setDisplayMatchSeconds] = useState(state.matchSeconds);
+  const [binTickNow, setBinTickNow] = useState(() => Date.now());
 
   useEffect(() => {
     if (!state.raidRunning) {
@@ -137,6 +184,52 @@ export function LiveStudioPreview({
 
     return () => window.clearInterval(interval);
   }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt, updateState]);
+
+  useEffect(() => {
+    if (!state.matchRunning) {
+      setDisplayMatchSeconds(state.matchSeconds);
+      return;
+    }
+
+    const computeMatch = () => {
+      const elapsedSec = Math.floor((Date.now() - state.matchUpdatedAt) / 1000);
+      return Math.max(0, state.matchSeconds - elapsedSec);
+    };
+
+    setDisplayMatchSeconds(computeMatch());
+    const interval = window.setInterval(() => {
+      const rem = computeMatch();
+      setDisplayMatchSeconds(rem);
+      if (rem === 0) {
+        updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: Date.now() });
+      }
+    }, 250);
+
+    return () => window.clearInterval(interval);
+  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt, updateState]);
+
+  useEffect(() => {
+    if (!state.teamABinEndAt && !state.teamBBinEndAt) return;
+    setBinTickNow(Date.now());
+    const interval = window.setInterval(() => {
+      const now = Date.now();
+      setBinTickNow(now);
+      if (state.teamABinEndAt && state.teamABinEndAt <= now) {
+        updateState({ teamABinEndAt: null });
+      }
+      if (state.teamBBinEndAt && state.teamBBinEndAt <= now) {
+        updateState({ teamBBinEndAt: null });
+      }
+    }, 250);
+    return () => window.clearInterval(interval);
+  }, [state.teamABinEndAt, state.teamBBinEndAt, updateState]);
+
+  const teamABinRemaining = state.teamABinEndAt
+    ? Math.max(0, Math.ceil((state.teamABinEndAt - binTickNow) / 1000))
+    : 0;
+  const teamBBinRemaining = state.teamBBinEndAt
+    ? Math.max(0, Math.ceil((state.teamBBinEndAt - binTickNow) / 1000))
+    : 0;
 
   const copyText = async (key: string, text: string) => {
     try {
@@ -176,6 +269,73 @@ export function LiveStudioPreview({
     }
   };
 
+  const handleToggleMatchTimer = () => {
+    if (state.matchRunning) {
+      updateState({
+        matchRunning: false,
+        matchSeconds: displayMatchSeconds,
+        matchUpdatedAt: Date.now(),
+      });
+    } else {
+      const startFrom = displayMatchSeconds === 0 ? 20 * 60 : displayMatchSeconds;
+      updateState({
+        matchRunning: true,
+        matchSeconds: startFrom,
+        matchUpdatedAt: Date.now(),
+      });
+    }
+  };
+
+  const handleAdjustMatchMinutes = (deltaMin: number) => {
+    const nextSec = Math.max(0, Math.min(99 * 60, displayMatchSeconds + deltaMin * 60));
+    updateState({
+      matchSeconds: nextSec,
+      matchUpdatedAt: Date.now(),
+    });
+  };
+
+  const handleResetMatchTimer = () => {
+    updateState({
+      matchRunning: false,
+      matchSeconds: 20 * 60,
+      matchUpdatedAt: Date.now(),
+    });
+  };
+
+  const handleToggleSinBin = (team: 'A' | 'B') => {
+    const now = Date.now();
+    if (team === 'A') {
+      updateState({
+        teamABinEndAt: teamABinRemaining > 0 ? null : now + 2 * 60 * 1000,
+      });
+    } else {
+      updateState({
+        teamBBinEndAt: teamBBinRemaining > 0 ? null : now + 2 * 60 * 1000,
+      });
+    }
+  };
+
+  const handleSwapTeams = () => {
+    updateState({
+      teamAName: state.teamBName,
+      teamACode: state.teamBCode,
+      teamAColor: state.teamBColor,
+      teamAScore: state.teamBScore,
+      teamALogoUrl: state.teamBLogoUrl,
+      teamAYellowCards: state.teamBYellowCards,
+      teamARedCards: state.teamBRedCards,
+      teamABinEndAt: state.teamBBinEndAt,
+      teamBName: state.teamAName,
+      teamBCode: state.teamACode,
+      teamBColor: state.teamAColor,
+      teamBScore: state.teamAScore,
+      teamBLogoUrl: state.teamALogoUrl,
+      teamBYellowCards: state.teamAYellowCards,
+      teamBRedCards: state.teamARedCards,
+      teamBBinEndAt: state.teamABinEndAt,
+    });
+  };
+
   const handleToggleRaidTimer = () => {
     if (state.raidRunning) {
       updateState({
@@ -202,25 +362,39 @@ export function LiveStudioPreview({
   };
 
   const handleResetKabaddi = () => {
+    const now = Date.now();
     updateState({
       teamAScore: 0,
       teamBScore: 0,
+      teamAYellowCards: 0,
+      teamARedCards: 0,
+      teamBYellowCards: 0,
+      teamBRedCards: 0,
+      teamABinEndAt: null,
+      teamBBinEndAt: null,
+      matchSeconds: 20 * 60,
+      matchRunning: false,
+      matchUpdatedAt: now,
       raidSeconds: 30,
       raidRunning: false,
-      raidUpdatedAt: Date.now(),
+      raidUpdatedAt: now,
+      kabaddiHalf: '1ST HALF',
       doOrDie: false,
       kabaddiAlert: null,
     });
   };
 
-  // Build real OBS & vMix Browser Source URLs (including active style!)
+  // Build real OBS & vMix Browser Source URLs (including active style & 24h access token!)
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://starevent.live';
   const buildOutputUrl = (extraParams?: Record<string, string>) => {
     const params = new URLSearchParams();
     params.set('overlay', activeMode);
-    params.set('style', activeStyle);
+    params.set('style', resolvedStyle);
     params.set('room', roomId);
     params.set('bg', outputBg);
+    if (activeToken?.unlockCode) {
+      params.set('token', activeToken.unlockCode);
+    }
     if (lockModeInUrl) {
       params.set('lock', '1');
     }
@@ -235,67 +409,259 @@ export function LiveStudioPreview({
   const obsBrowserUrl = buildOutputUrl();
   const vmixBrowserUrl = buildOutputUrl({ client: 'vmix' });
 
-  const handleDownloadOverlay = () => {
-    if (!isCurrentUnlocked) {
+  const handleDownloadOverlay = async () => {
+    if (!isCurrentUnlocked || !activeToken) {
       onRequestPurchase(currentSku);
       return;
     }
-    if (activeMode === 'kabaddi') {
-      downloadKabaddiOverlayPng({
-        style: activeStyle,
+
+    // Re-verify live access on the server before PNG export (blocks expired/revoked passes)
+    try {
+      const checkRes = await fetch(
+        `/api/overlay/access?sku=${encodeURIComponent(currentSku)}&token=${encodeURIComponent(activeToken.unlockCode)}`
+      );
+      const checkData = await checkRes.json();
+      if (!checkRes.ok || !checkData?.active) {
+        onRequestPurchase(currentSku);
+        return;
+      }
+    } catch {
+      onRequestPurchase(currentSku);
+      return;
+    }
+
+    if (activeMode === 'banner') {
+      await downloadBottomBannerOverlayPng({
+        theme: activeBannerTheme,
+        title: state.bannerTitle,
+        subtitle: state.bannerSubtitle,
+        icon: state.bannerIcon,
+        titleColor: state.bannerTitleColor,
+        subtitleColor: state.bannerSubtitleColor,
+        showTrophy: state.bannerShowTrophy,
+        showBrandLogo: Boolean(state.customLogoUrl) && state.bannerShowBrandLogo,
+        customLogoUrl: state.customLogoUrl,
+      });
+    } else if (activeMode === 'kabaddi') {
+      await downloadKabaddiOverlayPng({
+        style: resolvedStyle,
         title: state.kabaddiTitle,
         subtitle: state.kabaddiSubtitle,
         tag: state.kabaddiTag,
         teamAName: state.teamAName || 'TEAM A',
+        teamACode: state.teamACode,
+        teamAColor: state.teamAColor,
         teamAScore: state.teamAScore,
+        teamALogoUrl: state.teamALogoUrl,
+        teamAYellowCards: state.teamAYellowCards,
+        teamARedCards: state.teamARedCards,
         teamBName: state.teamBName || 'TEAM B',
+        teamBCode: state.teamBCode,
+        teamBColor: state.teamBColor,
         teamBScore: state.teamBScore,
+        teamBLogoUrl: state.teamBLogoUrl,
+        teamBYellowCards: state.teamBYellowCards,
+        teamBRedCards: state.teamBRedCards,
+        matchSeconds: displayMatchSeconds,
         raidSeconds: displayRaidSeconds,
+        raidRunning: state.raidRunning,
         halfLabel: state.kabaddiHalf,
         doOrDie: state.doOrDie,
       });
     } else {
-      downloadHaldiOverlayPng({
-        style: activeStyle,
+      await downloadHaldiOverlayPng({
+        style: resolvedStyle,
         tag: state.haldiTag,
         header: state.haldiHeader,
         title: state.haldiTitle,
         subtitle: state.haldiSubtitle,
+        customLogoUrl: state.showLogo ? state.customLogoUrl : '',
+        logoCorner: state.logoCorner,
+      });
+    }
+  };
+
+  const readCompressedLogoPng = (file: File, onReady: (dataUrl: string) => void) => {
+    if (!file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      if (!result) return;
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 220;
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        onReady(canvas.toDataURL('image/png'));
+      };
+      img.src = result;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUploadCustomLogo = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    readCompressedLogoPng(file, (compressedPng) => {
+      updateState({
+        customLogoUrl: compressedPng,
+        bannerShowBrandLogo: true,
+        showLogo: true,
+      });
+    });
+  };
+
+  const handleRemoveCustomLogo = () => {
+    updateState({
+      customLogoUrl: '',
+      bannerShowBrandLogo: false,
+      showLogo: false,
+    });
+  };
+
+  const handleUploadTeamLogo = (team: 'A' | 'B', e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    readCompressedLogoPng(file, (compressedPng) => {
+      if (team === 'A') {
+        updateState({ teamALogoUrl: compressedPng });
+      } else {
+        updateState({ teamBLogoUrl: compressedPng });
+      }
+    });
+  };
+
+  const handleRemoveTeamLogo = (team: 'A' | 'B') => {
+    if (team === 'A') {
+      updateState({ teamALogoUrl: '' });
+    } else {
+      updateState({ teamBLogoUrl: '' });
+    }
+  };
+
+  const handleResetBanner = () => {
+    const themeCfg = BANNER_THEMES[activeBannerTheme];
+    updateState({
+      bannerTitle: 'जय हनुमान क्रिकेट संघ चाहूचीवाडी पर्व ४',
+      bannerSubtitle: 'भव्य टेनिस स्पर्धा २०२६',
+      bannerIcon: 'cricket',
+      bannerTitleColor: themeCfg.defaultTitleColor,
+      bannerSubtitleColor: themeCfg.defaultSubtitleColor,
+      bannerShowTrophy: true,
+      bannerShowBrandLogo: Boolean(state.customLogoUrl),
+      bannerAnimated: true,
+    });
+  };
+
+  const applyBannerPreset = (preset: 'cricket' | 'kabaddi' | 'haldi' | 'wedding') => {
+    if (preset === 'cricket') {
+      updateState({
+        bannerTitle: 'जय हनुमान क्रिकेट संघ चाहूचीवाडी पर्व ४',
+        bannerSubtitle: 'भव्य टेनिस स्पर्धा २०२६',
+        bannerIcon: 'cricket',
+        bannerShowTrophy: true,
+      });
+    } else if (preset === 'kabaddi') {
+      updateState({
+        bannerTitle: 'भव्य कबड्डी महासंग्राम २०२६',
+        bannerSubtitle: 'थेट प्रक्षेपण • अंतिम सामना',
+        bannerIcon: 'kabaddi',
+        bannerShowTrophy: true,
+      });
+    } else if (preset === 'haldi') {
+      updateState({
+        bannerTitle: 'देशमुख कुटुंब — शुभ हळदी समारंभ',
+        bannerSubtitle: 'थेट प्रक्षेपण • शुभ हळदी २०२६',
+        bannerIcon: 'kalash',
+        bannerShowTrophy: false,
+      });
+    } else {
+      updateState({
+        bannerTitle: 'चि. रोहित व चि. सौ. कां. प्रिया — शुभ विवाह',
+        bannerSubtitle: 'शुभ मंगल सावधान • थेट प्रक्षेपण',
+        bannerIcon: 'wedding',
+        bannerShowTrophy: false,
+      });
+    }
+  };
+
+  const applyCeremonyPreset = (preset: 'haldi' | 'wedding') => {
+    if (preset === 'haldi') {
+      updateState({
+        haldiTag: 'HALDI LIVE',
+        haldiHeader: '|| श्री गणेशाय नमः || शुभ हळदी समारंभ',
+        haldiTitle: 'देशमुख कुटुंब — शुभ हळदी समारंभ',
+        haldiSubtitle: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
+      });
+    } else {
+      updateState({
+        haldiTag: 'WEDDING LIVE',
+        haldiHeader: '|| श्री गणेशाय नमः || शुभ मंगल सावधान',
+        haldiTitle: 'चि. रोहित व चि. सौ. कां. प्रिया — शुभ विवाह',
+        haldiSubtitle: 'लग्न समारंभ थेट प्रक्षेपण • सस्नेह निमंत्रण',
       });
     }
   };
 
   const modeTabs: { id: PreviewMode; label: Record<Language, string> }[] = [
+    { id: 'banner', label: { mr: 'बॉटम फ्रेम (4 थीम)', en: 'Bottom Frame (4 Themes)' } },
     { id: 'kabaddi', label: { mr: 'कबड्डी स्कोअरबोर्ड', en: 'Kabaddi Scoreboard' } },
-    { id: 'haldi', label: { mr: 'हळदी समारंभ ओव्हरले', en: 'Haldi Overlay' } },
+    { id: 'haldi', label: { mr: 'हळदी व लग्न ओव्हरले', en: 'Haldi & Wedding Overlay' } },
   ];
 
-  const styleOptions: { id: OverlayStyle; label: Record<Language, string>; desc: Record<Language, string> }[] =
-    activeMode === 'kabaddi'
-      ? [
-          {
-            id: 'classic',
-            label: { mr: 'स्टाईल 1 · शाही अरेना फ्रेम', en: 'Style 1 · Shahi Arena Frame' },
-            desc: { mr: 'लाल-सोनेरी पूर्ण बॉर्डर', en: 'Full red & gold border' },
-          },
-          {
-            id: 'modern',
-            label: { mr: 'स्टाईल 2 · प्रो TV स्कोअरबार', en: 'Style 2 · Pro TV Scorebar' },
-            desc: { mr: 'फ्लोटिंग पिल + गोल टायमर', en: 'Open frame + round timer' },
-          },
-        ]
-      : [
-          {
-            id: 'classic',
-            label: { mr: 'स्टाईल 1 · शाही हळदी फ्रेम', en: 'Style 1 · Shahi Marigold Frame' },
-            desc: { mr: 'कॉर्नर डिझाईन + टॉप बॅनर', en: 'Ornamental corners + top plaque' },
-          },
-          {
-            id: 'modern',
-            label: { mr: 'स्टाईल 2 · सिनेमॅटिक रिबन', en: 'Style 2 · Cinematic Ribbon' },
-            desc: { mr: 'क्लिन ओपन व्ह्यू + फ्लोटिंग रिबन', en: 'Open viewport + floating ribbon' },
-          },
-        ];
+  const styleOptions: {
+    id: OverlayStyle;
+    label: Record<Language, string>;
+    desc: Record<Language, string>;
+    previewGradient?: string;
+  }[] =
+    activeMode === 'banner'
+      ? BANNER_THEME_LIST.map((t) => ({
+          id: t.id,
+          label: t.name,
+          desc: t.shortDesc,
+          previewGradient: t.stripGradientCss,
+        }))
+      : activeMode === 'kabaddi'
+        ? [
+            {
+              id: 'classic',
+              label: { mr: 'स्टाईल 1 · बॉटम कर्व्ह्ड बार', en: 'Style 1 · Bottom Curved Bar' },
+              desc: { mr: 'खालच्या बाजूला ड्युअल-लोगो स्कोअरबोर्ड', en: 'Bottom dual-logo curved scorebar' },
+            },
+            {
+              id: 'modern',
+              label: { mr: 'स्टाईल 2 · टॉप TV बग', en: 'Style 2 · Top TV Broadcast Bug' },
+              desc: { mr: 'वरच्या बाजूला मोकळ्या मॅटसाठी स्कोअरबार', en: 'Top-mounted curved TV scorebar' },
+            },
+          ]
+        : [
+            {
+              id: 'classic',
+              label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
+              desc: { mr: 'कॉर्नर डिझाईन + टॉप बॅनर', en: 'Ornamental corners + top plaque' },
+            },
+            {
+              id: 'modern',
+              label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
+              desc: { mr: 'क्लिन ओपन व्ह्यू + फ्लोटिंग रिबन', en: 'Open viewport + floating ribbon' },
+            },
+          ];
+
+  const activeStyleLabel =
+    activeMode === 'banner'
+      ? activeBannerTheme.toUpperCase().replace('THEME', 'THEME ')
+      : resolvedStyle === 'classic'
+        ? 'STYLE 1'
+        : 'STYLE 2';
 
   const activePlatformObj = PLATFORMS.find((p) => p.id === platform) ?? PLATFORMS[0];
 
@@ -314,18 +680,25 @@ export function LiveStudioPreview({
     : undefined;
 
   return (
-    <section id="studio" className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]">
+    <section
+      id="studio"
+      className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]/68 backdrop-blur-[2px]"
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
-          <div className="max-w-2xl space-y-3">
+          <div className="max-w-2xl space-y-3.5">
             <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
               {UI_COPY.studioSection.kicker[lang]}
             </p>
-            <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white">
+            <h2
+              className={`font-display text-2xl sm:text-4xl font-bold text-white ${
+                lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+              }`}
+            >
               {UI_COPY.studioSection.heading[lang]}
             </h2>
-            <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+            <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
               {UI_COPY.studioSection.intro[lang]}
             </p>
           </div>
@@ -355,53 +728,74 @@ export function LiveStudioPreview({
           </div>
         </div>
 
-        {/* 2-Style Visual Picker Bar */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Style / 4-Theme Visual Picker Bar */}
+        <div
+          className={`mb-6 grid grid-cols-1 gap-3 ${
+            activeMode === 'banner' ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2'
+          }`}
+        >
           {styleOptions.map((opt) => {
-            const selected = activeStyle === opt.id;
+            const selected = resolvedStyle === opt.id;
             return (
               <button
                 key={opt.id}
                 type="button"
                 onClick={() => handleSelectStyle(opt.id)}
                 aria-pressed={selected}
-                className={`flex items-center justify-between gap-4 px-4 py-3 rounded-xl border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                className={`flex flex-col justify-between gap-2.5 px-4 py-3 rounded-xl border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
                   selected
                     ? 'bg-[#1A1315] border-[#FACC15] text-white'
                     : 'bg-[#121216] border-white/10 text-zinc-300 hover:border-white/25'
                 }`}
               >
-                <div className="space-y-0.5">
-                  <p className="text-sm font-bold text-white">{opt.label[lang]}</p>
-                  <p className="text-xs text-zinc-400">{opt.desc[lang]}</p>
+                {opt.previewGradient && (
+                  <div
+                    className="w-full h-2.5 rounded-full border border-white/20"
+                    style={{ backgroundImage: opt.previewGradient }}
+                    aria-hidden="true"
+                  />
+                )}
+                <div className="flex items-start justify-between gap-3 w-full">
+                  <div className="space-y-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-bold text-white leading-normal">
+                      {opt.label[lang]}
+                    </p>
+                    <p className="text-[11px] sm:text-xs text-zinc-400 leading-relaxed">
+                      {opt.desc[lang]}
+                    </p>
+                  </div>
+                  <span
+                    className={`font-mono text-[10px] font-bold whitespace-nowrap shrink-0 mt-0.5 ${
+                      selected ? 'text-[#FACC15]' : 'text-zinc-500'
+                    }`}
+                  >
+                    {selected
+                      ? lang === 'mr'
+                        ? 'सक्रिय'
+                        : 'ACTIVE'
+                      : lang === 'mr'
+                        ? 'निवडा'
+                        : 'SELECT'}
+                  </span>
                 </div>
-                <span
-                  className={`font-mono text-[11px] font-bold whitespace-nowrap shrink-0 ${
-                    selected ? 'text-[#FACC15]' : 'text-zinc-500'
-                  }`}
-                >
-                  {selected
-                    ? lang === 'mr'
-                      ? 'सक्रिय'
-                      : 'ACTIVE'
-                    : lang === 'mr'
-                      ? 'निवडा'
-                      : 'SELECT'}
-                </span>
               </button>
             );
           })}
         </div>
 
         {/* Main Studio Grid: Monitor + Control Desk */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
           {/* Broadcast Program Monitor (16:9) + OBS/vMix URL Panel */}
-          <div className="lg:col-span-8 bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-5">
+          <div
+            className={`${
+              activeMode === 'kabaddi' ? 'xl:col-span-7' : 'xl:col-span-8'
+            } bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-5`}
+          >
             {/* Monitor top toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/8 text-xs text-zinc-400">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-mono font-medium text-zinc-200">
-                  1920×1080 PGM · {activeStyle === 'classic' ? 'STYLE 1' : 'STYLE 2'} · {activePlatformObj.label}
+                  1920×1080 PGM · {activeStyleLabel} · {activePlatformObj.label}
                 </span>
                 <span aria-hidden="true" className="text-zinc-600">·</span>
                 <span className="font-mono text-zinc-400 tabular-nums">
@@ -416,31 +810,66 @@ export function LiveStudioPreview({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => updateState({ showLogo: !state.showLogo })}
-                  aria-pressed={state.showLogo}
-                  className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded border transition-colors whitespace-nowrap shrink-0 ${
-                    state.showLogo
-                      ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
-                      : 'bg-[#18181D] text-zinc-400 border-white/15 hover:border-white/30'
-                  }`}
-                >
-                  {state.showLogo ? '3D Logo: ON' : '3D Logo: OFF'}
-                </button>
+                {activeMode === 'haldi' && (
+                  <>
+                    <label className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-200 border-white/15 hover:border-[#FACC15]/70 transition-colors cursor-pointer whitespace-nowrap shrink-0">
+                      <ImagePlus className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+                      <span>
+                        {state.customLogoUrl
+                          ? lang === 'mr'
+                            ? 'लोगो बदला'
+                            : 'Change Logo'
+                          : lang === 'mr'
+                            ? 'कस्टम लोगो'
+                            : 'Add Logo'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUploadCustomLogo}
+                        className="sr-only"
+                      />
+                    </label>
 
-                {state.showLogo && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateState({
-                        logoCorner: state.logoCorner === 'top-right' ? 'top-left' : 'top-right',
-                      })
-                    }
-                    className="px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-300 border-white/15 hover:border-white/30 transition-colors whitespace-nowrap shrink-0"
-                  >
-                    {state.logoCorner === 'top-right' ? 'Pos: Right' : 'Pos: Left'}
-                  </button>
+                    {state.customLogoUrl && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => updateState({ showLogo: !state.showLogo })}
+                          aria-pressed={state.showLogo}
+                          className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded border transition-colors whitespace-nowrap shrink-0 ${
+                            state.showLogo
+                              ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
+                              : 'bg-[#18181D] text-zinc-400 border-white/15 hover:border-white/30'
+                          }`}
+                        >
+                          {state.showLogo ? 'Logo: ON' : 'Logo: OFF'}
+                        </button>
+                        {state.showLogo && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              updateState({
+                                logoCorner:
+                                  state.logoCorner === 'top-right' ? 'top-left' : 'top-right',
+                              })
+                            }
+                            className="px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-300 border-white/15 hover:border-white/30 transition-colors whitespace-nowrap shrink-0"
+                          >
+                            {state.logoCorner === 'top-right' ? 'Pos: Right' : 'Pos: Left'}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={handleRemoveCustomLogo}
+                          aria-label={lang === 'mr' ? 'लोगो काढा' : 'Remove custom logo'}
+                          className="p-1 text-zinc-400 hover:text-[#F87171] border border-white/15 rounded transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </>
                 )}
 
                 <button
@@ -480,22 +909,22 @@ export function LiveStudioPreview({
               </div>
             </div>
 
-            {/* Simulated 16:9 Live Broadcast Stage (Style 1 & Style 2) */}
+            {/* Simulated 16:9 Live Broadcast Stage */}
             <div
-              className={`relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between p-3.5 sm:p-5 transition-opacity duration-200 ${
-                state.visible ? 'opacity-100' : 'opacity-25'
-              } ${
-                isClassic
-                  ? activeMode === 'kabaddi'
-                    ? 'border-2 border-[#FACC15] shadow-[inset_0_0_0_3px_#DC2626]'
-                    : 'border-2 border-[#FACC15] shadow-[inset_0_0_0_4px_#B45309]'
+              className={`relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between transition-opacity duration-200 ${
+                activeMode === 'banner' ? 'p-0' : 'p-3.5 sm:p-5'
+              } ${state.visible ? 'opacity-100' : 'opacity-25'} ${
+                isClassic && activeMode === 'haldi'
+                  ? 'border-2 border-[#FACC15] shadow-[inset_0_0_0_4px_#B45309]'
                   : 'border border-white/12'
               } ${
                 transparentBg
                   ? ''
                   : activeMode === 'kabaddi'
-                    ? 'bg-gradient-to-br from-[#2E070A] via-[#130D14] to-[#09090B]'
-                    : 'bg-gradient-to-br from-[#452705] via-[#261607] to-[#09090B]'
+                    ? 'bg-gradient-to-br from-[#0F172A] via-[#131924] to-[#09090B]'
+                    : activeMode === 'banner'
+                      ? 'bg-gradient-to-br from-[#0F172A] via-[#111827] to-[#09090B]'
+                      : 'bg-gradient-to-br from-[#452705] via-[#261607] to-[#09090B]'
               }`}
               style={monitorBackgroundStyle}
             >
@@ -521,66 +950,75 @@ export function LiveStudioPreview({
                 </>
               )}
 
-              {/* Top Broadcast Bug Bar */}
-              <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
-                {activeMode === 'kabaddi' ? (
-                  isClassic ? (
+              {/* Top Layer */}
+              {activeMode === 'haldi' ? (
+                <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
+                  {isClassic ? (
                     <>
-                      <div className="inline-flex items-center gap-2 bg-[#DC2626] border border-[#FACC15] text-white px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
-                        <span>{state.kabaddiTag}</span>
+                      <div className="inline-flex items-center gap-1.5 bg-[#B45309]/95 border border-[#FACC15] text-[#FEF08A] px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
+                        <span>{state.haldiTag}</span>
                       </div>
-                      <div className="bg-[#0B0A0E]/90 border border-[#FACC15]/80 px-3 py-1 rounded text-[11px] sm:text-xs font-display font-bold text-[#FACC15]">
-                        {state.kabaddiTitle}
+                      <div className="bg-[#78350F]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
+                        {state.haldiHeader}
                       </div>
                     </>
                   ) : (
-                    <>
-                      <div className="inline-flex items-center gap-2 bg-[#0A0C12]/90 border border-[#FACC15]/85 rounded-full pl-1 pr-3 py-0.5">
-                        <span className="bg-[#DC2626] text-white px-2 py-0.5 rounded-full text-[10px] font-mono font-bold">
-                          {state.kabaddiTag}
-                        </span>
-                        <span className="text-[11px] font-display font-bold text-[#FACC15]">
-                          STAR EVENT LIVE
-                        </span>
-                      </div>
-                      <div className="bg-[#0A0C12]/88 border border-white/20 rounded-full px-3 py-1 text-[10px] sm:text-xs font-display font-bold text-zinc-100">
-                        {state.kabaddiTitle}
-                      </div>
-                    </>
-                  )
-                ) : isClassic ? (
-                  <>
-                    <div className="inline-flex items-center gap-1.5 bg-[#B45309]/95 border border-[#FACC15] text-[#FEF08A] px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
-                      <span>{state.haldiTag}</span>
-                    </div>
-                    <div className="bg-[#78350F]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
+                    <div className="ml-auto bg-[#180F06]/88 border border-[#FACC15]/85 rounded-full px-3.5 py-1 text-[10px] sm:text-xs font-display font-bold text-[#FACC15]">
                       {state.haldiHeader}
                     </div>
-                  </>
-                ) : (
-                  <div className="ml-auto bg-[#180F06]/88 border border-[#FACC15]/85 rounded-full px-3.5 py-1 text-[10px] sm:text-xs font-display font-bold text-[#FACC15]">
-                    {state.haldiHeader}
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              ) : activeMode === 'kabaddi' && resolvedStyle === 'modern' ? (
+                <div className="relative z-10 w-full">
+                  <KabaddiScoreboardBar
+                    variant="studio"
+                    teamAName={state.teamAName}
+                    teamACode={state.teamACode}
+                    teamAColor={state.teamAColor}
+                    teamAScore={state.teamAScore}
+                    teamALogoUrl={state.teamALogoUrl}
+                    teamAYellowCards={state.teamAYellowCards}
+                    teamARedCards={state.teamARedCards}
+                    teamABinRemaining={teamABinRemaining}
+                    teamBName={state.teamBName}
+                    teamBCode={state.teamBCode}
+                    teamBColor={state.teamBColor}
+                    teamBScore={state.teamBScore}
+                    teamBLogoUrl={state.teamBLogoUrl}
+                    teamBYellowCards={state.teamBYellowCards}
+                    teamBRedCards={state.teamBRedCards}
+                    teamBBinRemaining={teamBBinRemaining}
+                    matchSeconds={displayMatchSeconds}
+                    raidSeconds={displayRaidSeconds}
+                    raidRunning={state.raidRunning}
+                    halfLabel={state.kabaddiHalf}
+                    doOrDie={state.doOrDie}
+                    subtitle={state.kabaddiSubtitle}
+                  />
+                </div>
+              ) : (
+                <div className="h-3" aria-hidden="true" />
+              )}
 
-              {/* 3D Spinning Chroma-Keyed Logo Watermark */}
-              {state.showLogo && (
+              {/* Optional User-Uploaded Custom Logo Watermark (Haldi & Wedding mode) */}
+              {activeMode === 'haldi' && state.showLogo && state.customLogoUrl && (
                 <div
                   className={`pointer-events-none absolute top-14 sm:top-16 z-20 ${
                     state.logoCorner === 'top-left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5'
                   }`}
                 >
-                  <SpinningLogoVideo
-                    className="w-14 h-14 sm:w-20 sm:h-20 drop-shadow-[0_6px_14px_rgba(0,0,0,0.65)]"
-                    resolution={200}
-                    label="Star Event Live rotating broadcast bug"
-                  />
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-[#FACC15] bg-black/75 p-1.5 overflow-hidden flex items-center justify-center drop-shadow-[0_6px_14px_rgba(0,0,0,0.65)]">
+                    <img
+                      src={state.customLogoUrl}
+                      alt="Custom overlay logo"
+                      className="w-full h-full object-contain rounded-full"
+                    />
+                  </div>
                 </div>
               )}
 
               {/* Center Safe Zone */}
-              <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-2">
+              <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-3">
                 {activeMode === 'kabaddi' && state.kabaddiAlert ? (
                   <div className="bg-[#DC2626] border-2 border-[#FACC15] px-6 py-2.5 rounded-lg text-white font-display font-extrabold text-xl sm:text-3xl tracking-tight shadow-lg">
                     {state.kabaddiAlert}
@@ -594,110 +1032,58 @@ export function LiveStudioPreview({
                 )}
               </div>
 
-              {/* Bottom On-Screen Graphic (Style 1 vs Style 2) */}
-              <div className="relative z-10">
-                {activeMode === 'kabaddi' ? (
-                  isClassic ? (
-                    <div className="bg-[#12080B]/95 border-2 border-[#FACC15] rounded-xl overflow-hidden">
-                      <div className="grid grid-cols-12 items-center">
-                        <div className="col-span-5 bg-gradient-to-r from-[#991B1B] to-[#DC2626] px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2">
-                          <span className="font-display font-extrabold text-[11px] sm:text-sm text-white truncate">
-                            {state.teamAName}
-                          </span>
-                          <span className="font-mono font-extrabold text-base sm:text-2xl text-[#FACC15] tabular-nums">
-                            {String(state.teamAScore).padStart(2, '0')}
-                          </span>
-                        </div>
-
-                        <div className="col-span-2 bg-[#09090B] px-1.5 py-1.5 text-center border-x border-[#FACC15]/60">
-                          <p className="text-[9px] font-mono text-zinc-400 leading-none truncate">
-                            {state.doOrDie ? 'DO-OR-DIE' : state.kabaddiHalf}
-                          </p>
-                          <p
-                            className={`font-mono font-extrabold text-sm sm:text-xl tabular-nums leading-tight mt-0.5 ${
-                              displayRaidSeconds <= 10 ? 'text-[#EF4444]' : 'text-[#FACC15]'
-                            }`}
-                          >
-                            {String(displayRaidSeconds).padStart(2, '0')}s
-                          </p>
-                        </div>
-
-                        <div className="col-span-5 bg-gradient-to-l from-[#1E3A8A] to-[#1D4ED8] px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2">
-                          <span className="font-mono font-extrabold text-base sm:text-2xl text-[#FACC15] tabular-nums">
-                            {String(state.teamBScore).padStart(2, '0')}
-                          </span>
-                          <span className="font-display font-extrabold text-[11px] sm:text-sm text-white truncate text-right">
-                            {state.teamBName}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="bg-[#230B0F] border-t border-[#FACC15]/40 px-3 py-1 text-center">
-                        <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] truncate">
-                          {state.kabaddiSubtitle}
-                        </p>
-                      </div>
-                    </div>
+              {/* Bottom On-Screen Graphic */}
+              <div className="relative z-10 w-full">
+                {activeMode === 'banner' ? (
+                  <BottomBannerFrame
+                    variant="studio"
+                    theme={activeBannerTheme}
+                    title={state.bannerTitle}
+                    subtitle={state.bannerSubtitle}
+                    icon={state.bannerIcon}
+                    titleColor={state.bannerTitleColor}
+                    subtitleColor={state.bannerSubtitleColor}
+                    showTrophy={state.bannerShowTrophy}
+                    showBrandLogo={Boolean(state.customLogoUrl) && state.bannerShowBrandLogo}
+                    customLogoUrl={state.customLogoUrl}
+                    animated={state.bannerAnimated}
+                  />
+                ) : activeMode === 'kabaddi' ? (
+                  resolvedStyle === 'classic' ? (
+                    <KabaddiScoreboardBar
+                      variant="studio"
+                      teamAName={state.teamAName}
+                      teamACode={state.teamACode}
+                      teamAColor={state.teamAColor}
+                      teamAScore={state.teamAScore}
+                      teamALogoUrl={state.teamALogoUrl}
+                      teamAYellowCards={state.teamAYellowCards}
+                      teamARedCards={state.teamARedCards}
+                      teamABinRemaining={teamABinRemaining}
+                      teamBName={state.teamBName}
+                      teamBCode={state.teamBCode}
+                      teamBColor={state.teamBColor}
+                      teamBScore={state.teamBScore}
+                      teamBLogoUrl={state.teamBLogoUrl}
+                      teamBYellowCards={state.teamBYellowCards}
+                      teamBRedCards={state.teamBRedCards}
+                      teamBBinRemaining={teamBBinRemaining}
+                      matchSeconds={displayMatchSeconds}
+                      raidSeconds={displayRaidSeconds}
+                      raidRunning={state.raidRunning}
+                      halfLabel={state.kabaddiHalf}
+                      doOrDie={state.doOrDie}
+                      subtitle={state.kabaddiSubtitle}
+                    />
                   ) : (
-                    /* Style 2: Pro TV Floating Broadcast Capsule */
-                    <div className="w-[94%] mx-auto">
-                      <div className="bg-[#0A0C14]/95 border-2 border-[#FACC15] rounded-full px-2 py-1.5 shadow-xl">
-                        <div className="grid grid-cols-12 items-center gap-1.5">
-                          <div className="col-span-5 bg-gradient-to-r from-[#B91C1C] to-[#EF4444] rounded-full px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2">
-                            <span className="font-display font-extrabold text-[10px] sm:text-xs text-white truncate">
-                              {state.teamAName}
-                            </span>
-                            <span className="font-mono font-extrabold text-sm sm:text-xl text-[#FEF08A] tabular-nums">
-                              {String(state.teamAScore).padStart(2, '0')}
-                            </span>
-                          </div>
-
-                          <div className="col-span-2 flex justify-center">
-                            <div
-                              className={`-my-3 w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-[#09090B] border-2 flex flex-col items-center justify-center shadow-lg ${
-                                state.doOrDie ? 'border-[#EF4444]' : 'border-[#FACC15]'
-                              }`}
-                            >
-                              <span
-                                className={`font-mono font-bold text-[7px] sm:text-[8px] leading-none ${
-                                  state.doOrDie ? 'text-[#FCA5A5]' : 'text-zinc-400'
-                                }`}
-                              >
-                                {state.doOrDie ? 'DO-OR-DIE' : state.kabaddiHalf.replace(' HALF', '')}
-                              </span>
-                              <span
-                                className={`font-mono font-extrabold text-xs sm:text-base tabular-nums leading-tight ${
-                                  displayRaidSeconds <= 10 ? 'text-[#EF4444]' : 'text-[#FACC15]'
-                                }`}
-                              >
-                                {String(displayRaidSeconds).padStart(2, '0')}s
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="col-span-5 bg-gradient-to-l from-[#1E3A8A] to-[#0284C7] rounded-full px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2">
-                            <span className="font-mono font-extrabold text-sm sm:text-xl text-[#FEF08A] tabular-nums">
-                              {String(state.teamBScore).padStart(2, '0')}
-                            </span>
-                            <span className="font-display font-extrabold text-[10px] sm:text-xs text-white truncate text-right">
-                              {state.teamBName}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-1.5 text-center">
-                        <span className="inline-block bg-[#0A0C14]/90 border border-[#FACC15]/40 rounded-full px-3 py-0.5 text-[9px] sm:text-[11px] font-medium text-[#FEF08A] max-w-full truncate">
-                          {state.kabaddiSubtitle}
-                        </span>
-                      </div>
-                    </div>
+                    <div className="h-2" aria-hidden="true" />
                   )
                 ) : isClassic ? (
                   <div className="bg-gradient-to-r from-[#78350F]/95 via-[#B45309]/95 to-[#78350F]/95 border-2 border-[#FACC15] rounded-xl px-4 py-2.5 text-center shadow-lg">
-                    <p className="font-display text-sm sm:text-xl font-extrabold text-white truncate">
+                    <p className="font-display text-sm sm:text-xl font-extrabold text-white truncate leading-normal py-0.5">
                       {state.haldiTitle}
                     </p>
-                    <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] mt-0.5 truncate">
+                    <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] mt-0.5 truncate leading-normal">
                       {state.haldiSubtitle}
                     </p>
                   </div>
@@ -706,10 +1092,10 @@ export function LiveStudioPreview({
                   <div className="w-[88%] mx-auto bg-gradient-to-r from-[#221204]/90 via-[#92400E]/95 to-[#221204]/90 border-2 border-[#FDE047] rounded-full px-5 sm:px-7 py-2.5 flex items-center justify-between gap-3 shadow-xl">
                     <span className="w-2.5 h-2.5 rotate-45 bg-[#FACC15] shrink-0" aria-hidden="true" />
                     <div className="min-w-0 text-center flex-1">
-                      <p className="font-display text-sm sm:text-lg font-extrabold text-white truncate">
+                      <p className="font-display text-sm sm:text-lg font-extrabold text-white truncate leading-normal py-0.5">
                         {state.haldiTitle}
                       </p>
-                      <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] truncate">
+                      <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] truncate leading-normal">
                         {state.haldiTag} • {state.haldiSubtitle}
                       </p>
                     </div>
@@ -732,13 +1118,13 @@ export function LiveStudioPreview({
                     </span>
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {isCurrentUnlocked
+                    {isCurrentUnlocked && activeToken
                       ? lang === 'mr'
-                        ? 'अनलॉक केलेले · ही URL OBS किंवा vMix मध्ये पेस्ट करा — स्कोअर व टायटल रिअल-टाईम अपडेट होतील.'
-                        : 'Unlocked · Paste this URL into OBS Browser Source or vMix Web Browser Input for live sync.'
+                        ? `24 तासांचा पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
+                        : `24-Hour Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
                       : lang === 'mr'
-                        ? 'OBS URL, vMix URL आणि 1920×1080 ट्रान्सपरंट PNG डाउनलोड करण्यासाठी हा ओव्हरले फक्त ₹99 मध्ये अनलॉक करा.'
-                        : 'Unlock this overlay for ₹99 (was ₹149) to access live OBS URL, vMix URL, and 1920×1080 PNG export.'}
+                        ? 'OBS URL, vMix URL आणि 1920×1080 ट्रान्सपरंट PNG (24 तास वैध) साठी ₹99 पेमेंट करून अनलॉक करा.'
+                        : 'Unlock for 24 hours at ₹99 (was ₹149) to access live OBS URL, vMix URL, and 1920×1080 PNG export.'}
                   </p>
                 </div>
 
@@ -963,14 +1349,18 @@ export function LiveStudioPreview({
             </div>
           </div>
 
-          {/* Interactive Control Desk (Kabaddi Scoreboard or Haldi Overlay) */}
-          <div className="lg:col-span-4 bg-[#121216] border border-white/12 rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-6">
+          {/* Interactive Control Desk (Bottom Frame, Pro Kabaddi Deck, or Haldi & Wedding) */}
+          <div
+            className={`${
+              activeMode === 'kabaddi' ? 'xl:col-span-5' : 'xl:col-span-4'
+            } bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-6`}
+          >
             <div className="space-y-5">
-              {/* Platform Selector */}
+              {/* Broadcast Output Mode Selector */}
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-zinc-300 flex items-center gap-2">
                   <Tv className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                  <span>{lang === 'mr' ? 'स्ट्रीमिंग प्लॅटफॉर्म निवडा' : 'Select Streaming Platform'}</span>
+                  <span>{lang === 'mr' ? 'आउटपुट मोड निवडा' : 'Select Broadcast Output'}</span>
                 </p>
                 <div className="grid grid-cols-3 gap-1.5">
                   {PLATFORMS.map((p) => (
@@ -984,183 +1374,336 @@ export function LiveStudioPreview({
                           : 'bg-[#18181D] text-zinc-300 border-white/10 hover:border-white/25'
                       }`}
                     >
-                      {p.label.replace(' Live', '')}
+                      {p.shortLabel}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {activeMode === 'kabaddi' ? (
+              {activeMode === 'banner' ? (
                 <div className="space-y-4 pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-zinc-200">
-                      {lang === 'mr' ? 'कबड्डी स्कोअर व 30s रेड टायमर' : 'Kabaddi Score & 30s Raid Desk'}
+                      {lang === 'mr'
+                        ? 'अॅनिमेटेड बॉटम फ्रेम कस्टमायझर (OBS/vMix सिंक)'
+                        : 'Animated Bottom Frame Customizer (Live Sync)'}
                     </p>
                     <button
                       type="button"
-                      onClick={handleResetKabaddi}
-                      className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
+                      onClick={handleResetBanner}
+                      className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors whitespace-nowrap"
                     >
                       <RotateCcw className="w-3 h-3" aria-hidden="true" />
                       <span>{lang === 'mr' ? 'रीसेट' : 'Reset'}</span>
                     </button>
                   </div>
 
-                  {/* Team Names */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      aria-label="Team A name"
-                      value={state.teamAName}
-                      onChange={(e) => updateState({ teamAName: e.target.value })}
-                      className="px-2.5 py-2 text-xs font-semibold bg-[#18181D] border border-[#DC2626]/50 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
-                    />
-                    <input
-                      type="text"
-                      aria-label="Team B name"
-                      value={state.teamBName}
-                      onChange={(e) => updateState({ teamBName: e.target.value })}
-                      className="px-2.5 py-2 text-xs font-semibold bg-[#18181D] border border-blue-600/50 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
-                    />
-                  </div>
-
-                  {/* Team Scoring Buttons */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1.5">
-                      <div className="grid grid-cols-3 gap-1">
+                  {/* Quick Event Presets: Cricket, Kabaddi, Haldi, Wedding */}
+                  <div className="space-y-1.5">
+                    <span className="block text-xs text-zinc-400">
+                      {lang === 'mr' ? 'झटपट टेम्प्लेट निवडा (Quick Preset)' : 'Quick Event Preset'}
+                    </span>
+                    <div className="grid grid-cols-4 gap-1.5">
+                      {(
+                        [
+                          { id: 'cricket', label: { mr: 'क्रिकेट', en: 'Cricket' } },
+                          { id: 'kabaddi', label: { mr: 'कबड्डी', en: 'Kabaddi' } },
+                          { id: 'haldi', label: { mr: 'हळदी', en: 'Haldi' } },
+                          { id: 'wedding', label: { mr: 'लग्न', en: 'Wedding' } },
+                        ] as const
+                      ).map((preset) => (
                         <button
+                          key={preset.id}
                           type="button"
-                          onClick={() => handleKabaddiScore('A', -1)}
-                          className="py-2 text-xs font-mono font-bold bg-[#18181D] hover:bg-[#22222A] text-zinc-300 border border-white/10 rounded-lg"
+                          onClick={() => applyBannerPreset(preset.id)}
+                          className="py-1.5 px-1 text-[11px] font-semibold rounded-lg border bg-[#18181D] text-zinc-200 border-white/12 hover:border-[#FACC15]/70 hover:text-[#FACC15] transition-colors whitespace-nowrap"
                         >
-                          -1
+                          {preset.label[lang]}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleKabaddiScore('A', 1)}
-                          className="col-span-2 py-2 text-xs font-mono font-bold bg-[#991B1B] hover:bg-[#DC2626] text-white rounded-lg transition-colors"
-                        >
-                          A +1 PT
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleKabaddiScore('A', 3, `${state.teamAName}: SUPER RAID +3`)}
-                        className="w-full py-2 text-xs font-mono font-bold bg-[#18181D] hover:bg-[#22222A] text-[#FACC15] border border-white/10 rounded-lg transition-colors"
-                      >
-                        SUPER RAID +3
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleKabaddiScore('A', 2, `ALL OUT! +2 ${state.teamAName}`)}
-                        className="w-full py-1.5 text-[11px] font-mono font-semibold bg-[#18181D] hover:bg-[#22222A] text-zinc-200 border border-white/10 rounded-lg transition-colors"
-                      >
-                        ALL OUT +2
-                      </button>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <div className="grid grid-cols-3 gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleKabaddiScore('B', -1)}
-                          className="py-2 text-xs font-mono font-bold bg-[#18181D] hover:bg-[#22222A] text-zinc-300 border border-white/10 rounded-lg"
-                        >
-                          -1
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleKabaddiScore('B', 1)}
-                          className="col-span-2 py-2 text-xs font-mono font-bold bg-[#1D4ED8] hover:bg-[#2563EB] text-white rounded-lg transition-colors"
-                        >
-                          B +1 PT
-                        </button>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleKabaddiScore('B', 3, `${state.teamBName}: SUPER RAID +3`)}
-                        className="w-full py-2 text-xs font-mono font-bold bg-[#18181D] hover:bg-[#22222A] text-[#FACC15] border border-white/10 rounded-lg transition-colors"
-                      >
-                        SUPER RAID +3
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleKabaddiScore('B', 2, `ALL OUT! +2 ${state.teamBName}`)}
-                        className="w-full py-1.5 text-[11px] font-mono font-semibold bg-[#18181D] hover:bg-[#22222A] text-zinc-200 border border-white/10 rounded-lg transition-colors"
-                      >
-                        ALL OUT +2
-                      </button>
+                      ))}
                     </div>
                   </div>
 
-                  {/* 30-Second Raid Timer Controls */}
-                  <div className="pt-3 border-t border-white/10 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-mono text-zinc-300 tabular-nums">
-                        RAID: {String(displayRaidSeconds).padStart(2, '0')}s
-                      </span>
-                      <div className="flex items-center gap-1.5">
+                  {/* Primary Left Capsule Title */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="preview-banner-title" className="block text-xs text-zinc-400">
+                      {lang === 'mr'
+                        ? 'डावे मुख्य नाव (स्पर्धा / हळदी / लग्न नाव)'
+                        : 'Left Primary Title (Tournament / Haldi / Wedding)'}
+                    </label>
+                    <input
+                      id="preview-banner-title"
+                      type="text"
+                      value={state.bannerTitle}
+                      onChange={(e) => updateState({ bannerTitle: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+
+                  {/* Secondary Right Gold-Bar Subtitle */}
+                  <div className="space-y-1.5">
+                    <label htmlFor="preview-banner-subtitle" className="block text-xs text-zinc-400">
+                      {lang === 'mr' ? 'उजवे उप-शीर्षक (वर्ष / सोहळा / ठिकाण)' : 'Right Subtitle (Event / Year / Venue)'}
+                    </label>
+                    <input
+                      id="preview-banner-subtitle"
+                      type="text"
+                      value={state.bannerSubtitle}
+                      onChange={(e) => updateState({ bannerSubtitle: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+
+                  {/* Left Mascot / Event Emblem Selector */}
+                  <div className="space-y-1.5">
+                    <span className="block text-xs text-zinc-400">
+                      {lang === 'mr' ? 'डावा आयकॉन (Mascot / Emblem)' : 'Left Emblem Icon'}
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          { id: 'cricket', label: { mr: 'क्रिकेट', en: 'Cricket' } },
+                          { id: 'kabaddi', label: { mr: 'कबड्डी', en: 'Kabaddi' } },
+                          { id: 'kalash', label: { mr: 'हळदी कलश', en: 'Haldi Kalash' } },
+                          { id: 'wedding', label: { mr: 'लग्न रिंग्स', en: 'Wedding' } },
+                          { id: 'trophy', label: { mr: 'ट्रॉफी', en: 'Trophy' } },
+                          { id: 'none', label: { mr: 'नाही', en: 'None' } },
+                        ] as { id: BannerIconType; label: Record<Language, string> }[]
+                      ).map((opt) => (
                         <button
+                          key={opt.id}
                           type="button"
-                          onClick={() =>
-                            updateState({
-                              kabaddiHalf: state.kabaddiHalf === '1ST HALF' ? '2ND HALF' : '1ST HALF',
-                            })
-                          }
-                          className="px-2 py-1 text-[11px] font-mono bg-[#18181D] border border-white/10 rounded text-zinc-300 hover:text-white"
-                        >
-                          {state.kabaddiHalf}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => updateState({ doOrDie: !state.doOrDie })}
-                          aria-pressed={state.doOrDie}
-                          className={`px-2 py-1 text-[11px] font-mono rounded border ${
-                            state.doOrDie
-                              ? 'bg-[#DC2626] border-[#FACC15] text-white'
-                              : 'bg-[#18181D] border-white/10 text-zinc-300'
+                          onClick={() => updateState({ bannerIcon: opt.id })}
+                          aria-pressed={state.bannerIcon === opt.id}
+                          className={`py-1.5 px-1.5 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                            state.bannerIcon === opt.id
+                              ? 'bg-[#FACC15] text-black border-[#FACC15]'
+                              : 'bg-[#18181D] text-zinc-300 border-white/10 hover:border-white/25'
                           }`}
                         >
-                          DO-OR-DIE
+                          {opt.label[lang]}
                         </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Custom User Logo Upload (Watermark-Free by Default) */}
+                  <div className="space-y-2 pt-2 border-t border-white/10">
+                    <span className="block text-xs text-zinc-400">
+                      {lang === 'mr'
+                        ? 'उजवा कस्टम लोगो (तुमचा स्वतःचा लोगो — पर्यायी)'
+                        : 'Right Custom Logo (Upload Your Own — Optional)'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {state.customLogoUrl && (
+                        <div className="w-9 h-9 rounded-full border border-[#FACC15] bg-black/70 p-0.5 overflow-hidden shrink-0">
+                          <img
+                            src={state.customLogoUrl}
+                            alt="Uploaded custom logo"
+                            className="w-full h-full object-contain rounded-full"
+                          />
+                        </div>
+                      )}
+                      <label className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-lg border border-dashed border-[#FACC15]/50 bg-[#18181D] hover:bg-[#22222A] text-zinc-200 cursor-pointer transition-colors">
+                        <ImagePlus className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
+                        <span>
+                          {state.customLogoUrl
+                            ? lang === 'mr'
+                              ? 'लोगो बदला'
+                              : 'Change Logo'
+                            : lang === 'mr'
+                              ? 'तुमचा लोगो अपलोड करा'
+                              : 'Upload Custom Logo'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleUploadCustomLogo}
+                          className="sr-only"
+                        />
+                      </label>
+                      {state.customLogoUrl && (
+                        <button
+                          type="button"
+                          onClick={handleRemoveCustomLogo}
+                          className="inline-flex items-center gap-1 px-2.5 py-2 text-xs font-semibold text-[#FCA5A5] bg-[#1D1214] hover:bg-[#2B171B] border border-[#EF4444]/40 rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                          <span>{lang === 'mr' ? 'काढा' : 'Remove'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Text Color Pickers (Left Title & Right Subtitle) */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <span className="block text-[11px] text-zinc-400">
+                        {lang === 'mr' ? 'मुख्य नावाचा रंग' : 'Title Color'}
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {['#FF9F0A', '#FACC15', '#FEF08A', '#FFFFFF', '#38BDF8'].map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => updateState({ bannerTitleColor: hex })}
+                            aria-label={`Set title color ${hex}`}
+                            className={`w-5 h-5 rounded-full border-2 transition-transform ${
+                              state.bannerTitleColor.toUpperCase() === hex
+                                ? 'border-white scale-110'
+                                : 'border-white/25'
+                            }`}
+                            style={{ backgroundColor: hex }}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          aria-label="Custom title color"
+                          value={state.bannerTitleColor}
+                          onChange={(e) => updateState({ bannerTitleColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 p-0"
+                        />
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={handleToggleRaidTimer}
-                        className="inline-flex items-center justify-center gap-1.5 py-2 text-xs font-semibold bg-[#FACC15] hover:bg-[#EAB308] text-black rounded-lg transition-colors"
-                      >
-                        {state.raidRunning ? (
-                          <Pause className="w-3.5 h-3.5" aria-hidden="true" />
-                        ) : (
-                          <Play className="w-3.5 h-3.5" aria-hidden="true" />
-                        )}
-                        <span>{state.raidRunning ? 'Pause Timer' : 'Start 30s Raid'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleResetRaidTimer}
-                        className="py-2 text-xs font-semibold bg-[#18181D] hover:bg-[#22222A] text-zinc-200 border border-white/10 rounded-lg transition-colors"
-                      >
-                        Reset 30s
-                      </button>
+                    <div className="space-y-1.5">
+                      <span className="block text-[11px] text-zinc-400">
+                        {lang === 'mr' ? 'उप-शीर्षकाचा रंग' : 'Subtitle Color'}
+                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {['#FFFFFF', '#FEF08A', '#FACC15', '#67E8F9'].map((hex) => (
+                          <button
+                            key={hex}
+                            type="button"
+                            onClick={() => updateState({ bannerSubtitleColor: hex })}
+                            aria-label={`Set subtitle color ${hex}`}
+                            className={`w-5 h-5 rounded-full border-2 transition-transform ${
+                              state.bannerSubtitleColor.toUpperCase() === hex
+                                ? 'border-white scale-110'
+                                : 'border-white/25'
+                            }`}
+                            style={{ backgroundColor: hex }}
+                          />
+                        ))}
+                        <input
+                          type="color"
+                          aria-label="Custom subtitle color"
+                          value={state.bannerSubtitleColor}
+                          onChange={(e) => updateState({ bannerSubtitleColor: e.target.value })}
+                          className="w-6 h-6 rounded cursor-pointer bg-transparent border border-white/20 p-0"
+                        />
+                      </div>
                     </div>
                   </div>
+
+                  {/* Motion, Trophy & Custom Logo Toggles */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-2 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => updateState({ bannerShowTrophy: !state.bannerShowTrophy })}
+                      aria-pressed={state.bannerShowTrophy}
+                      className={`py-2 px-1.5 text-[11px] font-mono font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.bannerShowTrophy
+                          ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
+                          : 'bg-[#18181D] text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {state.bannerShowTrophy ? 'Trophy: ON' : 'Trophy: OFF'}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={!state.customLogoUrl}
+                      onClick={() =>
+                        updateState({ bannerShowBrandLogo: !state.bannerShowBrandLogo })
+                      }
+                      aria-pressed={Boolean(state.customLogoUrl) && state.bannerShowBrandLogo}
+                      className={`py-2 px-1.5 text-[11px] font-mono font-semibold rounded-lg border transition-colors whitespace-nowrap disabled:opacity-45 disabled:cursor-not-allowed ${
+                        state.customLogoUrl && state.bannerShowBrandLogo
+                          ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
+                          : 'bg-[#18181D] text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {state.customLogoUrl && state.bannerShowBrandLogo ? 'Logo: ON' : 'Logo: OFF'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => updateState({ bannerAnimated: !state.bannerAnimated })}
+                      aria-pressed={state.bannerAnimated}
+                      className={`py-2 px-1.5 text-[11px] font-mono font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.bannerAnimated
+                          ? 'bg-[#DC2626] text-white border-[#DC2626]'
+                          : 'bg-[#18181D] text-zinc-400 border-white/10'
+                      }`}
+                    >
+                      {state.bannerAnimated ? 'Motion: ON' : 'Motion: OFF'}
+                    </button>
+                  </div>
                 </div>
+              ) : activeMode === 'kabaddi' ? (
+                <KabaddiControlDesk
+                  lang={lang}
+                  state={state}
+                  displayMatchSeconds={displayMatchSeconds}
+                  displayRaidSeconds={displayRaidSeconds}
+                  teamABinRemaining={teamABinRemaining}
+                  teamBBinRemaining={teamBBinRemaining}
+                  onUpdateState={updateState}
+                  onScoreDelta={handleKabaddiScore}
+                  onToggleMatchTimer={handleToggleMatchTimer}
+                  onAdjustMatchMinutes={handleAdjustMatchMinutes}
+                  onResetMatchTimer={handleResetMatchTimer}
+                  onToggleRaidTimer={handleToggleRaidTimer}
+                  onResetRaidTimer={handleResetRaidTimer}
+                  onToggleSinBin={handleToggleSinBin}
+                  onUploadTeamLogo={handleUploadTeamLogo}
+                  onRemoveTeamLogo={handleRemoveTeamLogo}
+                  onSwapTeams={handleSwapTeams}
+                  onResetMatch={handleResetKabaddi}
+                />
               ) : (
                 <div className="space-y-4 pt-4 border-t border-white/10">
                   <p className="text-xs font-semibold text-zinc-200">
                     {lang === 'mr'
-                      ? 'हळदी समारंभ ओव्हरले कंट्रोल (OBS/vMix सिंक)'
-                      : 'Haldi Ceremony Overlay Controls (OBS/vMix Sync)'}
+                      ? 'हळदी व लग्न समारंभ ओव्हरले कंट्रोल (OBS/vMix सिंक)'
+                      : 'Haldi & Wedding Overlay Controls (OBS/vMix Sync)'}
                   </p>
+
+                  {/* 1-Click Haldi vs Wedding Preset Switch */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('haldi')}
+                      className="py-2 px-3 text-xs font-semibold rounded-lg border bg-[#1E1608] hover:bg-[#2A1E0A] text-[#FACC15] border-[#FACC15]/50 transition-colors"
+                    >
+                      {lang === 'mr' ? 'हळदी समारंभ (Haldi)' : 'Haldi Ceremony'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('wedding')}
+                      className="py-2 px-3 text-xs font-semibold rounded-lg border bg-[#260D12] hover:bg-[#35121A] text-[#FEF08A] border-[#EF4444]/60 transition-colors"
+                    >
+                      {lang === 'mr' ? 'शुभ विवाह (Wedding)' : 'Wedding Ceremony'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label htmlFor="preview-haldi-tag" className="block text-xs text-zinc-400">
+                      {lang === 'mr' ? 'बॅज टॅग (HALDI LIVE / WEDDING LIVE)' : 'Corner Tag Badge'}
+                    </label>
+                    <input
+                      id="preview-haldi-tag"
+                      type="text"
+                      value={state.haldiTag}
+                      onChange={(e) => updateState({ haldiTag: e.target.value })}
+                      className="w-full px-3 py-2 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
 
                   <div className="space-y-1.5">
                     <label htmlFor="preview-haldi-header" className="block text-xs text-zinc-400">
-                      {lang === 'mr' ? 'वरचा बॅनर (Header)' : 'Top Header Banner'}
+                      {lang === 'mr' ? 'वरचा बॅनर (शुभ हळदी / शुभ मंगल सावधान)' : 'Top Header Banner'}
                     </label>
                     <input
                       id="preview-haldi-header"
@@ -1173,7 +1716,9 @@ export function LiveStudioPreview({
 
                   <div className="space-y-1.5">
                     <label htmlFor="preview-haldi-title" className="block text-xs text-zinc-400">
-                      {lang === 'mr' ? 'हळदी समारंभ मुख्य नाव' : 'Main Haldi Title'}
+                      {lang === 'mr'
+                        ? 'हळदी / लग्नाचे मुख्य नाव (वधू-वर / कुटुंब)'
+                        : 'Main Haldi / Wedding Title (Couple / Family)'}
                     </label>
                     <input
                       id="preview-haldi-title"
@@ -1186,7 +1731,7 @@ export function LiveStudioPreview({
 
                   <div className="space-y-1.5">
                     <label htmlFor="preview-haldi-subtitle" className="block text-xs text-zinc-400">
-                      {lang === 'mr' ? 'ठिकाण व संपर्क ओळ' : 'Venue & Contact Strip'}
+                      {lang === 'mr' ? 'ठिकाण, तारीख व निमंत्रण ओळ' : 'Venue, Date & Subtitle Strip'}
                     </label>
                     <input
                       id="preview-haldi-subtitle"
@@ -1204,7 +1749,7 @@ export function LiveStudioPreview({
             <div className="pt-4 border-t border-white/10">
               <button
                 type="button"
-                onClick={() => onBookFromPreview(activeMode)}
+                onClick={() => onBookFromPreview(activeMode === 'banner' ? 'cricket' : activeMode)}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>

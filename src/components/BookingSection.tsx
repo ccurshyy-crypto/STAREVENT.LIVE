@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Check, Copy, MessageCircle, Phone } from 'lucide-react';
+import { Check, Copy, ExternalLink, Instagram, MessageCircle, Phone, Youtube } from 'lucide-react';
 import {
   ADDON_OPTIONS,
   EVENT_SERVICES,
@@ -18,6 +18,7 @@ interface BookingSectionProps {
   selectedPackageId: string;
   onChangePackage: (packageId: string) => void;
   selectedAddOns: string[];
+  onOpenPackages?: () => void;
 }
 
 interface SubmittedInquiry {
@@ -42,12 +43,13 @@ export function BookingSection({
   selectedPackageId,
   onChangePackage,
   selectedAddOns,
+  onOpenPackages,
 }: BookingSectionProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [eventDate, setEventDate] = useState('');
   const [venue, setVenue] = useState('');
-  const [platforms, setPlatforms] = useState<PlatformId[]>(['youtube', 'facebook']);
+  const [platforms, setPlatforms] = useState<PlatformId[]>(['youtube-public']);
   const [notes, setNotes] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<SubmittedInquiry | null>(null);
@@ -106,7 +108,13 @@ export function BookingSection({
 
     const refId = `SEL-${Math.floor(100000 + Math.random() * 900000)}`;
     const platformList = platforms
-      .map((p) => (p === 'youtube' ? 'YouTube' : p === 'facebook' ? 'Facebook' : 'Instagram'))
+      .map((p) =>
+        p === 'youtube-public'
+          ? 'YouTube Live (Public)'
+          : p === 'youtube-unlisted'
+            ? 'YouTube Live (Private Link)'
+            : 'Venue LED Wall'
+      )
       .join(', ');
 
     const summaryLines = [
@@ -157,19 +165,23 @@ export function BookingSection({
   };
 
   return (
-    <section id="book" className="py-20 sm:py-24 bg-[#0C0C0F]">
+    <section id="book" className="py-20 sm:py-24 bg-[#0C0C0F]/72 backdrop-blur-[2px]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
           {/* Left column: Direct Studio Hotline & Promise */}
           <div className="lg:col-span-5 space-y-8">
-            <div className="space-y-3">
+            <div className="space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {UI_COPY.bookingSection.kicker[lang]}
               </p>
-              <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white">
+              <h2
+                className={`font-display text-2xl sm:text-4xl font-bold text-white ${
+                  lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+                }`}
+              >
                 {UI_COPY.bookingSection.heading[lang]}
               </h2>
-              <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
+              <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
                 {UI_COPY.bookingSection.intro[lang]}
               </p>
             </div>
@@ -207,6 +219,33 @@ export function BookingSection({
                   <MessageCircle className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                   <span>{lang === 'mr' ? 'WhatsApp संदेश पाठवा' : 'Message on WhatsApp'}</span>
                 </a>
+                <a
+                  href={STUDIO_CONTACT.youtubeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#EF4444]/60 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
+                  <span>
+                    {lang === 'mr'
+                      ? `YouTube चॅनेल (${STUDIO_CONTACT.youtubeHandle})`
+                      : `YouTube (${STUDIO_CONTACT.youtubeHandle})`}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                </a>
+                {STUDIO_CONTACT.instagramAccounts.map((ig) => (
+                  <a
+                    key={ig.handle}
+                    href={ig.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#F472B6]/60 rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    <Instagram className="w-4 h-4 text-[#F472B6] shrink-0" aria-hidden="true" />
+                    <span>{ig.handle}</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                  </a>
+                ))}
               </div>
 
               <div className="pt-4 border-t border-white/10 space-y-2 text-xs text-zinc-400">
@@ -218,13 +257,13 @@ export function BookingSection({
             </div>
 
             {/* Service checklist */}
-            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-400">
+            <div className="space-y-3 text-xs sm:text-sm text-zinc-400 leading-relaxed">
               <p className="font-semibold text-zinc-200">
                 {lang === 'mr' ? 'बुकिंगमध्ये समाविष्ट असलेली खात्री:' : 'Included with every booking:'}
               </p>
               <p>— {lang === 'mr' ? 'कार्यक्रमापूर्वी नेटवर्क व ऑडिओ तपासणी' : 'Pre-event internet speed & soundboard check'}</p>
               <p>— {lang === 'mr' ? 'कस्टम मराठी / इंग्रजी स्क्रीन टायटल डिझाइन' : 'Custom Marathi or English title graphics design'}</p>
-              <p>— {lang === 'mr' ? 'YouTube, Facebook, Instagram लाईव्ह लिंक शेअरिंग' : 'Ready-to-share live viewing link before event start'}</p>
+              <p>— {lang === 'mr' ? 'YouTube (@stareventlive01) लाईव्ह लिंक शेअरिंग' : 'Ready-to-share YouTube Live viewing link before event start'}</p>
             </div>
           </div>
 
@@ -382,9 +421,20 @@ export function BookingSection({
                   </div>
 
                   <div className="space-y-1.5">
-                    <label htmlFor="booking-package" className="block text-xs font-medium text-zinc-300">
-                      {lang === 'mr' ? 'प्रॉडक्शन पॅकेज' : 'Production Package'}
-                    </label>
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor="booking-package" className="block text-xs font-medium text-zinc-300">
+                        {lang === 'mr' ? 'प्रॉडक्शन पॅकेज' : 'Production Package'}
+                      </label>
+                      {onOpenPackages && (
+                        <button
+                          type="button"
+                          onClick={onOpenPackages}
+                          className="text-[11px] font-semibold text-[#FACC15] hover:text-white transition-colors whitespace-nowrap"
+                        >
+                          {lang === 'mr' ? 'सर्व पॅकेजेस पहा →' : 'View packages →'}
+                        </button>
+                      )}
+                    </div>
                     <select
                       id="booking-package"
                       value={selectedPackageId}
@@ -431,16 +481,26 @@ export function BookingSection({
                   </div>
                 </div>
 
-                {/* Streaming Platforms Selection */}
+                {/* Broadcast Output Selection */}
                 <div className="space-y-2">
                   <span className="block text-xs font-medium text-zinc-300">
-                    {lang === 'mr' ? 'लाईव्ह प्लॅटफॉर्म निवडा *' : 'Streaming Platforms *'}
+                    {lang === 'mr' ? 'लाईव्ह प्रक्षेपण पर्याय निवडा *' : 'Broadcast Output *'}
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    {(['youtube', 'facebook', 'instagram'] as PlatformId[]).map((pid) => {
+                    {(['youtube-public', 'youtube-unlisted', 'led-wall'] as PlatformId[]).map((pid) => {
                       const active = platforms.includes(pid);
                       const label =
-                        pid === 'youtube' ? 'YouTube Live' : pid === 'facebook' ? 'Facebook Live' : 'Instagram Live';
+                        pid === 'youtube-public'
+                          ? lang === 'mr'
+                            ? 'YouTube Live (पब्लिक)'
+                            : 'YouTube Live (Public)'
+                          : pid === 'youtube-unlisted'
+                            ? lang === 'mr'
+                              ? 'YouTube Live (प्रायव्हेट लिंक)'
+                              : 'YouTube Live (Private Link)'
+                            : lang === 'mr'
+                              ? 'व्हेन्यू LED स्क्रीन'
+                              : 'Venue LED Wall';
                       return (
                         <button
                           key={pid}

@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Layers, LockOpen } from 'lucide-react';
 import { AdminOrdersModal } from './components/AdminOrdersModal';
 import { BookingSection } from './components/BookingSection';
+import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
+import { HomeAnimatedBackground } from './components/HomeAnimatedBackground';
 import { PreviewMode } from './components/LiveStudioPreview';
 import { Navbar } from './components/Navbar';
 import { OverlayOutputView } from './components/OverlayOutputView';
 import { OverlaysPage } from './components/OverlaysPage';
-import { PackagesSection } from './components/PackagesSection';
+import { PackagesPage } from './components/PackagesPage';
 import { ServicesSection } from './components/ServicesSection';
+import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { EventCategoryId, Language, UI_COPY } from './data/content';
 import {
   OVERLAY_PRODUCTS,
@@ -18,9 +21,15 @@ import {
   VerifiedOverlayToken,
 } from './data/overlayCatalog';
 import { sanitizeRoomIdClient } from './hooks/useOverlaySync';
-import { LiveOverlayState, OverlayBackground, OverlayMode, OverlayStyle } from './types/overlay';
+import {
+  LiveOverlayState,
+  normalizeStyleForMode,
+  OverlayBackground,
+  OverlayMode,
+  OverlayStyle,
+} from './types/overlay';
 
-const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'haldi'];
+const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'haldi', 'banner'];
 const VERIFIED_TOKENS_KEY = 'star_event_verified_tokens_v2';
 const PENDING_ORDERS_KEY = 'star_event_pending_orders_v2';
 
@@ -32,12 +41,15 @@ function loadStoredTokens(): VerifiedOverlayToken[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     const validSkus = new Set<OverlaySku>(OVERLAY_PRODUCTS.map((p) => p.sku));
+    const now = Date.now();
     return parsed.filter(
       (item): item is VerifiedOverlayToken =>
         Boolean(item) &&
         validSkus.has(item.sku) &&
         typeof item.orderId === 'string' &&
-        typeof item.unlockCode === 'string'
+        typeof item.unlockCode === 'string' &&
+        typeof item.expiresAt === 'number' &&
+        item.expiresAt > now
     );
   } catch {
     return [];
@@ -72,9 +84,13 @@ function savePendingOrders(orders: Partial<Record<OverlaySku, PendingOverlayOrde
   }
 }
 
-function getInitialPage(): 'home' | 'overlays' {
+type PageRoute = 'home' | 'overlays' | 'packages';
+
+function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
-  return window.location.pathname.startsWith('/overlays') ? 'overlays' : 'home';
+  if (window.location.pathname.startsWith('/overlays')) return 'overlays';
+  if (window.location.pathname.startsWith('/packages')) return 'packages';
+  return 'home';
 }
 
 function getInitialAdminOpen(): boolean {
@@ -101,13 +117,14 @@ function parseOverlayRoute() {
     : 'kabaddi';
 
   const styleParam = params.get('style')?.toLowerCase();
-  const style: OverlayStyle = styleParam === 'modern' ? 'modern' : 'classic';
+  const style: OverlayStyle = normalizeStyleForMode(mode, styleParam);
 
   const bgParam = params.get('bg')?.toLowerCase();
   const background: OverlayBackground =
     bgParam === 'green' ? 'green' : bgParam === 'blue' ? 'blue' : 'transparent';
 
   const roomId = sanitizeRoomIdClient(params.get('room') || 'star-live-1');
+  const token = params.get('token')?.trim().toUpperCase() || undefined;
   const lockMode = params.get('lock') === '1' || Boolean(pathOverlay);
   const lockStyle = params.get('lock') === '1';
 
@@ -118,6 +135,8 @@ function parseOverlayRoute() {
   const subtitle = params.get('subtitle');
   const haldi = params.get('haldi');
   const haldiSub = params.get('haldiSub');
+  const bannerTitle = params.get('bannerTitle');
+  const bannerSubtitle = params.get('bannerSubtitle');
 
   if (teamA) urlOverrides.teamAName = teamA;
   if (teamB) urlOverrides.teamBName = teamB;
@@ -125,18 +144,20 @@ function parseOverlayRoute() {
   if (subtitle) urlOverrides.kabaddiSubtitle = subtitle;
   if (haldi) urlOverrides.haldiTitle = haldi;
   if (haldiSub) urlOverrides.haldiSubtitle = haldiSub;
+  if (bannerTitle) urlOverrides.bannerTitle = bannerTitle;
+  if (bannerSubtitle) urlOverrides.bannerSubtitle = bannerSubtitle;
 
-  return { mode, style, roomId, background, lockMode, lockStyle, urlOverrides };
+  return { mode, style, roomId, background, token, lockMode, lockStyle, urlOverrides };
 }
 
 export default function App() {
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
 
   const [lang, setLang] = useState<Language>('mr');
-  const [currentPage, setCurrentPage] = useState<'home' | 'overlays'>(() => getInitialPage());
+  const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [adminOpen, setAdminOpen] = useState<boolean>(() => getInitialAdminOpen());
-  const [previewMode, setPreviewMode] = useState<PreviewMode>('kabaddi');
-  const [activeStyle, setActiveStyle] = useState<OverlayStyle>('classic');
+  const [previewMode, setPreviewMode] = useState<PreviewMode>('banner');
+  const [activeStyle, setActiveStyle] = useState<OverlayStyle>('theme1');
   const [verifiedTokens, setVerifiedTokens] = useState<VerifiedOverlayToken[]>([]);
   const [pendingOrders, setPendingOrders] = useState<
     Partial<Record<OverlaySku, PendingOverlayOrder>>
@@ -149,6 +170,10 @@ export default function App() {
     () => verifiedTokens.map((t) => t.sku),
     [verifiedTokens]
   );
+
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const handleVerifiedUnlock = useCallback((token: VerifiedOverlayToken) => {
     setVerifiedTokens((prev) => {
@@ -210,14 +235,17 @@ export default function App() {
           const data = await res.json();
           if (!active || !res.ok || !data?.order) continue;
           const serverOrder = data.order as PendingOverlayOrder;
-          if (serverOrder.status === 'approved' && serverOrder.unlockCode) {
-            handleVerifiedUnlock({
-              sku,
-              orderId: serverOrder.orderId,
-              unlockCode: serverOrder.unlockCode,
-            });
+          if (serverOrder.status === 'approved' && serverOrder.unlockCode && serverOrder.expiresAt) {
+            if (serverOrder.expiresAt > Date.now()) {
+              handleVerifiedUnlock({
+                sku,
+                orderId: serverOrder.orderId,
+                unlockCode: serverOrder.unlockCode,
+                expiresAt: serverOrder.expiresAt,
+              });
+            }
             handlePendingOrderChange(sku, null);
-          } else if (serverOrder.status === 'rejected') {
+          } else if (serverOrder.status === 'rejected' || serverOrder.status === 'revoked') {
             handlePendingOrderChange(sku, null);
           }
         } catch {
@@ -227,10 +255,33 @@ export default function App() {
     };
 
     validateOnServer();
+    const recheckTimer = window.setInterval(validateOnServer, 45_000);
     return () => {
       active = false;
+      window.clearInterval(recheckTimer);
     };
   }, [overlayRoute, handlePendingOrderChange, handleVerifiedUnlock]);
+
+  // Automatic 24-hour expiry watcher: re-locks overlays the exact second expiresAt passes
+  useEffect(() => {
+    if (verifiedTokens.length === 0) return;
+
+    const pruneExpired = () => {
+      const now = Date.now();
+      setVerifiedTokens((prev) => {
+        const active = prev.filter((t) => t.expiresAt > now);
+        if (active.length !== prev.length) {
+          saveStoredTokens(active);
+          return active;
+        }
+        return prev;
+      });
+    };
+
+    pruneExpired();
+    const interval = window.setInterval(pruneExpired, 1000);
+    return () => window.clearInterval(interval);
+  }, [verifiedTokens.length]);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -251,6 +302,7 @@ export default function App() {
         initialStyle={overlayRoute.style}
         roomId={overlayRoute.roomId}
         background={overlayRoute.background}
+        token={overlayRoute.token}
         lockMode={overlayRoute.lockMode}
         lockStyle={overlayRoute.lockStyle}
         urlOverrides={overlayRoute.urlOverrides}
@@ -266,12 +318,25 @@ export default function App() {
   };
 
   const navigateToOverlays = (mode?: PreviewMode, style?: OverlayStyle) => {
+    const nextMode = mode ?? previewMode;
     if (mode) setPreviewMode(mode);
-    if (style) setActiveStyle(style);
+    if (style) {
+      setActiveStyle(normalizeStyleForMode(nextMode, style));
+    } else if (mode) {
+      setActiveStyle(normalizeStyleForMode(mode, activeStyle));
+    }
     if (window.location.pathname !== '/overlays') {
       window.history.pushState({}, '', '/overlays');
     }
     setCurrentPage('overlays');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const navigateToPackages = () => {
+    if (window.location.pathname !== '/packages') {
+      window.history.pushState({}, '', '/packages');
+    }
+    setCurrentPage('packages');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -325,15 +390,18 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-[#F4F4F5] flex flex-col">
+    <div className="relative min-h-screen bg-[#09090B] text-[#F4F4F5] flex flex-col">
+      <HomeAnimatedBackground />
+
       <Navbar
         lang={lang}
         currentPage={currentPage}
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}
+        onNavigatePackages={navigateToPackages}
       />
 
-      <main className="flex-1">
+      <main className="relative z-10 flex-1">
         {currentPage === 'overlays' ? (
           <OverlaysPage
             lang={lang}
@@ -343,11 +411,23 @@ export default function App() {
             activeStyle={activeStyle}
             onChangeStyle={setActiveStyle}
             unlockedSkus={unlockedSkus}
+            verifiedTokens={verifiedTokens}
             pendingOrders={pendingOrders}
             onPendingOrderChange={handlePendingOrderChange}
             onVerifiedUnlock={handleVerifiedUnlock}
             onBackHome={() => navigateHome('top')}
             onBookFromOverlay={handleBookEvent}
+          />
+        ) : currentPage === 'packages' ? (
+          <PackagesPage
+            lang={lang}
+            onChangeLang={setLang}
+            selectedPackageId={selectedPackageId}
+            selectedAddOns={selectedAddOns}
+            onToggleAddOn={handleToggleAddOn}
+            onSelectPackage={handleSelectPackage}
+            onBackHome={() => navigateHome('top')}
+            onGoToBooking={() => navigateHome('book')}
           />
         ) : (
           <>
@@ -363,21 +443,33 @@ export default function App() {
               onBookEvent={handleBookEvent}
             />
 
+            <StudioSpotlightSection
+              lang={lang}
+              onBookNow={() => navigateHome('book')}
+            />
+
             {/* Paid Transparent Overlays Store Callout Section — clicking opens /overlays page */}
-            <section id="studio" className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]">
+            <section
+              id="studio"
+              className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]/68 backdrop-blur-[2px]"
+            >
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
-                  <div className="max-w-3xl space-y-3">
+                  <div className="max-w-3xl space-y-3.5">
                     <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                       {UI_COPY.studioSection.kicker[lang]}
                     </p>
-                    <h2 className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-white">
+                    <h2
+                      className={`font-display text-2xl sm:text-4xl font-bold text-white ${
+                        lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+                      }`}
+                    >
                       {UI_COPY.studioSection.heading[lang]}
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी रेडी-टू-युज 1920×1080 ट्रान्सपरंट कबड्डी स्कोअरबोर्ड आणि हळदी ओव्हरले — प्रत्येकी 2 प्रोफेशनल डिझाईन. विशेष लॉन्च ऑफरमध्ये ₹149 कट करून फक्त ₹99.'
-                        : 'Ready-to-use 1920×1080 transparent Kabaddi Scoreboard and Haldi Live overlays for OBS Studio & vMix — 2 broadcast styles each. Launch offer slashed from ₹149 to ₹99.'}
+                        ? 'OBS Studio आणि vMix साठी वॉटरमार्क-फ्री 1920×1080 ट्रान्सपरंट बॉटम फ्रेम (4 थीम्स), कबड्डी स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले — स्वतःचा लोगो व नावे लाईव्ह कस्टमाईज करा. फक्त ₹99 मध्ये 24 तासांसाठी अनलॉक.'
+                        : 'Watermark-free 1920×1080 transparent 4-Theme Customizable Bottom Frames, Kabaddi Scoreboard, and Haldi & Wedding overlays for OBS Studio & vMix — upload your own logo & edit names live. ₹99 / 24h.'}
                     </p>
                   </div>
 
@@ -399,6 +491,12 @@ export default function App() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                   {OVERLAY_PRODUCTS.map((product) => {
                     const isUnlocked = unlockedSkus.includes(product.sku);
+                    const styleBadge =
+                      product.mode === 'banner'
+                        ? product.style.toUpperCase().replace('THEME', 'THEME ')
+                        : product.style === 'classic'
+                          ? 'STYLE 1'
+                          : 'STYLE 2';
                     return (
                       <button
                         key={product.sku}
@@ -409,14 +507,18 @@ export default function App() {
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between gap-2 text-xs font-mono">
                             <span className="text-zinc-400">
-                              {product.mode === 'kabaddi'
+                              {product.mode === 'banner'
                                 ? lang === 'mr'
-                                  ? 'कबड्डी'
-                                  : 'KABADDI'
-                                : lang === 'mr'
-                                  ? 'हळदी'
-                                  : 'HALDI'}{' '}
-                              · {product.style === 'classic' ? 'STYLE 1' : 'STYLE 2'}
+                                  ? 'बॉटम फ्रेम'
+                                  : 'BOTTOM FRAME'
+                                : product.mode === 'kabaddi'
+                                  ? lang === 'mr'
+                                    ? 'कबड्डी'
+                                    : 'KABADDI'
+                                  : lang === 'mr'
+                                    ? 'हळदी व लग्न'
+                                    : 'HALDI & WEDDING'}{' '}
+                              · {styleBadge}
                             </span>
                             {isUnlocked ? (
                               <span className="inline-flex items-center gap-1 text-[#4ADE80] font-bold">
@@ -428,10 +530,10 @@ export default function App() {
                             )}
                           </div>
 
-                          <h3 className="font-display text-base sm:text-lg font-bold text-white group-hover:text-[#FACC15] transition-colors">
+                          <h3 className="font-display text-base sm:text-lg font-bold text-white leading-[1.42] group-hover:text-[#FACC15] transition-colors">
                             {product.title[lang]}
                           </h3>
-                          <p className="text-xs text-zinc-400 leading-relaxed">
+                          <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">
                             {product.subtitle[lang]}
                           </p>
                         </div>
@@ -457,12 +559,9 @@ export default function App() {
               </div>
             </section>
 
-            <PackagesSection
+            <BroadcastStingerSection
               lang={lang}
-              selectedPackageId={selectedPackageId}
-              selectedAddOns={selectedAddOns}
-              onToggleAddOn={handleToggleAddOn}
-              onSelectPackage={handleSelectPackage}
+              onOpenOverlays={() => navigateToOverlays()}
             />
 
             <BookingSection
@@ -472,6 +571,7 @@ export default function App() {
               selectedPackageId={selectedPackageId}
               onChangePackage={setSelectedPackageId}
               selectedAddOns={selectedAddOns}
+              onOpenPackages={navigateToPackages}
             />
           </>
         )}
@@ -481,6 +581,7 @@ export default function App() {
         lang={lang}
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}
+        onNavigatePackages={navigateToPackages}
         onOpenAdmin={() => setAdminOpen(true)}
       />
 
