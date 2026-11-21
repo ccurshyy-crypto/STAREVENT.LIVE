@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import crypto from 'crypto';
 import express from 'express';
 import fs from 'fs';
@@ -11,8 +12,33 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 const ENV_ADMIN_PIN = (process.env.OVERLAY_ADMIN_PIN || '').trim();
-const UNLOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours default
+const RAZORPAY_KEY_ID = (process.env.RAZORPAY_KEY_ID || '').trim();
+const RAZORPAY_KEY_SECRET = (process.env.RAZORPAY_KEY_SECRET || '').trim();
+const RAZORPAY_WEBHOOK_SECRET = (process.env.RAZORPAY_WEBHOOK_SECRET || '').trim();
+const RAZORPAY_ENABLED = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
+const UNLOCK_DURATION_MS = 24 * 60 * 60 * 1000; // 1 Day default
 const ADMIN_SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+
+type PlanId = '1day' | '1week' | '1month';
+
+interface ServerPlan {
+  id: PlanId;
+  amount: number;
+  originalPrice: number;
+  durationHours: number;
+  label: string;
+}
+
+const SERVER_PLANS: Record<PlanId, ServerPlan> = {
+  '1day': { id: '1day', amount: 49, originalPrice: 99, durationHours: 24, label: '1 Day Pass' },
+  '1week': { id: '1week', amount: 149, originalPrice: 299, durationHours: 168, label: '1 Week Pass' },
+  '1month': { id: '1month', amount: 1499, originalPrice: 2499, durationHours: 720, label: '1 Month Pass' },
+};
+
+function resolvePlan(rawPlanId: unknown): ServerPlan {
+  const key = String(rawPlanId || '1day').trim().toLowerCase() as PlanId;
+  return SERVER_PLANS[key] ?? SERVER_PLANS['1day'];
+}
 
 const VALID_SKUS = new Set([
   'kabaddi-classic',
@@ -25,6 +51,8 @@ export type OrderStatus = 'pending' | 'approved' | 'rejected' | 'revoked';
 interface OverlayOrder {
   orderId: string;
   sku: string; // specific SKU or 'all' for master unlock key
+  planId?: PlanId;
+  durationHours?: number;
   amount: number;
   originalPrice: number;
   buyerName: string;
@@ -32,7 +60,11 @@ interface OverlayOrder {
   utrRef: string;
   proofImage?: string;
   proofHash?: string;
-  paymentMethod?: 'upi_manual' | 'owner_key';
+  paymentMethod?: 'razorpay_qr' | 'upi_manual' | 'owner_key';
+  gatewayQrId?: string;
+  gatewayQrImageUrl?: string;
+  gatewayPaymentId?: string;
+  qrCloseBy?: number;
   status: OrderStatus;
   unlockCode?: string;
   rejectionReason?: string;
@@ -49,6 +81,7 @@ interface StoredAdminAuth {
 
 const DATA_DIR = path.resolve(__dirname, 'data');
 const ORDERS_FILE = path.join(DATA_DIR, 'overlay-orders.json');
+const ROOMS_FILE = path.join(DATA_DIR, 'overlay-rooms.json');
 const ADMIN_AUTH_FILE = path.join(DATA_DIR, 'admin-auth.json');
 
 function ensureDataDir() {
@@ -144,10 +177,19 @@ function requireAdminAuth(req: express.Request, res: express.Response): boolean 
   return false;
 }
 
+function getOrderDurationMs(order: OverlayOrder): number {
+  const hours = typeof order.durationHours === 'number' && order.durationHours > 0
+    ? order.durationHours
+    : order.planId && SERVER_PLANS[order.planId]
+      ? SERVER_PLANS[order.planId].durationHours
+      : 24;
+  return hours * 60 * 60 * 1000;
+}
+
 function getOrderExpiresAt(order: OverlayOrder): number {
   if (typeof order.expiresAt === 'number') return order.expiresAt;
   const base = order.verifiedAt || order.createdAt;
-  return base + UNLOCK_DURATION_MS;
+  return base + getOrderDurationMs(order);
 }
 
 function isOrderActive(order: OverlayOrder, now = Date.now()): boolean {
@@ -216,9 +258,65 @@ function isFakeUtr(utr: string): boolean {
   );
 }
 
-// Authoritative server-side room store for OBS & vMix Browser Sources
+// Authoritative server-side room store for OBS & vMix Browser Sources (persisted to disk)
 const rooms = new Map<string, LiveOverlayState>();
+const roomVersions = new Map<string, number>();
 const sseClients = new Map<string, Set<express.Response>>();
+const pollViewers = new Map<string, Map<string, number>>(); // roomId -> (viewerId -> lastSeenMs)
+let roomSaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+function loadPersistedRooms() {
+  try {
+    if (!fs.existsSync(ROOMS_FILE)) return;
+    const raw = fs.readFileSync(ROOMS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object') {
+      for (const [key, val] of Object.entries(parsed)) {
+        if (val && typeof val === 'object') {
+          const safeId = sanitizeRoomId(key);
+          rooms.set(safeId, { ...createDefaultOverlayState(safeId), ...(val as Partial<LiveOverlayState>), roomId: safeId });
+          roomVersions.set(safeId, 1);
+        }
+      }
+    }
+  } catch {
+    // ignore corrupt cache
+  }
+}
+
+function scheduleSaveRooms() {
+  if (roomSaveTimer) return;
+  roomSaveTimer = setTimeout(() => {
+    roomSaveTimer = null;
+    try {
+      ensureDataDir();
+      const obj: Record<string, LiveOverlayState> = {};
+      for (const [k, v] of rooms.entries()) {
+        obj[k] = v;
+      }
+      fs.writeFileSync(ROOMS_FILE, JSON.stringify(obj), 'utf-8');
+    } catch (err) {
+      console.error('Failed to persist overlay rooms:', err);
+    }
+  }, 250);
+}
+
+function getConnectedDisplayCount(roomId: string): number {
+  const sseCount = sseClients.get(roomId)?.size ?? 0;
+  const viewers = pollViewers.get(roomId);
+  let activePollCount = 0;
+  if (viewers) {
+    const cutoff = Date.now() - 6000;
+    for (const [vid, ts] of viewers.entries()) {
+      if (ts < cutoff) {
+        viewers.delete(vid);
+      } else {
+        activePollCount += 1;
+      }
+    }
+  }
+  return Math.max(sseCount, activePollCount);
+}
 
 // Authoritative server-side payment orders & owner-issued unlock keys store
 const orders: OverlayOrder[] = loadPersistedOrders();
@@ -229,14 +327,22 @@ function sanitizeRoomId(raw: string): string {
   return cleaned || 'star-live-1';
 }
 
+loadPersistedRooms();
+
 function getOrCreateRoom(roomId: string): LiveOverlayState {
   const safeId = sanitizeRoomId(roomId);
   let state = rooms.get(safeId);
   if (!state) {
     state = createDefaultOverlayState(safeId);
     rooms.set(safeId, state);
+    roomVersions.set(safeId, 1);
   }
   return state;
+}
+
+function getRoomVersion(roomId: string): number {
+  const safeId = sanitizeRoomId(roomId);
+  return roomVersions.get(safeId) ?? 1;
 }
 
 function broadcastRoomState(roomId: string, state: LiveOverlayState) {
@@ -245,7 +351,9 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
 
   const payload = JSON.stringify({
     state,
-    connectedDisplays: clients.size,
+    version: getRoomVersion(roomId),
+    serverNow: Date.now(),
+    connectedDisplays: getConnectedDisplayCount(roomId),
   });
 
   for (const res of clients) {
@@ -263,8 +371,12 @@ function toPublicOrderSummary(order: OverlayOrder) {
   return {
     orderId: order.orderId,
     sku: order.sku,
+    planId: order.planId || '1day',
+    durationHours: order.durationHours || 24,
     amount: order.amount,
     originalPrice: order.originalPrice,
+    paymentMethod: order.paymentMethod || 'upi_manual',
+    gatewayQrImageUrl: order.status === 'pending' ? order.gatewayQrImageUrl : undefined,
     status: order.status,
     utrRef:
       order.utrRef.length === 12
@@ -293,26 +405,280 @@ function notifyOrderWatchers(order: OverlayOrder) {
   }
 }
 
+// Track last Razorpay poll timestamp per order to avoid excessive gateway calls
+const lastGatewayCheckAt = new Map<string, number>();
+
+function getRazorpayAuthHeader(): string {
+  return `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`;
+}
+
+function approvePaidGatewayOrder(order: OverlayOrder, gatewayPaymentId: string, rrn?: string): boolean {
+  if (order.status === 'approved') return true;
+  const now = Date.now();
+  order.status = 'approved';
+  order.unlockCode = order.unlockCode || generateUnlockCode();
+  order.gatewayPaymentId = gatewayPaymentId;
+  if (rrn && /^\d{12}$/.test(rrn)) {
+    order.utrRef = rrn;
+  } else if (gatewayPaymentId) {
+    order.utrRef = gatewayPaymentId;
+  }
+  order.rejectionReason = undefined;
+  order.verifiedAt = now;
+  order.expiresAt = now + getOrderDurationMs(order);
+  savePersistedOrders(orders);
+  notifyOrderWatchers(order);
+  return true;
+}
+
+async function syncRazorpayQrPayment(order: OverlayOrder): Promise<boolean> {
+  if (!RAZORPAY_ENABLED) return false;
+  if (order.paymentMethod !== 'razorpay_qr' || order.status !== 'pending' || !order.gatewayQrId) {
+    return false;
+  }
+
+  const now = Date.now();
+  const lastCheck = lastGatewayCheckAt.get(order.orderId) || 0;
+  if (now - lastCheck < 2500) {
+    return false;
+  }
+  lastGatewayCheckAt.set(order.orderId, now);
+
+  try {
+    const qrId = encodeURIComponent(order.gatewayQrId);
+    const resp = await fetch(`https://api.razorpay.com/v1/payments/qr_codes/${qrId}/payments?count=5`, {
+      method: 'GET',
+      headers: {
+        Authorization: getRazorpayAuthHeader(),
+      },
+    });
+    if (!resp.ok) return false;
+    const data = (await resp.json()) as {
+      items?: Array<{
+        id?: string;
+        status?: string;
+        amount?: number;
+        acquirer_data?: { rrn?: string; upi_transaction_id?: string };
+      }>;
+    };
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const expectedPaise = order.amount * 100;
+    const captured = items.find(
+      (p) => p && p.status === 'captured' && Number(p.amount) >= expectedPaise && typeof p.id === 'string'
+    );
+    if (captured && captured.id) {
+      return approvePaidGatewayOrder(
+        order,
+        captured.id,
+        captured.acquirer_data?.rrn || captured.acquirer_data?.upi_transaction_id
+      );
+    }
+    return false;
+  } catch (err) {
+    console.error('Razorpay QR status sync error:', err);
+    return false;
+  }
+}
+
 async function startServer() {
   const app = express();
-  // Allow up to 1.5MB for compressed payment screenshot proof or team logos
-  app.use(express.json({ limit: '1.5mb' }));
+  // Allow up to 1.5MB for compressed payment screenshot proof or team logos, and capture rawBody for webhook HMAC
+  app.use(
+    express.json({
+      limit: '1.5mb',
+      verify: (req, _res, buf) => {
+        (req as express.Request & { rawBody?: Buffer }).rawBody = buf;
+      },
+    })
+  );
 
-  // Allow OBS / vMix local browser inputs to fetch state cleanly
-  app.use('/api', (_req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-admin-pin');
-    if (_req.method === 'OPTIONS') {
-      res.status(204).end();
-      return;
+  // Allow OBS / vMix local browser inputs to fetch public overlay state cleanly (never wildcard on /api/admin)
+  app.use('/api', (req, res, next) => {
+    if (!req.path.startsWith('/admin')) {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+      if (req.method === 'OPTIONS') {
+        res.status(204).end();
+        return;
+      }
     }
     next();
   });
 
-  // Payment config info
+  // Payment config & plans info
   app.get('/api/payment/config', (_req, res) => {
-    res.json({ ok: true, razorpayEnabled: false, ownerKeyFlow: true });
+    res.json({
+      ok: true,
+      razorpayEnabled: RAZORPAY_ENABLED,
+      webhookConfigured: Boolean(RAZORPAY_WEBHOOK_SECRET),
+      autoUnlockEnabled: RAZORPAY_ENABLED,
+      ownerKeyFlow: true,
+      plans: Object.values(SERVER_PLANS),
+    });
+  });
+
+  // Create a live single-use amount-locked UPI QR for instant automatic unlock
+  app.post('/api/payment/qr/create', async (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const sku = String(body.sku || '').trim();
+    const plan = resolvePlan(body.planId);
+    const buyerName = String(body.buyerName || 'Live Broadcaster').trim().slice(0, 80) || 'Live Broadcaster';
+    const buyerPhone = String(body.buyerPhone || '').replace(/\D/g, '').slice(0, 15);
+
+    if (!VALID_SKUS.has(sku)) {
+      res.status(400).json({ ok: false, error: 'Invalid overlay selection.' });
+      return;
+    }
+
+    if (!RAZORPAY_ENABLED) {
+      res.json({
+        ok: true,
+        mode: 'direct_upi',
+        autoUnlockEnabled: false,
+        plan,
+      });
+      return;
+    }
+
+    const orderId = generateOrderId();
+    const closeBy = Math.floor(Date.now() / 1000) + 15 * 60; // 15-minute live QR window
+
+    try {
+      const rzpRes = await fetch('https://api.razorpay.com/v1/payments/qr_codes', {
+        method: 'POST',
+        headers: {
+          Authorization: getRazorpayAuthHeader(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'upi_qr',
+          name: 'Star Event Live',
+          usage: 'single_use',
+          fixed_amount: true,
+          payment_amount: plan.amount * 100,
+          description: `${sku} (${plan.label})`,
+          close_by: closeBy,
+          notes: {
+            orderId,
+            sku,
+            planId: plan.id,
+          },
+        }),
+      });
+
+      const rzpData = (await rzpRes.json()) as {
+        id?: string;
+        image_url?: string;
+        error?: { description?: string };
+      };
+
+      if (!rzpRes.ok || !rzpData?.id || !rzpData?.image_url) {
+        console.error('Razorpay QR creation failed:', rzpData);
+        res.status(502).json({
+          ok: false,
+          error:
+            rzpData?.error?.description ||
+            'Could not generate live bank-verified UPI QR. Please try again.',
+        });
+        return;
+      }
+
+      const order: OverlayOrder = {
+        orderId,
+        sku,
+        planId: plan.id,
+        durationHours: plan.durationHours,
+        amount: plan.amount,
+        originalPrice: plan.originalPrice,
+        buyerName,
+        buyerPhone,
+        utrRef: `RZP-${rzpData.id.slice(-8).toUpperCase()}`,
+        paymentMethod: 'razorpay_qr',
+        gatewayQrId: rzpData.id,
+        gatewayQrImageUrl: rzpData.image_url,
+        qrCloseBy: closeBy * 1000,
+        status: 'pending',
+        createdAt: Date.now(),
+      };
+
+      orders.unshift(order);
+      savePersistedOrders(orders);
+
+      res.status(201).json({
+        ok: true,
+        mode: 'razorpay_auto',
+        autoUnlockEnabled: true,
+        qrImageUrl: rzpData.image_url,
+        closeBy: closeBy * 1000,
+        order: toPublicOrderSummary(order),
+      });
+    } catch (err) {
+      console.error('Razorpay QR create request error:', err);
+      res.status(502).json({
+        ok: false,
+        error: 'Payment gateway temporarily unreachable. Please retry in a moment.',
+      });
+    }
+  });
+
+  // Razorpay signed webhook: instantly unlocks the overlay the exact second QR payment settles
+  app.post('/api/payment/razorpay/webhook', (req, res) => {
+    if (!RAZORPAY_WEBHOOK_SECRET) {
+      res.status(503).json({ ok: false, error: 'Webhook secret not configured on server.' });
+      return;
+    }
+
+    const signature = String(req.headers['x-razorpay-signature'] || '').trim();
+    const rawBody = (req as express.Request & { rawBody?: Buffer }).rawBody;
+    if (!signature || !rawBody) {
+      res.status(400).json({ ok: false, error: 'Missing webhook signature or payload.' });
+      return;
+    }
+
+    const expectedSig = crypto
+      .createHmac('sha256', RAZORPAY_WEBHOOK_SECRET)
+      .update(rawBody)
+      .digest('hex');
+
+    if (!safeEqualStrings(signature, expectedSig)) {
+      res.status(401).json({ ok: false, error: 'Invalid webhook signature.' });
+      return;
+    }
+
+    const event = String(req.body?.event || '');
+    const paymentEntity = req.body?.payload?.payment?.entity;
+    const qrEntity = req.body?.payload?.qr_code?.entity;
+
+    if (
+      (event === 'qr_code.credited' || event === 'payment.captured') &&
+      paymentEntity &&
+      paymentEntity.status === 'captured'
+    ) {
+      const qrId = typeof qrEntity?.id === 'string' ? qrEntity.id : undefined;
+      const noteOrderId =
+        typeof paymentEntity?.notes?.orderId === 'string'
+          ? paymentEntity.notes.orderId.toUpperCase()
+          : typeof qrEntity?.notes?.orderId === 'string'
+            ? qrEntity.notes.orderId.toUpperCase()
+            : undefined;
+
+      const order = orders.find(
+        (o) =>
+          (qrId && o.gatewayQrId === qrId) ||
+          (noteOrderId && o.orderId === noteOrderId)
+      );
+
+      if (order && Number(paymentEntity.amount) >= order.amount * 100 && typeof paymentEntity.id === 'string') {
+        approvePaidGatewayOrder(
+          order,
+          paymentEntity.id,
+          paymentEntity.acquirer_data?.rrn || paymentEntity.acquirer_data?.upi_transaction_id
+        );
+      }
+    }
+
+    res.json({ ok: true });
   });
 
   // ---------------------------------------------------------------------------
@@ -384,10 +750,11 @@ async function startServer() {
   // ---------------------------------------------------------------------------
   // CUSTOMER PAYMENT SUBMISSION & UNLOCK KEY VERIFICATION
   // ---------------------------------------------------------------------------
-  // 1. Submit a ₹99 UPI payment proof -> creates PENDING order (NEVER auto-unlocks!)
+  // 1. Submit a direct UPI payment proof -> creates PENDING order (NEVER auto-unlocks!)
   app.post('/api/overlay/orders', (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const sku = String(body.sku || '').trim();
+    const plan = resolvePlan(body.planId);
     const buyerName = String(body.buyerName || '').trim().slice(0, 80);
     const buyerPhone = String(body.buyerPhone || '').replace(/\D/g, '').slice(0, 15);
     const utrRef = String(body.utrRef || '').replace(/\D/g, '').slice(0, 12);
@@ -417,7 +784,7 @@ async function startServer() {
     if (!proofImage) {
       res.status(400).json({
         ok: false,
-        error: 'Please attach your real ₹99 UPI payment screenshot.',
+        error: `Please attach your real ₹${plan.amount} UPI payment screenshot.`,
       });
       return;
     }
@@ -435,7 +802,7 @@ async function startServer() {
         ok: false,
         error:
           duplicate.status === 'rejected' || duplicate.status === 'revoked'
-            ? 'This UTR was rejected / blocked. Please pay real ₹99 and contact owner for a key.'
+            ? `This UTR was rejected / blocked. Please pay real ₹${plan.amount} and try again.`
             : 'This 12-digit UPI UTR has already been used.',
       });
       return;
@@ -453,8 +820,10 @@ async function startServer() {
     const order: OverlayOrder = {
       orderId: generateOrderId(),
       sku,
-      amount: 99,
-      originalPrice: 149,
+      planId: plan.id,
+      durationHours: plan.durationHours,
+      amount: plan.amount,
+      originalPrice: plan.originalPrice,
       buyerName,
       buyerPhone,
       utrRef,
@@ -474,18 +843,21 @@ async function startServer() {
     });
   });
 
-  // 2. Poll current payment verification status of an order
-  app.get('/api/overlay/orders/:orderId/status', (req, res) => {
+  // 2. Poll current payment verification status (auto-checks Razorpay QR settlement if applicable)
+  app.get('/api/overlay/orders/:orderId/status', async (req, res) => {
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
     const order = orders.find((o) => o.orderId === orderId);
     if (!order) {
       res.status(404).json({ ok: false, error: 'Order not found.' });
       return;
     }
+    if (order.paymentMethod === 'razorpay_qr' && order.status === 'pending') {
+      await syncRazorpayQrPayment(order);
+    }
     res.json({ ok: true, order: toPublicOrderSummary(order) });
   });
 
-  // 3. Real-time SSE stream for a buyer waiting on ₹99 payment confirmation
+  // 3. Real-time SSE stream for instant auto-unlock the second QR payment settles
   app.get('/api/overlay/orders/:orderId/stream', (req, res) => {
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
     const order = orders.find((o) => o.orderId === orderId);
@@ -509,6 +881,17 @@ async function startServer() {
 
     res.write(`data: ${JSON.stringify({ order: toPublicOrderSummary(order) })}\n\n`);
 
+    let gatewayPoll: ReturnType<typeof setInterval> | null = null;
+    if (order.paymentMethod === 'razorpay_qr' && order.status === 'pending') {
+      gatewayPoll = setInterval(() => {
+        if (order.status !== 'pending') {
+          if (gatewayPoll) clearInterval(gatewayPoll);
+          return;
+        }
+        syncRazorpayQrPayment(order).catch(() => {});
+      }, 3500);
+    }
+
     const heartbeat = setInterval(() => {
       try {
         res.write(': ping\n\n');
@@ -519,6 +902,7 @@ async function startServer() {
 
     req.on('close', () => {
       clearInterval(heartbeat);
+      if (gatewayPoll) clearInterval(gatewayPoll);
       clients?.delete(res);
     });
   });
@@ -557,7 +941,7 @@ async function startServer() {
 
       res.status(403).json({
         ok: false,
-        error: 'Invalid or locked Unlock Key. Pay ₹99 and get your verified key from the owner.',
+        error: 'Invalid or locked Unlock Key. Pay via QR (₹49 / ₹149 / ₹1,499) to unlock.',
       });
       return;
     }
@@ -568,7 +952,7 @@ async function startServer() {
         ok: false,
         expired: true,
         error:
-          'This Unlock Key has expired and auto-locked. Please pay ₹99 to get a fresh Unlock Key.',
+          'This Unlock Key has expired and auto-locked. Please select a fresh plan (₹49 / ₹149 / ₹1,499).',
       });
       return;
     }
@@ -578,6 +962,7 @@ async function startServer() {
     res.json({
       ok: true,
       sku: match.sku,
+      planId: match.planId || '1day',
       unlockedSkus,
       orderId: match.orderId,
       unlockCode: match.unlockCode,
@@ -590,8 +975,13 @@ async function startServer() {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const tokens = Array.isArray(body.tokens) ? body.tokens : [];
     const now = Date.now();
-    const verified: Array<{ sku: string; orderId: string; unlockCode: string; expiresAt: number }> =
-      [];
+    const verified: Array<{
+      sku: string;
+      orderId: string;
+      unlockCode: string;
+      planId?: PlanId;
+      expiresAt: number;
+    }> = [];
 
     for (const item of tokens) {
       if (!item || typeof item !== 'object') continue;
@@ -612,6 +1002,7 @@ async function startServer() {
           sku,
           orderId: match.orderId,
           unlockCode: match.unlockCode,
+          planId: match.planId,
           expiresAt: getOrderExpiresAt(match),
         });
       }
@@ -654,7 +1045,7 @@ async function startServer() {
       return;
     }
 
-    res.json({ ok: true, active: true, sku: sku || match.sku, expiresAt });
+    res.json({ ok: true, active: true, sku: sku || match.sku, planId: match.planId, expiresAt });
   });
 
   // ---------------------------------------------------------------------------
@@ -683,8 +1074,24 @@ async function startServer() {
     const buyerName = String(body.buyerName || 'Verified Customer').trim().slice(0, 80) || 'Verified Customer';
     const buyerPhone = String(body.buyerPhone || '').replace(/\D/g, '').slice(0, 15);
     const note = String(body.note || '').trim().slice(0, 40);
+
+    const matchedPlan =
+      typeof body.planId === 'string' && body.planId in SERVER_PLANS
+        ? SERVER_PLANS[body.planId as PlanId]
+        : null;
     const rawHours = Number(body.durationHours);
-    const durationHours = Number.isFinite(rawHours) ? Math.max(1, Math.min(720, Math.round(rawHours))) : 24;
+    const durationHours = matchedPlan
+      ? matchedPlan.durationHours
+      : Number.isFinite(rawHours)
+        ? Math.max(1, Math.min(720, Math.round(rawHours)))
+        : 24;
+    const inferredPlan: ServerPlan =
+      matchedPlan ||
+      (durationHours >= 720
+        ? SERVER_PLANS['1month']
+        : durationHours >= 168
+          ? SERVER_PLANS['1week']
+          : SERVER_PLANS['1day']);
 
     if (sku !== 'all' && !VALID_SKUS.has(sku)) {
       res.status(400).json({ ok: false, error: 'Invalid overlay selection for Unlock Key.' });
@@ -696,11 +1103,13 @@ async function startServer() {
     const order: OverlayOrder = {
       orderId: generateOrderId(),
       sku,
-      amount: 99,
-      originalPrice: 149,
+      planId: inferredPlan.id,
+      durationHours,
+      amount: inferredPlan.amount,
+      originalPrice: inferredPlan.originalPrice,
       buyerName,
       buyerPhone,
-      utrRef: note || `KEY-${durationHours}H`,
+      utrRef: note || `KEY-${inferredPlan.id.toUpperCase()}`,
       paymentMethod: 'owner_key',
       status: 'approved',
       unlockCode,
@@ -721,7 +1130,7 @@ async function startServer() {
     });
   });
 
-  // 7. Owner Admin: approve ₹99 payment request -> generates Unlock Key & starts 24h validity
+  // 7. Owner Admin: approve UPI payment request -> generates Unlock Key & starts paid plan validity
   app.post('/api/admin/orders/:orderId/approve', (req, res) => {
     if (!requireAdminAuth(req, res)) return;
     const orderId = String(req.params.orderId || '').trim().toUpperCase();
@@ -746,7 +1155,7 @@ async function startServer() {
     order.unlockCode = order.unlockCode || generateUnlockCode();
     order.rejectionReason = undefined;
     order.verifiedAt = now;
-    order.expiresAt = now + UNLOCK_DURATION_MS;
+    order.expiresAt = now + getOrderDurationMs(order);
     savePersistedOrders(orders);
     notifyOrderWatchers(order);
 
@@ -773,7 +1182,7 @@ async function startServer() {
     order.status = 'rejected';
     order.unlockCode = undefined;
     order.rejectionReason =
-      reason || '₹99 payment not received for this UTR. Please check and resubmit.';
+      reason || `₹${order.amount} payment not received for this UTR. Please check and resubmit.`;
     order.verifiedAt = Date.now();
     savePersistedOrders(orders);
     notifyOrderWatchers(order);
@@ -803,32 +1212,78 @@ async function startServer() {
   });
 
   // ---------------------------------------------------------------------------
-  // LIVE BROADCAST OVERLAY SYNC (OBS & vMix SSE)
+  // LIVE BROADCAST OVERLAY SYNC (OBS & vMix SSE + Fast No-Cache Polling)
   // ---------------------------------------------------------------------------
   app.get('/api/overlay/:roomId', (req, res) => {
     const roomId = sanitizeRoomId(req.params.roomId);
     const state = getOrCreateRoom(roomId);
-    const connectedDisplays = sseClients.get(roomId)?.size ?? 0;
-    res.json({ state, connectedDisplays });
+    const version = getRoomVersion(roomId);
+    const sinceVersion = Number(req.query.v || 0);
+    const viewerId = String(req.query.viewer || '').trim().slice(0, 40);
+
+    if (viewerId) {
+      let viewers = pollViewers.get(roomId);
+      if (!viewers) {
+        viewers = new Map();
+        pollViewers.set(roomId, viewers);
+      }
+      viewers.set(viewerId, Date.now());
+    }
+
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    const connectedDisplays = getConnectedDisplayCount(roomId);
+    const serverNow = Date.now();
+
+    if (sinceVersion > 0 && sinceVersion === version) {
+      res.json({ unchanged: true, version, serverNow, connectedDisplays });
+      return;
+    }
+
+    res.json({ state, version, serverNow, connectedDisplays });
   });
 
   app.post('/api/overlay/:roomId', (req, res) => {
     const roomId = sanitizeRoomId(req.params.roomId);
     const current = getOrCreateRoom(roomId);
     const patch = req.body && typeof req.body === 'object' ? req.body : {};
+    const now = Date.now();
+
+    // Normalize timer timestamps against server clock so OBS/vMix on other PCs never suffer clock skew
+    const normalizedPatch: Partial<LiveOverlayState> = { ...patch };
+    if (
+      typeof patch.matchSeconds === 'number' ||
+      typeof patch.matchRunning === 'boolean' ||
+      typeof patch.matchUpdatedAt === 'number'
+    ) {
+      normalizedPatch.matchUpdatedAt = now;
+    }
+    if (
+      typeof patch.raidSeconds === 'number' ||
+      typeof patch.raidRunning === 'boolean' ||
+      typeof patch.raidUpdatedAt === 'number'
+    ) {
+      normalizedPatch.raidUpdatedAt = now;
+    }
 
     const nextState: LiveOverlayState = {
       ...current,
-      ...patch,
+      ...normalizedPatch,
       roomId,
-      updatedAt: Date.now(),
+      updatedAt: now,
     };
 
+    const nextVersion = getRoomVersion(roomId) + 1;
     rooms.set(roomId, nextState);
+    roomVersions.set(roomId, nextVersion);
+    scheduleSaveRooms();
     broadcastRoomState(roomId, nextState);
 
-    const connectedDisplays = sseClients.get(roomId)?.size ?? 0;
-    res.json({ state: nextState, connectedDisplays });
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    const connectedDisplays = getConnectedDisplayCount(roomId);
+    res.json({ state: nextState, version: nextVersion, serverNow: now, connectedDisplays });
   });
 
   app.get('/api/overlay/:roomId/stream', (req, res) => {
@@ -836,7 +1291,7 @@ async function startServer() {
     const state = getOrCreateRoom(roomId);
 
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
     res.flushHeaders?.();
@@ -848,6 +1303,7 @@ async function startServer() {
     }
     clients.add(res);
 
+    res.write('retry: 1500\n');
     broadcastRoomState(roomId, state);
 
     const heartbeat = setInterval(() => {
@@ -856,7 +1312,7 @@ async function startServer() {
       } catch {
         clearInterval(heartbeat);
       }
-    }, 25000);
+    }, 15000);
 
     req.on('close', () => {
       clearInterval(heartbeat);

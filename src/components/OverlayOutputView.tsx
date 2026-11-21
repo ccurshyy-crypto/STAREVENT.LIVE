@@ -36,8 +36,9 @@ export function OverlayOutputView({
   lockMode = false,
   lockStyle = false,
 }: OverlayOutputViewProps) {
-  const { state } = useOverlaySync({
+  const { state, getServerNow } = useOverlaySync({
     roomId,
+    readOnly: true,
     initialOverrides: {
       ...(initialMode ? { mode: initialMode } : {}),
       ...(initialStyle ? { style: initialStyle } : {}),
@@ -72,11 +73,11 @@ export function OverlayOutputView({
       return;
     }
     const compute = () =>
-      Math.max(0, state.raidSeconds - Math.floor((Date.now() - state.raidUpdatedAt) / 1000));
+      Math.max(0, state.raidSeconds - Math.floor(Math.max(0, getServerNow() - state.raidUpdatedAt) / 1000));
     setDisplayRaidSeconds(compute());
     const id = window.setInterval(() => setDisplayRaidSeconds(compute()), 250);
     return () => window.clearInterval(id);
-  }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt]);
+  }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt, getServerNow]);
 
   useEffect(() => {
     if (!state.matchRunning) {
@@ -84,18 +85,18 @@ export function OverlayOutputView({
       return;
     }
     const compute = () =>
-      Math.max(0, state.matchSeconds - Math.floor((Date.now() - state.matchUpdatedAt) / 1000));
+      Math.max(0, state.matchSeconds - Math.floor(Math.max(0, getServerNow() - state.matchUpdatedAt) / 1000));
     setDisplayMatchSeconds(compute());
     const id = window.setInterval(() => setDisplayMatchSeconds(compute()), 250);
     return () => window.clearInterval(id);
-  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt]);
+  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt, getServerNow]);
 
   useEffect(() => {
     if (!state.teamABinEndAt && !state.teamBBinEndAt) return;
-    setNowClock(Date.now());
-    const id = window.setInterval(() => setNowClock(Date.now()), 250);
+    setNowClock(getServerNow());
+    const id = window.setInterval(() => setNowClock(getServerNow()), 250);
     return () => window.clearInterval(id);
-  }, [state.teamABinEndAt, state.teamBBinEndAt]);
+  }, [state.teamABinEndAt, state.teamBBinEndAt, getServerNow]);
 
   const activeMode: OverlayMode = lockMode && initialMode ? initialMode : state.mode;
   const activeStyle: OverlayStyle = normalizeStyleForMode(
@@ -194,17 +195,17 @@ export function OverlayOutputView({
         {accessState !== 'checking' && (
           <div className="bg-[#0B0A0E]/92 border-2 border-[#FACC15] rounded-2xl px-8 py-6 text-center max-w-xl shadow-2xl space-y-2">
             <p className="font-mono text-xs font-bold tracking-wider text-[#FACC15]">
-              STAR EVENT LIVE · 1-DAY PASS
+              STAR EVENT LIVE · 1 DAY ₹49 · 1 WEEK ₹149 · 1 MONTH ₹1,499
             </p>
             <h1 className="font-display text-2xl font-extrabold text-white">
               {accessState === 'expired'
-                ? 'Overlay 1-Day Pass Expired (Auto-Locked)'
-                : 'Paid Overlay Locked — ₹99 / 1 Day'}
+                ? 'Overlay Pass Expired (Auto-Locked)'
+                : 'Paid Overlay Locked — Plans From ₹49'}
             </h1>
             <p className="text-sm text-zinc-300">
               {accessState === 'expired'
-                ? 'Your 1-day broadcast validity has ended. Renew for ₹99 at starevent.live/overlays to unlock again.'
-                : 'Unlock this overlay for 1 Day at starevent.live/overlays (UPI: crushyyphotography@oksbi) to get your active OBS/vMix URL.'}
+                ? 'Your overlay validity has ended. Renew via QR (1 Day ₹49 / 1 Week ₹149 / 1 Month ₹1,499) at starevent.live/overlays to unlock again.'
+                : 'Unlock this overlay at starevent.live/overlays (1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499) to get your active OBS/vMix URL.'}
             </p>
           </div>
         )}

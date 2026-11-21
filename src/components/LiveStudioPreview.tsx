@@ -111,7 +111,7 @@ export function LiveStudioPreview({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
-  const { state, updateState, connected, connectedDisplays, roomId } = useOverlaySync({
+  const { state, updateState, connected, connectedDisplays, roomId, getServerNow } = useOverlaySync({
     roomId: roomInput,
   });
 
@@ -153,7 +153,7 @@ export function LiveStudioPreview({
     }
 
     const computeRemaining = () => {
-      const elapsedSec = Math.floor((Date.now() - state.raidUpdatedAt) / 1000);
+      const elapsedSec = Math.floor(Math.max(0, getServerNow() - state.raidUpdatedAt) / 1000);
       return Math.max(0, state.raidSeconds - elapsedSec);
     };
 
@@ -162,12 +162,12 @@ export function LiveStudioPreview({
       const rem = computeRemaining();
       setDisplayRaidSeconds(rem);
       if (rem === 0) {
-        updateState({ raidRunning: false, raidSeconds: 0, raidUpdatedAt: Date.now() });
+        updateState({ raidRunning: false, raidSeconds: 0, raidUpdatedAt: getServerNow() });
       }
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt, updateState]);
+  }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt, updateState, getServerNow]);
 
   useEffect(() => {
     if (!state.matchRunning) {
@@ -176,7 +176,7 @@ export function LiveStudioPreview({
     }
 
     const computeMatch = () => {
-      const elapsedSec = Math.floor((Date.now() - state.matchUpdatedAt) / 1000);
+      const elapsedSec = Math.floor(Math.max(0, getServerNow() - state.matchUpdatedAt) / 1000);
       return Math.max(0, state.matchSeconds - elapsedSec);
     };
 
@@ -185,18 +185,18 @@ export function LiveStudioPreview({
       const rem = computeMatch();
       setDisplayMatchSeconds(rem);
       if (rem === 0) {
-        updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: Date.now() });
+        updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: getServerNow() });
       }
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt, updateState]);
+  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt, updateState, getServerNow]);
 
   useEffect(() => {
     if (!state.teamABinEndAt && !state.teamBBinEndAt) return;
-    setBinTickNow(Date.now());
+    setBinTickNow(getServerNow());
     const interval = window.setInterval(() => {
-      const now = Date.now();
+      const now = getServerNow();
       setBinTickNow(now);
       if (state.teamABinEndAt && state.teamABinEndAt <= now) {
         updateState({ teamABinEndAt: null });
@@ -206,7 +206,7 @@ export function LiveStudioPreview({
       }
     }, 250);
     return () => window.clearInterval(interval);
-  }, [state.teamABinEndAt, state.teamBBinEndAt, updateState]);
+  }, [state.teamABinEndAt, state.teamBBinEndAt, updateState, getServerNow]);
 
   const teamABinRemaining = state.teamABinEndAt
     ? Math.max(0, Math.ceil((state.teamABinEndAt - binTickNow) / 1000))
@@ -368,8 +368,10 @@ export function LiveStudioPreview({
     });
   };
 
-  // Build real OBS & vMix Browser Source URLs (including active style & 1-day access token!)
+  // Build real OBS & vMix Browser Source URLs (auto-converts private ais-dev preview host notice)
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://starevent.live';
+  const isPrivateDevPreview =
+    typeof window !== 'undefined' && window.location.hostname.startsWith('ais-dev-');
   const buildOutputUrl = (extraParams?: Record<string, string>) => {
     const params = new URLSearchParams();
     params.set('overlay', activeMode);
@@ -564,22 +566,22 @@ export function LiveStudioPreview({
             id: 'classic',
             label: { mr: 'प्रो स्कोअरबोर्ड · वॉटरमार्क-फ्री', en: 'Pro Scoreboard · Watermark-Free' },
             desc: {
-              mr: 'वॉटरमार्कशिवाय क्लिन ब्रॉडकास्ट आउटपुट (₹99 / 1 दिवस)',
-              en: 'Clean watermark-free broadcast output (₹99 / 1 Day)',
+              mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499',
+              en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499',
             },
-            badge: '₹99 / 1 DAY',
+            badge: 'FROM ₹49',
           },
         ]
       : [
           {
             id: 'classic',
             label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
-            desc: { mr: 'कॉर्नर डिझाईन + टॉप बॅनर (₹99 / 1 दिवस)', en: 'Ornamental corners + top plaque (₹99 / 1 Day)' },
+            desc: { mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499', en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499' },
           },
           {
             id: 'modern',
             label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
-            desc: { mr: 'क्लिन ओपन व्ह्यू + फ्लोटिंग रिबन (₹99 / 1 दिवस)', en: 'Open viewport + floating ribbon (₹99 / 1 Day)' },
+            desc: { mr: '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499', en: '1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499' },
           },
         ];
 
@@ -996,15 +998,15 @@ export function LiveStudioPreview({
                   <p className="text-xs text-zinc-400">
                     {isFreeDemo
                       ? lang === 'mr'
-                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. वॉटरमार्कशिवाय प्रो साठी ₹99 / 1 दिवस.'
-                        : 'FREE Demo Active · Includes small STAR EVENT LIVE watermark. Upgrade to ₹99 / 1 Day Pro to remove watermark.'
+                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. वॉटरमार्क-फ्री प्रो ₹49 पासून.'
+                        : 'FREE Demo Active · Includes small STAR EVENT LIVE watermark. Upgrade to watermark-free Pro from ₹49.'
                       : isCurrentUnlocked && activeToken
                         ? lang === 'mr'
-                          ? `1 दिवसाचा पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
-                          : `1-Day Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
+                          ? `पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
+                          : `Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
                         : lang === 'mr'
-                          ? 'OBS URL, vMix URL आणि 1920×1080 ट्रान्सपरंट PNG (1 दिवस वैध) साठी ₹99 पेमेंट करून अनलॉक करा.'
-                          : 'Unlock for 1 Day at ₹99 (was ₹149) to access live OBS URL, vMix URL, and 1920×1080 PNG export.'}
+                          ? '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट करून लगेच OBS/vMix URL अनलॉक करा.'
+                          : 'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 to unlock live OBS URL, vMix URL & PNG export.'}
                   </p>
                 </div>
 
@@ -1037,9 +1039,8 @@ export function LiveStudioPreview({
                       className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
                     >
                       <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      <span className="line-through text-red-200/80">₹149</span>
-                      <span className="font-mono font-extrabold text-[#FACC15]">₹99</span>
-                      <span>{lang === 'mr' ? 'मध्ये अनलॉक करा' : 'Unlock Overlay'}</span>
+                      <span className="font-mono font-extrabold text-[#FACC15]">₹49+</span>
+                      <span>{lang === 'mr' ? 'अनलॉक करा' : 'Unlock Overlay'}</span>
                     </button>
                   )}
                 </div>
@@ -1176,6 +1177,17 @@ export function LiveStudioPreview({
                       </p>
                     </div>
                   </div>
+
+                  {isPrivateDevPreview && (
+                    <div className="bg-[#1C140A] border border-[#FACC15]/45 rounded-xl px-3.5 py-2.5 text-[11px] text-[#FEF08A] leading-relaxed">
+                      <strong className="font-bold text-[#FACC15]">
+                        {lang === 'mr' ? 'OBS / vMix महत्वाची टीप: ' : 'OBS / vMix Important Tip: '}
+                      </strong>
+                      {lang === 'mr'
+                        ? 'सध्या तुम्ही खाजगी Dev Preview (ais-dev) मध्ये आहात. OBS किंवा vMix मध्ये URL चालवण्यासाठी App चा Public / Shared Link (ais-pre किंवा तुमचा डोमेन) उघडा आणि त्यातून कंट्रोल करा — मग सर्व स्कोअर व बदल आपोआप OBS/vMix मध्ये दिसतील.'
+                        : 'You are viewing the private Dev Preview (ais-dev). Desktop OBS & vMix cannot sign in to private dev URLs — open your Public Shared App URL (ais-pre or deployed domain) and copy the OBS/vMix URL from there for instant auto-sync.'}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="bg-[#0D0D11] border border-[#FACC15]/30 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1190,8 +1202,8 @@ export function LiveStudioPreview({
                     </p>
                     <p className="text-xs text-zinc-400">
                       {lang === 'mr'
-                        ? 'तुम्ही वरती स्कोअरबोर्ड आणि टायटलची चाचणी मोफत घेऊ शकता. लाईव्ह स्ट्रीमसाठी ₹149 कट करून फक्त ₹99 मध्ये अनलॉक करा.'
-                        : 'Test live scores and titles above for free. Unlock for ₹99 (MRP ₹149) to get your OBS Browser Source URL, vMix URL, and transparent PNG.'}
+                        ? '1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट होताच OBS/vMix URL आपोआप अनलॉक होईल.'
+                        : 'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 — automatic unlock on verified QR payment.'}
                     </p>
                   </div>
                   <button
@@ -1199,8 +1211,7 @@ export function LiveStudioPreview({
                     onClick={() => onRequestPurchase(currentSku)}
                     className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs sm:text-sm font-semibold text-black bg-[#FACC15] hover:bg-[#EAB308] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
                   >
-                    <span className="line-through text-black/60">₹149</span>
-                    <span className="font-mono font-extrabold">₹99</span>
+                    <span className="font-mono font-extrabold">₹49 / ₹149 / ₹1,499</span>
                     <span>{lang === 'mr' ? 'अनलॉक करा' : 'Unlock Now'}</span>
                   </button>
                 </div>

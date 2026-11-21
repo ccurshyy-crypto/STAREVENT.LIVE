@@ -3,6 +3,55 @@ import { normalizeStyleForMode, OverlayMode, OverlayStyle } from '../types/overl
 
 export type OverlaySku = 'kabaddi-demo' | 'kabaddi-classic' | 'haldi-classic' | 'haldi-modern';
 
+export type OverlayPlanId = '1day' | '1week' | '1month';
+
+export interface OverlayPlan {
+  id: OverlayPlanId;
+  price: number;
+  originalPrice: number;
+  durationHours: number;
+  shortLabel: Record<Language, string>;
+  label: Record<Language, string>;
+  badge?: Record<Language, string>;
+  desc: Record<Language, string>;
+}
+
+export const OVERLAY_PLANS: OverlayPlan[] = [
+  {
+    id: '1day',
+    price: 49,
+    originalPrice: 99,
+    durationHours: 24,
+    shortLabel: { mr: '1 दिवस', en: '1 Day' },
+    label: { mr: '1 दिवस पास (₹49)', en: '1 Day Pass (₹49)' },
+    desc: { mr: '24 तास पूर्ण ॲक्सेस · एका कार्यक्रमासाठी', en: '24 hours full access · Single event' },
+  },
+  {
+    id: '1week',
+    price: 149,
+    originalPrice: 299,
+    durationHours: 168,
+    shortLabel: { mr: '1 आठवडा', en: '1 Week' },
+    label: { mr: '1 आठवडा पास (₹149)', en: '1 Week Pass (₹149)' },
+    badge: { mr: 'लोकप्रिय', en: 'POPULAR' },
+    desc: { mr: '7 दिवस पूर्ण ॲक्सेस · टूर्नामेंटसाठी बेस्ट', en: '7 days full access · Best for tournaments' },
+  },
+  {
+    id: '1month',
+    price: 1499,
+    originalPrice: 2499,
+    durationHours: 720,
+    shortLabel: { mr: '1 महिना', en: '1 Month' },
+    label: { mr: '1 महिना पास (₹1,499)', en: '1 Month Pass (₹1,499)' },
+    badge: { mr: 'प्रो स्टुडिओ', en: 'PRO STUDIO' },
+    desc: { mr: '30 दिवस पूर्ण ॲक्सेस · अनलिमिटेड शो', en: '30 days full access · Unlimited broadcasts' },
+  },
+];
+
+export function getOverlayPlan(planId?: string): OverlayPlan {
+  return OVERLAY_PLANS.find((p) => p.id === planId) ?? OVERLAY_PLANS[0];
+}
+
 export interface OverlayProduct {
   sku: OverlaySku;
   mode: OverlayMode;
@@ -22,14 +71,19 @@ export interface VerifiedOverlayToken {
   sku: OverlaySku;
   orderId: string;
   unlockCode: string;
+  planId?: OverlayPlanId;
   expiresAt: number;
 }
 
 export interface PendingOverlayOrder {
   orderId: string;
   sku: OverlaySku;
+  planId?: OverlayPlanId;
+  durationHours?: number;
   utrRef: string;
   amount: number;
+  paymentMethod?: 'razorpay_qr' | 'upi_manual' | 'owner_key';
+  gatewayQrImageUrl?: string;
   status: 'pending' | 'approved' | 'rejected' | 'revoked';
   unlockCode?: string;
   rejectionReason?: string;
@@ -42,9 +96,13 @@ export function formatRemainingTime(expiresAt: number, now = Date.now()): string
   const diffMs = Math.max(0, expiresAt - now);
   if (diffMs <= 0) return '00:00:00';
   const totalSeconds = Math.floor(diffMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
+  if (days > 0) {
+    return `${days}d ${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m`;
+  }
   return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`;
 }
 
@@ -77,12 +135,12 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       mr: [
         'कोणत्याही पेमेंट किंवा की शिवाय थेट OBS / vMix URL व 1920×1080 PNG मोफत मिळवा',
         'दोन्ही बाजूचे टीम लोगो, 30s टायमर, +1/-1, Bonus, All Out, Yellow/Red कार्ड्स व Sin Bin',
-        'स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील (वॉटरमार्क फ्री साठी ₹99 / 1 दिवस प्रो घ्या)',
+        'स्कोअरबोर्डवर छोटा STAR EVENT LIVE वॉटरमार्क राहील (वॉटरमार्क फ्री प्रो फक्त ₹49 पासून)',
       ],
       en: [
         'Free OBS / vMix Browser Source URL & 1920×1080 PNG export — no payment or key needed',
         'Dual team logos, 30s timer, +1/-1, Bonus, All Out, Yellow/Red cards & Sin Bin',
-        'Displays a small STAR EVENT LIVE watermark (upgrade to ₹99 / 1 Day Pro for watermark-free)',
+        'Displays a small STAR EVENT LIVE watermark (upgrade to watermark-free Pro from ₹49)',
       ],
     },
   },
@@ -90,8 +148,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'kabaddi-classic',
     mode: 'kabaddi',
     style: 'classic',
-    originalPrice: 149,
-    salePrice: 99,
+    originalPrice: 99,
+    salePrice: 49,
     title: {
       mr: 'कबड्डी प्रो स्कोअरबोर्ड (वॉटरमार्क-फ्री · 30s टायमर)',
       en: 'Kabaddi Pro Scoreboard (Watermark-Free · 30s Timer)',
@@ -101,19 +159,19 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       en: 'Curved dual-color broadcast bar + left & right team logos + pro control desk',
     },
     meta: {
-      mr: ['दोन्ही बाजू लोगो', '30s टायमर', 'OBS & vMix URL'],
-      en: ['Dual Team Logos', '30s Timer', 'OBS & vMix URL'],
+      mr: ['दोन्ही बाजू लोगो', '30s टायमर', 'ऑटो QR अनलॉक'],
+      en: ['Dual Team Logos', '30s Timer', 'Auto QR Unlock'],
     },
     features: {
       mr: [
         'डाव्या व उजव्या दोन्ही बाजूंनी कस्टम टीम लोगो अपलोड व टीम कलर पिकर',
         '30s लाईव्ह टायमर, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red कार्ड्स व Sin Bin',
-        'वॉटरमार्क-फ्री OBS Studio व vMix Browser Source URL + 1920×1080 PNG (1 दिवस पास)',
+        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 — QR पेमेंट होताच ऑटो अनलॉक',
       ],
       en: [
         'Upload custom Left & Right team logos and customize both wing colors live',
         'Live 30s timer, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red cards & Sin Bin',
-        'Watermark-free OBS & vMix Browser Source URL + 1920×1080 PNG export (1 Day pass)',
+        'Flexible plans: 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 — automatic unlock on QR payment',
       ],
     },
   },
@@ -121,8 +179,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'haldi-classic',
     mode: 'haldi',
     style: 'classic',
-    originalPrice: 149,
-    salePrice: 99,
+    originalPrice: 99,
+    salePrice: 49,
     title: {
       mr: 'हळदी व लग्न समारंभ · स्टाईल 1 (शाही गोल्ड फ्रेम)',
       en: 'Haldi & Wedding · Style 1 (Shahi Gold Frame)',
@@ -132,19 +190,19 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       en: 'Turmeric-gold ornamental corners + Haldi & Wedding Marathi header + live banner',
     },
     meta: {
-      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'मराठी सुलेखन'],
-      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Marathi Titles'],
+      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'ऑटो QR अनलॉक'],
+      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Auto QR Unlock'],
     },
     features: {
       mr: [
         'हळदी किंवा शुभ विवाह (वधू-वर / कुटुंबाचे नाव) एका क्लिकमध्ये कस्टमाईज करा',
         'OBS Studio व vMix साठी थेट ट्रान्सपरंट लिंक (वॉटरमार्क-फ्री क्लियर सेंटर)',
-        'तुमचा कस्टम लोगो जोडण्याची सोय + 1920×1080 ट्रान्सपरंट PNG डाउनलोड',
+        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 + 1920×1080 PNG डाउनलोड',
       ],
       en: [
         'One-click presets & live editing for Haldi & Wedding bride/groom/family names',
         'Ready-to-paste OBS & vMix transparent browser URL (clean watermark-free center)',
-        'Optional custom logo upload + instant 1920×1080 transparent PNG export',
+        'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 + instant 1920×1080 transparent PNG export',
       ],
     },
   },
@@ -152,8 +210,8 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
     sku: 'haldi-modern',
     mode: 'haldi',
     style: 'modern',
-    originalPrice: 149,
-    salePrice: 99,
+    originalPrice: 99,
+    salePrice: 49,
     title: {
       mr: 'हळदी व लग्न समारंभ · स्टाईल 2 (सिनेमॅटिक रिबन)',
       en: 'Haldi & Wedding · Style 2 (Cinematic Ribbon)',
@@ -163,19 +221,19 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       en: 'Clean open frame + floating warm-gold lower-third ribbon for Haldi & Wedding',
     },
     meta: {
-      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'सिनेमॅटिक स्टाईल'],
-      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Cinematic Look'],
+      mr: ['हळदी व लग्न', 'OBS & vMix URL', 'ऑटो QR अनलॉक'],
+      en: ['Haldi & Wedding', 'OBS & vMix URL', 'Auto QR Unlock'],
     },
     features: {
       mr: [
         '4K जिम्बल हळदी व लग्न शॉट्ससाठी बॉर्डरलेस क्लिन लोअर-थर्ड रिबन डिझाइन',
         'YouTube Live साठी रिअल-टाईम हळदी / लग्न टायटल सिंक (OBS व vMix)',
-        'वॉटरमार्क-फ्री आउटपुट + स्वतःचा कस्टम लोगो अपलोड व 1920×1080 PNG डाउनलोड',
+        'प्लॅन निवडा: 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499 + स्वतःचा कस्टम लोगो',
       ],
       en: [
         'Uncluttered floating ribbon crafted for 4K gimbal Haldi & Wedding shots',
         'Live Haldi & Wedding title updates synced directly to OBS and vMix',
-        'Watermark-free output + optional custom logo upload & 1920×1080 PNG export',
+        'Choose 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499 + optional custom logo upload',
       ],
     },
   },

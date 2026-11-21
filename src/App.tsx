@@ -467,8 +467,8 @@ export default function App() {
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न समारंभ ओव्हरले (2 स्टाईल) — प्रो फक्त ₹99 / 1 दिवस.'
-                        : 'FREE Kabaddi Demo Scoreboard (with small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — Pro at ₹99 / 1 Day.'}
+                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न ओव्हरले (2 स्टाईल) — 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499.'
+                        : 'FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499.'}
                     </p>
                   </div>
 
@@ -480,8 +480,8 @@ export default function App() {
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
                       {lang === 'mr'
-                        ? 'सर्व ओव्हरले पहा (मोफत डेमो + ₹99)'
-                        : 'Open Overlays Store (Free Demo + ₹99)'}
+                        ? 'सर्व ओव्हरले पहा (मोफत डेमो + ₹49 पासून)'
+                        : 'Open Overlays Store (Free Demo + From ₹49)'}
                     </span>
                     <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
@@ -529,7 +529,7 @@ export default function App() {
                                 {lang === 'mr' ? 'अनलॉक' : 'OWNED'}
                               </span>
                             ) : (
-                              <span className="text-[#4ADE80] font-semibold">1 DAY PASS</span>
+                              <span className="text-[#4ADE80] font-semibold">₹49 / ₹149 / ₹1,499</span>
                             )}
                           </div>
 
@@ -547,15 +547,12 @@ export default function App() {
                               {lang === 'mr' ? 'मोफत (FREE)' : 'FREE'}
                             </span>
                           ) : (
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-mono text-sm text-zinc-500 line-through tabular-nums">
-                                ₹{product.originalPrice}
-                              </span>
+                            <div className="flex items-baseline gap-1.5">
                               <span className="font-mono text-xl font-extrabold text-[#FACC15] tabular-nums">
                                 ₹{product.salePrice}
                               </span>
                               <span className="text-[11px] text-zinc-400">
-                                {lang === 'mr' ? '/ 1 दिवस' : '/ 1 Day'}
+                                {lang === 'mr' ? '/ 1 दिवस · ₹149/आठवडा' : '/ 1 Day · ₹149/Wk'}
                               </span>
                             </div>
                           )}

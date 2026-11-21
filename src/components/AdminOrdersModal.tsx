@@ -29,7 +29,9 @@ interface AdminOrderRecord {
   utrRef: string;
   proofImage?: string;
   proofHash?: string;
-  paymentMethod?: 'upi_manual' | 'owner_key';
+  paymentMethod?: 'razorpay_qr' | 'upi_manual' | 'owner_key';
+  planId?: '1day' | '1week' | '1month';
+  durationHours?: number;
   status: 'pending' | 'approved' | 'rejected' | 'revoked';
   unlockCode?: string;
   rejectionReason?: string;
@@ -46,10 +48,9 @@ interface AdminOrdersModalProps {
 }
 
 const DURATION_OPTIONS = [
-  { hours: 24, label: { mr: '1 दिवस (1 Day)', en: '1 Day' } },
-  { hours: 48, label: { mr: '2 दिवस (2 Days)', en: '2 Days' } },
-  { hours: 168, label: { mr: '7 दिवस', en: '7 Days' } },
-  { hours: 720, label: { mr: '30 दिवस', en: '30 Days' } },
+  { planId: '1day', hours: 24, label: { mr: '1 दिवस — ₹49 (1 Day)', en: '1 Day — ₹49' } },
+  { planId: '1week', hours: 168, label: { mr: '1 आठवडा — ₹149 (1 Week)', en: '1 Week — ₹149' } },
+  { planId: '1month', hours: 720, label: { mr: '1 महिना — ₹1,499 (1 Month)', en: '1 Month — ₹1,499' } },
 ];
 
 export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps) {
@@ -315,7 +316,7 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
         },
         body: JSON.stringify({
           reason:
-            'Real ₹99 payment not received on crushyyphotography@oksbi for this UTR. UTR blocked.',
+            'Real UPI payment not received on crushyyphotography@oksbi for this UTR. UTR blocked.',
         }),
       });
       const data = await res.json();
@@ -406,13 +407,13 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
           </p>
           <h3 id="admin-verify-title" className="font-display text-xl sm:text-2xl font-bold text-white">
             {lang === 'mr'
-              ? 'ओनर की जनरेटर व ₹99 पेमेंट पॅनेल'
-              : 'Owner Unlock Key Generator & Payment Console'}
+              ? 'ओनर की जनरेटर व पेमेंट पॅनेल (₹49 / ₹149 / ₹1,499)'
+              : 'Owner Unlock Key & Payment Console (₹49 / ₹149 / ₹1,499)'}
           </h3>
           <p className="text-xs text-zinc-400">
             {lang === 'mr'
-              ? 'तुमच्या Google Pay मध्ये खरे ₹99 आल्यावर एका क्लिकमध्ये Unlock Key तयार करा आणि ग्राहकाला WhatsApp वर पाठवा.'
-              : 'After receiving real ₹99 in your Google Pay / Bank app, generate a verified Unlock Key in 1 click and send it to the customer on WhatsApp.'}
+              ? 'तुमच्या Google Pay मध्ये पेमेंट आल्यावर 1 दिवस (₹49), 1 आठवडा (₹149) किंवा 1 महिना (₹1,499) साठी Unlock Key तयार करा किंवा ऑटो-QR ऑर्डर्स पहा.'
+              : 'Track automatic Razorpay QR unlocks or generate verified 1-Day (₹49), 1-Week (₹149), or 1-Month (₹1,499) Unlock Keys in 1 click.'}
           </p>
         </div>
 
@@ -826,7 +827,7 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
                               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-black bg-[#4ADE80] hover:bg-[#22C55E] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap"
                             >
                               <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                              <span>Confirm ₹99 & Generate Key</span>
+                              <span>Confirm ₹{ord.amount} & Unlock</span>
                             </button>
 
                             <button

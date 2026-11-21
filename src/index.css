@@ -60,30 +60,42 @@
 
 /* True alpha transparency & chroma key modes for OBS Studio & vMix Browser Inputs */
 html.overlay-transparent,
+html.overlay-transparent body,
 body.overlay-transparent,
+html.overlay-transparent #root,
 body.overlay-transparent #root {
   background: transparent !important;
   background-color: rgba(0, 0, 0, 0) !important;
+  width: 100vw !important;
+  height: 100vh !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
 }
 
 html.overlay-chroma-green,
+html.overlay-chroma-green body,
 body.overlay-chroma-green,
+html.overlay-chroma-green #root,
 body.overlay-chroma-green #root {
   background: #00b140 !important;
   background-color: #00b140 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;
 }
 
 html.overlay-chroma-blue,
+html.overlay-chroma-blue body,
 body.overlay-chroma-blue,
+html.overlay-chroma-blue #root,
 body.overlay-chroma-blue #root {
   background: #0047bb !important;
   background-color: #0047bb !important;
+  width: 100vw !important;
+  height: 100vh !important;
   margin: 0 !important;
   padding: 0 !important;
   overflow: hidden !important;

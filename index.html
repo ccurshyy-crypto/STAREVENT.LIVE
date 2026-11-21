@@ -28,6 +28,22 @@
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400..700;1,9..40,400..700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+Devanagari:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <script>
+      (function () {
+        var qs = window.location.search || '';
+        var p = window.location.pathname || '';
+        if (qs.indexOf('overlay=') !== -1 || p.indexOf('/overlay/') === 0) {
+          var bg = new URLSearchParams(qs).get('bg');
+          var cls =
+            bg === 'green'
+              ? 'overlay-chroma-green'
+              : bg === 'blue'
+                ? 'overlay-chroma-blue'
+                : 'overlay-transparent';
+          document.documentElement.classList.add(cls);
+        }
+      })();
+    </script>
   </head>
   <body class="bg-[#09090B] text-[#F4F4F5] antialiased selection:bg-[#DC2626]/30 selection:text-white">
     <div id="root"></div>

@@ -3,7 +3,9 @@ import { ArrowLeft, Check, Clock, Eye, Lock, LockOpen } from 'lucide-react';
 import { EventCategoryId, Language, STUDIO_CONTACT } from '../data/content';
 import {
   formatRemainingTime,
+  OVERLAY_PLANS,
   OVERLAY_PRODUCTS,
+  OverlayPlanId,
   OverlayProduct,
   OverlaySku,
   PendingOverlayOrder,
@@ -149,6 +151,7 @@ export function OverlaysPage({
 }: OverlaysPageProps) {
   const [filterMode, setFilterMode] = useState<'all' | OverlayMode>('all');
   const [checkoutProduct, setCheckoutProduct] = useState<OverlayProduct | null>(null);
+  const [checkoutPlanId, setCheckoutPlanId] = useState<OverlayPlanId>('1day');
   const [nowTs, setNowTs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -171,13 +174,18 @@ export function OverlaysPage({
     }
   };
 
-  const handleRequestPurchaseBySku = (sku: OverlaySku) => {
-    const prod = OVERLAY_PRODUCTS.find((p) => p.sku === sku) ?? OVERLAY_PRODUCTS[0];
-    if (prod.isFreeDemo) {
-      handleOpenPreview(prod);
+  const handleOpenCheckout = (product: OverlayProduct, planId: OverlayPlanId = '1day') => {
+    if (product.isFreeDemo) {
+      handleOpenPreview(product);
       return;
     }
-    setCheckoutProduct(prod);
+    setCheckoutPlanId(planId);
+    setCheckoutProduct(product);
+  };
+
+  const handleRequestPurchaseBySku = (sku: OverlaySku) => {
+    const prod = OVERLAY_PRODUCTS.find((p) => p.sku === sku) ?? OVERLAY_PRODUCTS[0];
+    handleOpenCheckout(prod, '1day');
   };
 
   return (
@@ -242,8 +250,8 @@ export function OverlaysPage({
             <div className="max-w-3xl space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {lang === 'mr'
-                  ? `ओव्हरले स्टोअर · ${STUDIO_CONTACT.domain} · विशेष ऑफर ₹149 ऐवजी फक्त ₹99`
-                  : `Broadcast Overlay Store · ${STUDIO_CONTACT.domain} · Launch Offer ₹99 (Was ₹149)`}
+                  ? `ओव्हरले स्टोअर · ${STUDIO_CONTACT.domain} · 1 दिवस ₹49 · 1 आठवडा ₹149 · 1 महिना ₹1,499`
+                  : `Broadcast Overlay Store · ${STUDIO_CONTACT.domain} · 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499`}
               </p>
               <h1
                 className={`font-display font-extrabold text-white text-[clamp(1.95rem,3.4vw,3.05rem)] ${
@@ -258,8 +266,8 @@ export function OverlaysPage({
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
                 {lang === 'mr'
-                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). प्रो अनलॉक फक्त ₹99 / 1 दिवस.'
-                  : 'Try the FREE Kabaddi Demo Scoreboard (with a small STAR EVENT LIVE watermark & 30s timer), or unlock the watermark-free Kabaddi Pro Scoreboard and 2 Haldi & Wedding overlays at ₹99 / 1 Day (was ₹149).'}
+                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). QR पेमेंट होताच ऑटो अनलॉक — 1 दिवस ₹49, 1 आठवडा ₹149, 1 महिना ₹1,499.'
+                  : 'Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays with automatic QR unlock: 1 Day ₹49 · 1 Week ₹149 · 1 Month ₹1,499.'}
               </p>
             </div>
 
@@ -343,8 +351,8 @@ export function OverlaysPage({
                           : isUnlocked && token
                             ? `${formatRemainingTime(token.expiresAt, nowTs)} LEFT`
                             : lang === 'mr'
-                              ? '1 दिवस पास · ₹50 सूट'
-                              : '1 DAY PASS · SAVE ₹50'}
+                              ? '₹49 पासून · ऑटो QR'
+                              : 'FROM ₹49 · AUTO QR'}
                       </span>
                     </div>
 
@@ -357,10 +365,10 @@ export function OverlaysPage({
                       </p>
                     </div>
 
-                    {/* Pricing Row: Free Demo OR Slashed ₹149 -> ₹99 / 1 Day */}
-                    <div className="pt-3 border-t border-white/10 flex flex-wrap items-baseline justify-between gap-3">
+                    {/* Pricing Row: Free Demo OR 3-Plan Grid (1 Day ₹49 / 1 Week ₹149 / 1 Month ₹1,499) */}
+                    <div className="pt-3 border-t border-white/10">
                       {isFreeDemo ? (
-                        <>
+                        <div className="flex flex-wrap items-baseline justify-between gap-3">
                           <div className="flex items-baseline gap-2.5">
                             <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#4ADE80] tabular-nums">
                               {lang === 'mr' ? 'मोफत (FREE)' : 'FREE · ₹0'}
@@ -374,24 +382,25 @@ export function OverlaysPage({
                           <span className="font-mono text-xs font-semibold text-[#4ADE80]">
                             DEMO
                           </span>
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          <div className="flex items-baseline gap-2.5">
-                            <span className="font-mono text-base sm:text-lg text-zinc-500 line-through tabular-nums">
-                              ₹{product.originalPrice}
-                            </span>
-                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums">
-                              ₹{product.salePrice}
-                            </span>
-                            <span className="text-xs text-zinc-400">
-                              {lang === 'mr' ? '/ 1 दिवस वैध (Auto-Lock)' : '/ 1 Day (auto-locks)'}
-                            </span>
-                          </div>
-                          <span className="font-mono text-xs font-semibold text-[#4ADE80] tabular-nums">
-                            33% OFF
-                          </span>
-                        </>
+                        <div className="grid grid-cols-3 gap-2">
+                          {OVERLAY_PLANS.map((plan) => (
+                            <button
+                              key={plan.id}
+                              type="button"
+                              onClick={() => handleOpenCheckout(product, plan.id)}
+                              className="bg-[#0D0D11] hover:bg-[#19160E] border border-white/12 hover:border-[#FACC15]/70 rounded-xl px-2.5 py-2 text-left transition-colors"
+                            >
+                              <span className="block text-[10px] font-semibold text-zinc-400">
+                                {plan.shortLabel[lang]}
+                              </span>
+                              <span className="block font-mono text-base sm:text-lg font-extrabold text-[#FACC15] tabular-nums leading-tight mt-0.5">
+                                ₹{plan.price.toLocaleString('en-IN')}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
 
@@ -437,27 +446,27 @@ export function OverlaysPage({
                     ) : isPending ? (
                       <button
                         type="button"
-                        onClick={() => setCheckoutProduct(product)}
+                        onClick={() => handleOpenCheckout(product, pendingOrder?.planId || '1day')}
                         className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-[#FACC15] bg-[#1D160B] hover:bg-[#291F0F] border border-[#FACC15]/50 rounded-lg transition-colors whitespace-nowrap"
                       >
                         <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {lang === 'mr'
-                            ? '₹99 व्हेरिफिकेशन प्रतीक्षेत · तपासा'
-                            : '₹99 Verification Pending · Check'}
+                            ? `₹${pendingOrder?.amount || 49} प्रतीक्षेत · स्टेटस पहा`
+                            : `₹${pendingOrder?.amount || 49} Pending · Check Status`}
                         </span>
                       </button>
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setCheckoutProduct(product)}
+                        onClick={() => handleOpenCheckout(product, '1day')}
                         className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap tabular-nums"
                       >
                         <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
                           {lang === 'mr'
-                            ? `₹${product.salePrice} पेमेंट करा व अनलॉक करा`
-                            : `Pay ₹${product.salePrice} via UPI QR`}
+                            ? 'QR पेमेंट करा (₹49 / ₹149 / ₹1,499)'
+                            : 'Unlock via QR (₹49 / ₹149 / ₹1,499)'}
                         </span>
                       </button>
                     )}
@@ -491,10 +500,11 @@ export function OverlaysPage({
         onBookFromPreview={onBookFromOverlay}
       />
 
-      {/* Verified ₹99 UPI QR Checkout Modal */}
+      {/* Verified Multi-Plan Auto QR Checkout Modal */}
       <OverlayCheckoutModal
         lang={lang}
         product={checkoutProduct}
+        initialPlanId={checkoutPlanId}
         existingPendingOrder={
           checkoutProduct ? pendingOrders[checkoutProduct.sku] ?? null : null
         }
