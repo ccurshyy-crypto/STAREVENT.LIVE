@@ -8,6 +8,16 @@ export type LogoCorner = 'top-right' | 'top-left';
 
 export type KabaddiHalf = '1ST HALF' | '2ND HALF' | 'HALF TIME' | 'FULL TIME';
 
+export type KabaddiMatchStatus = 'LIVE' | 'PAUSED' | 'TIMEOUT' | 'HALF TIME' | 'FULL TIME';
+
+export type KabaddiTimeoutTeam = 'A' | 'B' | 'OFFICIAL' | null;
+
+export interface RemotePresenceInfo {
+  displays: number;
+  controllers: number;
+  controllerNames?: string[];
+}
+
 export function normalizeStyleForMode(mode: OverlayMode, style?: string): OverlayStyle {
   if (mode === 'kabaddi') {
     return style === 'demo' ? 'demo' : 'classic';
@@ -32,6 +42,9 @@ export interface LiveOverlayState {
   teamACode: string;
   teamAColor: string;
   teamAScore: number;
+  teamARaidPoints?: number;
+  teamABonusPoints?: number;
+  teamATacklePoints?: number;
   teamALogoUrl: string;
   teamAYellowCards: number;
   teamARedCards: number;
@@ -40,6 +53,9 @@ export interface LiveOverlayState {
   teamBCode: string;
   teamBColor: string;
   teamBScore: number;
+  teamBRaidPoints?: number;
+  teamBBonusPoints?: number;
+  teamBTacklePoints?: number;
   teamBLogoUrl: string;
   teamBYellowCards: number;
   teamBRedCards: number;
@@ -51,6 +67,8 @@ export interface LiveOverlayState {
   raidRunning: boolean;
   raidUpdatedAt: number;
   kabaddiHalf: KabaddiHalf;
+  matchStatus?: KabaddiMatchStatus;
+  timeoutTeam?: KabaddiTimeoutTeam;
   doOrDie: boolean;
   kabaddiAlert: string | null;
   // Haldi & Wedding Ceremony Overlay state (2 Styles)
@@ -78,6 +96,9 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     teamACode: 'NER',
     teamAColor: '#C8102E',
     teamAScore: 24,
+    teamARaidPoints: 14,
+    teamABonusPoints: 4,
+    teamATacklePoints: 6,
     teamALogoUrl: '',
     teamAYellowCards: 0,
     teamARedCards: 0,
@@ -86,6 +107,9 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     teamBCode: 'KAR',
     teamBColor: '#131D8A',
     teamBScore: 21,
+    teamBRaidPoints: 12,
+    teamBBonusPoints: 3,
+    teamBTacklePoints: 6,
     teamBLogoUrl: '',
     teamBYellowCards: 0,
     teamBRedCards: 0,
@@ -97,6 +121,8 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     raidRunning: false,
     raidUpdatedAt: now,
     kabaddiHalf: '1ST HALF',
+    matchStatus: 'LIVE',
+    timeoutTeam: null,
     doOrDie: false,
     kabaddiAlert: null,
     haldiTag: 'HALDI & WEDDING',

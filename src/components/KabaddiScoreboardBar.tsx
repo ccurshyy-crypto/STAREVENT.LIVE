@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { KabaddiHalf } from '../types/overlay';
+import { KabaddiHalf, KabaddiMatchStatus, KabaddiTimeoutTeam } from '../types/overlay';
 
 export interface KabaddiScoreboardBarProps {
   variant?: 'mini' | 'studio' | 'output';
@@ -23,6 +23,8 @@ export interface KabaddiScoreboardBarProps {
   raidSeconds?: number;
   raidRunning?: boolean;
   halfLabel: KabaddiHalf | string;
+  matchStatus?: KabaddiMatchStatus;
+  timeoutTeam?: KabaddiTimeoutTeam;
   doOrDie?: boolean;
   subtitle?: string;
   showDemoWatermark?: boolean;
@@ -90,6 +92,8 @@ export function KabaddiScoreboardBar({
   raidSeconds = 30,
   raidRunning = false,
   halfLabel,
+  matchStatus,
+  timeoutTeam = null,
   doOrDie = false,
   subtitle,
   showDemoWatermark = false,
@@ -227,15 +231,41 @@ export function KabaddiScoreboardBar({
           />
         </svg>
 
-        {/* Top Raised Cap Content (Half / DO-OR-DIE) */}
+        {/* Top Raised Cap Content (Timeout / Status / DO-OR-DIE / Half) */}
         <div className="absolute top-[2%] left-[37%] right-[37%] h-[23%] flex items-center justify-center px-2">
-          <span
-            className={`font-mono font-extrabold uppercase truncate leading-none ${capTextClass} ${
-              doOrDie ? 'text-[#FCA5A5] animate-pulse' : 'text-zinc-100'
-            }`}
-          >
-            {doOrDie ? 'DO-OR-DIE' : halfLabel}
-          </span>
+          {(() => {
+            const isTimeout = matchStatus === 'TIMEOUT' || Boolean(timeoutTeam);
+            const timeoutLabel =
+              timeoutTeam === 'A'
+                ? `TIMEOUT · ${displayLeftCode || 'TEAM A'}`
+                : timeoutTeam === 'B'
+                  ? `TIMEOUT · ${displayRightCode || 'TEAM B'}`
+                  : 'TIMEOUT';
+            const capText = isTimeout
+              ? timeoutLabel
+              : doOrDie
+                ? 'DO-OR-DIE'
+                : matchStatus === 'PAUSED'
+                  ? 'PAUSED'
+                  : matchStatus === 'HALF TIME' || matchStatus === 'FULL TIME'
+                    ? matchStatus
+                    : halfLabel;
+            const capColor = isTimeout
+              ? 'text-[#FDE047] animate-pulse'
+              : doOrDie
+                ? 'text-[#FCA5A5] animate-pulse'
+                : matchStatus === 'PAUSED'
+                  ? 'text-[#FDBA74]'
+                  : 'text-zinc-100';
+
+            return (
+              <span
+                className={`font-mono font-extrabold uppercase truncate leading-none ${capTextClass} ${capColor}`}
+              >
+                {capText}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Main Lower Band Content Layer (y: 36% -> 94%) */}

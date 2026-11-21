@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react';
 import { Language } from '../data/content';
-import { KabaddiHalf, LiveOverlayState } from '../types/overlay';
+import { KabaddiHalf, KabaddiTimeoutTeam, LiveOverlayState } from '../types/overlay';
 import { formatClockMMSS } from './KabaddiScoreboardBar';
 
 interface KabaddiControlDeskProps {
@@ -21,6 +21,8 @@ interface KabaddiControlDeskProps {
   teamBBinRemaining: number;
   onUpdateState: (patch: Partial<LiveOverlayState>) => void;
   onScoreDelta: (team: 'A' | 'B', delta: number, alertText?: string) => void;
+  onQuickPoint?: (team: 'A' | 'B', kind: 'raid' | 'bonus' | 'tackle' | 'super_tackle' | 'all_out' | 'super_raid') => void;
+  onTimeout?: (target: KabaddiTimeoutTeam) => void;
   onToggleMatchTimer: () => void;
   onAdjustMatchSeconds: (deltaSec: number) => void;
   onSetMatchPreset: (seconds: number, autoStart?: boolean) => void;
@@ -50,6 +52,7 @@ interface TeamColumnProps {
   onChangeCode: (v: string) => void;
   onChangeColor: (v: string) => void;
   onScore: (delta: number, alert?: string) => void;
+  onQuickPoint?: (kind: 'raid' | 'bonus' | 'tackle' | 'super_tackle' | 'all_out' | 'super_raid') => void;
   onAddYellow: () => void;
   onResetYellow: () => void;
   onAddRed: () => void;
@@ -74,6 +77,7 @@ function TeamControlCard({
   onChangeCode,
   onChangeColor,
   onScore,
+  onQuickPoint,
   onAddYellow,
   onResetYellow,
   onAddRed,
@@ -156,50 +160,72 @@ function TeamControlCard({
             </button>
           </div>
 
-          {/* Row 5 & 6: 2x2 Kabaddi Quick-Point Buttons */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Row 5 & 6: Kabaddi Quick-Point Buttons (Raid, Bonus, Tackle, All Out, S.Tackle, S.Raid) */}
+          <div className="grid grid-cols-3 gap-1.5">
             <button
               type="button"
-              onClick={() => onScore(1, `${displayTeam} · BONUS +1`)}
-              className="py-2.5 px-1.5 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+              onClick={() => (onQuickPoint ? onQuickPoint('raid') : onScore(1, `${displayTeam} · RAID +1`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
             >
-              <span className="block text-xs sm:text-sm font-bold text-white leading-tight">
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
+                Raid
+              </span>
+              <span className="block text-[10px] font-mono text-[#4ADE80] mt-0.5">+1</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (onQuickPoint ? onQuickPoint('bonus') : onScore(1, `${displayTeam} · BONUS +1`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+            >
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
                 Bonus
               </span>
-              <span className="block text-[11px] font-mono text-zinc-400 mt-0.5">+1</span>
+              <span className="block text-[10px] font-mono text-[#FACC15] mt-0.5">+1</span>
             </button>
 
             <button
               type="button"
-              onClick={() => onScore(2, `ALL OUT! +2 ${displayTeam}`)}
-              className="py-2.5 px-1.5 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+              onClick={() => (onQuickPoint ? onQuickPoint('tackle') : onScore(1, `${displayTeam} · TACKLE +1`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
             >
-              <span className="block text-xs sm:text-sm font-bold text-white leading-tight">
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
+                Tackle
+              </span>
+              <span className="block text-[10px] font-mono text-[#38BDF8] mt-0.5">+1</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => (onQuickPoint ? onQuickPoint('all_out') : onScore(2, `ALL OUT! +2 ${displayTeam}`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+            >
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
                 All Out
               </span>
-              <span className="block text-[11px] font-mono text-zinc-400 mt-0.5">+2</span>
+              <span className="block text-[10px] font-mono text-zinc-400 mt-0.5">+2</span>
             </button>
 
             <button
               type="button"
-              onClick={() => onScore(2, `SUPER TACKLE! +2 ${displayTeam}`)}
-              className="py-2.5 px-1.5 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+              onClick={() => (onQuickPoint ? onQuickPoint('super_tackle') : onScore(2, `SUPER TACKLE! +2 ${displayTeam}`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
             >
-              <span className="block text-xs sm:text-sm font-bold text-white leading-tight">
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
                 S. Tackle
               </span>
-              <span className="block text-[11px] font-mono text-zinc-400 mt-0.5">+2</span>
+              <span className="block text-[10px] font-mono text-zinc-400 mt-0.5">+2</span>
             </button>
 
             <button
               type="button"
-              onClick={() => onScore(3, `SUPER RAID! +3 ${displayTeam}`)}
-              className="py-2.5 px-1.5 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
+              onClick={() => (onQuickPoint ? onQuickPoint('super_raid') : onScore(3, `SUPER RAID! +3 ${displayTeam}`))}
+              className="py-2 px-1 bg-[#1B222C] hover:bg-[#242D3A] active:scale-[0.98] border border-[#2A3340] rounded-xl text-center transition"
             >
-              <span className="block text-xs sm:text-sm font-bold text-white leading-tight">
+              <span className="block text-[11px] sm:text-xs font-bold text-white leading-tight">
                 S. Raid
               </span>
-              <span className="block text-[11px] font-mono text-zinc-400 mt-0.5">+3</span>
+              <span className="block text-[10px] font-mono text-zinc-400 mt-0.5">+3</span>
             </button>
           </div>
 
@@ -329,6 +355,8 @@ export function KabaddiControlDesk({
   teamBBinRemaining,
   onUpdateState,
   onScoreDelta,
+  onQuickPoint,
+  onTimeout,
   onToggleMatchTimer,
   onAdjustMatchSeconds,
   onSetMatchPreset,
@@ -340,6 +368,7 @@ export function KabaddiControlDesk({
   onSwapTeams,
   onResetMatch,
 }: KabaddiControlDeskProps) {
+  const isTimeout = state.matchStatus === 'TIMEOUT' || Boolean(state.timeoutTeam);
   return (
     <div className="space-y-3.5 pt-4 border-t border-white/10">
       {/* Header Row: Desk Title + Swap + Reset */}
@@ -483,6 +512,50 @@ export function KabaddiControlDesk({
             )}
           </div>
         </div>
+
+        {/* Timeout Strip */}
+        {onTimeout && (
+          <div className="flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-white/8">
+            <span className="text-[10px] font-mono uppercase text-zinc-400">
+              {isTimeout ? 'TIMEOUT ACTIVE' : 'Timeout:'}
+            </span>
+            <div className="flex items-center gap-1 flex-wrap">
+              {isTimeout ? (
+                <button
+                  type="button"
+                  onClick={() => onTimeout(null)}
+                  className="px-2.5 py-1 text-[10px] font-mono font-bold rounded-md bg-[#3B9E6D] text-white"
+                >
+                  End Timeout
+                </button>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onTimeout('A')}
+                    className="px-2 py-1 text-[10px] font-mono font-bold rounded-md bg-[#261F0D] hover:bg-[#352B12] border border-[#FACC15]/45 text-[#FDE047]"
+                  >
+                    T/O {state.teamACode || 'A'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTimeout('B')}
+                    className="px-2 py-1 text-[10px] font-mono font-bold rounded-md bg-[#261F0D] hover:bg-[#352B12] border border-[#FACC15]/45 text-[#FDE047]"
+                  >
+                    T/O {state.teamBCode || 'B'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onTimeout('OFFICIAL')}
+                    className="px-2 py-1 text-[10px] font-mono font-bold rounded-md bg-[#261F0D] hover:bg-[#352B12] border border-[#FACC15]/45 text-[#FDE047]"
+                  >
+                    Official T/O
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Side-by-Side Team Control Cards (Faithful to Reference Control UI) */}
@@ -502,6 +575,7 @@ export function KabaddiControlDesk({
           onChangeCode={(v) => onUpdateState({ teamACode: v })}
           onChangeColor={(v) => onUpdateState({ teamAColor: v })}
           onScore={(delta, alert) => onScoreDelta('A', delta, alert)}
+          onQuickPoint={onQuickPoint ? (k) => onQuickPoint('A', k) : undefined}
           onAddYellow={() => onUpdateState({ teamAYellowCards: state.teamAYellowCards + 1 })}
           onResetYellow={() => onUpdateState({ teamAYellowCards: 0 })}
           onAddRed={() => onUpdateState({ teamARedCards: state.teamARedCards + 1 })}
@@ -526,6 +600,7 @@ export function KabaddiControlDesk({
           onChangeCode={(v) => onUpdateState({ teamBCode: v })}
           onChangeColor={(v) => onUpdateState({ teamBColor: v })}
           onScore={(delta, alert) => onScoreDelta('B', delta, alert)}
+          onQuickPoint={onQuickPoint ? (k) => onQuickPoint('B', k) : undefined}
           onAddYellow={() => onUpdateState({ teamBYellowCards: state.teamBYellowCards + 1 })}
           onResetYellow={() => onUpdateState({ teamBYellowCards: 0 })}
           onAddRed={() => onUpdateState({ teamBRedCards: state.teamBRedCards + 1 })}

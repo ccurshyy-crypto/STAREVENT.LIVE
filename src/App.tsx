@@ -6,6 +6,7 @@ import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
 import { HomeAnimatedBackground } from './components/HomeAnimatedBackground';
+import { KabaddiRemoteController } from './components/KabaddiRemoteController';
 import { PreviewMode } from './components/LiveStudioPreview';
 import { Navbar } from './components/Navbar';
 import { OverlayOutputView } from './components/OverlayOutputView';
@@ -146,8 +147,23 @@ function parseOverlayRoute() {
   return { mode, style, roomId, background, token, lockMode, lockStyle, urlOverrides };
 }
 
+function parseRemoteRoute() {
+  if (typeof window === 'undefined') return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const queryRemote = params.get('remote') === '1' || params.get('remote') === 'true';
+  const pathMatch = window.location.pathname.match(/^\/remote(?:\/([a-z0-9-_]+))?\/?$/i);
+
+  if (!queryRemote && !pathMatch) return null;
+
+  const matchId = params.get('match') || params.get('room') || (pathMatch?.[1] ?? '') || '';
+  const lanMode = params.get('mode')?.toLowerCase() === 'lan';
+  return { matchId, lanMode };
+}
+
 export default function App() {
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
+  const remoteRoute = useMemo(() => parseRemoteRoute(), []);
 
   const [lang, setLang] = useState<Language>('mr');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
@@ -203,7 +219,7 @@ export default function App() {
 
   // On mount: strictly verify stored tokens & check pending orders against the server!
   useEffect(() => {
-    if (overlayRoute) return;
+    if (overlayRoute || remoteRoute) return;
     let active = true;
 
     const validateOnServer = async () => {
@@ -259,7 +275,7 @@ export default function App() {
       active = false;
       window.clearInterval(recheckTimer);
     };
-  }, [overlayRoute, handlePendingOrderChange, handleVerifiedUnlock]);
+  }, [overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
 
   // Automatic 24-hour expiry watcher: re-locks overlays the exact second expiresAt passes
   useEffect(() => {
@@ -305,6 +321,16 @@ export default function App() {
         lockMode={overlayRoute.lockMode}
         lockStyle={overlayRoute.lockStyle}
         urlOverrides={overlayRoute.urlOverrides}
+      />
+    );
+  }
+
+  // If opened on mobile/tablet/laptop as Kabaddi Remote Controller, render dedicated mobile-first controller
+  if (remoteRoute) {
+    return (
+      <KabaddiRemoteController
+        initialMatchId={remoteRoute.matchId}
+        initialLanMode={remoteRoute.lanMode}
       />
     );
   }

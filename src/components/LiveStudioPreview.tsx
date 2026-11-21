@@ -10,6 +10,7 @@ import {
   ImagePlus,
   Lock,
   Radio,
+  Smartphone,
   Trash2,
   Tv,
 } from 'lucide-react';
@@ -27,17 +28,13 @@ import {
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
 import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
-import {
-  normalizeStyleForMode,
-  OverlayBackground,
-  OverlayMode,
-  OverlayStyle,
-} from '../types/overlay';
+import { KabaddiTimeoutTeam, normalizeStyleForMode, OverlayBackground, OverlayMode, OverlayStyle } from '../types/overlay';
 import {
   downloadHaldiOverlayPng,
   downloadKabaddiOverlayPng,
 } from '../utils/exportOverlayPng';
 import { KabaddiControlDesk } from './KabaddiControlDesk';
+import { KabaddiRemoteModal } from './KabaddiRemoteModal';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 
 export type PreviewMode = OverlayMode;
@@ -109,10 +106,22 @@ export function LiveStudioPreview({
   const [outputBg, setOutputBg] = useState<OverlayBackground>('transparent');
   const [lockModeInUrl, setLockModeInUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
-  const { state, updateState, connected, connectedDisplays, roomId, getServerNow } = useOverlaySync({
+  const {
+    state,
+    updateState,
+    sendAction,
+    connected,
+    connectedDisplays,
+    connectedControllers,
+    controllerNames,
+    roomId,
+    getServerNow,
+  } = useOverlaySync({
     roomId: roomInput,
+    role: 'studio',
   });
 
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
@@ -250,6 +259,26 @@ export function LiveStudioPreview({
     }
     if (alertText) {
       triggerKabaddiAlert(alertText);
+    }
+  };
+
+  const handleKabaddiQuickPoint = (
+    team: 'A' | 'B',
+    kind: 'raid' | 'bonus' | 'tackle' | 'super_tackle' | 'all_out' | 'super_raid'
+  ) => {
+    if (kind === 'raid') sendAction('raid', { team, points: 1 });
+    else if (kind === 'super_raid') sendAction('raid', { team, points: 3 });
+    else if (kind === 'bonus') sendAction('bonus', { team });
+    else if (kind === 'tackle') sendAction('tackle', { team, points: 1 });
+    else if (kind === 'super_tackle') sendAction('tackle', { team, points: 2 });
+    else if (kind === 'all_out') sendAction('all_out', { team });
+  };
+
+  const handleKabaddiTimeout = (target: KabaddiTimeoutTeam) => {
+    if (!target) {
+      sendAction('clear_timeout');
+    } else {
+      sendAction('timeout', { target });
     }
   };
 
@@ -952,6 +981,8 @@ export function LiveStudioPreview({
                     raidSeconds={displayRaidSeconds}
                     raidRunning={state.raidRunning}
                     halfLabel={state.kabaddiHalf}
+                    matchStatus={state.matchStatus}
+                    timeoutTeam={state.timeoutTeam}
                     doOrDie={state.doOrDie}
                     subtitle={state.kabaddiSubtitle}
                     showDemoWatermark={isFreeDemo}
@@ -1011,6 +1042,24 @@ export function LiveStudioPreview({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
+                  {activeMode === 'kabaddi' && (
+                    <button
+                      type="button"
+                      onClick={() => setRemoteModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#1D4ED8] hover:bg-[#1E40AF] border border-[#60A5FA]/50 rounded-lg transition-colors whitespace-nowrap shrink-0"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
+                      <span>
+                        {lang === 'mr' ? 'रिमोट कंट्रोल (QR / PIN)' : 'Remote Control (QR / PIN)'}
+                      </span>
+                      {connectedControllers > 0 && (
+                        <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-mono font-extrabold bg-[#FACC15] text-black rounded">
+                          {connectedControllers}
+                        </span>
+                      )}
+                    </button>
+                  )}
+
                   {isCurrentUnlocked ? (
                     <>
                       <button
@@ -1281,6 +1330,8 @@ export function LiveStudioPreview({
                   teamBBinRemaining={teamBBinRemaining}
                   onUpdateState={updateState}
                   onScoreDelta={handleKabaddiScore}
+                  onQuickPoint={handleKabaddiQuickPoint}
+                  onTimeout={handleKabaddiTimeout}
                   onToggleMatchTimer={handleToggleMatchTimer}
                   onAdjustMatchSeconds={handleAdjustMatchSeconds}
                   onSetMatchPreset={handleSetMatchPreset}
@@ -1393,6 +1444,17 @@ export function LiveStudioPreview({
           </div>
         </div>
       </div>
+      <KabaddiRemoteModal
+        open={remoteModalOpen}
+        onClose={() => setRemoteModalOpen(false)}
+        lang={lang}
+        currentRoomId={roomId}
+        onBindMatchId={(nextId) => setRoomInput(sanitizeRoomIdClient(nextId))}
+        vmixBrowserUrl={vmixBrowserUrl}
+        connectedDisplays={connectedDisplays}
+        connectedControllers={connectedControllers}
+        controllerNames={controllerNames}
+      />
     </section>
   );
 }

@@ -1,11 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createDefaultOverlayState, LiveOverlayState } from '../types/overlay';
+import {
+  createDefaultOverlayState,
+  LiveOverlayState,
+  RemotePresenceInfo,
+} from '../types/overlay';
+
+export type SyncTransport = 'ws' | 'sse' | 'poll' | 'offline';
 
 interface UseOverlaySyncOptions {
   roomId: string;
   initialOverrides?: Partial<LiveOverlayState>;
-  /** Set true inside OBS / vMix output view for aggressive fast-polling + zero-skew sync */
+  /** Set true inside OBS / vMix output view for display-role WebSocket + zero-skew sync */
   readOnly?: boolean;
+  /** Role on WebSocket server: 'display' (vMix/OBS), 'studio' (PC desk), 'controller' (PIN remote) */
+  role?: 'display' | 'studio' | 'controller';
+  /** In-memory Bearer session token for PIN-protected remote controllers */
+  remoteToken?: string;
+  /** Friendly device label shown in live presence list */
+  deviceName?: string;
+  /** Called if server rejects or expires the remote controller session */
+  onAuthError?: (message: string) => void;
 }
 
 export function sanitizeRoomIdClient(raw: string): string {
@@ -17,26 +31,46 @@ function createViewerId(): string {
   return `v-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function buildWebSocketUrl(params: URLSearchParams): string | null {
+  if (typeof window === 'undefined') return null;
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/ws/kabaddi?${params.toString()}`;
+}
+
 export function useOverlaySync({
   roomId,
   initialOverrides,
   readOnly = false,
+  role,
+  remoteToken,
+  deviceName,
+  onAuthError,
 }: UseOverlaySyncOptions) {
   const safeRoom = sanitizeRoomIdClient(roomId);
+  const resolvedRole: 'display' | 'studio' | 'controller' =
+    role ?? (readOnly ? 'display' : 'studio');
+
   const [state, setState] = useState<LiveOverlayState>(() => ({
     ...createDefaultOverlayState(safeRoom),
     ...initialOverrides,
   }));
   const [connected, setConnected] = useState(false);
-  const [connectedDisplays, setConnectedDisplays] = useState(1);
+  const [transport, setTransport] = useState<SyncTransport>('offline');
+  const [connectedDisplays, setConnectedDisplays] = useState(0);
+  const [connectedControllers, setConnectedControllers] = useState(0);
+  const [controllerNames, setControllerNames] = useState<string[]>([]);
 
   const viewerIdRef = useRef<string>(createViewerId());
   const lastVersionRef = useRef<number>(0);
   const lastLocalWriteRef = useRef<number>(0);
   const serverClockOffsetRef = useRef<number>(0);
+  const wsRef = useRef<WebSocket | null>(null);
+  const onAuthErrorRef = useRef(onAuthError);
+  onAuthErrorRef.current = onAuthError;
 
-  // Coalesced sequential write queue so rapid +1/+1 clicks or typing never arrive out of order
+  // Coalesced sequential write queue + offline action queue
   const pendingPatchRef = useRef<Partial<LiveOverlayState> | null>(null);
+  const pendingActionsRef = useRef<Array<{ action: string; payload?: Record<string, unknown> }>>([]);
   const inFlightRef = useRef<boolean>(false);
 
   const applyServerPayload = useCallback(
@@ -45,12 +79,17 @@ export function useOverlaySync({
       version?: number;
       serverNow?: number;
       connectedDisplays?: number;
+      presence?: RemotePresenceInfo;
       unchanged?: boolean;
     }) => {
       if (typeof payload.serverNow === 'number') {
         serverClockOffsetRef.current = payload.serverNow - Date.now();
       }
-      if (typeof payload.connectedDisplays === 'number') {
+      if (payload.presence) {
+        setConnectedDisplays(payload.presence.displays);
+        setConnectedControllers(payload.presence.controllers);
+        setControllerNames(payload.presence.controllerNames ?? []);
+      } else if (typeof payload.connectedDisplays === 'number') {
         setConnectedDisplays(payload.connectedDisplays);
       }
       if (payload.unchanged || !payload.state) return;
@@ -60,11 +99,11 @@ export function useOverlaySync({
         return;
       }
 
-      // In controller mode, avoid clobbering optimistic local edits while a write is actively in flight
+      // Avoid clobbering rapid optimistic edits while a local HTTP write is actively in flight
       if (!readOnly && (inFlightRef.current || pendingPatchRef.current)) {
         return;
       }
-      if (!readOnly && Date.now() - lastLocalWriteRef.current < 180) {
+      if (!readOnly && Date.now() - lastLocalWriteRef.current < 150) {
         return;
       }
 
@@ -79,13 +118,131 @@ export function useOverlaySync({
     [readOnly]
   );
 
-  // Subscribe via Initial Fetch + SSE Stream + Fast No-Cache Polling + BroadcastChannel
+  // Flush queued patches & actions via open WebSocket OR authenticated HTTP endpoint
+  const flushWriteQueue = useCallback(async () => {
+    if (resolvedRole === 'display') return;
+
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      if (pendingActionsRef.current.length > 0) {
+        const queued = [...pendingActionsRef.current];
+        pendingActionsRef.current = [];
+        for (const item of queued) {
+          try {
+            ws.send(JSON.stringify({ type: 'action', action: item.action, payload: item.payload || {} }));
+          } catch {
+            pendingActionsRef.current.unshift(item);
+            break;
+          }
+        }
+      }
+      if (pendingPatchRef.current) {
+        const nextPatch = pendingPatchRef.current;
+        pendingPatchRef.current = null;
+        try {
+          ws.send(JSON.stringify({ type: 'patch', patch: nextPatch }));
+        } catch {
+          pendingPatchRef.current = nextPatch;
+        }
+      }
+      return;
+    }
+
+    if (inFlightRef.current) return;
+
+    const nextAction = pendingActionsRef.current.shift() ?? null;
+    const nextPatch = nextAction ? null : pendingPatchRef.current;
+    if (!nextAction && !nextPatch) return;
+    if (nextPatch) pendingPatchRef.current = null;
+
+    inFlightRef.current = true;
+
+    try {
+      const isRemote = resolvedRole === 'controller';
+      const url = isRemote
+        ? `/api/remote/match/${encodeURIComponent(safeRoom)}/update`
+        : `/api/overlay/${encodeURIComponent(safeRoom)}`;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (isRemote && remoteToken) {
+        headers.Authorization = `Bearer ${remoteToken}`;
+      }
+
+      const body = nextAction
+        ? { action: nextAction.action, payload: nextAction.payload || {} }
+        : isRemote
+          ? { patch: nextPatch }
+          : nextPatch;
+
+      if (!body) return;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        cache: 'no-store',
+        body: JSON.stringify(body),
+      });
+
+      if (res.status === 401 && isRemote) {
+        onAuthErrorRef.current?.('Remote PIN session expired. Please sign in again.');
+        return;
+      }
+
+      if (res.ok) {
+        const data = await res.json();
+        if (typeof data?.serverNow === 'number') {
+          serverClockOffsetRef.current = data.serverNow - Date.now();
+        }
+        if (typeof data?.version === 'number' && data.version > lastVersionRef.current) {
+          lastVersionRef.current = data.version;
+        }
+        if (data?.presence) {
+          setConnectedDisplays(data.presence.displays);
+          setConnectedControllers(data.presence.controllers);
+          setControllerNames(data.presence.controllerNames ?? []);
+        } else if (typeof data?.connectedDisplays === 'number') {
+          setConnectedDisplays(data.connectedDisplays);
+        }
+        if (data?.state && nextAction) {
+          setState((prev) => ({ ...prev, ...data.state }));
+        }
+        setConnected(true);
+      }
+    } catch {
+      // Keep item queued if offline so reconnect flushes automatically
+      if (nextAction) {
+        pendingActionsRef.current.unshift(nextAction);
+      } else if (nextPatch) {
+        pendingPatchRef.current = pendingPatchRef.current
+          ? { ...nextPatch, ...pendingPatchRef.current }
+          : nextPatch;
+      }
+    } finally {
+      inFlightRef.current = false;
+      if (pendingActionsRef.current.length > 0 || pendingPatchRef.current) {
+        // Defer retry slightly if offline
+        if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+        flushWriteQueue();
+      }
+    }
+  }, [resolvedRole, safeRoom, remoteToken]);
+
+  // Primary WebSocket (/ws/kabaddi) + Resilient SSE + Fast Polling + BroadcastChannel
   useEffect(() => {
+    if (resolvedRole === 'controller' && !remoteToken) {
+      setConnected(false);
+      setTransport('offline');
+      return;
+    }
+
     let isCancelled = false;
+    let ws: WebSocket | null = null;
+    let wsReconnectTimer: number | null = null;
+    let wsPingTimer: number | null = null;
     let eventSource: EventSource | null = null;
-    let reconnectTimer: number | null = null;
+    let sseReconnectTimer: number | null = null;
     let pollTimer: number | null = null;
     let channel: BroadcastChannel | null = null;
+    let wsOpen = false;
 
     lastVersionRef.current = 0;
 
@@ -109,12 +266,15 @@ export function useOverlaySync({
 
     const pollOnce = async (forceFull = false) => {
       if (isCancelled) return;
+      // When WebSocket is actively OPEN, skip redundant frequent polling except initial fetch
+      if (wsOpen && !forceFull) return;
+
       try {
         const params = new URLSearchParams();
         if (!forceFull && lastVersionRef.current > 0) {
           params.set('v', String(lastVersionRef.current));
         }
-        if (readOnly) {
+        if (resolvedRole === 'display') {
           params.set('viewer', viewerIdRef.current);
         }
         params.set('_t', String(Date.now()));
@@ -127,9 +287,99 @@ export function useOverlaySync({
         const payload = await res.json();
         if (isCancelled) return;
         setConnected(true);
+        if (!wsOpen) setTransport((curr) => (curr === 'sse' ? 'sse' : 'poll'));
         applyServerPayload(payload);
       } catch {
-        // Keep trying on next poll interval
+        if (!wsOpen && !isCancelled) {
+          setTransport('offline');
+        }
+      }
+    };
+
+    const connectWebSocket = () => {
+      if (isCancelled || typeof WebSocket === 'undefined') return;
+      const params = new URLSearchParams();
+      params.set('room', safeRoom);
+      params.set('role', resolvedRole);
+      if (remoteToken) params.set('token', remoteToken);
+      if (deviceName) params.set('device', deviceName);
+
+      const wsUrl = buildWebSocketUrl(params);
+      if (!wsUrl) return;
+
+      try {
+        ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (isCancelled) return;
+          wsOpen = true;
+          setConnected(true);
+          setTransport('ws');
+          // Flush any actions/patches queued while offline or reconnecting
+          flushWriteQueue();
+
+          if (wsPingTimer !== null) window.clearInterval(wsPingTimer);
+          wsPingTimer = window.setInterval(() => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({ type: 'ping' }));
+              } catch {
+                // ignore
+              }
+            }
+          }, 15000);
+        };
+
+        ws.onmessage = (event) => {
+          if (isCancelled) return;
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg?.type === 'auth_error') {
+              onAuthErrorRef.current?.(msg.error || 'Unauthorized remote session.');
+              return;
+            }
+            if (msg?.type === 'pong' && typeof msg.serverNow === 'number') {
+              serverClockOffsetRef.current = msg.serverNow - Date.now();
+              return;
+            }
+            if (msg?.type === 'sync') {
+              setConnected(true);
+              setTransport('ws');
+              applyServerPayload(msg);
+            }
+          } catch {
+            // ignore malformed frame
+          }
+        };
+
+        ws.onclose = (evt) => {
+          wsOpen = false;
+          if (wsRef.current === ws) wsRef.current = null;
+          if (wsPingTimer !== null) {
+            window.clearInterval(wsPingTimer);
+            wsPingTimer = null;
+          }
+          if (isCancelled) return;
+          if (evt.code === 4001) {
+            onAuthErrorRef.current?.('Remote Admin PIN session expired. Please sign in again.');
+            setConnected(false);
+            setTransport('offline');
+            return;
+          }
+          setTransport((curr) => (curr === 'ws' ? 'poll' : curr));
+          wsReconnectTimer = window.setTimeout(connectWebSocket, 1500);
+        };
+
+        ws.onerror = () => {
+          try {
+            ws?.close();
+          } catch {
+            // ignore
+          }
+        };
+      } catch {
+        wsReconnectTimer = window.setTimeout(connectWebSocket, 2500);
       }
     };
 
@@ -141,7 +391,10 @@ export function useOverlaySync({
         );
 
         eventSource.onopen = () => {
-          if (!isCancelled) setConnected(true);
+          if (!isCancelled) {
+            setConnected(true);
+            if (!wsOpen) setTransport('sse');
+          }
         };
 
         eventSource.onmessage = (event) => {
@@ -151,7 +404,7 @@ export function useOverlaySync({
             setConnected(true);
             applyServerPayload(payload);
           } catch {
-            // ignore malformed heartbeat
+            // ignore heartbeat
           }
         };
 
@@ -159,76 +412,55 @@ export function useOverlaySync({
           if (isCancelled) return;
           eventSource?.close();
           eventSource = null;
-          reconnectTimer = window.setTimeout(connectSSE, 2000);
+          sseReconnectTimer = window.setTimeout(connectSSE, 3000);
         };
       } catch {
-        // Fallback polling keeps OBS & vMix synced even without EventSource
+        // Fallback polling keeps OBS & vMix synced
       }
     };
 
-    // 1. Immediate full fetch so OBS/vMix shows exact live score on first frame
+    const handleOnline = () => {
+      if (!isCancelled) {
+        if (!wsOpen) connectWebSocket();
+        pollOnce(true);
+        flushWriteQueue();
+      }
+    };
+    window.addEventListener('online', handleOnline);
+
+    // 1. Immediate initial state snapshot
     pollOnce(true);
-    // 2. Live SSE push stream for instant <50ms updates
+    // 2. Real-time WebSocket connection (primary)
+    connectWebSocket();
+    // 3. Resilient SSE stream backup
     connectSSE();
-    // 3. Rock-solid fast no-cache polling fallback (650ms in OBS/vMix, 2500ms in Studio)
+    // 4. Fast polling fallback (active only when WebSocket isn't OPEN)
     pollTimer = window.setInterval(() => {
       pollOnce(false);
-    }, readOnly ? 650 : 2500);
+    }, readOnly ? 750 : 2500);
 
     return () => {
       isCancelled = true;
+      window.removeEventListener('online', handleOnline);
+      if (ws) {
+        ws.onclose = null;
+        ws.onerror = null;
+        ws.close();
+      }
+      wsRef.current = null;
       eventSource?.close();
       channel?.close();
-      if (reconnectTimer !== null) {
-        window.clearTimeout(reconnectTimer);
-      }
-      if (pollTimer !== null) {
-        window.clearInterval(pollTimer);
-      }
+      if (wsReconnectTimer !== null) window.clearTimeout(wsReconnectTimer);
+      if (wsPingTimer !== null) window.clearInterval(wsPingTimer);
+      if (sseReconnectTimer !== null) window.clearTimeout(sseReconnectTimer);
+      if (pollTimer !== null) window.clearInterval(pollTimer);
     };
-  }, [safeRoom, readOnly, applyServerPayload]);
+  }, [safeRoom, resolvedRole, readOnly, remoteToken, deviceName, applyServerPayload, flushWriteQueue]);
 
-  const flushWriteQueue = useCallback(async () => {
-    if (inFlightRef.current) return;
-    const nextPatch = pendingPatchRef.current;
-    if (!nextPatch) return;
-
-    pendingPatchRef.current = null;
-    inFlightRef.current = true;
-
-    try {
-      const res = await fetch(`/api/overlay/${encodeURIComponent(safeRoom)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        cache: 'no-store',
-        body: JSON.stringify(nextPatch),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (typeof data?.serverNow === 'number') {
-          serverClockOffsetRef.current = data.serverNow - Date.now();
-        }
-        if (typeof data?.version === 'number' && data.version > lastVersionRef.current) {
-          lastVersionRef.current = data.version;
-        }
-        if (typeof data?.connectedDisplays === 'number') {
-          setConnectedDisplays(data.connectedDisplays);
-        }
-        setConnected(true);
-      }
-    } catch {
-      // BroadcastChannel still keeps same-machine tabs in sync
-    } finally {
-      inFlightRef.current = false;
-      if (pendingPatchRef.current) {
-        flushWriteQueue();
-      }
-    }
-  }, [safeRoom]);
-
-  // Push partial state updates optimistically + send sequentially to server & BroadcastChannel
+  // Push partial state updates optimistically + send via WebSocket (or HTTP fallback)
   const updateState = useCallback(
     (patch: Partial<LiveOverlayState>) => {
+      if (resolvedRole === 'display') return;
       const now = Date.now();
       lastLocalWriteRef.current = now;
 
@@ -246,7 +478,7 @@ export function useOverlaySync({
             ch.postMessage(next);
             ch.close();
           } catch {
-            // ignore channel error
+            // ignore
           }
         }
 
@@ -258,7 +490,18 @@ export function useOverlaySync({
         : { ...patch };
       flushWriteQueue();
     },
-    [safeRoom, flushWriteQueue]
+    [resolvedRole, safeRoom, flushWriteQueue]
+  );
+
+  // Send atomic Kabaddi action (raid, bonus, tackle, timeout, timer_toggle, etc.) directly to server
+  const sendAction = useCallback(
+    (action: string, payload: Record<string, unknown> = {}) => {
+      if (resolvedRole === 'display') return;
+      lastLocalWriteRef.current = Date.now();
+      pendingActionsRef.current.push({ action, payload });
+      flushWriteQueue();
+    },
+    [resolvedRole, flushWriteQueue]
   );
 
   const getServerNow = useCallback(() => Date.now() + serverClockOffsetRef.current, []);
@@ -266,8 +509,12 @@ export function useOverlaySync({
   return {
     state,
     updateState,
+    sendAction,
     connected,
+    transport,
     connectedDisplays,
+    connectedControllers,
+    controllerNames,
     roomId: safeRoom,
     getServerNow,
   };

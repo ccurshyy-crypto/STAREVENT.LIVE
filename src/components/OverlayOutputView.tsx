@@ -252,6 +252,8 @@ export function OverlayOutputView({
             raidSeconds={displayRaidSeconds}
             raidRunning={merged.raidRunning}
             halfLabel={merged.kabaddiHalf}
+            matchStatus={merged.matchStatus}
+            timeoutTeam={merged.timeoutTeam}
             doOrDie={merged.doOrDie}
             subtitle={merged.kabaddiSubtitle}
             showDemoWatermark={isFreeDemo}
