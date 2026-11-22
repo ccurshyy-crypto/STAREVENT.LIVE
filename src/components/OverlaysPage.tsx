@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, Clock, Eye, Lock, LockOpen, RefreshCw } from 'lucide-react';
-import { EventCategoryId, Language, STUDIO_CONTACT } from '../data/content';
+import { EventCategoryId, Language, STUDIO_CONTACT, tLang } from '../data/content';
 import {
   formatRemainingTime,
   OVERLAY_PRODUCTS,
@@ -12,6 +12,7 @@ import {
 } from '../data/overlayCatalog';
 import { OverlayMode, OverlayStyle } from '../types/overlay';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { LiveStudioPreview } from './LiveStudioPreview';
 import { OverlayCheckoutModal } from './OverlayCheckoutModal';
 
@@ -250,35 +251,20 @@ export function OverlaysPage({
                 className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-colors whitespace-nowrap"
               >
                 <ArrowLeft className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
-                <span>{lang === 'mr' ? 'मुख्य पृष्ठावर परत जा' : 'Back to Home'}</span>
+                <span>
+                  {tLang(
+                    {
+                      en: 'Back to Home',
+                      mr: 'मुख्य पृष्ठावर परत जा',
+                      hi: 'होम पेज पर वापस जाएं',
+                      gu: 'હોમ પેજ પર પાછા જાઓ',
+                    },
+                    lang
+                  )}
+                </span>
               </button>
 
-              <div
-                role="group"
-                aria-label="Language selection"
-                className="inline-flex items-center p-1 bg-black/55 border border-white/15 rounded-lg shrink-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('mr')}
-                  aria-pressed={lang === 'mr'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    lang === 'mr' ? 'bg-[#DC2626] text-white' : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  मराठी
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('en')}
-                  aria-pressed={lang === 'en'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    lang === 'en' ? 'bg-[#DC2626] text-white' : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  English
-                </button>
-              </div>
+              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
             </div>
           </div>
 
@@ -286,25 +272,43 @@ export function OverlaysPage({
           <div className="pt-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
             <div className="max-w-3xl space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
-                {lang === 'mr'
-                  ? `आजची खास ऑफर · ${STUDIO_CONTACT.domain} · फक्त ₹1 (1 दिवस / 24 तास)`
-                  : `Today's Special Offer · ${STUDIO_CONTACT.domain} · Just ₹1 (1 Day / 24 Hours)`}
+                {tLang(
+                  {
+                    en: `Today's Special Offer · ${STUDIO_CONTACT.domain} · Just ₹1 (1 Day / 24 Hours)`,
+                    mr: `आजची खास ऑफर · ${STUDIO_CONTACT.domain} · फक्त ₹1 (1 दिवस / 24 तास)`,
+                    hi: `आज का खास ऑफर · ${STUDIO_CONTACT.domain} · सिर्फ ₹1 (1 दिन / 24 घंटे)`,
+                    gu: `આજની ખાસ ઓફર · ${STUDIO_CONTACT.domain} · માત્ર ₹1 (1 દિવસ / 24 કલાક)`,
+                  },
+                  lang
+                )}
               </p>
               <h1
                 className={`font-display font-extrabold text-white text-[clamp(1.95rem,3.4vw,3.05rem)] ${
-                  lang === 'mr'
+                  lang !== 'en'
                     ? 'leading-[1.38] tracking-normal'
                     : 'leading-[1.16] tracking-tight'
                 }`}
               >
-                {lang === 'mr'
-                  ? 'OBS आणि vMix साठी लाईव्ह ओव्हरले'
-                  : 'Live Overlays for OBS & vMix'}
+                {tLang(
+                  {
+                    en: 'Live Overlays for OBS & vMix',
+                    mr: 'OBS आणि vMix साठी लाईव्ह ओव्हरले',
+                    hi: 'OBS और vMix के लिए लाइव ओवरले',
+                    gu: 'OBS અને vMix માટે લાઇવ ઓવરલે',
+                  },
+                  lang
+                )}
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
-                {lang === 'mr'
-                  ? 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). आजची ऑफर: फक्त ₹1 पेमेंट करा, लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.'
-                  : "Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays for ₹1 (Today's Offer) — instant automatic unlock for 1 Day (24 hours), then auto-expires."}
+                {tLang(
+                  {
+                    en: "Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays for ₹1 (Today's Offer) — instant automatic unlock for 1 Day (24 hours), then auto-expires.",
+                    mr: 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). आजची ऑफर: फक्त ₹1 पेमेंट करा, लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.',
+                    hi: 'फ्री कबड्डी डेमो स्कोरबोर्ड (छोटे STAR EVENT LIVE वॉटरमार्क और 30s टाइमर के साथ) आज़माएं, या सिर्फ ₹1 (आज का ऑफर) में वॉटरमार्क-फ्री कबड्डी प्रो और हल्दी-शादी ओवरले 1 दिन (24 घंटे) के लिए अनलॉक करें।',
+                    gu: 'ફ્રી કબડ્ડી ડેમો સ્કોરબોર્ડ (નાના STAR EVENT LIVE વોટરમાર્ક અને 30s ટાઈમર સાથે) અજમાવો, અથવા માત્ર ₹1 (આજની ઓફર) માં વોટરમાર્ક-ફ્રી કબડ્ડી પ્રો અને હળદી-લગ્ન ઓવરલે 1 દિવસ (24 કલાક) માટે અનલોક કરો.',
+                  },
+                  lang
+                )}
               </p>
             </div>
 
@@ -316,9 +320,9 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { mr: 'सर्व (4)', en: 'All (4)' } },
-                  { id: 'kabaddi', label: { mr: 'कबड्डी (2)', en: 'Kabaddi (2)' } },
-                  { id: 'haldi', label: { mr: 'हळदी व लग्न (2)', en: 'Haldi & Wedding (2)' } },
+                  { id: 'all', label: { en: 'All (4)', mr: 'सर्व (4)', hi: 'सभी (4)', gu: 'બધા (4)' } },
+                  { id: 'kabaddi', label: { en: 'Kabaddi (2)', mr: 'कबड्डी (2)', hi: 'कबड्डी (2)', gu: 'કબડ્ડી (2)' } },
+                  { id: 'haldi', label: { en: 'Haldi & Wedding (2)', mr: 'हळदी व लग्न (2)', hi: 'हल्दी और शादी (2)', gu: 'હળદી અને લગ્ન (2)' } },
                 ] as const
               ).map((tab) => (
                 <button

@@ -48,10 +48,41 @@ interface AdminOrdersModalProps {
   onClose: () => void;
 }
 
-const DURATION_OPTIONS = [
-  { planId: '1day', hours: 24, label: { mr: '1 दिवस — ₹1 (आजची ऑफर)', en: "1 Day — ₹1 (Today's Offer)" } },
-  { planId: '1week', hours: 168, label: { mr: '1 आठवडा — ₹149 (1 Week)', en: '1 Week — ₹149' } },
-  { planId: '1month', hours: 720, label: { mr: '1 महिना — ₹1,499 (1 Month)', en: '1 Month — ₹1,499' } },
+const DURATION_OPTIONS: Array<{
+  planId: string;
+  hours: number;
+  label: Record<Language, string>;
+}> = [
+  {
+    planId: '1day',
+    hours: 24,
+    label: {
+      en: "1 Day — ₹1 (Today's Offer)",
+      mr: '1 दिवस — ₹1 (आजची ऑफर)',
+      hi: '1 दिन — ₹1 (आज का ऑफर)',
+      gu: '1 દિવસ — ₹1 (આજની ઓફર)',
+    },
+  },
+  {
+    planId: '1week',
+    hours: 168,
+    label: {
+      en: '1 Week — ₹149',
+      mr: '1 आठवडा — ₹149 (1 Week)',
+      hi: '1 सप्ताह — ₹149',
+      gu: '1 અઠવાડિયું — ₹149',
+    },
+  },
+  {
+    planId: '1month',
+    hours: 720,
+    label: {
+      en: '1 Month — ₹1,499',
+      mr: '1 महिना — ₹1,499 (1 Month)',
+      hi: '1 महीना — ₹1,499',
+      gu: '1 મહિનો — ₹1,499',
+    },
+  },
 ];
 
 export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps) {

@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Plus Jakarta Sans", "Noto Sans Devanagari", system-ui, sans-serif;
-  --font-sans: "DM Sans", "Noto Sans Devanagari", system-ui, sans-serif;
+  --font-display: "Plus Jakarta Sans", "Noto Sans Devanagari", "Noto Sans Gujarati", system-ui, sans-serif;
+  --font-sans: "DM Sans", "Noto Sans Devanagari", "Noto Sans Gujarati", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 }
 
@@ -20,36 +20,36 @@
     text-wrap: balance;
   }
 
-  /* Devanagari (Marathi) script needs neutral letter-spacing, subtle word breathing room, and taller line boxes so top/bottom matras never collide */
-  html[lang="mr"] body {
+  /* Indic scripts (Marathi, Hindi, Gujarati) need neutral letter-spacing and taller line boxes so top/bottom matras never collide */
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) body {
     letter-spacing: 0;
     word-spacing: 0.05em;
     line-height: 1.72;
   }
 
-  html[lang="mr"] h1,
-  html[lang="mr"] h2,
-  html[lang="mr"] h3,
-  html[lang="mr"] h4 {
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h1,
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h2,
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h3,
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h4 {
     letter-spacing: 0 !important;
     word-spacing: 0.05em;
   }
 
-  html[lang="mr"] h1 {
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h1 {
     line-height: 1.38;
   }
 
-  html[lang="mr"] h2,
-  html[lang="mr"] h3 {
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h2,
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h3 {
     line-height: 1.42;
   }
 
-  html[lang="mr"] h4 {
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) h4 {
     line-height: 1.48;
   }
 
-  html[lang="mr"] p,
-  html[lang="mr"] li {
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) p,
+  html:is([lang="mr"], [lang="hi"], [lang="gu"]) li {
     line-height: 1.72;
   }
 }

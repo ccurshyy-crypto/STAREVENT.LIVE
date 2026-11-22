@@ -32,22 +32,38 @@ export function PaymentInstructions({
   const [copiedField, setCopiedField] = useState<'upi' | 'order' | null>(null);
   const dynamicUpiId = extractUpiIdFromIntent(upiIntentUrl);
 
-  const steps =
-    lang === 'mr'
-      ? [
-          'Google Pay, PhonePe किंवा कोणतेही UPI अ‍ॅप उघडा.',
-          'स्क्रीनवर दिसणारा डायनॅमिक QR कोड स्कॅन करा.',
-          `₹${amount} पेमेंट पूर्ण करा.`,
-          'पुन्हा STAR EVENT LIVE वर या.',
-          'तुमचा Transaction ID (UTR) खाली टाकून सबमिट करा.',
-        ]
-      : [
-          'Open Google Pay, PhonePe or any supported UPI application.',
-          'Scan the displayed QR code.',
-          `Pay ₹${amount}.`,
-          'Return to STAR EVENT LIVE.',
-          'Enter your Transaction ID.',
-        ];
+  const stepsByLang: Record<Language, string[]> = {
+    en: [
+      'Open Google Pay, PhonePe or any supported UPI application.',
+      'Scan the displayed QR code.',
+      `Pay ₹${amount}.`,
+      'Return to STAR EVENT LIVE.',
+      'Enter your Transaction ID.',
+    ],
+    mr: [
+      'Google Pay, PhonePe किंवा कोणतेही UPI अ‍ॅप उघडा.',
+      'स्क्रीनवर दिसणारा डायनॅमिक QR कोड स्कॅन करा.',
+      `₹${amount} पेमेंट पूर्ण करा.`,
+      'पुन्हा STAR EVENT LIVE वर या.',
+      'तुमचा Transaction ID (UTR) खाली टाकून सबमिट करा.',
+    ],
+    hi: [
+      'Google Pay, PhonePe या कोई भी UPI ऐप खोलें।',
+      'स्क्रीन पर दिख रहा डायनामिक QR कोड स्कैन करें।',
+      `₹${amount} का भुगतान करें।`,
+      'STAR EVENT LIVE पर वापस आएं।',
+      'अपना Transaction ID (UTR) नीचे दर्ज करके सबमिट करें।',
+    ],
+    gu: [
+      'Google Pay, PhonePe અથવા કોઈપણ UPI એપ ખોલો.',
+      'સ્ક્રીન પર દેખાતો ડાયનેમિક QR કોડ સ્કેન કરો.',
+      `₹${amount} નું પેમેન્ટ પૂર્ણ કરો.`,
+      'STAR EVENT LIVE પર પાછા આવો.',
+      'તમારો Transaction ID (UTR) નીચે દાખલ કરીને સબમિટ કરો.',
+    ],
+  };
+
+  const steps = stepsByLang[lang];
 
   const handleCopy = async (value: string, field: 'upi' | 'order') => {
     try {

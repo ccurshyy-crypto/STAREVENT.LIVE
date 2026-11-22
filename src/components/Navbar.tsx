@@ -1,9 +1,11 @@
 import { type MouseEvent, useState } from 'react';
 import { Menu, Phone, X } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
+import { LanguageSwitcher } from './LanguageSwitcher';
 
 interface NavbarProps {
   lang: Language;
+  onChangeLang: (lang: Language) => void;
   currentPage: 'home' | 'overlays' | 'packages';
   onNavigateHome: (sectionId?: string) => void;
   onNavigateOverlays: () => void;
@@ -12,6 +14,7 @@ interface NavbarProps {
 
 export function Navbar({
   lang,
+  onChangeLang,
   currentPage,
   onNavigateHome,
   onNavigateOverlays,
@@ -105,14 +108,17 @@ export function Navbar({
           })}
         </nav>
 
-        {/* Zone 3: Single primary action */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Language Switcher Button + Call CTA */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
+
           <a
             href={STUDIO_CONTACT.phoneHref}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B] tabular-nums"
+            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B] tabular-nums"
           >
             <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>{UI_COPY.nav.callCta[lang]}</span>
+            <span className="hidden sm:inline">{UI_COPY.nav.callCta[lang]}</span>
+            <span className="sm:hidden">Call</span>
           </a>
 
           <button

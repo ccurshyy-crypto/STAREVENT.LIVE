@@ -61,8 +61,10 @@ const PLATFORMS: {
     label: 'YouTube Live',
     shortLabel: 'YouTube Public',
     spec: {
-      mr: '1920×1080 · 60fps · YouTube पब्लिक लाईव्ह',
       en: '1920×1080 · 60fps · YouTube Public Live',
+      mr: '1920×1080 · 60fps · YouTube पब्लिक लाईव्ह',
+      hi: '1920×1080 · 60fps · YouTube पब्लिक लाइव',
+      gu: '1920×1080 · 60fps · YouTube પબ્લિક લાઇવ',
     },
   },
   {
@@ -70,8 +72,10 @@ const PLATFORMS: {
     label: 'YouTube Private',
     shortLabel: 'YouTube Link',
     spec: {
-      mr: '1920×1080 · 60fps · प्रायव्हेट / अनलिस्टेड लिंक',
       en: '1920×1080 · 60fps · Unlisted Private Link',
+      mr: '1920×1080 · 60fps · प्रायव्हेट / अनलिस्टेड लिंक',
+      hi: '1920×1080 · 60fps · प्राइवेट / अनलिस्टेड लिंक',
+      gu: '1920×1080 · 60fps · પ્રાઇવેટ / અનલિસ્ટેડ લિંક',
     },
   },
   {
@@ -79,8 +83,10 @@ const PLATFORMS: {
     label: 'Venue LED Wall',
     shortLabel: 'LED Screen',
     spec: {
-      mr: '1920×1080 · 60fps · ग्राउंड / स्टेज LED आउटपुट',
       en: '1920×1080 · 60fps · Venue LED Wall Output',
+      mr: '1920×1080 · 60fps · ग्राउंड / स्टेज LED आउटपुट',
+      hi: '1920×1080 · 60fps · ग्राउंड / स्टेज LED आउटपुट',
+      gu: '1920×1080 · 60fps · ગ્રાઉન્ડ / સ્ટેજ LED આઉટપુટ',
     },
   },
 ];
@@ -571,8 +577,24 @@ export function LiveStudioPreview({
   };
 
   const modeTabs: { id: PreviewMode; label: Record<Language, string> }[] = [
-    { id: 'kabaddi', label: { mr: 'कबड्डी स्कोअरबोर्ड', en: 'Kabaddi Scoreboard' } },
-    { id: 'haldi', label: { mr: 'हळदी व लग्न ओव्हरले (2)', en: 'Haldi & Wedding (2)' } },
+    {
+      id: 'kabaddi',
+      label: {
+        en: 'Kabaddi Scoreboard',
+        mr: 'कबड्डी स्कोअरबोर्ड',
+        hi: 'कबड्डी स्कोरबोर्ड',
+        gu: 'કબડ્ડી સ્કોરબોર્ડ',
+      },
+    },
+    {
+      id: 'haldi',
+      label: {
+        en: 'Haldi & Wedding (2)',
+        mr: 'हळदी व लग्न ओव्हरले (2)',
+        hi: 'हल्दी व शादी ओवरले (2)',
+        gu: 'હળદી અને લગ્ન ઓવરલે (2)',
+      },
+    },
   ];
 
   const styleOptions: {
@@ -585,19 +607,33 @@ export function LiveStudioPreview({
       ? [
           {
             id: 'demo',
-            label: { mr: 'फ्री डेमो · छोटा वॉटरमार्क', en: 'FREE Demo · Small Watermark' },
+            label: {
+              en: 'FREE Demo · Small Watermark',
+              mr: 'फ्री डेमो · छोटा वॉटरमार्क',
+              hi: 'फ्री डेमो · छोटा वॉटरमार्क',
+              gu: 'ફ્રી ડેમો · નાનો વોટરમાર્ક',
+            },
             desc: {
-              mr: 'मोफत OBS/vMix URL व PNG — छोटा STAR EVENT LIVE वॉटरमार्क',
               en: 'Free OBS/vMix URL & PNG with small STAR EVENT LIVE watermark',
+              mr: 'मोफत OBS/vMix URL व PNG — छोटा STAR EVENT LIVE वॉटरमार्क',
+              hi: 'फ्री OBS/vMix URL और PNG — छोटे STAR EVENT LIVE वॉटरमार्क के साथ',
+              gu: 'ફ્રી OBS/vMix URL અને PNG — નાના STAR EVENT LIVE વોટરમાર્ક સાથે',
             },
             badge: 'FREE',
           },
           {
             id: 'classic',
-            label: { mr: 'प्रो स्कोअरबोर्ड · वॉटरमार्क-फ्री', en: 'Pro Scoreboard · Watermark-Free' },
+            label: {
+              en: 'Pro Scoreboard · Watermark-Free',
+              mr: 'प्रो स्कोअरबोर्ड · वॉटरमार्क-फ्री',
+              hi: 'प्रो स्कोरबोर्ड · वॉटरमार्क-फ्री',
+              gu: 'પ્રો સ્કોરબોર્ડ · વોટરમાર્ક-ફ્રી',
+            },
             desc: {
-              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
               en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
+              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
+              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
+              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
             },
             badge: '₹1 OFFER',
           },
@@ -605,13 +641,33 @@ export function LiveStudioPreview({
       : [
           {
             id: 'classic',
-            label: { mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम', en: 'Style 1 · Shahi Haldi & Wedding' },
-            desc: { mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक', en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock" },
+            label: {
+              en: 'Style 1 · Shahi Haldi & Wedding',
+              mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम',
+              hi: 'स्टाइल 1 · शाही हल्दी-शादी फ्रेम',
+              gu: 'સ્ટાઇલ 1 · શાહી હળદી-લગ્ન ફ્રેમ',
+            },
+            desc: {
+              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
+              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
+              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
+              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
+            },
           },
           {
             id: 'modern',
-            label: { mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन', en: 'Style 2 · Cinematic Ribbon' },
-            desc: { mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक', en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock" },
+            label: {
+              en: 'Style 2 · Cinematic Ribbon',
+              mr: 'स्टाईल 2 · सिनेमॅटिक लग्न रिबन',
+              hi: 'स्टाइल 2 · सिनेमैटिक वेडिंग रिबन',
+              gu: 'સ્ટાઇલ 2 · સિનેમેટિક લગ્ન રિબન',
+            },
+            desc: {
+              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
+              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
+              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
+              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
+            },
           },
         ];
 

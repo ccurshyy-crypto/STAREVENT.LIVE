@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, MessageCircle, Phone } from 'lucide-react';
-import { Language, STUDIO_CONTACT } from '../data/content';
+import { Language, STUDIO_CONTACT, tLang } from '../data/content';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { PackagesSection } from './PackagesSection';
 
 interface PackagesPageProps {
@@ -47,35 +48,20 @@ export function PackagesPage({
                 className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded"
               >
                 <ArrowLeft className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
-                <span>{lang === 'mr' ? 'मुख्य पृष्ठावर परत जा' : 'Back to Home'}</span>
+                <span>
+                  {tLang(
+                    {
+                      en: 'Back to Home',
+                      mr: 'मुख्य पृष्ठावर परत जा',
+                      hi: 'होम पेज पर वापस जाएं',
+                      gu: 'હોમ પેજ પર પાછા જાઓ',
+                    },
+                    lang
+                  )}
+                </span>
               </button>
 
-              <div
-                role="group"
-                aria-label="Language selection"
-                className="inline-flex items-center p-1 bg-black/55 border border-white/15 rounded-lg shrink-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('mr')}
-                  aria-pressed={lang === 'mr'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    lang === 'mr' ? 'bg-[#DC2626] text-white' : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  मराठी
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('en')}
-                  aria-pressed={lang === 'en'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors whitespace-nowrap ${
-                    lang === 'en' ? 'bg-[#DC2626] text-white' : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  English
-                </button>
-              </div>
+              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
             </div>
           </div>
         </div>

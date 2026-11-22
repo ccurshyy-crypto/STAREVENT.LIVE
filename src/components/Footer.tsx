@@ -38,7 +38,7 @@ export function Footer({
                 <span className="text-[#EF4444]">LIVE</span>
               </a>
               <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                {lang === 'mr' ? STUDIO_CONTACT.promiseMr : STUDIO_CONTACT.promiseEn}
+                {STUDIO_CONTACT.promise[lang]}
               </p>
             </div>
           </div>
@@ -130,7 +130,7 @@ export function Footer({
           </p>
           <div className="flex flex-wrap items-center gap-3 font-mono text-zinc-400 tabular-nums">
             <span>
-              {lang === 'mr' ? 'संपर्क:' : 'Contact:'}{' '}
+              {lang === 'mr' ? 'संपर्क:' : lang === 'hi' ? 'संपर्क:' : lang === 'gu' ? 'સંપર્ક:' : 'Contact:'}{' '}
               <a
                 href={STUDIO_CONTACT.phoneHref}
                 className="text-[#FACC15] hover:text-white transition-colors"

@@ -158,7 +158,7 @@ export default function App() {
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
   const remoteRoute = useMemo(() => parseRemoteRoute(), []);
 
-  const [lang, setLang] = useState<Language>('mr');
+  const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [previewMode, setPreviewMode] = useState<PreviewMode>('kabaddi');
   const [activeStyle, setActiveStyle] = useState<OverlayStyle>('classic');
@@ -409,6 +409,7 @@ export default function App() {
 
       <Navbar
         lang={lang}
+        onChangeLang={setLang}
         currentPage={currentPage}
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ArrowRight, ExternalLink, Instagram, Play, Video, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
+import { LanguageSwitcher } from './LanguageSwitcher';
 import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface HeroSectionProps {
@@ -81,36 +82,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
                 ))}
               </div>
 
-              <div
-                role="group"
-                aria-label="Language selection"
-                className="inline-flex items-center p-1 bg-black/55 border border-white/15 rounded-lg shrink-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('mr')}
-                  aria-pressed={lang === 'mr'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
-                    lang === 'mr'
-                      ? 'bg-[#DC2626] text-white'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  मराठी
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeLang('en')}
-                  aria-pressed={lang === 'en'}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
-                    lang === 'en'
-                      ? 'bg-[#DC2626] text-white'
-                      : 'text-zinc-300 hover:text-white'
-                  }`}
-                >
-                  English
-                </button>
-              </div>
+              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
             </div>
           </div>
         </div>
@@ -136,7 +108,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
 
             <h1
               className={`font-display font-extrabold text-white text-[clamp(2rem,3.4vw,3.15rem)] ${
-                lang === 'mr'
+                lang !== 'en'
                   ? 'leading-[1.38] tracking-normal'
                   : 'leading-[1.16] tracking-tight'
               }`}
@@ -171,7 +143,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
             </div>
 
             <p className="pt-2 text-sm text-zinc-400">
-              {lang === 'mr' ? STUDIO_CONTACT.promiseMr : STUDIO_CONTACT.promiseEn}
+              {STUDIO_CONTACT.promise[lang]}
             </p>
           </div>
 
@@ -198,7 +170,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
                     {STUDIO_CONTACT.brand}
                   </p>
                   <p className="text-sm text-zinc-300 mt-2">
-                    {STUDIO_CONTACT.promiseMr}
+                    {STUDIO_CONTACT.promise[lang]}
                   </p>
                   <p className="font-mono text-base font-bold text-[#FACC15] mt-3 tabular-nums">
                     {STUDIO_CONTACT.phoneDisplay}
@@ -216,12 +188,27 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
                     className="inline-flex items-center gap-1 font-semibold text-[#FACC15] hover:text-white transition-colors whitespace-nowrap"
                   >
                     <Youtube className="w-3.5 h-3.5 text-[#EF4444] shrink-0" aria-hidden="true" />
-                    <span>{lang === 'mr' ? 'YouTube चॅनेल पहा' : 'Watch on YouTube'}</span>
+                    <span>
+                      {lang === 'mr'
+                        ? 'YouTube चॅनेल पहा'
+                        : lang === 'hi'
+                          ? 'YouTube चैनल देखें'
+                          : lang === 'gu'
+                            ? 'YouTube ચેનલ જુઓ'
+                            : 'Watch on YouTube'}
+                    </span>
                     <ExternalLink className="w-3 h-3 shrink-0" aria-hidden="true" />
                   </a>
                   <span aria-hidden="true" className="text-zinc-600">·</span>
                   <span className="font-mono text-zinc-300 tabular-nums">
-                    {lang === 'mr' ? 'संपर्क:' : 'Hotline:'} {STUDIO_CONTACT.phoneDisplay}
+                    {lang === 'mr'
+                      ? 'संपर्क:'
+                      : lang === 'hi'
+                        ? 'संपर्क:'
+                        : lang === 'gu'
+                          ? 'સંપર્ક:'
+                          : 'Hotline:'}{' '}
+                    {STUDIO_CONTACT.phoneDisplay}
                   </span>
                 </div>
               </figcaption>

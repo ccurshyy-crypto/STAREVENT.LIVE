@@ -14,34 +14,62 @@ const SPOTLIGHT_PILLARS: Array<{
 }> = [
   {
     index: '01.',
-    title: { mr: 'लाईव्ह स्ट्रीमिंग', en: 'Live Streaming' },
+    title: {
+      en: 'Live Streaming',
+      mr: 'लाईव्ह स्ट्रीमिंग',
+      hi: 'लाइव स्ट्रीमिंग',
+      gu: 'લાઇવ સ્ટ્રીમિંગ',
+    },
     detail: {
-      mr: '4K व Full HD मल्टी-कॅमेरा स्विचिंग आणि ड्युअल नेटवर्क बॅकअपसह अखंड प्रक्षेपण.',
       en: '4K & Full HD multi-camera vision switching backed by dual-network redundancy.',
+      mr: '4K व Full HD मल्टी-कॅमेरा स्विचिंग आणि ड्युअल नेटवर्क बॅकअपसह अखंड प्रक्षेपण.',
+      hi: '4K और Full HD मल्टी-कैमरा स्विचिंग और डुअल नेटवर्क बैकअप के साथ बिना रुकावट प्रसारण।',
+      gu: '4K અને Full HD મલ્ટી-કેમેરા સ્વિચિંગ અને ડ્યુઅલ નેટવર્ક બેકઅપ સાથે અવિરત પ્રસારણ.',
     },
   },
   {
     index: '02.',
-    title: { mr: 'इव्हेंट कव्हरेज', en: 'Event Coverage' },
+    title: {
+      en: 'Event Coverage',
+      mr: 'इव्हेंट कव्हरेज',
+      hi: 'इवेंट कवरेज',
+      gu: 'ઇવેન્ટ કવરેજ',
+    },
     detail: {
-      mr: 'लग्न, हळदी, वाढदिवस, सांस्कृतिक व धार्मिक सोहळ्यांचे संपूर्ण व्हिडिओ व ऑडिओ कव्हरेज.',
       en: 'Complete video and clean mixer-audio coverage for weddings, Haldi, birthdays & stage events.',
+      mr: 'लग्न, हळदी, वाढदिवस, सांस्कृतिक व धार्मिक सोहळ्यांचे संपूर्ण व्हिडिओ व ऑडिओ कव्हरेज.',
+      hi: 'शादी, हल्दी, जन्मदिन, सांस्कृतिक और धार्मिक आयोजनों का संपूर्ण वीडियो व ऑडियो कवरेज।',
+      gu: 'લગ્ન, હળદી, જન્મદિવસ, સાંસ્કૃતિક અને ધાર્મિક પ્રસંગોનું સંપૂર્ણ વિડિયો અને ઓડિયો કવરેજ.',
     },
   },
   {
     index: '03.',
-    title: { mr: 'YouTube लाईव्ह', en: 'YouTube Live' },
+    title: {
+      en: 'YouTube Live',
+      mr: 'YouTube लाईव्ह',
+      hi: 'YouTube लाइव',
+      gu: 'YouTube લાઇવ',
+    },
     detail: {
-      mr: 'अधिकृत YouTube (@stareventlive01) चॅनेलवर पब्लिक किंवा प्रायव्हेट लिंकद्वारे थेट प्रक्षेपण.',
       en: 'Stream live on our official YouTube (@stareventlive01) channel or via private family links.',
+      mr: 'अधिकृत YouTube (@stareventlive01) चॅनेलवर पब्लिक किंवा प्रायव्हेट लिंकद्वारे थेट प्रक्षेपण.',
+      hi: 'आधिकारिक YouTube (@stareventlive01) चैनल पर पब्लिक या प्राइवेट लिंक द्वारा लाइव प्रसारण।',
+      gu: 'સત્તાવાર YouTube (@stareventlive01) ચેનલ પર પબ્લિક અથવા પ્રાઇવેટ લિંક દ્વારા લાઇવ પ્રસારણ.',
     },
   },
   {
     index: '04.',
-    title: { mr: 'क्रीडा व इतर स्पर्धा', en: 'Sports & More' },
+    title: {
+      en: 'Sports & More',
+      mr: 'क्रीडा व इतर स्पर्धा',
+      hi: 'खेल और अन्य टूर्नामेंट',
+      gu: 'રમતગમત અને સ્પર્ધાઓ',
+    },
     detail: {
-      mr: 'डे-नाईट क्रिकेट व कबड्डी स्पर्धांसाठी रिअल-टाईम स्कोअरबोर्ड, रेड टायमर व स्पॉन्सर ग्राफिक्स.',
       en: 'Day-night Cricket & Kabaddi tournaments with live scoreboards, raid timers & sponsor slates.',
+      mr: 'डे-नाईट क्रिकेट व कबड्डी स्पर्धांसाठी रिअल-टाईम स्कोअरबोर्ड, रेड टायमर व स्पॉन्सर ग्राफिक्स.',
+      hi: 'डे-नाइट क्रिकेट और कबड्डी टूर्नामेंट के लिए लाइव स्कोरबोर्ड, रेड टाइमर और स्पॉन्सर ग्राफिक्स।',
+      gu: 'ડે-નાઇટ ક્રિકેટ અને કબડ્ડી ટુર્નામેન્ટ માટે લાઇવ સ્કોરબોર્ડ, રેઇડ ટાઈમર અને સ્પોન્સર ગ્રાફિક્સ.',
     },
   },
 ];
