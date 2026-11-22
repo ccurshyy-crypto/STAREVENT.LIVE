@@ -171,8 +171,8 @@ export function VmixKabaddiController({
 
   const teamAOnMat = Math.max(0, Math.min(7, state.teamAPlayersOnMat ?? 7));
   const teamBOnMat = Math.max(0, Math.min(7, state.teamBPlayersOnMat ?? 7));
-  const raidDuration = state.kabaddiRaidDuration ?? 30;
-  const matchDuration = state.kabaddiMatchDuration ?? 1200;
+  const raidDuration = 30;
+  const matchDuration = 30;
   const activeGraphic = state.kabaddiGraphicPanel ?? 'none';
 
   const copyText = async (key: string, text: string) => {
@@ -772,24 +772,10 @@ export function VmixKabaddiController({
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-1">
-                <label htmlFor="vmix-match-duration" className="text-xs text-zinc-400">
-                  Half Length
-                </label>
-                <select
-                  id="vmix-match-duration"
-                  value={matchDuration}
-                  onChange={(e) => {
-                    const sec = Number(e.target.value) || 1200;
-                    onUpdateState({ kabaddiMatchDuration: sec });
-                    onSetMatchPreset(sec, false);
-                  }}
-                  className="px-3 py-1.5 text-xs font-mono font-bold bg-[#0E131D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
-                >
-                  <option value={1200}>20:00 × 2</option>
-                  <option value={900}>15:00 × 2</option>
-                  <option value={600}>10:00 × 2</option>
-                  <option value={30}>00:30 Demo</option>
-                </select>
+                <span className="text-xs text-zinc-400">Match Clock</span>
+                <span className="px-3 py-1 text-xs font-mono font-bold bg-[#0E131D] border border-[#38BDF8]/35 rounded-lg text-[#38BDF8]">
+                  00:30 (30 sec)
+                </span>
               </div>
             </div>
 
@@ -873,27 +859,10 @@ export function VmixKabaddiController({
               </div>
 
               <div className="flex items-center justify-between gap-2">
-                <label htmlFor="vmix-raid-duration" className="text-xs text-zinc-400">
-                  Raid Duration
-                </label>
-                <select
-                  id="vmix-raid-duration"
-                  value={raidDuration}
-                  onChange={(e) => {
-                    const sec = Number(e.target.value) || 30;
-                    onUpdateState({
-                      kabaddiRaidDuration: sec,
-                      raidSeconds: sec,
-                      raidRunning: false,
-                      raidUpdatedAt: Date.now(),
-                    });
-                  }}
-                  className="px-3 py-1.5 text-xs font-mono font-bold bg-[#0E131D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
-                >
-                  <option value={30}>30 seconds</option>
-                  <option value={20}>20 seconds</option>
-                  <option value={15}>15 seconds</option>
-                </select>
+                <span className="text-xs text-zinc-400">Raid Duration</span>
+                <span className="px-3 py-1 text-xs font-mono font-bold bg-[#0E131D] border border-[#FACC15]/35 rounded-lg text-[#FACC15]">
+                  30 seconds
+                </span>
               </div>
             </div>
 

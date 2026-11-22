@@ -766,12 +766,14 @@ export function applyKabaddiActionEngine(
           options
         );
       }
-      const fallbackDur = current.kabaddiMatchDuration || 1200;
+      const fallbackDur = 30;
+      const clampedLive = Math.min(30, liveSec);
       return applyOverlayPatchEngine(
         safeId,
         {
           matchRunning: true,
-          matchSeconds: liveSec === 0 ? fallbackDur : liveSec,
+          matchSeconds: clampedLive === 0 ? fallbackDur : clampedLive,
+          kabaddiMatchDuration: 30,
           matchStatus: 'LIVE',
           timeoutTeam: null,
         },
@@ -780,12 +782,13 @@ export function applyKabaddiActionEngine(
     }
 
     case 'timer_set': {
-      const sec = Math.max(0, Math.min(99 * 60, Math.round(Number(payload.seconds ?? 1200))));
+      const sec = Math.max(0, Math.min(30, Math.round(Number(payload.seconds ?? 30))));
       const autoStart = payload.autoStart !== false;
       return applyOverlayPatchEngine(
         safeId,
         {
           matchSeconds: sec,
+          kabaddiMatchDuration: 30,
           matchRunning: autoStart,
           matchStatus: autoStart ? 'LIVE' : current.matchStatus === 'LIVE' ? 'PAUSED' : current.matchStatus || 'PAUSED',
           timeoutTeam: autoStart ? null : current.timeoutTeam,
@@ -795,24 +798,26 @@ export function applyKabaddiActionEngine(
     }
 
     case 'timer_adjust': {
-      const delta = Math.max(-600, Math.min(600, Math.round(Number(payload.delta ?? 0))));
-      const liveSec = computeLiveMatchSeconds(current, now);
+      const delta = Math.max(-30, Math.min(30, Math.round(Number(payload.delta ?? 0))));
+      const liveSec = Math.min(30, computeLiveMatchSeconds(current, now));
       return applyOverlayPatchEngine(
         safeId,
         {
-          matchSeconds: Math.max(0, Math.min(99 * 60, liveSec + delta)),
+          matchSeconds: Math.max(0, Math.min(30, liveSec + delta)),
+          kabaddiMatchDuration: 30,
         },
         options
       );
     }
 
     case 'timer_reset': {
-      const sec = Math.max(0, Math.min(99 * 60, Math.round(Number(payload.seconds ?? current.kabaddiMatchDuration ?? 1200))));
+      const sec = Math.max(0, Math.min(30, Math.round(Number(payload.seconds ?? 30))));
       const autoStart = payload.autoStart === true;
       return applyOverlayPatchEngine(
         safeId,
         {
           matchSeconds: sec,
+          kabaddiMatchDuration: 30,
           matchRunning: autoStart,
           matchStatus: autoStart ? 'LIVE' : 'PAUSED',
           timeoutTeam: null,
@@ -982,8 +987,8 @@ export function applyKabaddiActionEngine(
     }
 
     case 'reset': {
-      const matchDur = current.kabaddiMatchDuration || 1200;
-      const raidDur = current.kabaddiRaidDuration || 30;
+      const matchDur = 30;
+      const raidDur = 30;
       return applyOverlayPatchEngine(
         safeId,
         {
@@ -1008,8 +1013,10 @@ export function applyKabaddiActionEngine(
           teamABinEndAt: null,
           teamBBinEndAt: null,
           matchSeconds: matchDur,
+          kabaddiMatchDuration: matchDur,
           matchRunning: false,
           raidSeconds: raidDur,
+          kabaddiRaidDuration: raidDur,
           raidRunning: false,
           kabaddiHalf: '1ST HALF',
           matchStatus: 'LIVE',

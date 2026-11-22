@@ -691,10 +691,10 @@ export function KabaddiRemoteController({
               </button>
               <button
                 type="button"
-                onClick={() => sendAction('timer_set', { seconds: 20 * 60, autoStart: true })}
+                onClick={() => sendAction('timer_set', { seconds: 30, autoStart: false })}
                 className="px-3 py-2 text-xs font-mono font-bold bg-[#1A222E] hover:bg-[#232E3E] border border-white/12 rounded-xl text-zinc-200 active:scale-95"
               >
-                20:00
+                30s Reset
               </button>
               <button
                 type="button"

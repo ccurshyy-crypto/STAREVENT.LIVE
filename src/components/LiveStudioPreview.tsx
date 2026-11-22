@@ -332,15 +332,27 @@ export function LiveStudioPreview({
     getServerNow,
   ]);
 
+  // Normalize any previously saved >30s match clock to 30s
+  useEffect(() => {
+    if (state.matchSeconds > 30 || (state.kabaddiMatchDuration && state.kabaddiMatchDuration !== 30)) {
+      updateState({
+        matchSeconds: 30,
+        kabaddiMatchDuration: 30,
+        matchRunning: false,
+        matchUpdatedAt: getServerNow(),
+      });
+    }
+  }, [state.matchSeconds, state.kabaddiMatchDuration, updateState, getServerNow]);
+
   useEffect(() => {
     if (!state.matchRunning) {
-      setDisplayMatchSeconds(state.matchSeconds);
+      setDisplayMatchSeconds(Math.min(30, state.matchSeconds));
       return;
     }
 
     const computeMatch = () => {
       const elapsedSec = Math.floor(Math.max(0, getServerNow() - state.matchUpdatedAt) / 1000);
-      return Math.max(0, state.matchSeconds - elapsedSec);
+      return Math.max(0, Math.min(30, state.matchSeconds) - elapsedSec);
     };
 
     setDisplayMatchSeconds(computeMatch());
@@ -349,11 +361,12 @@ export function LiveStudioPreview({
       setDisplayMatchSeconds(rem);
       if (rem === 0) {
         if (autoRulesEnabled) {
-          const fullDur = state.kabaddiMatchDuration ?? 1200;
+          const fullDur = 30;
           if (state.kabaddiHalf === '1ST HALF') {
             updateState({
               matchRunning: false,
               matchSeconds: fullDur,
+              kabaddiMatchDuration: fullDur,
               matchUpdatedAt: getServerNow(),
               raidRunning: false,
               kabaddiHalf: 'HALF TIME',
@@ -370,6 +383,7 @@ export function LiveStudioPreview({
             updateState({
               matchRunning: false,
               matchSeconds: 0,
+              kabaddiMatchDuration: fullDur,
               matchUpdatedAt: getServerNow(),
               raidRunning: false,
               kabaddiHalf: 'FULL TIME',
