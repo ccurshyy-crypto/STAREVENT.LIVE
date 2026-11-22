@@ -625,15 +625,11 @@ export function KabaddiRemoteController({
               matchStatus={state.matchStatus}
               timeoutTeam={state.timeoutTeam}
               doOrDie={state.doOrDie}
+              alertText={state.kabaddiAlert}
+              tournamentTitle={state.kabaddiTitle}
               subtitle={state.kabaddiSubtitle}
             />
           </div>
-
-          {state.kabaddiAlert && (
-            <div className="text-center bg-[#DC2626]/20 border border-[#FACC15]/50 rounded-lg py-1.5 px-3 font-mono text-xs font-extrabold text-[#FEF08A]">
-              ON-AIR BANNER: {state.kabaddiAlert}
-            </div>
-          )}
         </section>
 
         {/* Clock, 30s Raid, Timeout & Half/Status Strip */}

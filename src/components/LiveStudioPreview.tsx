@@ -150,6 +150,8 @@ export function LiveStudioPreview({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [autoRulesEnabled, setAutoRulesEnabled] = useState(true);
+  const [autoDemoActive, setAutoDemoActive] = useState(false);
 
   const handleSetMatchId = (raw: string) => {
     const clean = sanitizeRoomIdClient(raw);
@@ -236,12 +238,33 @@ export function LiveStudioPreview({
       const rem = computeRemaining();
       setDisplayRaidSeconds(rem);
       if (rem === 0) {
-        updateState({ raidRunning: false, raidSeconds: 0, raidUpdatedAt: getServerNow() });
+        const dur = state.kabaddiRaidDuration ?? 30;
+        if (autoRulesEnabled) {
+          updateState({
+            raidRunning: false,
+            raidSeconds: dur,
+            raidUpdatedAt: getServerNow(),
+            kabaddiAlert: 'RAID TIME OVER · NEXT RAID READY',
+          });
+          window.setTimeout(() => {
+            updateState({ kabaddiAlert: null });
+          }, 2200);
+        } else {
+          updateState({ raidRunning: false, raidSeconds: 0, raidUpdatedAt: getServerNow() });
+        }
       }
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [state.raidSeconds, state.raidRunning, state.raidUpdatedAt, updateState, getServerNow]);
+  }, [
+    state.raidSeconds,
+    state.raidRunning,
+    state.raidUpdatedAt,
+    state.kabaddiRaidDuration,
+    autoRulesEnabled,
+    updateState,
+    getServerNow,
+  ]);
 
   useEffect(() => {
     if (!state.matchRunning) {
@@ -259,12 +282,99 @@ export function LiveStudioPreview({
       const rem = computeMatch();
       setDisplayMatchSeconds(rem);
       if (rem === 0) {
-        updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: getServerNow() });
+        if (autoRulesEnabled) {
+          const fullDur = state.kabaddiMatchDuration ?? 1200;
+          if (state.kabaddiHalf === '1ST HALF') {
+            updateState({
+              matchRunning: false,
+              matchSeconds: fullDur,
+              matchUpdatedAt: getServerNow(),
+              raidRunning: false,
+              kabaddiHalf: 'HALF TIME',
+              matchStatus: 'HALF TIME',
+              kabaddiAlert: 'HALF TIME · 2ND HALF READY',
+            });
+          } else {
+            const winnerText =
+              state.teamAScore > state.teamBScore
+                ? `FULL TIME · ${state.teamAName || 'TEAM A'} WINS!`
+                : state.teamBScore > state.teamAScore
+                  ? `FULL TIME · ${state.teamBName || 'TEAM B'} WINS!`
+                  : 'FULL TIME · MATCH TIED!';
+            updateState({
+              matchRunning: false,
+              matchSeconds: 0,
+              matchUpdatedAt: getServerNow(),
+              raidRunning: false,
+              kabaddiHalf: 'FULL TIME',
+              matchStatus: 'FULL TIME',
+              kabaddiAlert: winnerText,
+            });
+          }
+          window.setTimeout(() => {
+            updateState({ kabaddiAlert: null });
+          }, 3200);
+        } else {
+          updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: getServerNow() });
+        }
       }
     }, 250);
 
     return () => window.clearInterval(interval);
-  }, [state.matchSeconds, state.matchRunning, state.matchUpdatedAt, updateState, getServerNow]);
+  }, [
+    state.matchSeconds,
+    state.matchRunning,
+    state.matchUpdatedAt,
+    state.kabaddiMatchDuration,
+    state.kabaddiHalf,
+    state.teamAScore,
+    state.teamBScore,
+    state.teamAName,
+    state.teamBName,
+    autoRulesEnabled,
+    updateState,
+    getServerNow,
+  ]);
+
+  // Optional 1-click Automatic Live Match Demo (runs scores, raid clock, player OUT dots & inside-scoreboard animations automatically on vMix)
+  useEffect(() => {
+    if (!autoDemoActive || activeMode !== 'kabaddi') return;
+
+    if (!state.matchRunning) {
+      sendAction('timer_toggle');
+    }
+    if (!state.raidRunning) {
+      sendAction('raid_toggle');
+    }
+
+    let step = 0;
+    const sequence: Array<() => void> = [
+      () => {
+        sendAction('raid', { team: 'A', points: 1 });
+        sendAction('players_on_mat', { team: 'B', count: Math.max(1, (state.teamBPlayersOnMat ?? 7) - 1) });
+      },
+      () => sendAction('bonus', { team: 'B', points: 1 }),
+      () => sendAction('do_or_die', { active: true }),
+      () => {
+        sendAction('do_or_die', { active: false });
+        sendAction('raid', { team: 'A', points: 3 });
+      },
+      () => sendAction('tackle', { team: 'B', points: 2 }),
+      () => sendAction('raid', { team: 'B', points: 2 }),
+      () => sendAction('all_out', { team: 'A', points: 2 }),
+    ];
+
+    const id = window.setInterval(() => {
+      const fn = sequence[step % sequence.length];
+      step += 1;
+      fn();
+      sendAction('raid_reset');
+      window.setTimeout(() => sendAction('raid_toggle'), 150);
+    }, 4200);
+
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDemoActive, activeMode]);
 
   useEffect(() => {
     if (!state.teamABinEndAt && !state.teamBBinEndAt) return;
@@ -759,7 +869,7 @@ export function LiveStudioPreview({
   return (
     <section
       id="studio"
-      className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]/68 backdrop-blur-[2px]"
+      className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
@@ -896,6 +1006,10 @@ export function LiveStudioPreview({
               nowTs={nowTs}
               canUndo={canUndo}
               canRedo={canRedo}
+              autoRulesEnabled={autoRulesEnabled}
+              onToggleAutoRules={() => setAutoRulesEnabled((v) => !v)}
+              autoDemoActive={autoDemoActive}
+              onToggleAutoDemo={() => setAutoDemoActive((v) => !v)}
               onUndo={() => sendAction('undo')}
               onRedo={() => sendAction('redo')}
               onUpdateState={updateState}

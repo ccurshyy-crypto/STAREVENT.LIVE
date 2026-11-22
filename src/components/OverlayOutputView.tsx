@@ -231,12 +231,7 @@ export function OverlayOutputView({
         }`}
       >
         <div className="relative z-10 my-auto flex flex-col items-center justify-center gap-4 pointer-events-none">
-          {merged.kabaddiAlert && (
-            <div className="kabaddi-alert-pop bg-[#DC2626] border-4 border-[#FACC15] px-10 py-4 rounded-2xl text-white font-display font-extrabold text-[clamp(24px,3.2vw,60px)] tracking-tight shadow-2xl">
-              {merged.kabaddiAlert}
-            </div>
-          )}
-          {!merged.kabaddiAlert && merged.kabaddiGraphicPanel && merged.kabaddiGraphicPanel !== 'none' && (
+          {merged.kabaddiGraphicPanel && merged.kabaddiGraphicPanel !== 'none' && (
             <KabaddiGraphicOverlay state={merged} variant="output" />
           )}
         </div>
@@ -276,6 +271,8 @@ export function OverlayOutputView({
             matchStatus={merged.matchStatus}
             timeoutTeam={merged.timeoutTeam}
             doOrDie={merged.doOrDie}
+            alertText={merged.kabaddiAlert}
+            tournamentTitle={merged.kabaddiTitle}
             subtitle={merged.kabaddiSubtitle}
             showDemoWatermark={isFreeDemo}
           />
