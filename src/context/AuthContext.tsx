@@ -34,7 +34,15 @@ import {
   handleFirestoreError,
   OperationType,
 } from '../firebase';
-import { createDefaultOverlayState, LiveOverlayState } from '../types/overlay';
+import {
+  createDefaultOverlayState,
+  createInitialUserScoreboardDoc,
+  createInitialUserSettingsDoc,
+  LiveOverlayState,
+  UserLiveScoreboardDoc,
+  UserScoreboardSettingsDoc,
+  UserUndoHistoryDoc,
+} from '../types/overlay';
 
 export const SUPER_ADMIN_EMAIL = 'ccurshyy@gmail.com';
 const AUTH_EMAIL_DOMAIN = 'users.starevent.live';
@@ -119,13 +127,14 @@ export function generateSecurePassword(length = 12): string {
   return chars.join('');
 }
 
-export function buildUserUrls(loginId: string, matchRoomId: string) {
+export function buildUserUrls(uid: string) {
   const origin =
     typeof window !== 'undefined' && window.location.origin
       ? window.location.origin
       : 'https://starevent.live';
-  const scoreboardUrl = `${origin}/overlays?match=${encodeURIComponent(matchRoomId)}&user=${encodeURIComponent(loginId)}`;
-  const vmixOverlayUrl = `${origin}/?overlay=kabaddi&style=classic&room=${encodeURIComponent(matchRoomId)}&bg=transparent&client=vmix`;
+  const safeUid = encodeURIComponent(uid);
+  const scoreboardUrl = `${origin}/control/${safeUid}`;
+  const vmixOverlayUrl = `${origin}/scoreboard/${safeUid}`;
   return { scoreboardUrl, vmixOverlayUrl };
 }
 
@@ -142,9 +151,9 @@ export function formatCredentialsCopyText(creds: ProvisionedCredentials): string
     `Full Name: ${creds.fullName}`,
     `Login ID: ${creds.loginId}`,
     `Password: ${creds.password}`,
-    `Match ID: ${creds.matchRoomId}`,
-    `Scoreboard Controller URL: ${creds.scoreboardUrl}`,
-    `vMix Overlay URL (Transparent): ${creds.vmixOverlayUrl}`,
+    `User UID: ${creds.uid}`,
+    `Admin Control Panel URL: ${creds.scoreboardUrl}`,
+    `vMix / OBS Overlay URL (Transparent): ${creds.vmixOverlayUrl}`,
     '=============================================',
   ].join('\n');
 }
@@ -421,7 +430,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const uniqueLoginId = await resolveUniqueLoginId(trimmedName);
       const authEmail = buildAuthEmail(uniqueLoginId, 1);
       const matchRoomId = `kbd-${uniqueLoginId.toLowerCase()}`;
-      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(uniqueLoginId, matchRoomId);
 
       // Provision Firebase Auth account on secondary app instance (keeps Super Admin signed in!)
       const secondaryAuth = getSecondaryAuth();
@@ -433,7 +441,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const newUid = createdCred.user.uid;
       await signOut(secondaryAuth);
 
+      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(newUid);
       const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
       const accountPayload: OperatorUserAccount = {
         uid: newUid,
         fullName: trimmedName,
@@ -451,9 +461,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso,
       };
 
+      const initialScoreDoc = createInitialUserScoreboardDoc(newUid);
+      const initialSettingsDoc = createInitialUserSettingsDoc(
+        newUid,
+        `${trimmedName.toUpperCase()} · LIVE KABADDI`
+      );
       const initialScoreboardState: LiveOverlayState = {
         ...createDefaultOverlayState(matchRoomId),
-        kabaddiTitle: `${trimmedName.toUpperCase()} · LIVE KABADDI`,
+        kabaddiTitle: initialSettingsDoc.kabaddiTitle,
+        teamAScore: 0,
+        teamBScore: 0,
+        teamAPlayersOnMat: 7,
+        teamBPlayersOnMat: 7,
       };
 
       const batch = writeBatch(db);
@@ -473,17 +492,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ownerLoginId: uniqueLoginId,
         teamAName: initialScoreboardState.teamAName,
         teamBName: initialScoreboardState.teamBName,
-        teamAScore: initialScoreboardState.teamAScore,
-        teamBScore: initialScoreboardState.teamBScore,
+        teamAScore: 0,
+        teamBScore: 0,
         stateJson: JSON.stringify(initialScoreboardState),
         createdAt: nowIso,
         updatedAt: nowIso,
+      });
+      // Isolated per-user Firestore hierarchy: /users/{uid}/...
+      batch.set(doc(db, 'users', newUid, 'profile', 'main'), {
+        uid: newUid,
+        fullName: trimmedName,
+        loginId: uniqueLoginId,
+        authEmail,
+        role: 'user',
+        status: 'active',
+        controlUrl: scoreboardUrl,
+        scoreboardUrl: vmixOverlayUrl,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+      batch.set(doc(db, 'users', newUid, 'scoreboard', 'current'), initialScoreDoc);
+      batch.set(doc(db, 'users', newUid, 'settings', 'main'), initialSettingsDoc);
+      batch.set(doc(db, 'users', newUid, 'undoHistory', 'stack'), {
+        ownerUid: newUid,
+        entries: [],
+        updatedAt: nowMs,
       });
 
       try {
         await batch.commit();
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `userAccounts/${newUid}`);
+        handleFirestoreError(err, OperationType.WRITE, `users/${newUid}`);
       }
 
       return {
@@ -524,13 +563,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const uniqueLoginId = await resolveUniqueLoginId(trimmedName);
       const authEmail = buildAuthEmail(uniqueLoginId, 1);
       const matchRoomId = `kbd-${uniqueLoginId.toLowerCase()}`;
-      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(uniqueLoginId, matchRoomId);
 
       // Provision Firebase Auth account on primary auth so Firestore owner-create rules authenticate cleanly
       const createdCred = await createUserWithEmailAndPassword(auth, authEmail, chosenPassword);
       const newUid = createdCred.user.uid;
+      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(newUid);
 
       const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
       const accountPayload: OperatorUserAccount = {
         uid: newUid,
         fullName: trimmedName,
@@ -547,9 +587,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso,
       };
 
+      const initialScoreDoc = createInitialUserScoreboardDoc(newUid);
+      const initialSettingsDoc = createInitialUserSettingsDoc(
+        newUid,
+        `${trimmedName.toUpperCase()} · LIVE KABADDI`
+      );
       const initialScoreboardState: LiveOverlayState = {
         ...createDefaultOverlayState(matchRoomId),
-        kabaddiTitle: `${trimmedName.toUpperCase()} · LIVE KABADDI`,
+        kabaddiTitle: initialSettingsDoc.kabaddiTitle,
+        teamAScore: 0,
+        teamBScore: 0,
+        teamAPlayersOnMat: 7,
+        teamBPlayersOnMat: 7,
       };
 
       const batch = writeBatch(db);
@@ -569,18 +618,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ownerLoginId: uniqueLoginId,
         teamAName: initialScoreboardState.teamAName,
         teamBName: initialScoreboardState.teamBName,
-        teamAScore: initialScoreboardState.teamAScore,
-        teamBScore: initialScoreboardState.teamBScore,
+        teamAScore: 0,
+        teamBScore: 0,
         stateJson: JSON.stringify(initialScoreboardState),
         createdAt: nowIso,
         updatedAt: nowIso,
+      });
+      // Isolated per-user Firestore hierarchy: /users/{uid}/...
+      batch.set(doc(db, 'users', newUid, 'profile', 'main'), {
+        uid: newUid,
+        fullName: trimmedName,
+        loginId: uniqueLoginId,
+        authEmail,
+        role: 'user',
+        status: 'active',
+        controlUrl: scoreboardUrl,
+        scoreboardUrl: vmixOverlayUrl,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+      batch.set(doc(db, 'users', newUid, 'scoreboard', 'current'), initialScoreDoc);
+      batch.set(doc(db, 'users', newUid, 'settings', 'main'), initialSettingsDoc);
+      batch.set(doc(db, 'users', newUid, 'undoHistory', 'stack'), {
+        ownerUid: newUid,
+        entries: [],
+        updatedAt: nowMs,
       });
 
       try {
         await batch.commit();
       } catch (err) {
         await signOut(auth).catch(() => {});
-        handleFirestoreError(err, OperationType.WRITE, `userAccounts/${newUid}`);
+        handleFirestoreError(err, OperationType.WRITE, `users/${newUid}`);
       }
 
       // Sign out immediately after registration so user can save credentials & log in cleanly
@@ -632,10 +701,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await signOut(secondaryAuth);
 
       const nowIso = new Date().toISOString();
-      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(
-        account.loginId,
-        account.matchRoomId
-      );
+      const nowMs = Date.now();
+      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(newUid);
 
       const rotatedAccount: OperatorUserAccount = {
         uid: newUid,
@@ -654,6 +721,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso,
       };
 
+      // Preserve all existing isolated per-user scoreboard/settings/undo docs under the new rotated UID
+      const [oldScoreSnap, oldSettingsSnap, oldUndoSnap, sbSnap] = await Promise.all([
+        getDoc(doc(db, 'users', account.uid, 'scoreboard', 'current')).catch(() => null),
+        getDoc(doc(db, 'users', account.uid, 'settings', 'main')).catch(() => null),
+        getDoc(doc(db, 'users', account.uid, 'undoHistory', 'stack')).catch(() => null),
+        getDoc(doc(db, 'scoreboards', account.matchRoomId)).catch(() => null),
+      ]);
+
+      const migratedScoreDoc: UserLiveScoreboardDoc =
+        oldScoreSnap && oldScoreSnap.exists()
+          ? { ...(oldScoreSnap.data() as UserLiveScoreboardDoc), ownerUid: newUid, updatedAt: nowMs }
+          : createInitialUserScoreboardDoc(newUid);
+
+      const migratedSettingsDoc: UserScoreboardSettingsDoc =
+        oldSettingsSnap && oldSettingsSnap.exists()
+          ? {
+              ...(oldSettingsSnap.data() as UserScoreboardSettingsDoc),
+              ownerUid: newUid,
+              updatedAt: nowMs,
+            }
+          : createInitialUserSettingsDoc(newUid, `${account.fullName.toUpperCase()} · LIVE KABADDI`);
+
+      const migratedUndoDoc: UserUndoHistoryDoc =
+        oldUndoSnap && oldUndoSnap.exists()
+          ? { ...(oldUndoSnap.data() as UserUndoHistoryDoc), ownerUid: newUid, updatedAt: nowMs }
+          : { ownerUid: newUid, entries: [], updatedAt: nowMs };
+
       const batch = writeBatch(db);
       batch.set(doc(db, 'userAccounts', newUid), rotatedAccount);
       batch.delete(doc(db, 'userAccounts', account.uid));
@@ -667,12 +761,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         updatedAt: nowIso,
       });
 
-      // Preserve the user's existing isolated scoreboard data and re-bind ownerUid to rotated Firebase Auth UID
-      const sbRef = doc(db, 'scoreboards', account.matchRoomId);
-      const sbSnap = await getDoc(sbRef);
-      if (sbSnap.exists()) {
+      batch.set(doc(db, 'users', newUid, 'profile', 'main'), {
+        uid: newUid,
+        fullName: account.fullName,
+        loginId: account.loginId,
+        authEmail: nextAuthEmail,
+        role: 'user',
+        status: 'active',
+        controlUrl: scoreboardUrl,
+        scoreboardUrl: vmixOverlayUrl,
+        createdAt: account.createdAt,
+        updatedAt: nowIso,
+      });
+      batch.set(doc(db, 'users', newUid, 'scoreboard', 'current'), migratedScoreDoc);
+      batch.set(doc(db, 'users', newUid, 'settings', 'main'), migratedSettingsDoc);
+      batch.set(doc(db, 'users', newUid, 'undoHistory', 'stack'), migratedUndoDoc);
+
+      if (sbSnap && sbSnap.exists()) {
         const sbData = sbSnap.data();
-        batch.set(sbRef, {
+        batch.set(doc(db, 'scoreboards', account.matchRoomId), {
           ...sbData,
           ownerUid: newUid,
           updatedAt: nowIso,
@@ -682,7 +789,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         await batch.commit();
       } catch (err) {
-        handleFirestoreError(err, OperationType.WRITE, `userAccounts/${newUid}`);
+        handleFirestoreError(err, OperationType.WRITE, `users/${newUid}`);
       }
 
       return {
@@ -715,6 +822,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status: nextStatus,
         updatedAt: nowIso,
       });
+      const profileRef = doc(db, 'users', account.uid, 'profile', 'main');
+      const profileSnap = await getDoc(profileRef).catch(() => null);
+      if (profileSnap && profileSnap.exists()) {
+        batch.update(profileRef, {
+          status: nextStatus,
+          updatedAt: nowIso,
+        });
+      }
       try {
         await batch.commit();
       } catch (err) {
@@ -733,6 +848,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       batch.delete(doc(db, 'userAccounts', account.uid));
       batch.delete(doc(db, 'loginLookup', account.loginId));
       batch.delete(doc(db, 'scoreboards', account.matchRoomId));
+      batch.delete(doc(db, 'users', account.uid, 'profile', 'main'));
+      batch.delete(doc(db, 'users', account.uid, 'scoreboard', 'current'));
+      batch.delete(doc(db, 'users', account.uid, 'settings', 'main'));
+      batch.delete(doc(db, 'users', account.uid, 'undoHistory', 'stack'));
       try {
         await batch.commit();
       } catch (err) {

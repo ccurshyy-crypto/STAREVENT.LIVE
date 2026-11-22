@@ -5,33 +5,33 @@
       "description": "Authorized Super Admin account record with full user provisioning and password reset access.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "Firebase Auth UID of the Super Admin" },
-        "email": { "type": "string", "format": "email", "description": "Verified Super Admin email" },
-        "displayName": { "type": "string", "description": "Display name" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "email": { "type": "string", "format": "email", "minLength": 5, "maxLength": 120 },
+        "displayName": { "type": "string", "minLength": 1, "maxLength": 80 },
         "role": { "type": "string", "enum": ["super_admin"] },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 }
       },
-      "required": ["uid", "email", "role", "createdAt"]
+      "required": ["uid", "email", "displayName", "role", "createdAt"]
     },
     "UserAccount": {
       "title": "Operator User Account",
-      "description": "Isolated operator account provisioned by Super Admin. Passwords are NEVER stored here; authentication is handled exclusively by Firebase Authentication.",
+      "description": "Isolated operator account provisioned by Super Admin or self-signup. Passwords are NEVER stored here; authentication is handled exclusively by Firebase Authentication.",
       "type": "object",
       "properties": {
-        "uid": { "type": "string", "description": "Active Firebase Auth UID" },
-        "fullName": { "type": "string", "description": "Operator full name" },
-        "loginId": { "type": "string", "description": "Unique uppercase Login ID generated from Full Name" },
-        "authEmail": { "type": "string", "description": "Synthetic Firebase Auth email bound to this Login ID" },
-        "recoveryEmail": { "type": "string", "description": "Optional real email for recovery links" },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "loginId": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[A-Z0-9]+$" },
+        "authEmail": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "recoveryEmail": { "type": "string", "maxLength": 120 },
         "role": { "type": "string", "enum": ["user"] },
-        "matchRoomId": { "type": "string", "description": "Unique isolated Match Room ID for scoreboard & vMix overlay" },
-        "scoreboardUrl": { "type": "string", "description": "Dedicated controller URL" },
-        "vmixOverlayUrl": { "type": "string", "description": "Dedicated transparent vMix Browser Input URL" },
+        "matchRoomId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9-]+$" },
+        "scoreboardUrl": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "vmixOverlayUrl": { "type": "string", "minLength": 1, "maxLength": 300 },
         "status": { "type": "string", "enum": ["active", "disabled"] },
-        "passwordVersion": { "type": "integer", "description": "Credential generation counter incremented on Super Admin password reset" },
-        "createdByUid": { "type": "string", "description": "UID of the Super Admin who created the account" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "passwordVersion": { "type": "integer" },
+        "createdByUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 },
+        "updatedAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 }
       },
       "required": [
         "uid",
@@ -51,34 +51,34 @@
     },
     "LoginLookup": {
       "title": "Login ID Resolver",
-      "description": "Minimal non-PII Login ID to synthetic Firebase Auth alias lookup table so operators can sign in with Login ID after Super Admin password resets.",
+      "description": "Minimal non-PII Login ID to synthetic Firebase Auth alias lookup table so operators can sign in with Login ID.",
       "type": "object",
       "properties": {
-        "loginId": { "type": "string" },
-        "authEmail": { "type": "string" },
-        "uid": { "type": "string" },
-        "matchRoomId": { "type": "string" },
+        "loginId": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[A-Z0-9]+$" },
+        "authEmail": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "matchRoomId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9-]+$" },
         "passwordVersion": { "type": "integer" },
         "status": { "type": "string", "enum": ["active", "disabled"] },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 }
       },
       "required": ["loginId", "authEmail", "uid", "matchRoomId", "passwordVersion", "status", "updatedAt"]
     },
     "UserScoreboard": {
-      "title": "Isolated User Scoreboard State",
-      "description": "Dedicated Kabaddi scoreboard state isolated per operator account and synced to their unique vMix Overlay URL.",
+      "title": "Legacy Room Scoreboard Snapshot",
+      "description": "Backward-compatible room scoreboard snapshot isolated per operator account.",
       "type": "object",
       "properties": {
-        "roomId": { "type": "string" },
-        "ownerUid": { "type": "string" },
-        "ownerLoginId": { "type": "string" },
-        "teamAName": { "type": "string" },
-        "teamBName": { "type": "string" },
+        "roomId": { "type": "string", "minLength": 3, "maxLength": 64, "pattern": "^[a-z0-9-]+$" },
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "ownerLoginId": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[A-Z0-9]+$" },
+        "teamAName": { "type": "string", "maxLength": 60 },
+        "teamBName": { "type": "string", "maxLength": 60 },
         "teamAScore": { "type": "integer" },
         "teamBScore": { "type": "integer" },
-        "stateJson": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "stateJson": { "type": "string", "minLength": 2, "maxLength": 16000 },
+        "createdAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 },
+        "updatedAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 }
       },
       "required": [
         "roomId",
@@ -92,6 +92,169 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "UserProfileDoc": {
+      "title": "Per-User Profile Document",
+      "description": "Private operator profile stored under /users/{userId}/profile/main. Contains zero plaintext passwords.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "fullName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "loginId": { "type": "string", "minLength": 2, "maxLength": 40, "pattern": "^[A-Z0-9]+$" },
+        "authEmail": { "type": "string", "minLength": 5, "maxLength": 120 },
+        "role": { "type": "string", "enum": ["user"] },
+        "status": { "type": "string", "enum": ["active", "disabled"] },
+        "controlUrl": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "scoreboardUrl": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "createdAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 },
+        "updatedAt": { "type": "string", "format": "date-time", "minLength": 10, "maxLength": 40 }
+      },
+      "required": [
+        "uid",
+        "fullName",
+        "loginId",
+        "authEmail",
+        "role",
+        "status",
+        "controlUrl",
+        "scoreboardUrl",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserLiveScoreboard": {
+      "title": "Per-User Live Scoreboard State",
+      "description": "Real-time Kabaddi match score, player-out dots, timers, cards, and broadcast alerts isolated under /users/{userId}/scoreboard/current. Contains ZERO PII so vMix/OBS can read via exact UID.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "visible": { "type": "boolean" },
+        "teamAScore": { "type": "integer" },
+        "teamARaidPoints": { "type": "integer" },
+        "teamABonusPoints": { "type": "integer" },
+        "teamATacklePoints": { "type": "integer" },
+        "teamALonaPoints": { "type": "integer" },
+        "teamAPlayersOnMat": { "type": "integer" },
+        "teamAGreenCards": { "type": "integer" },
+        "teamAYellowCards": { "type": "integer" },
+        "teamARedCards": { "type": "integer" },
+        "teamABinEndAt": { "type": "integer" },
+        "teamBScore": { "type": "integer" },
+        "teamBRaidPoints": { "type": "integer" },
+        "teamBBonusPoints": { "type": "integer" },
+        "teamBTacklePoints": { "type": "integer" },
+        "teamBLonaPoints": { "type": "integer" },
+        "teamBPlayersOnMat": { "type": "integer" },
+        "teamBGreenCards": { "type": "integer" },
+        "teamBYellowCards": { "type": "integer" },
+        "teamBRedCards": { "type": "integer" },
+        "teamBBinEndAt": { "type": "integer" },
+        "matchSeconds": { "type": "integer" },
+        "matchRunning": { "type": "boolean" },
+        "matchUpdatedAt": { "type": "integer" },
+        "raidSeconds": { "type": "integer" },
+        "raidRunning": { "type": "boolean" },
+        "raidUpdatedAt": { "type": "integer" },
+        "kabaddiHalf": { "type": "string", "enum": ["1ST HALF", "2ND HALF", "HALF TIME", "FULL TIME"] },
+        "matchStatus": { "type": "string", "enum": ["LIVE", "PAUSED", "TIMEOUT", "HALF TIME", "FULL TIME"] },
+        "timeoutTeam": { "type": "string", "maxLength": 20 },
+        "doOrDie": { "type": "boolean" },
+        "kabaddiAlert": { "type": "string", "maxLength": 120 },
+        "kabaddiGraphicPanel": { "type": "string", "maxLength": 40 },
+        "version": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": [
+        "ownerUid",
+        "visible",
+        "teamAScore",
+        "teamAPlayersOnMat",
+        "teamBScore",
+        "teamBPlayersOnMat",
+        "matchSeconds",
+        "matchRunning",
+        "matchUpdatedAt",
+        "raidSeconds",
+        "raidRunning",
+        "raidUpdatedAt",
+        "kabaddiHalf",
+        "doOrDie",
+        "version",
+        "updatedAt"
+      ]
+    },
+    "UserScoreboardSettings": {
+      "title": "Per-User Permanent Scoreboard Settings & Custom Text",
+      "description": "Permanent manually-edited team names, player names, logos, tournament name, match title, sponsor name, and colors stored under /users/{userId}/settings/main. Never overwritten by score resets or Undo.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "teamAName": { "type": "string", "maxLength": 60 },
+        "teamACode": { "type": "string", "maxLength": 8 },
+        "teamAColor": { "type": "string", "maxLength": 20 },
+        "teamALogoUrl": { "type": "string", "maxLength": 180000 },
+        "teamAStarting7": { "type": "array" },
+        "teamBName": { "type": "string", "maxLength": 60 },
+        "teamBCode": { "type": "string", "maxLength": 8 },
+        "teamBColor": { "type": "string", "maxLength": 20 },
+        "teamBLogoUrl": { "type": "string", "maxLength": 180000 },
+        "teamBStarting7": { "type": "array" },
+        "kabaddiTitle": { "type": "string", "maxLength": 120 },
+        "kabaddiSubtitle": { "type": "string", "maxLength": 140 },
+        "kabaddiTag": { "type": "string", "maxLength": 40 },
+        "kabaddiVenue": { "type": "string", "maxLength": 80 },
+        "kabaddiLeague": { "type": "string", "maxLength": 80 },
+        "kabaddiEvent": { "type": "string", "maxLength": 80 },
+        "kabaddiMatchType": { "type": "string", "maxLength": 80 },
+        "sponsorName": { "type": "string", "maxLength": 100 },
+        "championTeam": { "type": "string", "maxLength": 60 },
+        "runnerUpTeam": { "type": "string", "maxLength": 60 },
+        "thirdPlaceTeam": { "type": "string", "maxLength": 60 },
+        "fourthPlaceTeam": { "type": "string", "maxLength": 60 },
+        "version": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": [
+        "ownerUid",
+        "teamAName",
+        "teamACode",
+        "teamAColor",
+        "teamBName",
+        "teamBCode",
+        "teamBColor",
+        "kabaddiTitle",
+        "kabaddiSubtitle",
+        "version",
+        "updatedAt"
+      ]
+    },
+    "UserUndoHistory": {
+      "title": "Per-User Undo Stack",
+      "description": "Bounded stack of previous match score and player-out snapshots (never includes team names/settings) stored under /users/{userId}/undoHistory/stack.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "entries": { "type": "array" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": ["ownerUid", "entries", "updatedAt"]
+    },
+    "UserScoreHistoryEvent": {
+      "title": "Per-User Score Audit Event",
+      "description": "Append-only score and player-out event log under /users/{userId}/scoreHistory/{eventId}.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "action": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "team": { "type": "string", "maxLength": 12 },
+        "delta": { "type": "integer" },
+        "teamAScore": { "type": "integer" },
+        "teamBScore": { "type": "integer" },
+        "teamAPlayersOnMat": { "type": "integer" },
+        "teamBPlayersOnMat": { "type": "integer" },
+        "createdAt": { "type": "integer" }
+      },
+      "required": ["ownerUid", "action", "teamAScore", "teamBScore", "teamAPlayersOnMat", "teamBPlayersOnMat", "createdAt"]
     }
   },
   "firestore": {
@@ -101,7 +264,7 @@
     },
     "/userAccounts/{userUid}": {
       "schema": { "$ref": "#/entities/UserAccount" },
-      "description": "Operator user profiles and dedicated scoreboard/vMix URLs (no passwords stored)"
+      "description": "Operator user profiles and dedicated controller/scoreboard URLs (no passwords stored)"
     },
     "/loginLookup/{loginId}": {
       "schema": { "$ref": "#/entities/LoginLookup" },
@@ -109,7 +272,27 @@
     },
     "/scoreboards/{roomId}": {
       "schema": { "$ref": "#/entities/UserScoreboard" },
-      "description": "Per-user isolated Kabaddi scoreboard state"
+      "description": "Legacy room scoreboard state snapshot"
+    },
+    "/users/{userId}/profile/{docId}": {
+      "schema": { "$ref": "#/entities/UserProfileDoc" },
+      "description": "Per-user private profile record (docId: main)"
+    },
+    "/users/{userId}/scoreboard/{docId}": {
+      "schema": { "$ref": "#/entities/UserLiveScoreboard" },
+      "description": "Per-user live Kabaddi scoreboard state (docId: current)"
+    },
+    "/users/{userId}/settings/{docId}": {
+      "schema": { "$ref": "#/entities/UserScoreboardSettings" },
+      "description": "Per-user permanent team names, player names, logos, tournament & sponsor text (docId: main)"
+    },
+    "/users/{userId}/undoHistory/{docId}": {
+      "schema": { "$ref": "#/entities/UserUndoHistory" },
+      "description": "Per-user bounded Undo history stack (docId: stack)"
+    },
+    "/users/{userId}/scoreHistory/{eventId}": {
+      "schema": { "$ref": "#/entities/UserScoreHistoryEvent" },
+      "description": "Per-user append-only score change history"
     }
   }
 }

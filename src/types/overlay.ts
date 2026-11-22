@@ -69,6 +69,7 @@ export interface LiveOverlayState {
   kabaddiLeague?: string;
   kabaddiEvent?: string;
   kabaddiMatchType?: string;
+  sponsorName?: string;
   teamAName: string;
   teamACode: string;
   teamAColor: string;
@@ -165,36 +166,37 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     kabaddiLeague: 'PRO KABADDI',
     kabaddiEvent: 'SEASON 2026',
     kabaddiMatchType: 'LEAGUE MATCH',
+    sponsorName: '',
     teamAName: 'NERAL LIONS',
     teamACode: 'NER',
     teamAColor: '#C8102E',
-    teamAScore: 24,
-    teamARaidPoints: 14,
-    teamABonusPoints: 4,
-    teamATacklePoints: 4,
-    teamALonaPoints: 2,
-    teamAPlayersOnMat: 6,
+    teamAScore: 0,
+    teamARaidPoints: 0,
+    teamABonusPoints: 0,
+    teamATacklePoints: 0,
+    teamALonaPoints: 0,
+    teamAPlayersOnMat: 7,
     teamALogoUrl: '',
     teamAGreenCards: 0,
     teamAYellowCards: 0,
     teamARedCards: 0,
     teamABinEndAt: null,
-    teamAStarting7: ['ROHIT P.', 'SANKET M.', 'VIKAS K.', 'OMKAR D.', 'PRATIK S.', 'AKASH J.', 'SWAPNIL R.'],
+    teamAStarting7: ['PLAYER 1', 'PLAYER 2', 'PLAYER 3', 'PLAYER 4', 'PLAYER 5', 'PLAYER 6', 'PLAYER 7'],
     teamBName: 'KARJAT WARRIORS',
     teamBCode: 'KAR',
     teamBColor: '#131D8A',
-    teamBScore: 21,
-    teamBRaidPoints: 12,
-    teamBBonusPoints: 3,
-    teamBTacklePoints: 4,
-    teamBLonaPoints: 2,
-    teamBPlayersOnMat: 5,
+    teamBScore: 0,
+    teamBRaidPoints: 0,
+    teamBBonusPoints: 0,
+    teamBTacklePoints: 0,
+    teamBLonaPoints: 0,
+    teamBPlayersOnMat: 7,
     teamBLogoUrl: '',
     teamBGreenCards: 0,
     teamBYellowCards: 0,
     teamBRedCards: 0,
     teamBBinEndAt: null,
-    teamBStarting7: ['SAHIL G.', 'YASH T.', 'ADITYA B.', 'MAYUR N.', 'TEJAS P.', 'KUNAL V.', 'SHUBHAM D.'],
+    teamBStarting7: ['PLAYER 1', 'PLAYER 2', 'PLAYER 3', 'PLAYER 4', 'PLAYER 5', 'PLAYER 6', 'PLAYER 7'],
     matchSeconds: 30,
     matchRunning: false,
     matchUpdatedAt: now,
@@ -241,3 +243,258 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     weddingShowCornerFrame: true,
   };
 }
+
+// ===============================================================
+// Per-User Isolated Firestore Document Models (/users/{uid}/...)
+// ===============================================================
+
+export interface UserLiveScoreboardDoc {
+  ownerUid: string;
+  visible: boolean;
+  teamAScore: number;
+  teamARaidPoints: number;
+  teamABonusPoints: number;
+  teamATacklePoints: number;
+  teamALonaPoints: number;
+  teamAPlayersOnMat: number;
+  teamAGreenCards: number;
+  teamAYellowCards: number;
+  teamARedCards: number;
+  teamABinEndAt: number | null;
+  teamBScore: number;
+  teamBRaidPoints: number;
+  teamBBonusPoints: number;
+  teamBTacklePoints: number;
+  teamBLonaPoints: number;
+  teamBPlayersOnMat: number;
+  teamBGreenCards: number;
+  teamBYellowCards: number;
+  teamBRedCards: number;
+  teamBBinEndAt: number | null;
+  matchSeconds: number;
+  matchRunning: boolean;
+  matchUpdatedAt: number;
+  raidSeconds: number;
+  raidRunning: boolean;
+  raidUpdatedAt: number;
+  kabaddiHalf: KabaddiHalf;
+  matchStatus: KabaddiMatchStatus;
+  timeoutTeam: KabaddiTimeoutTeam;
+  doOrDie: boolean;
+  kabaddiAlert: string | null;
+  kabaddiGraphicPanel: KabaddiGraphicPanel;
+  version: number;
+  updatedAt: number;
+}
+
+export interface UserScoreboardSettingsDoc {
+  ownerUid: string;
+  teamAName: string;
+  teamACode: string;
+  teamAColor: string;
+  teamALogoUrl: string;
+  teamAStarting7: string[];
+  teamBName: string;
+  teamBCode: string;
+  teamBColor: string;
+  teamBLogoUrl: string;
+  teamBStarting7: string[];
+  kabaddiTitle: string;
+  kabaddiSubtitle: string;
+  kabaddiTag: string;
+  kabaddiVenue: string;
+  kabaddiLeague: string;
+  kabaddiEvent: string;
+  kabaddiMatchType: string;
+  sponsorName: string;
+  championTeam: string;
+  runnerUpTeam: string;
+  thirdPlaceTeam: string;
+  fourthPlaceTeam: string;
+  version: number;
+  updatedAt: number;
+}
+
+export interface UserUndoSnapshot {
+  teamAScore: number;
+  teamARaidPoints: number;
+  teamABonusPoints: number;
+  teamATacklePoints: number;
+  teamALonaPoints: number;
+  teamAPlayersOnMat: number;
+  teamAGreenCards: number;
+  teamAYellowCards: number;
+  teamARedCards: number;
+  teamABinEndAt: number | null;
+  teamBScore: number;
+  teamBRaidPoints: number;
+  teamBBonusPoints: number;
+  teamBTacklePoints: number;
+  teamBLonaPoints: number;
+  teamBPlayersOnMat: number;
+  teamBGreenCards: number;
+  teamBYellowCards: number;
+  teamBRedCards: number;
+  teamBBinEndAt: number | null;
+  kabaddiHalf: KabaddiHalf;
+  doOrDie: boolean;
+  label: string;
+  savedAt: number;
+}
+
+export interface UserUndoHistoryDoc {
+  ownerUid: string;
+  entries: UserUndoSnapshot[];
+  updatedAt: number;
+}
+
+export function createInitialUserScoreboardDoc(ownerUid: string): UserLiveScoreboardDoc {
+  const now = Date.now();
+  return {
+    ownerUid,
+    visible: true,
+    teamAScore: 0,
+    teamARaidPoints: 0,
+    teamABonusPoints: 0,
+    teamATacklePoints: 0,
+    teamALonaPoints: 0,
+    teamAPlayersOnMat: 7,
+    teamAGreenCards: 0,
+    teamAYellowCards: 0,
+    teamARedCards: 0,
+    teamABinEndAt: null,
+    teamBScore: 0,
+    teamBRaidPoints: 0,
+    teamBBonusPoints: 0,
+    teamBTacklePoints: 0,
+    teamBLonaPoints: 0,
+    teamBPlayersOnMat: 7,
+    teamBGreenCards: 0,
+    teamBYellowCards: 0,
+    teamBRedCards: 0,
+    teamBBinEndAt: null,
+    matchSeconds: 30,
+    matchRunning: false,
+    matchUpdatedAt: now,
+    raidSeconds: 30,
+    raidRunning: false,
+    raidUpdatedAt: now,
+    kabaddiHalf: '1ST HALF',
+    matchStatus: 'LIVE',
+    timeoutTeam: null,
+    doOrDie: false,
+    kabaddiAlert: null,
+    kabaddiGraphicPanel: 'none',
+    version: 1,
+    updatedAt: now,
+  };
+}
+
+export function createInitialUserSettingsDoc(
+  ownerUid: string,
+  customTitle?: string
+): UserScoreboardSettingsDoc {
+  const now = Date.now();
+  return {
+    ownerUid,
+    teamAName: 'TEAM A',
+    teamACode: 'TMA',
+    teamAColor: '#C8102E',
+    teamALogoUrl: '',
+    teamAStarting7: ['PLAYER 1', 'PLAYER 2', 'PLAYER 3', 'PLAYER 4', 'PLAYER 5', 'PLAYER 6', 'PLAYER 7'],
+    teamBName: 'TEAM B',
+    teamBCode: 'TMB',
+    teamBColor: '#131D8A',
+    teamBLogoUrl: '',
+    teamBStarting7: ['PLAYER 1', 'PLAYER 2', 'PLAYER 3', 'PLAYER 4', 'PLAYER 5', 'PLAYER 6', 'PLAYER 7'],
+    kabaddiTitle: (customTitle || 'LIVE KABADDI CHAMPIONSHIP').slice(0, 120),
+    kabaddiSubtitle: 'LIVE KABADDI BROADCAST',
+    kabaddiTag: 'LIVE KABADDI',
+    kabaddiVenue: 'MAIN GROUND',
+    kabaddiLeague: 'KABADDI LEAGUE',
+    kabaddiEvent: 'SEASON 2026',
+    kabaddiMatchType: 'LEAGUE MATCH',
+    sponsorName: '',
+    championTeam: 'TEAM A',
+    runnerUpTeam: 'TEAM B',
+    thirdPlaceTeam: '',
+    fourthPlaceTeam: '',
+    version: 1,
+    updatedAt: now,
+  };
+}
+
+export function mergeUserDocsToOverlayState(
+  ownerUid: string,
+  scoreDoc: UserLiveScoreboardDoc,
+  settingsDoc: UserScoreboardSettingsDoc
+): LiveOverlayState {
+  const base = createDefaultOverlayState(ownerUid);
+  return {
+    ...base,
+    roomId: ownerUid,
+    mode: 'kabaddi',
+    style: 'classic',
+    visible: scoreDoc.visible,
+    updatedAt: Math.max(scoreDoc.updatedAt, settingsDoc.updatedAt),
+    // Permanent settings (NEVER overwritten by score actions/reset/undo)
+    kabaddiTitle: settingsDoc.kabaddiTitle,
+    kabaddiSubtitle: settingsDoc.kabaddiSubtitle,
+    kabaddiTag: settingsDoc.kabaddiTag || 'LIVE KABADDI',
+    kabaddiVenue: settingsDoc.kabaddiVenue || '',
+    kabaddiLeague: settingsDoc.kabaddiLeague || '',
+    kabaddiEvent: settingsDoc.kabaddiEvent || '',
+    kabaddiMatchType: settingsDoc.kabaddiMatchType || '',
+    sponsorName: settingsDoc.sponsorName || '',
+    teamAName: settingsDoc.teamAName,
+    teamACode: settingsDoc.teamACode,
+    teamAColor: settingsDoc.teamAColor,
+    teamALogoUrl: settingsDoc.teamALogoUrl || '',
+    teamAStarting7: settingsDoc.teamAStarting7?.length ? settingsDoc.teamAStarting7 : base.teamAStarting7,
+    teamBName: settingsDoc.teamBName,
+    teamBCode: settingsDoc.teamBCode,
+    teamBColor: settingsDoc.teamBColor,
+    teamBLogoUrl: settingsDoc.teamBLogoUrl || '',
+    teamBStarting7: settingsDoc.teamBStarting7?.length ? settingsDoc.teamBStarting7 : base.teamBStarting7,
+    championTeam: settingsDoc.championTeam || '',
+    runnerUpTeam: settingsDoc.runnerUpTeam || '',
+    thirdPlaceTeam: settingsDoc.thirdPlaceTeam || '',
+    fourthPlaceTeam: settingsDoc.fourthPlaceTeam || '',
+    // Live match scoreboard fields
+    teamAScore: scoreDoc.teamAScore,
+    teamARaidPoints: scoreDoc.teamARaidPoints ?? 0,
+    teamABonusPoints: scoreDoc.teamABonusPoints ?? 0,
+    teamATacklePoints: scoreDoc.teamATacklePoints ?? 0,
+    teamALonaPoints: scoreDoc.teamALonaPoints ?? 0,
+    teamAPlayersOnMat: scoreDoc.teamAPlayersOnMat,
+    teamAGreenCards: scoreDoc.teamAGreenCards ?? 0,
+    teamAYellowCards: scoreDoc.teamAYellowCards ?? 0,
+    teamARedCards: scoreDoc.teamARedCards ?? 0,
+    teamABinEndAt: scoreDoc.teamABinEndAt ?? null,
+    teamBScore: scoreDoc.teamBScore,
+    teamBRaidPoints: scoreDoc.teamBRaidPoints ?? 0,
+    teamBBonusPoints: scoreDoc.teamBBonusPoints ?? 0,
+    teamBTacklePoints: scoreDoc.teamBTacklePoints ?? 0,
+    teamBLonaPoints: scoreDoc.teamBLonaPoints ?? 0,
+    teamBPlayersOnMat: scoreDoc.teamBPlayersOnMat,
+    teamBGreenCards: scoreDoc.teamBGreenCards ?? 0,
+    teamBYellowCards: scoreDoc.teamBYellowCards ?? 0,
+    teamBRedCards: scoreDoc.teamBRedCards ?? 0,
+    teamBBinEndAt: scoreDoc.teamBBinEndAt ?? null,
+    matchSeconds: scoreDoc.matchSeconds,
+    matchRunning: scoreDoc.matchRunning,
+    matchUpdatedAt: scoreDoc.matchUpdatedAt,
+    kabaddiMatchDuration: 30,
+    raidSeconds: scoreDoc.raidSeconds,
+    raidRunning: scoreDoc.raidRunning,
+    raidUpdatedAt: scoreDoc.raidUpdatedAt,
+    kabaddiRaidDuration: 30,
+    kabaddiHalf: scoreDoc.kabaddiHalf,
+    matchStatus: scoreDoc.matchStatus ?? 'LIVE',
+    timeoutTeam: scoreDoc.timeoutTeam ?? null,
+    doOrDie: scoreDoc.doOrDie,
+    kabaddiAlert: scoreDoc.kabaddiAlert ?? null,
+    kabaddiGraphicPanel: scoreDoc.kabaddiGraphicPanel ?? 'none',
+  };
+}
+
