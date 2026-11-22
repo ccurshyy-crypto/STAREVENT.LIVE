@@ -74,10 +74,10 @@ export function PackagesPage({
       />
 
       {/* Custom Event Quote Callout Strip */}
-      <section className="py-14 sm:py-16 bg-[#0C0C10]/68 backdrop-blur-[2px]">
+      <section className="py-14 sm:py-16 bg-[#090B12]/36 backdrop-blur-[2px]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <ScrollReveal>
-          <div className="studio-card-animate bg-[#121216]/88 backdrop-blur-sm border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="studio-card-animate bg-[#121420]/78 backdrop-blur-md border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 max-w-2xl">
               <p className="text-xs font-medium text-[#FACC15]">
                 {lang === 'mr'
@@ -100,7 +100,7 @@ export function PackagesPage({
               <button
                 type="button"
                 onClick={onGoToBooking}
-                className="cta-btn-animate inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-primary-pro inline-flex items-center gap-2 px-5 py-3 text-sm font-bold rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>{lang === 'mr' ? 'बुकिंग फॉर्म उघडा' : 'Open Booking Form'}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />

@@ -91,7 +91,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
   return (
     <section
       id="spotlight"
-      className="py-20 sm:py-24 border-b border-white/10 bg-[#09090B]/60 backdrop-blur-[2px]"
+      className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/34 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
@@ -195,7 +195,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
               <button
                 type="button"
                 onClick={onBookNow}
-                className="cta-btn-animate inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="btn-primary-pro inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <span>{lang === 'mr' ? 'कार्यक्रम बुक करा' : 'Book Your Coverage'}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -205,7 +205,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                 href={STUDIO_CONTACT.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#EF4444]/60 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-glass-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-100 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
                 <span>{STUDIO_CONTACT.youtubeHandle}</span>

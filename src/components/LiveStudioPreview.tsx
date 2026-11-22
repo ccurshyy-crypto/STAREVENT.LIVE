@@ -10,9 +10,12 @@ import {
   ImagePlus,
   Lock,
   Radio,
+  ShieldCheck,
   Trash2,
   Tv,
+  UserCircle2,
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import {
   EventCategoryId,
   Language,
@@ -58,6 +61,8 @@ interface LiveStudioPreviewProps {
   verifiedTokens: VerifiedOverlayToken[];
   onRequestPurchase: (sku: OverlaySku) => void;
   onBookFromPreview: (category: EventCategoryId) => void;
+  forcedMatchRoomId?: string | null;
+  onOpenAccountPortal?: (tab?: 'operator' | 'admin') => void;
 }
 
 const PLATFORMS: {
@@ -141,10 +146,20 @@ export function LiveStudioPreview({
   verifiedTokens,
   onRequestPurchase,
   onBookFromPreview,
+  forcedMatchRoomId,
+  onOpenAccountPortal,
 }: LiveStudioPreviewProps) {
+  const {
+    isSuperAdmin,
+    userAccount,
+    loadUserScoreboardSnapshot,
+    saveUserScoreboardSnapshot,
+  } = useAuth();
   const [platform, setPlatform] = useState<PlatformId>('youtube-public');
   const [transparentBg, setTransparentBg] = useState(true);
-  const [roomInput, setRoomInput] = useState<string>(() => getInitialMatchId());
+  const [roomInput, setRoomInput] = useState<string>(() =>
+    forcedMatchRoomId ? sanitizeRoomIdClient(forcedMatchRoomId) : getInitialMatchId()
+  );
   const [outputBg, setOutputBg] = useState<OverlayBackground>('transparent');
   const [lockModeInUrl, setLockModeInUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -152,8 +167,29 @@ export function LiveStudioPreview({
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [autoRulesEnabled, setAutoRulesEnabled] = useState(true);
   const [autoDemoActive, setAutoDemoActive] = useState(false);
+  const [hydratedFirestoreRoom, setHydratedFirestoreRoom] = useState<string | null>(null);
+
+  // Sync forcedMatchRoomId (e.g. Super Admin clicking "Open Board" on a user)
+  useEffect(() => {
+    if (!forcedMatchRoomId) return;
+    if (userAccount && !isSuperAdmin) return; // Operator stays locked to their own isolated room
+    const clean = sanitizeRoomIdClient(forcedMatchRoomId);
+    setRoomInput(clean);
+  }, [forcedMatchRoomId, userAccount, isSuperAdmin]);
+
+  // Automatically isolate authenticated Operator User to their dedicated Match Room ID
+  useEffect(() => {
+    if (!userAccount || isSuperAdmin) return;
+    const clean = sanitizeRoomIdClient(userAccount.matchRoomId);
+    setRoomInput(clean);
+  }, [userAccount, isSuperAdmin]);
 
   const handleSetMatchId = (raw: string) => {
+    // Operators stay on their dedicated isolated Match ID; Super Admin & guests can change rooms freely
+    if (userAccount && !isSuperAdmin) {
+      setRoomInput(sanitizeRoomIdClient(userAccount.matchRoomId));
+      return;
+    }
     const clean = sanitizeRoomIdClient(raw);
     setRoomInput(clean);
     try {
@@ -164,6 +200,7 @@ export function LiveStudioPreview({
   };
 
   const handleGenerateNewMatchId = () => {
+    if (userAccount && !isSuperAdmin) return;
     handleSetMatchId(createUniqueMatchIdClient());
   };
 
@@ -200,6 +237,35 @@ export function LiveStudioPreview({
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [activeToken]);
+
+  // Load isolated Firestore scoreboard snapshot when an Operator User logs into their room
+  useEffect(() => {
+    if (!userAccount || roomId !== userAccount.matchRoomId) return;
+    if (hydratedFirestoreRoom === roomId) return;
+    let cancelled = false;
+    loadUserScoreboardSnapshot(roomId)
+      .then((saved) => {
+        if (!cancelled && saved) {
+          updateState(saved);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setHydratedFirestoreRoom(roomId);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userAccount, roomId, hydratedFirestoreRoom, loadUserScoreboardSnapshot, updateState]);
+
+  // Debounced auto-save of isolated Operator User scoreboard state to Firestore
+  useEffect(() => {
+    if (!userAccount || roomId !== userAccount.matchRoomId) return;
+    if (hydratedFirestoreRoom !== roomId) return;
+    const timer = window.setTimeout(() => {
+      void saveUserScoreboardSnapshot(roomId, userAccount.uid, userAccount.loginId, state);
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [userAccount, roomId, hydratedFirestoreRoom, state, saveUserScoreboardSnapshot]);
 
   const handleSelectMode = (mode: PreviewMode) => {
     const nextStyle =
@@ -975,6 +1041,71 @@ export function LiveStudioPreview({
         {/* Main Studio Area: Full-Width vMix Kabaddi Controller OR Haldi/Wedding Broadcast Monitor + Customizer */}
         {activeMode === 'kabaddi' ? (
           <div className="space-y-4">
+            {/* Authenticated Operator / Super Admin Isolation Strip */}
+            {onOpenAccountPortal && (
+              <div className="rounded-2xl border border-white/12 bg-[#111524]/85 backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2.5 text-xs">
+                  {isSuperAdmin ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
+                      <span className="font-bold text-[#FACC15]">SUPER ADMIN MODE</span>
+                      <span className="text-zinc-400">
+                        · Active Room: <span className="font-mono font-bold text-white">{roomId}</span>
+                      </span>
+                    </>
+                  ) : userAccount ? (
+                    <>
+                      <UserCircle2 className="w-4 h-4 text-[#38BDF8] shrink-0" aria-hidden="true" />
+                      <span className="font-bold text-white">{userAccount.fullName}</span>
+                      <span className="font-mono text-[#FACC15] font-bold">
+                        ({userAccount.loginId})
+                      </span>
+                      <span className="text-zinc-400">
+                        · Isolated Scoreboard &amp; vMix Room:{' '}
+                        <span className="font-mono font-bold text-[#4ADE80]">{userAccount.matchRoomId}</span>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <UserCircle2 className="w-4 h-4 text-zinc-400 shrink-0" aria-hidden="true" />
+                      <span className="text-zinc-300">
+                        Have a personal Login ID? Sign in to load your separate scoreboard &amp; vMix URL.
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onOpenAccountPortal(isSuperAdmin ? 'admin' : 'operator')}
+                    className={
+                      isSuperAdmin
+                        ? 'btn-gold-pro px-3.5 py-2 text-xs font-extrabold rounded-xl inline-flex items-center gap-1.5'
+                        : 'btn-glass-pro px-3.5 py-2 text-xs font-bold rounded-xl inline-flex items-center gap-1.5 text-white'
+                    }
+                  >
+                    {isSuperAdmin ? (
+                      <>
+                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
+                        <span>Manage Users / Create Account</span>
+                      </>
+                    ) : userAccount ? (
+                      <>
+                        <UserCircle2 className="w-3.5 h-3.5 text-[#38BDF8]" aria-hidden="true" />
+                        <span>My Account &amp; URLs</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserCircle2 className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+                        <span>User Login / Super Admin</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <VmixKabaddiController
               lang={lang}
               state={state}

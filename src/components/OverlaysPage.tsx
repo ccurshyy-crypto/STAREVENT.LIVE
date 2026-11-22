@@ -31,6 +31,8 @@ interface OverlaysPageProps {
   onVerifiedUnlock: (tokens: VerifiedOverlayToken | VerifiedOverlayToken[]) => void;
   onBackHome: () => void;
   onBookFromOverlay: (category: EventCategoryId) => void;
+  forcedMatchRoomId?: string | null;
+  onOpenAccountPortal?: (tab?: 'operator' | 'admin') => void;
 }
 
 function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: OverlayStyle }) {
@@ -207,6 +209,8 @@ export function OverlaysPage({
   onVerifiedUnlock,
   onBackHome,
   onBookFromOverlay,
+  forcedMatchRoomId,
+  onOpenAccountPortal,
 }: OverlaysPageProps) {
   const [filterMode, setFilterMode] = useState<'all' | OverlayMode>('all');
   const [checkoutProduct, setCheckoutProduct] = useState<OverlayProduct | null>(null);
@@ -611,6 +615,8 @@ export function OverlaysPage({
         verifiedTokens={verifiedTokens}
         onRequestPurchase={handleRequestPurchaseBySku}
         onBookFromPreview={onBookFromOverlay}
+        forcedMatchRoomId={forcedMatchRoomId}
+        onOpenAccountPortal={onOpenAccountPortal}
       />
 
       {/* Verified Multi-Plan Auto QR Checkout Modal */}

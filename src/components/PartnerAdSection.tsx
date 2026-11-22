@@ -84,10 +84,10 @@ export function PartnerAdSection({
     <section
       id="featured-advertisement"
       aria-label="Featured Broadcast Advertisement"
-      className="py-16 sm:py-24 border-b border-white/10 bg-[#0B0B0F]/82 backdrop-blur-[2px]"
+      className="py-16 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-5 sm:p-8 lg:p-10">
+        <div className="bg-[#121420]/78 backdrop-blur-md border border-[#FACC15]/25 rounded-2xl p-5 sm:p-8 lg:p-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             {/* Left: Official SAHYADRI EVENT LIVE Promotional Advertisement Poster */}
             <ScrollReveal direction="left" className="lg:col-span-5">
@@ -220,7 +220,7 @@ export function PartnerAdSection({
                 <button
                   type="button"
                   onClick={onBookNow}
-                  className="cta-btn-animate inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                  className="btn-primary-pro inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                 >
                   <span>
                     {tLang(
@@ -239,7 +239,7 @@ export function PartnerAdSection({
                 <button
                   type="button"
                   onClick={onOpenHaldiOverlay}
-                  className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-[#FACC15] bg-[#1B150A] hover:bg-[#271E0D] border border-[#FACC15]/45 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                  className="btn-gold-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                 >
                   <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>

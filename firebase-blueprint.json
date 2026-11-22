@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "AdminRecord": {
+      "title": "Super Admin Record",
+      "description": "Authorized Super Admin account record with full user provisioning and password reset access.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID of the Super Admin" },
+        "email": { "type": "string", "format": "email", "description": "Verified Super Admin email" },
+        "displayName": { "type": "string", "description": "Display name" },
+        "role": { "type": "string", "enum": ["super_admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "UserAccount": {
+      "title": "Operator User Account",
+      "description": "Isolated operator account provisioned by Super Admin. Passwords are NEVER stored here; authentication is handled exclusively by Firebase Authentication.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Active Firebase Auth UID" },
+        "fullName": { "type": "string", "description": "Operator full name" },
+        "loginId": { "type": "string", "description": "Unique uppercase Login ID generated from Full Name" },
+        "authEmail": { "type": "string", "description": "Synthetic Firebase Auth email bound to this Login ID" },
+        "recoveryEmail": { "type": "string", "description": "Optional real email for recovery links" },
+        "role": { "type": "string", "enum": ["user"] },
+        "matchRoomId": { "type": "string", "description": "Unique isolated Match Room ID for scoreboard & vMix overlay" },
+        "scoreboardUrl": { "type": "string", "description": "Dedicated controller URL" },
+        "vmixOverlayUrl": { "type": "string", "description": "Dedicated transparent vMix Browser Input URL" },
+        "status": { "type": "string", "enum": ["active", "disabled"] },
+        "passwordVersion": { "type": "integer", "description": "Credential generation counter incremented on Super Admin password reset" },
+        "createdByUid": { "type": "string", "description": "UID of the Super Admin who created the account" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "uid",
+        "fullName",
+        "loginId",
+        "authEmail",
+        "role",
+        "matchRoomId",
+        "scoreboardUrl",
+        "vmixOverlayUrl",
+        "status",
+        "passwordVersion",
+        "createdByUid",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LoginLookup": {
+      "title": "Login ID Resolver",
+      "description": "Minimal non-PII Login ID to synthetic Firebase Auth alias lookup table so operators can sign in with Login ID after Super Admin password resets.",
+      "type": "object",
+      "properties": {
+        "loginId": { "type": "string" },
+        "authEmail": { "type": "string" },
+        "uid": { "type": "string" },
+        "matchRoomId": { "type": "string" },
+        "passwordVersion": { "type": "integer" },
+        "status": { "type": "string", "enum": ["active", "disabled"] },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["loginId", "authEmail", "uid", "matchRoomId", "passwordVersion", "status", "updatedAt"]
+    },
+    "UserScoreboard": {
+      "title": "Isolated User Scoreboard State",
+      "description": "Dedicated Kabaddi scoreboard state isolated per operator account and synced to their unique vMix Overlay URL.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "ownerUid": { "type": "string" },
+        "ownerLoginId": { "type": "string" },
+        "teamAName": { "type": "string" },
+        "teamBName": { "type": "string" },
+        "teamAScore": { "type": "integer" },
+        "teamBScore": { "type": "integer" },
+        "stateJson": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "roomId",
+        "ownerUid",
+        "ownerLoginId",
+        "teamAName",
+        "teamBName",
+        "teamAScore",
+        "teamBScore",
+        "stateJson",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Super Admin role registry"
+    },
+    "/userAccounts/{userUid}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Operator user profiles and dedicated scoreboard/vMix URLs (no passwords stored)"
+    },
+    "/loginLookup/{loginId}": {
+      "schema": { "$ref": "#/entities/LoginLookup" },
+      "description": "Unique Login ID reservations and synthetic auth email mapping (no PII)"
+    },
+    "/scoreboards/{roomId}": {
+      "schema": { "$ref": "#/entities/UserScoreboard" },
+      "description": "Per-user isolated Kabaddi scoreboard state"
+    }
+  }
+}

@@ -118,7 +118,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
             <div className="site-hero-enter site-hero-delay-4 flex flex-wrap items-center gap-4 pt-2">
               <a
                 href="#book"
-                className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="btn-primary-pro inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <span>{UI_COPY.hero.primaryCta[lang]}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -130,7 +130,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
                   e.preventDefault();
                   onOpenOverlays();
                 }}
-                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#FACC15]/50 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
+                className="btn-glass-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-bold text-zinc-100 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
               >
                 <Play className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                 <span>{UI_COPY.hero.secondaryCta[lang]}</span>

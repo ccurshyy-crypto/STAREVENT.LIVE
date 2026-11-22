@@ -1,0 +1,200 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model (Star Event Live — Super Admin & Operator Accounts)
+    // ===============================================================
+    // Collection: /admins/{adminUid}
+    //   Fields: uid, email, displayName, role ('super_admin'), createdAt
+    // Collection: /userAccounts/{userUid}
+    //   Fields: uid, fullName, loginId, authEmail, recoveryEmail (opt),
+    //           role ('user'), matchRoomId, scoreboardUrl, vmixOverlayUrl,
+    //           status ('active'|'disabled'), passwordVersion (int >= 1),
+    //           createdByUid, createdAt, updatedAt
+    //   Security: NO plaintext password field allowed (strict hasOnly allowlist).
+    // Collection: /loginLookup/{loginId}
+    //   Fields: loginId, authEmail, uid, matchRoomId, passwordVersion, status, updatedAt
+    //   Security: Zero PII. Exact-key get resolves synthetic Firebase Auth email.
+    // Collection: /scoreboards/{roomId}
+    //   Fields: roomId, ownerUid, ownerLoginId, teamAName, teamBName,
+    //           teamAScore (0..999), teamBScore (0..999), stateJson, createdAt, updatedAt
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        (
+          request.auth.token.email == 'ccurshyy@gmail.com' &&
+          request.auth.token.email_verified == true
+        ) ||
+        (
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super_admin'
+        )
+      );
+    }
+
+    function isValidLoginId(id) {
+      return id is string && id.size() >= 2 && id.size() <= 40 && id.matches('^[A-Z0-9]+$');
+    }
+
+    function isValidRoomId(id) {
+      return id is string && id.size() >= 3 && id.size() <= 64 && id.matches('^[a-z0-9-]+$');
+    }
+
+    function isValidIsoTimestamp(ts) {
+      return ts is string && ts.size() >= 10 && ts.size() <= 40;
+    }
+
+    function isValidAdminRecord(data, adminUid) {
+      return data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'createdAt']) &&
+        data.uid is string && data.uid == adminUid &&
+        data.email is string && data.email.size() >= 5 && data.email.size() <= 120 &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 80 &&
+        data.role == 'super_admin' &&
+        isValidIsoTimestamp(data.createdAt);
+    }
+
+    function isValidUserAccount(data, userUid) {
+      return data.keys().hasOnly([
+          'uid',
+          'fullName',
+          'loginId',
+          'authEmail',
+          'recoveryEmail',
+          'role',
+          'matchRoomId',
+          'scoreboardUrl',
+          'vmixOverlayUrl',
+          'status',
+          'passwordVersion',
+          'createdByUid',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.uid is string && data.uid == userUid && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+        data.fullName is string && data.fullName.size() >= 1 && data.fullName.size() <= 80 &&
+        isValidLoginId(data.loginId) &&
+        data.authEmail is string && data.authEmail.size() >= 5 && data.authEmail.size() <= 120 &&
+        (!('recoveryEmail' in data) || (data.recoveryEmail is string && data.recoveryEmail.size() <= 120)) &&
+        data.role == 'user' &&
+        isValidRoomId(data.matchRoomId) &&
+        data.scoreboardUrl is string && data.scoreboardUrl.size() >= 1 && data.scoreboardUrl.size() <= 300 &&
+        data.vmixOverlayUrl is string && data.vmixOverlayUrl.size() >= 1 && data.vmixOverlayUrl.size() <= 300 &&
+        data.status in ['active', 'disabled'] &&
+        data.passwordVersion is int && data.passwordVersion >= 1 && data.passwordVersion <= 1000 &&
+        data.createdByUid is string && data.createdByUid.size() >= 1 && data.createdByUid.size() <= 128 &&
+        isValidIsoTimestamp(data.createdAt) &&
+        isValidIsoTimestamp(data.updatedAt);
+    }
+
+    function isValidLoginLookup(data, loginId) {
+      return data.keys().hasOnly([
+          'loginId',
+          'authEmail',
+          'uid',
+          'matchRoomId',
+          'passwordVersion',
+          'status',
+          'updatedAt'
+        ]) &&
+        isValidLoginId(data.loginId) && data.loginId == loginId &&
+        data.authEmail is string && data.authEmail.size() >= 5 && data.authEmail.size() <= 120 &&
+        data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+        isValidRoomId(data.matchRoomId) &&
+        data.passwordVersion is int && data.passwordVersion >= 1 && data.passwordVersion <= 1000 &&
+        data.status in ['active', 'disabled'] &&
+        isValidIsoTimestamp(data.updatedAt);
+    }
+
+    function isValidScoreboard(data, roomId) {
+      return data.keys().hasOnly([
+          'roomId',
+          'ownerUid',
+          'ownerLoginId',
+          'teamAName',
+          'teamBName',
+          'teamAScore',
+          'teamBScore',
+          'stateJson',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        isValidRoomId(data.roomId) && data.roomId == roomId &&
+        data.ownerUid is string && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        isValidLoginId(data.ownerLoginId) &&
+        data.teamAName is string && data.teamAName.size() <= 60 &&
+        data.teamBName is string && data.teamBName.size() <= 60 &&
+        data.teamAScore is int && data.teamAScore >= 0 && data.teamAScore <= 999 &&
+        data.teamBScore is int && data.teamBScore >= 0 && data.teamBScore <= 999 &&
+        data.stateJson is string && data.stateJson.size() >= 2 && data.stateJson.size() <= 16000 &&
+        isValidIsoTimestamp(data.createdAt) &&
+        isValidIsoTimestamp(data.updatedAt);
+    }
+
+    // 1. Super Admin Registry
+    match /admins/{adminUid} {
+      allow get: if isSuperAdmin() || isOwner(adminUid);
+      allow list: if isSuperAdmin();
+      allow create, update: if isSuperAdmin() && isValidAdminRecord(request.resource.data, adminUid);
+      allow delete: if isSuperAdmin();
+    }
+
+    // 2. Operator User Accounts (Strictly isolated; zero plaintext passwords)
+    match /userAccounts/{userUid} {
+      allow get: if isSuperAdmin() || isOwner(userUid);
+      allow list: if isSuperAdmin();
+      allow create: if isSuperAdmin() && isValidUserAccount(request.resource.data, userUid);
+      allow update: if isSuperAdmin() &&
+        isValidUserAccount(request.resource.data, userUid) &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.loginId == resource.data.loginId &&
+        request.resource.data.createdByUid == resource.data.createdByUid &&
+        request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 3. Non-PII Login ID Lookup (exact-key get only for sign-in; list/write strictly Super Admin)
+    match /loginLookup/{loginId} {
+      allow get: if isValidLoginId(loginId);
+      allow list: if isSuperAdmin();
+      allow create, update: if isSuperAdmin() && isValidLoginLookup(request.resource.data, loginId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // 4. Isolated Per-User Kabaddi Scoreboards
+    match /scoreboards/{roomId} {
+      allow get: if isSuperAdmin() || (isAuthenticated() && resource.data.ownerUid == request.auth.uid);
+      allow list: if isSuperAdmin();
+      allow create: if isValidScoreboard(request.resource.data, roomId) && (
+        isSuperAdmin() ||
+        (isAuthenticated() && request.resource.data.ownerUid == request.auth.uid)
+      );
+      allow update: if isValidScoreboard(request.resource.data, roomId) &&
+        request.resource.data.roomId == resource.data.roomId &&
+        request.resource.data.createdAt == resource.data.createdAt && (
+          isSuperAdmin() ||
+          (
+            isAuthenticated() &&
+            resource.data.ownerUid == request.auth.uid &&
+            request.resource.data.ownerUid == resource.data.ownerUid &&
+            request.resource.data.ownerLoginId == resource.data.ownerLoginId
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    // Default Deny Everything Else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { type MouseEvent, useState } from 'react';
-import { Menu, Phone, X } from 'lucide-react';
+import { Menu, Phone, ShieldCheck, UserCircle2, X } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -10,6 +11,7 @@ interface NavbarProps {
   onNavigateHome: (sectionId?: string) => void;
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
+  onOpenAccountPortal: (tab?: 'operator' | 'admin') => void;
 }
 
 export function Navbar({
@@ -19,8 +21,10 @@ export function Navbar({
   onNavigateHome,
   onNavigateOverlays,
   onNavigatePackages,
+  onOpenAccountPortal,
 }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isSuperAdmin, userAccount } = useAuth();
 
   const navItems: Array<{
     id: string;
@@ -68,7 +72,7 @@ export function Navbar({
         className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#FACC15]/45 to-transparent"
       />
 
-      <div className="relative z-10 max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-8">
+      <div className="relative z-10 max-w-7xl mx-auto h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4 lg:gap-8">
         {/* Zone 1: Single-element brand wordmark */}
         <a
           href="/"
@@ -83,10 +87,10 @@ export function Navbar({
           <span className="text-[#EF4444]">LIVE</span>
         </a>
 
-        {/* Zone 2: 4 concise single-line text links */}
+        {/* Zone 2: Concise single-line text links */}
         <nav
           aria-label="Primary navigation"
-          className="hidden md:flex items-center gap-7 text-sm font-medium text-zinc-300"
+          className="hidden md:flex items-center gap-6 lg:gap-7 text-sm font-medium text-zinc-300"
         >
           {navItems.map((item) => {
             const isActive = Boolean(item.page && currentPage === item.page);
@@ -108,17 +112,46 @@ export function Navbar({
           })}
         </nav>
 
-        {/* Zone 3: Language Switcher Button + Call CTA */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        {/* Zone 3: Language Switcher + Account/Admin Button + Call CTA */}
+        <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
+
+          <button
+            type="button"
+            onClick={() => onOpenAccountPortal(isSuperAdmin ? 'admin' : 'operator')}
+            className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+              isSuperAdmin
+                ? 'btn-gold-pro'
+                : userAccount
+                  ? 'bg-[#172554] hover:bg-[#1E3A8A] text-[#93C5FD] border border-[#38BDF8]/45'
+                  : 'btn-glass-pro text-zinc-100'
+            }`}
+          >
+            {isSuperAdmin ? (
+              <>
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Admin</span>
+              </>
+            ) : userAccount ? (
+              <>
+                <UserCircle2 className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span className="max-w-[92px] truncate font-mono text-xs">{userAccount.loginId}</span>
+              </>
+            ) : (
+              <>
+                <UserCircle2 className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
+                <span>Login</span>
+              </>
+            )}
+          </button>
 
           <a
             href={STUDIO_CONTACT.phoneHref}
-            className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B] tabular-nums"
+            className="btn-primary-pro inline-flex items-center gap-2 px-3 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B] tabular-nums"
           >
             <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span className="hidden sm:inline">{UI_COPY.nav.callCta[lang]}</span>
-            <span className="sm:hidden">Call</span>
+            <span className="hidden lg:inline">{UI_COPY.nav.callCta[lang]}</span>
+            <span className="lg:hidden">Call</span>
           </a>
 
           <button
@@ -137,7 +170,7 @@ export function Navbar({
       {mobileOpen && (
         <nav
           aria-label="Mobile navigation"
-          className="md:hidden bg-[#111115] border-b border-white/10 px-4 py-4 space-y-1"
+          className="md:hidden bg-[#111115]/95 backdrop-blur-md border-b border-white/10 px-4 py-4 space-y-1"
         >
           {navItems.map((item) => {
             const isActive = Boolean(item.page && currentPage === item.page);

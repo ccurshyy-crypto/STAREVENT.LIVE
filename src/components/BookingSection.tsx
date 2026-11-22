@@ -166,7 +166,7 @@ export function BookingSection({
   };
 
   return (
-    <section id="book" className="py-20 sm:py-24 bg-[#0C0C0F]/72 backdrop-blur-[2px]">
+    <section id="book" className="py-20 sm:py-24 bg-[#090B12]/36 backdrop-blur-[2px]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
           {/* Left column: Direct Studio Hotline & Promise */}
@@ -204,7 +204,7 @@ export function BookingSection({
               <div className="flex flex-wrap items-center gap-3">
                 <a
                   href={STUDIO_CONTACT.phoneHref}
-                  className="cta-btn-animate inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap"
+                  className="btn-primary-pro inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap"
                 >
                   <Phone className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{lang === 'mr' ? 'आत्ताच कॉल करा' : 'Call Now'}</span>
@@ -545,7 +545,7 @@ export function BookingSection({
 
                 <button
                   type="submit"
-                  className="cta-btn-animate w-full py-3.5 px-6 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121216]"
+                  className="btn-primary-pro w-full py-3.5 px-6 text-sm font-bold rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121216]"
                 >
                   {lang === 'mr'
                     ? 'बुकिंग विनंती तयार करा'

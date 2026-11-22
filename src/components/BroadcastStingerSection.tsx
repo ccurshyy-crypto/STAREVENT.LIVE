@@ -91,7 +91,7 @@ export function BroadcastStingerSection({
   return (
     <section
       id="youtube-channel"
-      className="py-20 sm:py-24 border-b border-white/10 bg-[#0A0A0E]/70 backdrop-blur-[2px]"
+      className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
@@ -248,7 +248,7 @@ export function BroadcastStingerSection({
                 href={STUDIO_CONTACT.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="btn-primary-pro inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <Youtube className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>
@@ -262,7 +262,7 @@ export function BroadcastStingerSection({
               <button
                 type="button"
                 onClick={onOpenOverlays}
-                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-glass-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-bold text-zinc-100 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>{lang === 'mr' ? 'लाईव्ह ओव्हरले पहा' : 'Explore Live Overlays'}</span>
               </button>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowRight, Layers, LockOpen } from 'lucide-react';
+import { AccountPortalModal } from './components/AccountPortalModal';
 import { BookingSection } from './components/BookingSection';
 import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
@@ -179,6 +180,9 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState<EventCategoryId>('kabaddi');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('multi-cam-pro');
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [accountModalTab, setAccountModalTab] = useState<'operator' | 'admin'>('operator');
+  const [forcedMatchRoomId, setForcedMatchRoomId] = useState<string | null>(null);
 
   const unlockedSkus = useMemo(
     () => verifiedTokens.map((t) => t.sku),
@@ -413,8 +417,26 @@ export default function App() {
     navigateHome('book');
   };
 
+  const handleOpenAccountPortal = (tab: 'operator' | 'admin' = 'operator') => {
+    setAccountModalTab(tab);
+    setAccountModalOpen(true);
+  };
+
+  const handleOpenUserScoreboard = (matchRoomId: string) => {
+    setForcedMatchRoomId(matchRoomId);
+    setPreviewMode('kabaddi');
+    setActiveStyle('classic');
+    const targetPath = `/overlays?match=${encodeURIComponent(matchRoomId)}`;
+    window.history.pushState({}, '', targetPath);
+    setCurrentPage('overlays');
+    window.setTimeout(() => {
+      const el = document.getElementById('studio');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }, 90);
+  };
+
   return (
-    <div className="relative min-h-screen bg-[#09090B] text-[#F4F4F5] flex flex-col">
+    <div className="relative min-h-screen bg-[#07080F] text-[#F4F4F5] flex flex-col">
       <HomeAnimatedBackground />
 
       <Navbar
@@ -424,6 +446,7 @@ export default function App() {
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
+        onOpenAccountPortal={handleOpenAccountPortal}
       />
 
       <main className="relative z-10 flex-1">
@@ -442,6 +465,8 @@ export default function App() {
             onVerifiedUnlock={handleVerifiedUnlock}
             onBackHome={() => navigateHome('top')}
             onBookFromOverlay={handleBookEvent}
+            forcedMatchRoomId={forcedMatchRoomId}
+            onOpenAccountPortal={handleOpenAccountPortal}
           />
         ) : currentPage === 'packages' ? (
           <PackagesPage
@@ -480,7 +505,7 @@ export default function App() {
             {/* Paid Transparent Overlays Store Callout Section — clicking opens /overlays page */}
             <section
               id="studio"
-              className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]/68 backdrop-blur-[2px]"
+              className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
             >
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <ScrollReveal>
@@ -506,7 +531,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => navigateToOverlays()}
-                    className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                    className="btn-primary-pro inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                   >
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
@@ -634,6 +659,14 @@ export default function App() {
         onNavigateHome={navigateHome}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
+      />
+
+      <AccountPortalModal
+        open={accountModalOpen}
+        initialTab={accountModalTab}
+        lang={lang}
+        onClose={() => setAccountModalOpen(false)}
+        onOpenUserScoreboard={handleOpenUserScoreboard}
       />
     </div>
   );
