@@ -808,7 +808,7 @@ export function OverlayCheckoutModal({
              ACTIVE CASHFREE QR + INSTRUCTIONS + TRANSACTION ID FLOW
           ============================================================ */
           <div className="space-y-4">
-            {/* Payment Status Bar + Countdown */}
+            {/* Payment Status Bar */}
             <div className="flex flex-wrap items-center justify-between gap-2.5">
               <div
                 className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-bold tracking-wider ${currentStatus.bgClass} ${currentStatus.textClass}`}
@@ -817,31 +817,16 @@ export function OverlayCheckoutModal({
                 <span>{currentStatus.label}</span>
               </div>
 
-              {qrCloseBy && (
-                <div
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-mono text-xs font-bold tabular-nums ${
-                    isExpired
-                      ? 'bg-[#230B0D] border-[#EF4444]/40 text-[#FCA5A5]'
-                      : isLowTime
-                        ? 'bg-[#1E130A] border-[#FB923C]/40 text-[#FB923C]'
-                        : 'bg-[#0D0D11] border-white/15 text-white'
-                  }`}
-                >
-                  <Clock className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-                  <span>
-                    {isExpired
-                      ? lang === 'mr'
-                        ? 'QR एक्सपायर: 00:00'
-                        : 'QR Expired: 00:00'
-                      : `${lang === 'mr' ? 'QR वेळ' : 'QR Expires in'}: ${formatCountdown(countdownMs)}`}
-                  </span>
-                </div>
+              {activeOrder?.orderId && (
+                <span className="font-mono text-[11px] text-zinc-400">
+                  Order: <strong className="text-zinc-200">{activeOrder.orderId}</strong>
+                </span>
               )}
             </div>
 
             {/* Main 2-Column Responsive Layout: Left Large QR, Right Instructions + Checkout */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-              {/* LEFT: Large Dynamic QR Code + Refresh QR + Cashfree Checkout */}
+              {/* LEFT: Large Dynamic QR Code + Real-Time Countdown Below QR + Refresh QR */}
               <div className="md:col-span-5 bg-[#0D0D11] border border-white/12 rounded-xl p-4 flex flex-col items-center gap-3.5">
                 <div className="relative bg-white rounded-xl p-3 w-52 sm:w-56 aspect-square flex items-center justify-center shadow-lg overflow-hidden">
                   {creatingOrder || refreshingQr || (gatewayReady === null && !error) ? (
@@ -885,6 +870,82 @@ export function OverlayCheckoutModal({
                     </div>
                   )}
                 </div>
+
+                {/* Real-Time QR Expiry Countdown Timer Directly Below QR Code */}
+                {qrCloseBy && (
+                  <div
+                    role="timer"
+                    aria-live="polite"
+                    className={`w-full rounded-lg border px-3 py-2.5 space-y-2 transition-colors ${
+                      isExpired
+                        ? 'bg-[#230B0D] border-[#EF4444]/45 text-[#FCA5A5]'
+                        : isLowTime
+                          ? 'bg-[#1E130A] border-[#FB923C]/45 text-[#FDBA74]'
+                          : 'bg-[#14141A] border-[#FACC15]/30 text-zinc-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold">
+                        <Clock
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            isExpired
+                              ? 'text-[#EF4444]'
+                              : isLowTime
+                                ? 'text-[#FB923C]'
+                                : 'text-[#FACC15]'
+                          }`}
+                          aria-hidden="true"
+                        />
+                        <span>
+                          {isExpired
+                            ? lang === 'mr'
+                              ? 'QR कोड एक्सपायर झाला'
+                              : 'QR Code Expired'
+                            : lang === 'mr'
+                              ? 'QR एक्सपायर वेळ'
+                              : 'QR Expires In'}
+                        </span>
+                      </span>
+                      <span
+                        className={`font-mono text-sm font-extrabold tabular-nums ${
+                          isExpired
+                            ? 'text-[#FCA5A5]'
+                            : isLowTime
+                              ? 'text-[#FB923C]'
+                              : 'text-[#FACC15]'
+                        }`}
+                      >
+                        {isExpired ? '00:00' : formatCountdown(countdownMs)}
+                      </span>
+                    </div>
+
+                    {/* Visual Expiry Progress Bar */}
+                    <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${
+                          isExpired
+                            ? 'bg-[#EF4444]'
+                            : isLowTime
+                              ? 'bg-[#FB923C]'
+                              : 'bg-[#FACC15]'
+                        }`}
+                        style={{
+                          width: `${Math.min(100, Math.max(0, (countdownMs / (30 * 60 * 1000)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+
+                    <p className="text-[10px] leading-snug text-zinc-400">
+                      {isExpired
+                        ? lang === 'mr'
+                          ? 'हा QR आता कालबाह्य झाला आहे. नवीन QR साठी खालील REFRESH QR क्लिक करा.'
+                          : 'This QR can no longer be used. Click REFRESH QR below to generate a new code.'
+                        : lang === 'mr'
+                          ? 'वेळ संपल्यानंतर नवीन QR साठी REFRESH QR क्लिक करा.'
+                          : 'Refresh QR below once the timer expires to generate a fresh code.'}
+                    </p>
+                  </div>
+                )}
 
                 <div className="text-center space-y-0.5">
                   <p className="font-mono text-sm font-extrabold text-[#FACC15] tabular-nums">
