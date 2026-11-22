@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   CheckCircle2,
@@ -18,6 +18,7 @@ import {
   PendingOverlayOrder,
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
+import { PaymentInstructions } from './PaymentInstructions';
 
 interface OverlayCheckoutModalProps {
   lang: Language;
@@ -29,6 +30,34 @@ interface OverlayCheckoutModalProps {
   onVerifiedUnlock: (tokens: VerifiedOverlayToken | VerifiedOverlayToken[]) => void;
 }
 
+type PaymentUiStatus =
+  | 'initializing'
+  | 'awaiting'
+  | 'verifying'
+  | 'pending'
+  | 'failed'
+  | 'expired'
+  | 'success';
+
+function formatCountdown(msRemaining: number): string {
+  const totalSec = Math.max(0, Math.floor(msRemaining / 1000));
+  const mins = Math.floor(totalSec / 60);
+  const secs = totalSec % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function formatDateTime(timestamp?: number): string {
+  if (!timestamp) return '—';
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      dateStyle: 'medium',
+      timeStyle: 'medium',
+    }).format(new Date(timestamp));
+  } catch {
+    return new Date(timestamp).toLocaleString();
+  }
+}
+
 export function OverlayCheckoutModal({
   lang,
   product,
@@ -37,53 +66,185 @@ export function OverlayCheckoutModal({
   onPendingOrderChange,
   onVerifiedUnlock,
 }: OverlayCheckoutModalProps) {
-  // Single clean 1-Day (24 Hours) auto-expiring pass — no Unlock Keys
   const plan = getOverlayPlan('1day');
 
   const [gatewayReady, setGatewayReady] = useState<boolean | null>(null);
   const [cashfreeEnv, setCashfreeEnv] = useState<'sandbox' | 'production'>('sandbox');
   const [creatingOrder, setCreatingOrder] = useState<boolean>(false);
+  const [refreshingQr, setRefreshingQr] = useState<boolean>(false);
   const [openingCheckout, setOpeningCheckout] = useState<boolean>(false);
-  const [checkingStatus, setCheckingStatus] = useState<boolean>(false);
+  const [verifyingTx, setVerifyingTx] = useState<boolean>(false);
+
   const [gatewayQrUrl, setGatewayQrUrl] = useState<string | null>(null);
+  const [upiIntentUrl, setUpiIntentUrl] = useState<string | undefined>(undefined);
   const [paymentSessionId, setPaymentSessionId] = useState<string | null>(null);
+  const [qrCloseBy, setQrCloseBy] = useState<number | null>(null);
+  const [countdownMs, setCountdownMs] = useState<number>(0);
+
   const [activeOrder, setActiveOrder] = useState<PendingOverlayOrder | null>(null);
+  // Dedicated success order state so clearing pendingOrders in parent NEVER wipes the Payment Successful receipt
+  const [confirmedSuccessOrder, setConfirmedSuccessOrder] = useState<PendingOverlayOrder | null>(null);
+  const [verifiedTxDisplay, setVerifiedTxDisplay] = useState<string>('');
+
+  const [transactionIdInput, setTransactionIdInput] = useState<string>('');
+  const [paymentStatus, setPaymentStatus] = useState<PaymentUiStatus>('initializing');
+  const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
 
-  // Sync modal state whenever product opens/closes
+  const activeSkuRef = useRef<string | null>(null);
+  const initialPendingRef = useRef<PendingOverlayOrder | null>(null);
+  initialPendingRef.current = existingPendingOrder ?? null;
+
+  const commitVerifiedOrder = useCallback(
+    (orderData: PendingOverlayOrder, explicitVerifiedTx?: string) => {
+      if (!product || orderData.status !== 'approved' || !orderData.unlockCode) return;
+
+      const activatedAt = orderData.verifiedAt || Date.now();
+      const expiresAt = orderData.expiresAt || activatedAt + 24 * 60 * 60 * 1000;
+      const verifiedOrder: PendingOverlayOrder = {
+        ...orderData,
+        verifiedAt: activatedAt,
+        expiresAt,
+      };
+      const finalTxId =
+        explicitVerifiedTx ||
+        orderData.verifiedTransactionId ||
+        orderData.cfPaymentId ||
+        orderData.utrRef ||
+        orderData.cfOrderId ||
+        orderData.orderId;
+
+      setConfirmedSuccessOrder(verifiedOrder);
+      setVerifiedTxDisplay(finalTxId);
+      setActiveOrder(verifiedOrder);
+      setPaymentStatus('success');
+      setError(null);
+      setStatusNotice(null);
+
+      onPendingOrderChange(null);
+      onVerifiedUnlock({
+        sku: product.sku,
+        orderId: verifiedOrder.orderId,
+        unlockCode: verifiedOrder.unlockCode!,
+        planId: '1day',
+        expiresAt,
+      });
+    },
+    [product, onPendingOrderChange, onVerifiedUnlock]
+  );
+
+  const createFreshCashfreeOrder = useCallback(
+    async (sku: string, previousOrderId?: string) => {
+      const isRefresh = Boolean(previousOrderId);
+      if (isRefresh) {
+        setRefreshingQr(true);
+      } else {
+        setCreatingOrder(true);
+      }
+      setError(null);
+      setStatusNotice(null);
+      setPaymentStatus('initializing');
+
+      try {
+        const res = await fetch('/api/payment/cashfree/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sku,
+            planId: '1day',
+            ...(previousOrderId ? { previousOrderId } : {}),
+          }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data?.mode === 'cashfree_auto' && data?.order) {
+          const orderObj = data.order as PendingOverlayOrder;
+          const nextCloseBy = Number(data.closeBy || orderObj.qrCloseBy || Date.now() + 30 * 60 * 1000);
+          const enrichedOrder: PendingOverlayOrder = {
+            ...orderObj,
+            gatewayQrImageUrl: data.qrImageUrl || orderObj.gatewayQrImageUrl,
+            upiIntentUrl: data.upiIntentUrl || orderObj.upiIntentUrl,
+            paymentSessionId: data.paymentSessionId || orderObj.paymentSessionId,
+            qrCloseBy: nextCloseBy,
+          };
+
+          setGatewayQrUrl(enrichedOrder.gatewayQrImageUrl || null);
+          setUpiIntentUrl(enrichedOrder.upiIntentUrl);
+          setPaymentSessionId(enrichedOrder.paymentSessionId || null);
+          setQrCloseBy(nextCloseBy);
+          setCountdownMs(Math.max(0, nextCloseBy - Date.now()));
+          setActiveOrder(enrichedOrder);
+          setTransactionIdInput('');
+          setPaymentStatus('awaiting');
+          onPendingOrderChange(enrichedOrder);
+          return;
+        }
+
+        if (res.ok && data?.mode === 'direct_upi' && data?.autoUnlockEnabled === false) {
+          setGatewayReady(false);
+          setGatewayQrUrl(null);
+          setPaymentSessionId(null);
+          return;
+        }
+
+        setPaymentStatus('failed');
+        setError(
+          data?.error ||
+            (lang === 'mr'
+              ? 'Cashfree QR तयार करता आला नाही. कृपया पुन्हा प्रयत्न करा.'
+              : 'Could not create Cashfree payment order. Please click Refresh QR to retry.')
+        );
+      } catch {
+        setPaymentStatus('failed');
+        setError(
+          lang === 'mr'
+            ? 'पेमेंट सर्व्हरशी संपर्क होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.'
+            : 'Unable to reach payment server. Please check connection and retry.'
+        );
+      } finally {
+        setCreatingOrder(false);
+        setRefreshingQr(false);
+      }
+    },
+    [lang, onPendingOrderChange]
+  );
+
+  // Reset modal state ONLY when the selected overlay product changes or closes
   useEffect(() => {
-    if (!product) {
+    const nextSku = product?.sku ?? null;
+    if (!nextSku) {
+      activeSkuRef.current = null;
+      setConfirmedSuccessOrder(null);
+      setVerifiedTxDisplay('');
       setActiveOrder(null);
       setGatewayQrUrl(null);
+      setUpiIntentUrl(undefined);
       setPaymentSessionId(null);
+      setQrCloseBy(null);
+      setTransactionIdInput('');
       setError(null);
+      setStatusNotice(null);
+      setPaymentStatus('initializing');
       return;
     }
 
-    if (
-      existingPendingOrder &&
-      existingPendingOrder.sku === product.sku &&
-      existingPendingOrder.paymentMethod === 'cashfree_qr' &&
-      existingPendingOrder.status === 'pending'
-    ) {
-      setActiveOrder(existingPendingOrder);
-      setGatewayQrUrl(existingPendingOrder.gatewayQrImageUrl || null);
-      setPaymentSessionId(existingPendingOrder.paymentSessionId || null);
-    } else {
-      setActiveOrder(null);
-      setGatewayQrUrl(null);
-      setPaymentSessionId(null);
+    if (activeSkuRef.current !== nextSku) {
+      activeSkuRef.current = nextSku;
+      setConfirmedSuccessOrder(null);
+      setVerifiedTxDisplay('');
+      setTransactionIdInput('');
+      setError(null);
+      setStatusNotice(null);
     }
-    setError(null);
-  }, [product, existingPendingOrder]);
+  }, [product?.sku]);
 
-  // Initialize Cashfree PG order + dynamic UPI QR for 1 Day (24h) auto-unlock
+  // Initialize Cashfree config & order when modal opens or user clicks retry
   useEffect(() => {
-    if (!product) return;
+    if (!product || confirmedSuccessOrder) return;
     let cancelled = false;
 
-    const initCashfreeOrder = async () => {
+    const initCheckout = async () => {
       try {
         const cfgRes = await fetch('/api/payment/config', { cache: 'no-store' });
         const cfg = await cfgRes.json();
@@ -99,80 +260,90 @@ export function OverlayCheckoutModal({
           return;
         }
 
-        // Reuse existing pending 1-day Cashfree order for this exact overlay
+        // Reuse existing non-expired pending Cashfree ₹1 order on first open
+        const existing = initialPendingRef.current;
+        const existingCloseBy = existing?.qrCloseBy || (existing ? existing.createdAt + 28 * 60 * 1000 : 0);
         if (
-          activeOrder &&
-          activeOrder.status === 'pending' &&
-          activeOrder.paymentMethod === 'cashfree_qr' &&
-          activeOrder.sku === product.sku &&
-          activeOrder.amount === plan.price &&
-          (activeOrder.gatewayQrImageUrl || activeOrder.paymentSessionId)
+          retryTick === 0 &&
+          existing &&
+          existing.status === 'pending' &&
+          existing.paymentMethod === 'cashfree_qr' &&
+          existing.sku === product.sku &&
+          existing.amount === plan.price &&
+          existingCloseBy > Date.now() + 60_000 &&
+          (existing.gatewayQrImageUrl || existing.paymentSessionId)
         ) {
-          setGatewayQrUrl(activeOrder.gatewayQrImageUrl || null);
-          setPaymentSessionId(activeOrder.paymentSessionId || null);
+          setActiveOrder(existing);
+          setGatewayQrUrl(existing.gatewayQrImageUrl || null);
+          setUpiIntentUrl(existing.upiIntentUrl);
+          setPaymentSessionId(existing.paymentSessionId || null);
+          setQrCloseBy(existingCloseBy);
+          setCountdownMs(Math.max(0, existingCloseBy - Date.now()));
+          setPaymentStatus('awaiting');
           return;
         }
 
-        setCreatingOrder(true);
-        setError(null);
-        const res = await fetch('/api/payment/cashfree/create-order', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            sku: product.sku,
-            planId: '1day',
-          }),
-        });
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (res.ok && data?.mode === 'cashfree_auto' && data?.order) {
-          const orderObj = data.order as PendingOverlayOrder;
-          setGatewayQrUrl(data.qrImageUrl || orderObj.gatewayQrImageUrl || null);
-          setPaymentSessionId(data.paymentSessionId || orderObj.paymentSessionId || null);
-          setActiveOrder(orderObj);
-          onPendingOrderChange(orderObj);
-        } else if (!res.ok) {
-          setError(data?.error || 'Could not initialize Cashfree payment order.');
-        }
+        await createFreshCashfreeOrder(product.sku);
       } catch {
         if (!cancelled) {
+          setPaymentStatus('failed');
           setError(
             lang === 'mr'
               ? 'पेमेंट सर्व्हरशी संपर्क होऊ शकला नाही. कृपया पुन्हा प्रयत्न करा.'
               : 'Unable to reach payment server. Please retry.'
           );
         }
-      } finally {
-        if (!cancelled) setCreatingOrder(false);
       }
     };
 
-    initCashfreeOrder();
+    initCheckout();
     return () => {
       cancelled = true;
     };
-  }, [product, plan.price, retryTick]);
+  }, [product?.sku, plan.price, retryTick, confirmedSuccessOrder, createFreshCashfreeOrder, lang]);
 
-  // Real-time SSE + 3-second server verification polling -> auto-unlocks for 24 hours on confirmed payment
+  // Live QR Expiry Countdown ticker
   useEffect(() => {
-    if (!product || !activeOrder || activeOrder.status !== 'pending') return;
+    if (!qrCloseBy || confirmedSuccessOrder) return;
 
-    const applyUpdate = (orderData: PendingOverlayOrder) => {
-      setActiveOrder(orderData);
+    const tick = () => {
+      const remaining = Math.max(0, qrCloseBy - Date.now());
+      setCountdownMs(remaining);
+      if (remaining <= 0) {
+        setPaymentStatus((prev) => (prev === 'success' ? prev : 'expired'));
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [qrCloseBy, confirmedSuccessOrder]);
+
+  // Real-time SSE + 4-second background Cashfree status check (automatically unlocks when Cashfree confirms PAID)
+  useEffect(() => {
+    if (
+      !product ||
+      !activeOrder ||
+      activeOrder.status !== 'pending' ||
+      confirmedSuccessOrder ||
+      paymentStatus === 'expired'
+    ) {
+      return;
+    }
+
+    const handleServerOrder = (orderData: PendingOverlayOrder, verifiedTx?: string, cfStatus?: string) => {
       if (orderData.status === 'approved' && orderData.unlockCode) {
+        commitVerifiedOrder(orderData, verifiedTx);
+      } else if (
+        orderData.status === 'rejected' ||
+        orderData.status === 'revoked' ||
+        cfStatus === 'EXPIRED' ||
+        cfStatus === 'TERMINATED'
+      ) {
+        setPaymentStatus('expired');
         onPendingOrderChange(null);
-        onVerifiedUnlock({
-          sku: product.sku,
-          orderId: orderData.orderId,
-          unlockCode: orderData.unlockCode,
-          planId: '1day',
-          expiresAt: orderData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
-        });
-      } else if (orderData.status === 'rejected' || orderData.status === 'revoked') {
-        onPendingOrderChange(null);
-      } else {
-        onPendingOrderChange(orderData);
+      } else if (cfStatus === 'FAILED') {
+        setPaymentStatus('failed');
       }
     };
 
@@ -183,7 +354,7 @@ export function OverlayCheckoutModal({
       try {
         const parsed = JSON.parse(event.data);
         if (parsed?.order) {
-          applyUpdate(parsed.order as PendingOverlayOrder);
+          handleServerOrder(parsed.order as PendingOverlayOrder);
         }
       } catch {
         // Ignore malformed SSE packets
@@ -198,60 +369,133 @@ export function OverlayCheckoutModal({
         );
         const data = await res.json();
         if (res.ok && data?.order) {
-          applyUpdate(data.order as PendingOverlayOrder);
+          handleServerOrder(
+            data.order as PendingOverlayOrder,
+            data.verifiedTransactionId,
+            data.cashfreeStatus
+          );
         }
       } catch {
-        // Retry next tick
+        // Silent retry on next poll interval
       }
-    }, 3000);
+    }, 4000);
 
     return () => {
       es.close();
       window.clearInterval(pollId);
     };
-  }, [product, activeOrder?.orderId, activeOrder?.status, onPendingOrderChange, onVerifiedUnlock]);
+  }, [
+    product,
+    activeOrder?.orderId,
+    activeOrder?.status,
+    confirmedSuccessOrder,
+    paymentStatus,
+    commitVerifiedOrder,
+    onPendingOrderChange,
+  ]);
 
   if (!product) return null;
 
-  const handleVerifyPaymentNow = async () => {
+  const handleRefreshQr = async () => {
+    if (creatingOrder || refreshingQr) return;
+    await createFreshCashfreeOrder(product.sku, activeOrder?.orderId);
+  };
+
+  // Authoritative Transaction ID submission -> verified against Cashfree PG API on server
+  const handleSubmitTransactionId = async (e: FormEvent) => {
+    e.preventDefault();
     if (!activeOrder) return;
-    setCheckingStatus(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/payment/cashfree/verify?orderId=${encodeURIComponent(activeOrder.orderId)}`,
-        { cache: 'no-store' }
-      );
-      const data = await res.json();
-      if (res.ok && data?.order) {
-        const orderData = data.order as PendingOverlayOrder;
-        setActiveOrder(orderData);
-        if (orderData.status === 'approved' && orderData.unlockCode) {
-          onPendingOrderChange(null);
-          onVerifiedUnlock({
-            sku: product.sku,
-            orderId: orderData.orderId,
-            unlockCode: orderData.unlockCode,
-            planId: '1day',
-            expiresAt: orderData.expiresAt || Date.now() + 24 * 60 * 60 * 1000,
-          });
-        }
-      }
-    } catch {
+
+    const cleanedTx = transactionIdInput.trim().replace(/\s+/g, '');
+    if (!cleanedTx) {
       setError(
         lang === 'mr'
-          ? 'पेमेंट स्टेटस तपासता आला नाही. पुन्हा प्रयत्न करा.'
-          : 'Could not verify payment status right now. Please retry.'
+          ? 'कृपया तुमच्या UPI अ‍ॅपमधील Transaction ID (UTR) टाका.'
+          : 'Please enter your Transaction ID (UTR) from your UPI app.'
+      );
+      return;
+    }
+
+    if (!/^[A-Za-z0-9_-]{6,64}$/.test(cleanedTx)) {
+      setError(
+        lang === 'mr'
+          ? 'अवैध Transaction ID फॉरमॅट. कृपया 6 ते 64 अक्षरी योग्य UTR / Transaction ID टाका.'
+          : 'Invalid Transaction ID format. Enter the 6–64 character UTR or Cashfree Transaction ID.'
+      );
+      return;
+    }
+
+    setVerifyingTx(true);
+    setPaymentStatus('verifying');
+    setError(null);
+    setStatusNotice(null);
+
+    try {
+      const res = await fetch('/api/payment/cashfree/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: activeOrder.orderId,
+          transactionId: cleanedTx,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data?.paid && data?.order?.status === 'approved' && data?.order?.unlockCode) {
+        commitVerifiedOrder(data.order as PendingOverlayOrder, data.verifiedTransactionId);
+        return;
+      }
+
+      if (!res.ok) {
+        setPaymentStatus(data?.cashfreeStatus === 'EXPIRED' ? 'expired' : 'failed');
+        setError(
+          data?.error ||
+            (lang === 'mr'
+              ? 'Transaction ID व्हेरिफाय करता आला नाही. कृपया तपासून पुन्हा प्रयत्न करा.'
+              : 'Transaction ID verification failed. Please double-check and try again.')
+        );
+        return;
+      }
+
+      const cfStatus = String(data?.cashfreeStatus || '').toUpperCase();
+      if (cfStatus === 'EXPIRED' || cfStatus === 'TERMINATED') {
+        setPaymentStatus('expired');
+        setError(
+          data?.message ||
+            'This QR order has expired. Please click REFRESH QR to generate a fresh code.'
+        );
+      } else if (cfStatus === 'FAILED') {
+        setPaymentStatus('failed');
+        setError(
+          data?.message || 'Payment failed on Cashfree. Please retry or click REFRESH QR.'
+        );
+      } else {
+        setPaymentStatus('pending');
+        setStatusNotice(
+          data?.message ||
+            (lang === 'mr'
+              ? 'Cashfree कडून अद्याप ₹1 पेमेंट कन्फर्म झालेले नाही. पेमेंट पूर्ण करून पुन्हा व्हेरिफाय करा.'
+              : 'Cashfree has not confirmed a successful ₹1 payment for this order yet. Complete the UPI payment first, then submit again.')
+        );
+      }
+    } catch {
+      setPaymentStatus('failed');
+      setError(
+        lang === 'mr'
+          ? 'पेमेंट व्हेरिफिकेशन करताना त्रुटी आली. कृपया पुन्हा प्रयत्न करा.'
+          : 'Could not reach payment verification server. Please retry.'
       );
     } finally {
-      setCheckingStatus(false);
+      setVerifyingTx(false);
     }
   };
 
   const handleLaunchCashfreeCheckout = async () => {
-    if (!paymentSessionId || !activeOrder) return;
+    if (!paymentSessionId || !activeOrder || paymentStatus === 'expired') return;
     setOpeningCheckout(true);
     setError(null);
+    setStatusNotice(null);
+
     try {
       const w = window as unknown as {
         Cashfree?: (opts: { mode: 'sandbox' | 'production' }) => {
@@ -301,8 +545,38 @@ export function OverlayCheckoutModal({
         setError(result.error.message);
       }
 
-      await handleVerifyPaymentNow();
+      // Authoritatively verify payment on backend right after Cashfree modal closes
+      setVerifyingTx(true);
+      setPaymentStatus('verifying');
+      const verifyRes = await fetch(
+        `/api/payment/cashfree/verify?orderId=${encodeURIComponent(activeOrder.orderId)}`,
+        { cache: 'no-store' }
+      );
+      const verifyData = await verifyRes.json();
+      if (
+        verifyRes.ok &&
+        verifyData?.paid &&
+        verifyData?.order?.status === 'approved' &&
+        verifyData?.order?.unlockCode
+      ) {
+        commitVerifiedOrder(
+          verifyData.order as PendingOverlayOrder,
+          verifyData.verifiedTransactionId
+        );
+      } else {
+        const cfStatus = String(verifyData?.cashfreeStatus || '').toUpperCase();
+        if (cfStatus === 'FAILED') {
+          setPaymentStatus('failed');
+          setError(verifyData?.message || 'Payment failed or was cancelled.');
+        } else if (cfStatus === 'EXPIRED' || cfStatus === 'TERMINATED') {
+          setPaymentStatus('expired');
+        } else {
+          setPaymentStatus('awaiting');
+          if (verifyData?.message) setStatusNotice(verifyData.message);
+        }
+      }
     } catch (err) {
+      setPaymentStatus('failed');
       setError(
         err instanceof Error
           ? err.message
@@ -310,101 +584,203 @@ export function OverlayCheckoutModal({
       );
     } finally {
       setOpeningCheckout(false);
+      setVerifyingTx(false);
     }
   };
 
-  const isListening =
-    Boolean(gatewayReady) &&
-    activeOrder?.status === 'pending' &&
-    Boolean(gatewayQrUrl || paymentSessionId);
+  const isExpired = paymentStatus === 'expired' || (qrCloseBy !== null && countdownMs <= 0);
+  const isLowTime = qrCloseBy !== null && countdownMs > 0 && countdownMs < 120_000;
+
+  const statusMeta: Record<
+    PaymentUiStatus,
+    { label: string; dotClass: string; textClass: string; bgClass: string }
+  > = {
+    initializing: {
+      label: lang === 'mr' ? 'QR तयार होत आहे...' : 'GENERATING QR...',
+      dotClass: 'bg-[#FACC15] animate-pulse',
+      textClass: 'text-[#FACC15]',
+      bgClass: 'bg-[#18150C] border-[#FACC15]/35',
+    },
+    awaiting: {
+      label: lang === 'mr' ? 'पेमेंटची प्रतीक्षा (Awaiting Payment)' : 'AWAITING PAYMENT',
+      dotClass: 'bg-[#FACC15] animate-ping',
+      textClass: 'text-[#FACC15]',
+      bgClass: 'bg-[#18150C] border-[#FACC15]/35',
+    },
+    verifying: {
+      label: lang === 'mr' ? 'पेमेंट व्हेरिफाय होत आहे...' : 'VERIFYING PAYMENT...',
+      dotClass: 'bg-[#38BDF8] animate-ping',
+      textClass: 'text-[#38BDF8]',
+      bgClass: 'bg-[#0C1722] border-[#38BDF8]/40',
+    },
+    pending: {
+      label: lang === 'mr' ? 'पेमेंट प्रलंबित (Pending)' : 'PAYMENT PENDING',
+      dotClass: 'bg-[#FB923C] animate-pulse',
+      textClass: 'text-[#FB923C]',
+      bgClass: 'bg-[#1E130A] border-[#FB923C]/40',
+    },
+    failed: {
+      label: lang === 'mr' ? 'पेमेंट अयशस्वी (Failed)' : 'PAYMENT FAILED',
+      dotClass: 'bg-[#EF4444]',
+      textClass: 'text-[#FCA5A5]',
+      bgClass: 'bg-[#230B0D] border-[#EF4444]/40',
+    },
+    expired: {
+      label: lang === 'mr' ? 'QR एक्सपायर झाला (Refresh करा)' : 'QR EXPIRED · CLICK REFRESH QR',
+      dotClass: 'bg-[#EF4444]',
+      textClass: 'text-[#FCA5A5]',
+      bgClass: 'bg-[#230B0D] border-[#EF4444]/40',
+    },
+    success: {
+      label: lang === 'mr' ? 'पेमेंट यशस्वी · अनलॉक झाले!' : 'PAYMENT VERIFIED · UNLOCKED',
+      dotClass: 'bg-[#4ADE80]',
+      textClass: 'text-[#4ADE80]',
+      bgClass: 'bg-[#0D1A12] border-[#4ADE80]/40',
+    },
+  };
+
+  const currentStatus = statusMeta[paymentStatus];
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-labelledby="checkout-modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/82 backdrop-blur-sm overflow-y-auto"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm overflow-y-auto"
     >
-      <div className="relative w-full max-w-lg bg-[#121216] border border-white/15 rounded-2xl p-5 sm:p-7 space-y-5 my-auto max-h-[92vh] overflow-y-auto">
+      <div className="relative w-full max-w-3xl bg-[#121216] border border-white/15 rounded-2xl p-4 sm:p-6 space-y-5 my-auto max-h-[94vh] overflow-y-auto shadow-2xl">
         {/* Close button */}
         <button
           type="button"
           onClick={onClose}
           aria-label="Close checkout"
-          className="absolute top-4 right-4 w-9 h-9 inline-flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
+          className="absolute top-3.5 right-3.5 w-9 h-9 inline-flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Product Header */}
-        <div className="space-y-1.5 pr-8">
-          <p className="text-xs font-mono font-semibold text-[#FACC15] flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>
-              {lang === 'mr'
-                ? 'आजची ऑफर · पेमेंट होताच ऑटो अनलॉक (1 दिवस)'
-                : "TODAY'S OFFER · INSTANT AUTO-UNLOCK (1 DAY)"}
+        {/* Modal Header */}
+        <div className="space-y-1.5 pr-10">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[11px] font-bold uppercase tracking-wider text-[#FACC15]">
+              <Sparkles className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span>
+                {lang === 'mr'
+                  ? 'STAR EVENT LIVE · 24 तास ऑटो अनलॉक'
+                  : 'STAR EVENT LIVE · 24-HOUR AUTO-UNLOCK'}
+              </span>
             </span>
-          </p>
+            {gatewayReady !== false && cashfreeEnv === 'sandbox' && (
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-[#FACC15]/15 border border-[#FACC15]/40 text-[#FACC15]">
+                Cashfree Sandbox Mode
+              </span>
+            )}
+          </div>
           <h3 id="checkout-modal-title" className="font-display text-lg sm:text-2xl font-bold text-white">
             {product.title[lang]}
           </h3>
         </div>
 
-        {/* 1-Day Pass Summary Bar */}
-        <div className="bg-[#18150C] border border-[#FACC15]/40 rounded-xl p-4 flex items-center justify-between gap-4">
+        {/* Amount & 24-Hour Pass Banner */}
+        <div className="bg-[#18150C] border border-[#FACC15]/40 rounded-xl px-4 py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#4ADE80]">
-              {lang === 'mr' ? 'आजची खास ऑफर · 1 दिवस (24 तास)' : "TODAY'S OFFER · 1 DAY (24 HOURS)"}
-            </span>
+            <p className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#4ADE80]">
+              {lang === 'mr' ? 'आजची ऑफर · 1 दिवस (24 तास)' : "TODAY'S OFFER · 24-HOUR ACCESS PASS"}
+            </p>
             <p className="text-xs text-zinc-300 flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
               <span>
                 {lang === 'mr'
-                  ? '24 तासांनंतर आपोआप एक्सपायर व लॉक होईल'
-                  : 'Full OBS & vMix access · Auto-expires after 24 hours'}
+                  ? 'पेमेंट व्हेरिफाय होताच 24 तासांसाठी अनलॉक व नंतर ऑटो लॉक'
+                  : 'Unlocks immediately after Cashfree verification · Auto-locks after 24 hours'}
               </span>
             </p>
           </div>
-          <div className="text-right shrink-0">
-            <span className="block font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums leading-none">
-              ₹{plan.price}
-            </span>
+          <div className="flex items-baseline gap-2 shrink-0">
             <span className="font-mono text-xs text-zinc-500 line-through tabular-nums">
               ₹{plan.originalPrice}
+            </span>
+            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums leading-none">
+              ₹{plan.price}
             </span>
           </div>
         </div>
 
-        {/* Verified & Unlocked State */}
-        {activeOrder?.status === 'approved' ? (
-          <div className="bg-[#0D1A12] border border-[#4ADE80]/40 rounded-xl p-5 space-y-4 text-center">
-            <CheckCircle2 className="w-11 h-11 text-[#4ADE80] mx-auto" aria-hidden="true" />
-            <div className="space-y-1">
-              <h4 className="font-display text-lg font-bold text-white">
-                {lang === 'mr'
-                  ? 'पेमेंट यशस्वी! ओव्हरले 1 दिवसासाठी अनलॉक झाले'
-                  : 'Payment Confirmed — Unlocked for 1 Day!'}
-              </h4>
-              <p className="text-xs text-zinc-300">
-                {lang === 'mr'
-                  ? 'तुमचा OBS / vMix लाईव्ह URL व 1920×1080 PNG एक्सपोर्ट सुरू झाला आहे. 24 तासांनंतर आपोआप एक्सपायर होईल.'
-                  : 'Your live OBS / vMix Browser Source URL & 1920×1080 PNG export are now active and will auto-expire after 24 hours.'}
-              </p>
+        {/* ============================================================
+            PAYMENT SUCCESSFUL SCREEN
+        ============================================================ */}
+        {confirmedSuccessOrder ? (
+          <div className="bg-[#0B1710] border border-[#4ADE80]/45 rounded-2xl p-5 sm:p-7 space-y-6">
+            <div className="text-center space-y-3">
+              <div className="relative inline-flex items-center justify-center">
+                <span className="absolute inline-flex h-16 w-16 rounded-full bg-[#4ADE80]/25 animate-ping" />
+                <span className="relative w-16 h-16 rounded-full bg-[#4ADE80]/15 border-2 border-[#4ADE80] inline-flex items-center justify-center">
+                  <CheckCircle2 className="w-9 h-9 text-[#4ADE80]" aria-hidden="true" />
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#4ADE80]">
+                  CASHFREE VERIFIED RECEIPT
+                </p>
+                <h4 className="font-display text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                  PAYMENT SUCCESSFUL!
+                </h4>
+                <p className="text-xs sm:text-sm text-zinc-300">
+                  {lang === 'mr'
+                    ? 'तुमचा ओव्हरले 24 तासांसाठी अनलॉक झाला आहे. OBS / vMix URL आता लाईव्ह वापरा.'
+                    : 'Your overlay is now unlocked for 24 hours with full OBS / vMix Browser Source access.'}
+                </p>
+              </div>
             </div>
+
+            {/* Structured Receipt Details */}
+            <div className="bg-[#0D0D11] border border-white/12 rounded-xl divide-y divide-white/10">
+              <div className="px-4 py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
+                <span className="text-zinc-400">Amount Paid</span>
+                <span className="font-mono font-extrabold text-[#FACC15] text-base tabular-nums">
+                  ₹{confirmedSuccessOrder.amount}
+                </span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
+                <span className="text-zinc-400">Transaction ID</span>
+                <span className="font-mono font-bold text-white break-all text-right">
+                  {verifiedTxDisplay}
+                </span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
+                <span className="text-zinc-400">Access Status</span>
+                <span className="inline-flex items-center gap-1.5 font-mono font-extrabold text-[#4ADE80] uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-[#4ADE80]" />
+                  UNLOCKED
+                </span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
+                <span className="text-zinc-400">Activation Time</span>
+                <span className="font-mono font-semibold text-zinc-100 text-right tabular-nums">
+                  {formatDateTime(confirmedSuccessOrder.verifiedAt)}
+                </span>
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between gap-4 text-xs sm:text-sm">
+                <span className="text-zinc-400">Expiry Time</span>
+                <span className="font-mono font-semibold text-[#FACC15] text-right tabular-nums">
+                  {formatDateTime(confirmedSuccessOrder.expiresAt)}
+                </span>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={onClose}
-              className="w-full py-3 px-5 text-sm font-semibold text-black bg-[#4ADE80] hover:bg-[#22C55E] rounded-lg transition-colors"
+              className="w-full py-3.5 px-5 text-sm font-bold text-black bg-[#4ADE80] hover:bg-[#22C55E] rounded-xl transition-colors"
             >
-              {lang === 'mr' ? 'स्टुडिओमध्ये जा व OBS/vMix URL कॉपी करा' : 'Continue to Studio'}
+              {lang === 'mr' ? 'स्टुडिओमध्ये जा व OBS / vMix URL कॉपी करा' : 'Continue to Studio & Copy OBS / vMix URL'}
             </button>
           </div>
         ) : gatewayReady === false ? (
-          /* Cashfree Gateway Not Yet Configured Notice */
-          <div className="bg-[#181410] border border-[#FACC15]/35 rounded-xl p-4 space-y-3">
-            <div className="flex items-start gap-2.5 text-xs text-zinc-200">
-              <AlertCircle className="w-4 h-4 text-[#FACC15] shrink-0 mt-0.5" aria-hidden="true" />
+          /* Cashfree Gateway Not Configured Notice */
+          <div className="bg-[#181410] border border-[#FACC15]/35 rounded-xl p-5 space-y-4">
+            <div className="flex items-start gap-3 text-xs sm:text-sm text-zinc-200">
+              <AlertCircle className="w-5 h-5 text-[#FACC15] shrink-0 mt-0.5" aria-hidden="true" />
               <div className="space-y-1">
                 <p className="font-bold text-white">
                   {lang === 'mr'
@@ -414,7 +790,7 @@ export function OverlayCheckoutModal({
                 <p className="text-zinc-400 leading-relaxed">
                   {lang === 'mr'
                     ? 'ऑटो ₹1 QR पेमेंट व 24 तासांच्या अनलॉकसाठी सर्व्हर Secrets मध्ये CASHFREE_CLIENT_ID आणि CASHFREE_CLIENT_SECRET जोडा.'
-                    : 'Add CASHFREE_CLIENT_ID and CASHFREE_CLIENT_SECRET (with CASHFREE_ENV=sandbox or production) in environment settings to activate instant ₹1 payment and 24-hour auto-unlock.'}
+                    : 'Add CASHFREE_CLIENT_ID and CASHFREE_CLIENT_SECRET (with CASHFREE_ENV=sandbox or production) in server environment settings to activate ₹1 QR payment and 24-hour unlock.'}
                 </p>
               </div>
             </div>
@@ -428,120 +804,256 @@ export function OverlayCheckoutModal({
             </button>
           </div>
         ) : (
-          /* Active Cashfree Dynamic QR + Checkout Flow */
+          /* ============================================================
+             ACTIVE CASHFREE QR + INSTRUCTIONS + TRANSACTION ID FLOW
+          ============================================================ */
           <div className="space-y-4">
-            <div className="bg-[#0D0D11] border border-white/12 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-              {/* Dynamic Cashfree QR */}
-              <div className="sm:col-span-5 flex flex-col items-center gap-2">
-                <div className="bg-white rounded-xl p-2.5 w-44 sm:w-full max-w-[185px] aspect-square flex items-center justify-center shadow-md overflow-hidden">
-                  {creatingOrder || (gatewayReady === null && !error) ? (
-                    <div className="flex flex-col items-center gap-2 text-zinc-700">
-                      <Loader2 className="w-7 h-7 animate-spin text-[#DC2626]" />
-                      <span className="text-[10px] font-mono font-bold">Creating Cashfree QR...</span>
-                    </div>
-                  ) : gatewayQrUrl ? (
-                    <img
-                      src={gatewayQrUrl}
-                      alt={`Cashfree Dynamic UPI QR for ₹${plan.price}`}
-                      className="w-full h-full object-contain rounded-lg block"
-                    />
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-center p-2 text-zinc-700 gap-1.5">
-                      <QrCode className="w-9 h-9 text-zinc-800" aria-hidden="true" />
-                      <span className="text-[10px] font-mono font-bold leading-tight">
-                        Use Cashfree Checkout Button
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                <span className="font-mono text-[11px] font-bold text-[#FACC15] tabular-nums">
-                  ₹{plan.price} · {lang === 'mr' ? '1 दिवस (24 तास)' : '1 Day (24h)'}
-                </span>
+            {/* Payment Status Bar + Countdown */}
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[11px] font-mono font-bold tracking-wider ${currentStatus.bgClass} ${currentStatus.textClass}`}
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${currentStatus.dotClass}`} />
+                <span>{currentStatus.label}</span>
               </div>
 
-              {/* Payment Action & Live Auto-Unlock Listener */}
-              <div className="sm:col-span-7 space-y-3">
-                <div>
-                  {cashfreeEnv === 'sandbox' && (
-                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#FACC15] mb-1">
-                      CASHFREE SANDBOX MODE
-                    </p>
-                  )}
-                  <p className="text-xs font-bold text-white">
-                    {lang === 'mr'
-                      ? `₹${plan.price} पेमेंट करा — लगेच आपोआप अनलॉक होईल!`
-                      : `Pay ₹${plan.price} — Unlocks Automatically!`}
-                  </p>
-                  <p className="text-xs text-zinc-400 mt-0.5 leading-relaxed">
-                    {lang === 'mr'
-                      ? 'GPay, PhonePe किंवा Paytm ने QR स्कॅन करा किंवा खालील Cashfree बटनावर क्लिक करा. पेमेंट कन्फर्म होताच 2-3 सेकंदात 24 तासांसाठी अनलॉक होईल.'
-                      : 'Scan the UPI QR or click Cashfree Checkout below. Once payment confirms, this overlay unlocks automatically for 24 hours — no keys needed.'}
-                  </p>
+              {qrCloseBy && (
+                <div
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-mono text-xs font-bold tabular-nums ${
+                    isExpired
+                      ? 'bg-[#230B0D] border-[#EF4444]/40 text-[#FCA5A5]'
+                      : isLowTime
+                        ? 'bg-[#1E130A] border-[#FB923C]/40 text-[#FB923C]'
+                        : 'bg-[#0D0D11] border-white/15 text-white'
+                  }`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
+                  <span>
+                    {isExpired
+                      ? lang === 'mr'
+                        ? 'QR एक्सपायर: 00:00'
+                        : 'QR Expired: 00:00'
+                      : `${lang === 'mr' ? 'QR वेळ' : 'QR Expires in'}: ${formatCountdown(countdownMs)}`}
+                  </span>
                 </div>
-
-                {paymentSessionId && (
-                  <button
-                    type="button"
-                    onClick={handleLaunchCashfreeCheckout}
-                    disabled={openingCheckout || creatingOrder}
-                    className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-black bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap tabular-nums"
-                  >
-                    {openingCheckout ? (
-                      <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
-                    ) : (
-                      <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    )}
-                    <span>
-                      {openingCheckout
-                        ? lang === 'mr'
-                          ? 'Cashfree उघडत आहे...'
-                          : 'Opening Cashfree...'
-                        : lang === 'mr'
-                          ? `Cashfree ने ₹${plan.price} भरा`
-                          : `Pay ₹${plan.price} via Cashfree Checkout`}
-                    </span>
-                  </button>
-                )}
-
-                {isListening && (
-                  <div className="bg-[#0D1A12] border border-[#4ADE80]/40 rounded-lg px-3 py-2.5 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs text-[#4ADE80] font-semibold">
-                      <span className="w-2 h-2 rounded-full bg-[#4ADE80] animate-ping shrink-0" />
-                      <span>
-                        {lang === 'mr'
-                          ? 'पेमेंटची वाट पाहत आहे (ऑटो अनलॉक)...'
-                          : 'Waiting for payment (Auto-Unlock)...'}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleVerifyPaymentNow}
-                      disabled={checkingStatus}
-                      className="text-[11px] font-mono font-bold text-[#FACC15] hover:text-white shrink-0"
-                    >
-                      {checkingStatus ? '...' : 'Verify'}
-                    </button>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
 
-            {error && (
-              <div className="bg-[#230B0D] border border-[#EF4444]/40 rounded-lg p-3 flex items-center justify-between gap-2 text-xs text-[#FCA5A5]">
-                <span>{error}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveOrder(null);
-                    setRetryTick((t) => t + 1);
-                  }}
-                  className="font-mono font-bold text-[#FACC15] hover:text-white shrink-0"
-                >
-                  Retry
-                </button>
+            {/* Main 2-Column Responsive Layout: Left Large QR, Right Instructions + Checkout */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
+              {/* LEFT: Large Dynamic QR Code + Refresh QR + Cashfree Checkout */}
+              <div className="md:col-span-5 bg-[#0D0D11] border border-white/12 rounded-xl p-4 flex flex-col items-center gap-3.5">
+                <div className="relative bg-white rounded-xl p-3 w-52 sm:w-56 aspect-square flex items-center justify-center shadow-lg overflow-hidden">
+                  {creatingOrder || refreshingQr || (gatewayReady === null && !error) ? (
+                    <div className="flex flex-col items-center gap-2 text-zinc-700">
+                      <Loader2 className="w-8 h-8 animate-spin text-[#DC2626]" />
+                      <span className="text-[11px] font-mono font-bold text-center">
+                        {refreshingQr ? 'Generating Fresh QR...' : 'Creating Cashfree QR...'}
+                      </span>
+                    </div>
+                  ) : gatewayQrUrl ? (
+                    <>
+                      <img
+                        src={gatewayQrUrl}
+                        alt={`Cashfree Dynamic UPI QR for ₹${plan.price}`}
+                        className={`w-full h-full object-contain rounded-lg block transition-opacity ${
+                          isExpired ? 'opacity-20 blur-[2px]' : 'opacity-100'
+                        }`}
+                      />
+                      {isExpired && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/55 p-3 text-center gap-2">
+                          <span className="font-mono text-xs font-extrabold uppercase text-[#FCA5A5]">
+                            QR EXPIRED
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleRefreshQr}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-black bg-[#FACC15] hover:bg-[#EAB308] rounded-md"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>REFRESH QR</span>
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center text-center p-2 text-zinc-700 gap-1.5">
+                      <QrCode className="w-10 h-10 text-zinc-800" aria-hidden="true" />
+                      <span className="text-[11px] font-mono font-bold leading-tight">
+                        Use Cashfree Checkout or Refresh QR
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-center space-y-0.5">
+                  <p className="font-mono text-sm font-extrabold text-[#FACC15] tabular-nums">
+                    PAY ₹{plan.price} · DYNAMIC UPI QR
+                  </p>
+                  <p className="text-[11px] text-zinc-400">
+                    GPay · PhonePe · Paytm · BHIM · Cashfree
+                  </p>
+                </div>
+
+                {/* REFRESH QR + Cashfree Checkout Buttons */}
+                <div className="w-full space-y-2">
+                  <button
+                    type="button"
+                    onClick={handleRefreshQr}
+                    disabled={creatingOrder || refreshingQr || verifyingTx}
+                    className="w-full inline-flex items-center justify-center gap-2 px-3.5 py-2.5 text-xs font-mono font-bold uppercase tracking-wider text-white bg-white/8 hover:bg-white/15 border border-white/20 hover:border-[#FACC15]/60 disabled:opacity-50 rounded-lg transition-colors"
+                  >
+                    <RefreshCw
+                      className={`w-3.5 h-3.5 text-[#FACC15] ${refreshingQr ? 'animate-spin' : ''}`}
+                      aria-hidden="true"
+                    />
+                    <span>{refreshingQr ? 'Refreshing QR...' : 'REFRESH QR'}</span>
+                  </button>
+
+                  {paymentSessionId && !isExpired && (
+                    <button
+                      type="button"
+                      onClick={handleLaunchCashfreeCheckout}
+                      disabled={openingCheckout || creatingOrder || refreshingQr || verifyingTx}
+                      className="w-full inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 text-xs font-bold text-black bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap tabular-nums"
+                    >
+                      {openingCheckout ? (
+                        <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                      ) : (
+                        <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      )}
+                      <span>
+                        {openingCheckout
+                          ? lang === 'mr'
+                            ? 'Cashfree उघडत आहे...'
+                            : 'Opening Cashfree...'
+                          : lang === 'mr'
+                            ? `Cashfree Checkout ने ₹${plan.price} भरा`
+                            : `Pay ₹${plan.price} via Cashfree Checkout`}
+                      </span>
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* RIGHT: Payment Instructions + Transaction ID Submission */}
+              <div className="md:col-span-7 space-y-4">
+                <PaymentInstructions
+                  lang={lang}
+                  amount={plan.price}
+                  upiIntentUrl={upiIntentUrl}
+                  orderId={activeOrder?.orderId}
+                />
+
+                {/* Transaction ID Verification Form */}
+                <form
+                  onSubmit={handleSubmitTransactionId}
+                  className="bg-[#0D0D11] border border-white/12 rounded-xl p-4 space-y-3"
+                >
+                  <div className="space-y-1">
+                    <label
+                      htmlFor="cashfree-tx-id-input"
+                      className="block font-display text-xs sm:text-sm font-bold text-white"
+                    >
+                      {lang === 'mr'
+                        ? 'Transaction ID / UPI UTR नंबर टाका'
+                        : 'Enter Transaction ID / UPI UTR'}
+                    </label>
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      {lang === 'mr'
+                        ? 'पेमेंट केल्यानंतर तुमचा UTR / Transaction ID सबमिट करा. आमचा सर्व्हर थेट Cashfree API वरून पेमेंट व्हेरिफाय करून 24 तासांसाठी अनलॉक करेल.'
+                        : 'After paying ₹1, enter your UPI UTR or Cashfree Transaction ID. Our server verifies it directly with Cashfree before unlocking.'}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    <input
+                      id="cashfree-tx-id-input"
+                      type="text"
+                      value={transactionIdInput}
+                      onChange={(e) => {
+                        setTransactionIdInput(e.target.value);
+                        if (error) setError(null);
+                      }}
+                      disabled={verifyingTx || creatingOrder || refreshingQr || isExpired}
+                      placeholder={
+                        lang === 'mr'
+                          ? 'उदा. 432619847521 किंवा Cashfree Payment ID'
+                          : 'e.g. 432619847521 or Cashfree Payment ID'
+                      }
+                      autoComplete="off"
+                      className="w-full px-3.5 py-2.5 text-sm font-mono text-white placeholder:text-zinc-500 bg-[#15151C] border border-white/15 focus:border-[#FACC15] focus:outline-none rounded-lg disabled:opacity-50"
+                    />
+
+                    <button
+                      type="submit"
+                      disabled={
+                        verifyingTx ||
+                        creatingOrder ||
+                        refreshingQr ||
+                        !activeOrder ||
+                        isExpired
+                      }
+                      className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 text-xs sm:text-sm font-mono font-extrabold uppercase tracking-wider text-black bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-50 rounded-lg transition-colors"
+                    >
+                      {verifyingTx ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                          <span>VERIFYING PAYMENT...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          <span>SUBMIT TRANSACTION ID</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* VERIFYING PAYMENT Loading Animation */}
+                  {verifyingTx && (
+                    <div className="bg-[#0C1722] border border-[#38BDF8]/40 rounded-lg p-3 flex items-center gap-3">
+                      <Loader2 className="w-5 h-5 text-[#38BDF8] animate-spin shrink-0" aria-hidden="true" />
+                      <div className="space-y-0.5">
+                        <p className="font-mono text-xs font-bold text-[#38BDF8] uppercase tracking-wider">
+                          VERIFYING PAYMENT
+                        </p>
+                        <p className="text-[11px] text-zinc-300">
+                          {lang === 'mr'
+                            ? 'Cashfree सर्व्हरवरून तुमचा Transaction ID व ₹1 पेमेंट तपासत आहे...'
+                            : 'Checking order status, amount, and Transaction ID directly with Cashfree...'}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pending / Informational Notice */}
+                  {statusNotice && !verifyingTx && (
+                    <div className="bg-[#1E130A] border border-[#FB923C]/40 rounded-lg p-3 flex items-start gap-2.5 text-xs text-[#FDBA74]">
+                      <Clock className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                      <span>{statusNotice}</span>
+                    </div>
+                  )}
+
+                  {/* Error Notification */}
+                  {error && !verifyingTx && (
+                    <div className="bg-[#230B0D] border border-[#EF4444]/40 rounded-lg p-3 flex items-start justify-between gap-2.5 text-xs text-[#FCA5A5]">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                        <span>{error}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRefreshQr}
+                        className="font-mono font-bold text-[#FACC15] hover:text-white shrink-0"
+                      >
+                        Refresh QR
+                      </button>
+                    </div>
+                  )}
+                </form>
+              </div>
+            </div>
           </div>
         )}
       </div>

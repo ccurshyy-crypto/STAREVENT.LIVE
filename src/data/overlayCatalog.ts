@@ -79,16 +79,19 @@ export interface VerifiedOverlayToken {
 export interface PendingOverlayOrder {
   orderId: string;
   cfOrderId?: string;
+  cfPaymentId?: string;
   sku: OverlaySku;
   planId?: OverlayPlanId;
   durationHours?: number;
   utrRef: string;
+  verifiedTransactionId?: string;
   amount: number;
   paymentMethod?: 'cashfree_qr' | 'upi_manual' | 'owner_key';
   gatewayEnv?: 'sandbox' | 'production';
   paymentSessionId?: string;
   gatewayQrImageUrl?: string;
   upiIntentUrl?: string;
+  qrCloseBy?: number;
   status: 'pending' | 'approved' | 'rejected' | 'revoked';
   unlockCode?: string;
   rejectionReason?: string;

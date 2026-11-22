@@ -15,15 +15,33 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   }
 
   let orderId = getQueryParam(req, 'orderId') || getQueryParam(req, 'order_id');
-  if (!orderId && req.method === 'POST') {
+  let transactionId =
+    getQueryParam(req, 'transactionId') || getQueryParam(req, 'transaction_id') || '';
+
+  if (req.method === 'POST') {
     const body = await readJsonBody(req);
-    orderId = String(body.orderId || body.order_id || '');
+    if (!orderId) {
+      orderId = String(body.orderId || body.order_id || '');
+    }
+    if (!transactionId && (body.transactionId || body.transaction_id)) {
+      transactionId = String(body.transactionId || body.transaction_id || '');
+    }
   }
 
-  const result = await verifyCashfreeOrderOnServer(orderId, { force: true });
+  const trimmedTx = transactionId.trim();
+  const result = await verifyCashfreeOrderOnServer(orderId, {
+    force: true,
+    transactionId: trimmedTx.length > 0 ? trimmedTx : undefined,
+  });
+
   res.setHeader('Cache-Control', 'no-store');
   if (!result.ok) {
-    sendJson(res, result.statusCode, { ok: false, paid: false, error: result.error });
+    sendJson(res, result.statusCode, {
+      ok: false,
+      paid: false,
+      cashfreeStatus: result.cashfreeStatus,
+      error: result.error,
+    });
     return;
   }
 
@@ -31,6 +49,8 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
     ok: true,
     paid: result.paid,
     cashfreeStatus: result.cashfreeStatus,
+    verifiedTransactionId: result.verifiedTransactionId,
+    message: result.message,
     order: result.order ? toPublicOrderSummary(result.order) : undefined,
   });
 }

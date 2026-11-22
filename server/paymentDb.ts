@@ -522,6 +522,59 @@ export function findPaymentOrderByUtr(utrRef: string): PaymentOrderRecord | null
   return row ? rowToOrder(row) : null;
 }
 
+export function findApprovedOrderByTransactionId(
+  txId: string,
+  excludeOrderId?: string
+): PaymentOrderRecord | null {
+  const normalized = txId.trim().toUpperCase();
+  if (!normalized) return null;
+  const db = initDatabase();
+  const exclude = excludeOrderId ? excludeOrderId.trim().toUpperCase() : '';
+  const row = (
+    exclude
+      ? db
+          .prepare(
+            `SELECT * FROM payment_orders
+             WHERE status = 'approved'
+               AND order_id != ?
+               AND (
+                 UPPER(utr_ref) = ?
+                 OR UPPER(cf_payment_id) = ?
+                 OR UPPER(utr_ref) = ?
+               )
+             LIMIT 1`
+          )
+          .get(exclude, normalized, normalized, `CF-${normalized}`)
+      : db
+          .prepare(
+            `SELECT * FROM payment_orders
+             WHERE status = 'approved'
+               AND (
+                 UPPER(utr_ref) = ?
+                 OR UPPER(cf_payment_id) = ?
+                 OR UPPER(utr_ref) = ?
+               )
+             LIMIT 1`
+          )
+          .get(normalized, normalized, `CF-${normalized}`)
+  ) as Record<string, unknown> | undefined;
+  return row ? rowToOrder(row) : null;
+}
+
+export function expireUnpaidOrder(orderId: string, reason?: string): PaymentOrderRecord | null {
+  const existing = getPaymentOrderById(orderId);
+  if (!existing || existing.status !== 'pending') return existing;
+  const updated: PaymentOrderRecord = {
+    ...existing,
+    status: 'rejected',
+    unlockCode: undefined,
+    rejectionReason: reason?.trim().slice(0, 140) || 'QR expired or replaced by a refreshed order.',
+    verifiedAt: Date.now(),
+  };
+  upsertPaymentOrder(updated);
+  return updated;
+}
+
 export function findPaymentOrderByProofHash(proofHash: string): PaymentOrderRecord | null {
   const db = initDatabase();
   const row = db
@@ -648,9 +701,14 @@ export function revokeOrderAndSubscription(
 export function toPublicOrderSummary(order: PaymentOrderRecord) {
   const expiresAt = order.status === 'approved' ? getOrderExpiresAt(order) : undefined;
   const expired = Boolean(expiresAt && expiresAt <= Date.now());
+  const verifiedTransactionId =
+    order.status === 'approved'
+      ? (order.utrRef && !order.utrRef.startsWith('CF-1') ? order.utrRef : order.cfPaymentId || order.utrRef || order.cfOrderId)
+      : undefined;
   return {
     orderId: order.orderId,
     cfOrderId: order.cfOrderId,
+    cfPaymentId: order.status === 'approved' ? order.cfPaymentId : undefined,
     sku: order.sku,
     planId: order.planId || '1day',
     durationHours: order.durationHours || 24,
@@ -661,11 +719,13 @@ export function toPublicOrderSummary(order: PaymentOrderRecord) {
     paymentSessionId: order.status === 'pending' ? order.paymentSessionId : undefined,
     gatewayQrImageUrl: order.status === 'pending' ? order.gatewayQrImageUrl : undefined,
     upiIntentUrl: order.status === 'pending' ? order.upiIntentUrl : undefined,
+    qrCloseBy: order.status === 'pending' ? order.qrCloseBy : undefined,
     status: order.status,
     utrRef:
       order.utrRef.length === 12
         ? `${order.utrRef.slice(0, 4)}••••${order.utrRef.slice(-4)}`
         : order.utrRef,
+    verifiedTransactionId,
     unlockCode: order.status === 'approved' && !expired ? order.unlockCode : undefined,
     rejectionReason:
       order.status === 'rejected' || order.status === 'revoked' ? order.rejectionReason : undefined,

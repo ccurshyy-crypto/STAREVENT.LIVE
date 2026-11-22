@@ -1057,6 +1057,7 @@ async function startServer() {
     const result = await createCashfreeOrderAndQr({
       sku: String(body.sku || ''),
       planId: body.planId ? String(body.planId) : undefined,
+      previousOrderId: body.previousOrderId ? String(body.previousOrderId) : undefined,
       buyerName: body.buyerName ? String(body.buyerName) : undefined,
       buyerPhone: body.buyerPhone ? String(body.buyerPhone) : undefined,
       buyerEmail: body.buyerEmail ? String(body.buyerEmail) : undefined,
@@ -1071,18 +1072,32 @@ async function startServer() {
   app.post('/api/payment/cashfree/create-order', handleCreateCashfreeOrder);
   app.post('/api/payment/qr/create', handleCreateCashfreeOrder);
 
-  // Authoritative server-side Cashfree payment verification (queries Cashfree PG API directly)
+  // Authoritative server-side Cashfree payment & Transaction ID verification (queries Cashfree PG API directly)
   const handleVerifyCashfreePayment = async (req: express.Request, res: express.Response) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
     const orderId = String(
       req.query.orderId || req.query.order_id || body.orderId || body.order_id || ''
     ).trim();
+    const rawTxId =
+      req.query.transactionId ||
+      req.query.transaction_id ||
+      body.transactionId ||
+      body.transaction_id;
+    const transactionId = rawTxId !== undefined && rawTxId !== null ? String(rawTxId).trim() : undefined;
 
-    const result = await verifyCashfreeOrderOnServer(orderId, { force: true });
+    const result = await verifyCashfreeOrderOnServer(orderId, {
+      force: true,
+      transactionId: transactionId && transactionId.length > 0 ? transactionId : undefined,
+    });
     res.setHeader('Cache-Control', 'no-store');
 
     if (!result.ok) {
-      res.status(result.statusCode).json({ ok: false, paid: false, error: result.error });
+      res.status(result.statusCode).json({
+        ok: false,
+        paid: false,
+        cashfreeStatus: result.cashfreeStatus,
+        error: result.error,
+      });
       return;
     }
 
@@ -1094,6 +1109,8 @@ async function startServer() {
       ok: true,
       paid: result.paid,
       cashfreeStatus: result.cashfreeStatus,
+      verifiedTransactionId: result.verifiedTransactionId,
+      message: result.message,
       order: result.order ? toPublicOrderSummary(result.order) : undefined,
     });
   };

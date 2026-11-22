@@ -17,6 +17,7 @@ export default async function handler(req: VercelRequestLike, res: VercelRespons
   const result = await createCashfreeOrderAndQr({
     sku: String(body.sku || ''),
     planId: body.planId ? String(body.planId) : undefined,
+    previousOrderId: body.previousOrderId ? String(body.previousOrderId) : undefined,
     buyerName: body.buyerName ? String(body.buyerName) : undefined,
     buyerPhone: body.buyerPhone ? String(body.buyerPhone) : undefined,
     buyerEmail: body.buyerEmail ? String(body.buyerEmail) : undefined,
