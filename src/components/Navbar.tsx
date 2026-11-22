@@ -140,7 +140,7 @@ export function Navbar({
             ) : (
               <>
                 <UserCircle2 className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-                <span>Login</span>
+                <span>Login / Sign Up</span>
               </>
             )}
           </button>

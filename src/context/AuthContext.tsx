@@ -158,6 +158,10 @@ interface AuthContextValue {
   usersLoading: boolean;
   signInSuperAdminWithGoogle: () => Promise<void>;
   signInOperatorWithLoginId: (loginId: string, password: string) => Promise<OperatorUserAccount>;
+  signUpOperatorUser: (input: {
+    fullName: string;
+    password?: string;
+  }) => Promise<ProvisionedCredentials>;
   signOutUser: () => Promise<void>;
   resolveUniqueLoginId: (fullName: string) => Promise<string>;
   createOperatorUser: (input: {
@@ -495,6 +499,107 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [isSuperAdmin, firebaseUser, resolveUniqueLoginId]
   );
 
+  const signUpOperatorUser = useCallback(
+    async ({
+      fullName,
+      password,
+    }: {
+      fullName: string;
+      password?: string;
+    }): Promise<ProvisionedCredentials> => {
+      const trimmedName = fullName.trim();
+      if (trimmedName.length < 2) {
+        throw new Error('Please enter your Full Name (at least 2 characters).');
+      }
+
+      const chosenPassword =
+        password && password.trim().length > 0
+          ? password.trim()
+          : generateSecurePassword(12);
+
+      if (chosenPassword.length < 6) {
+        throw new Error('Password must be at least 6 characters long.');
+      }
+
+      const uniqueLoginId = await resolveUniqueLoginId(trimmedName);
+      const authEmail = buildAuthEmail(uniqueLoginId, 1);
+      const matchRoomId = `kbd-${uniqueLoginId.toLowerCase()}`;
+      const { scoreboardUrl, vmixOverlayUrl } = buildUserUrls(uniqueLoginId, matchRoomId);
+
+      // Provision Firebase Auth account on primary auth so Firestore owner-create rules authenticate cleanly
+      const createdCred = await createUserWithEmailAndPassword(auth, authEmail, chosenPassword);
+      const newUid = createdCred.user.uid;
+
+      const nowIso = new Date().toISOString();
+      const accountPayload: OperatorUserAccount = {
+        uid: newUid,
+        fullName: trimmedName,
+        loginId: uniqueLoginId,
+        authEmail,
+        role: 'user',
+        matchRoomId,
+        scoreboardUrl,
+        vmixOverlayUrl,
+        status: 'active',
+        passwordVersion: 1,
+        createdByUid: newUid,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      };
+
+      const initialScoreboardState: LiveOverlayState = {
+        ...createDefaultOverlayState(matchRoomId),
+        kabaddiTitle: `${trimmedName.toUpperCase()} · LIVE KABADDI`,
+      };
+
+      const batch = writeBatch(db);
+      batch.set(doc(db, 'userAccounts', newUid), accountPayload);
+      batch.set(doc(db, 'loginLookup', uniqueLoginId), {
+        loginId: uniqueLoginId,
+        authEmail,
+        uid: newUid,
+        matchRoomId,
+        passwordVersion: 1,
+        status: 'active',
+        updatedAt: nowIso,
+      });
+      batch.set(doc(db, 'scoreboards', matchRoomId), {
+        roomId: matchRoomId,
+        ownerUid: newUid,
+        ownerLoginId: uniqueLoginId,
+        teamAName: initialScoreboardState.teamAName,
+        teamBName: initialScoreboardState.teamBName,
+        teamAScore: initialScoreboardState.teamAScore,
+        teamBScore: initialScoreboardState.teamBScore,
+        stateJson: JSON.stringify(initialScoreboardState),
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+
+      try {
+        await batch.commit();
+      } catch (err) {
+        await signOut(auth).catch(() => {});
+        handleFirestoreError(err, OperationType.WRITE, `userAccounts/${newUid}`);
+      }
+
+      // Sign out immediately after registration so user can save credentials & log in cleanly
+      await signOut(auth);
+      setUserAccount(null);
+
+      return {
+        uid: newUid,
+        fullName: trimmedName,
+        loginId: uniqueLoginId,
+        password: chosenPassword,
+        matchRoomId,
+        scoreboardUrl,
+        vmixOverlayUrl,
+      };
+    },
+    [resolveUniqueLoginId]
+  );
+
   const resetOperatorPassword = useCallback(
     async (
       account: OperatorUserAccount,
@@ -705,6 +810,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usersLoading,
       signInSuperAdminWithGoogle,
       signInOperatorWithLoginId,
+      signUpOperatorUser,
       signOutUser,
       resolveUniqueLoginId,
       createOperatorUser,
@@ -723,6 +829,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       usersLoading,
       signInSuperAdminWithGoogle,
       signInOperatorWithLoginId,
+      signUpOperatorUser,
       signOutUser,
       resolveUniqueLoginId,
       createOperatorUser,

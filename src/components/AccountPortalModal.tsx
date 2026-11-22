@@ -95,6 +95,7 @@ export function AccountPortalModal({
     usersLoading,
     signInSuperAdminWithGoogle,
     signInOperatorWithLoginId,
+    signUpOperatorUser,
     signOutUser,
     resolveUniqueLoginId,
     createOperatorUser,
@@ -103,7 +104,7 @@ export function AccountPortalModal({
     deleteOperatorAccount,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'operator' | 'admin'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'operator' | 'signup' | 'admin'>(initialTab);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Operator Login form state
@@ -112,6 +113,19 @@ export function AccountPortalModal({
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  // Self-Service User Sign Up form state
+  const [signupFullName, setSignupFullName] = useState('');
+  const [signupPreviewLoginId, setSignupPreviewLoginId] = useState('');
+  const [signupCheckingId, setSignupCheckingId] = useState(false);
+  const [signupPasswordMode, setSignupPasswordMode] = useState<'manual' | 'auto'>('manual');
+  const [signupManualPassword, setSignupManualPassword] = useState('');
+  const [signupAutoPassword, setSignupAutoPassword] = useState(() => generateSecurePassword(12));
+  const [showSignupPassword, setShowSignupPassword] = useState(true);
+  const [signupBusy, setSignupBusy] = useState(false);
+  const [signupError, setSignupError] = useState<string | null>(null);
+  const [signupNeedsEmailSetup, setSignupNeedsEmailSetup] = useState(false);
+  const [signupCredentials, setSignupCredentials] = useState<ProvisionedCredentials | null>(null);
 
   // Super Admin Create User form state
   const [fullNameInput, setFullNameInput] = useState('');
@@ -196,6 +210,40 @@ export function AccountPortalModal({
     };
   }, [fullNameInput, isSuperAdmin, resolveUniqueLoginId, managedUsers.length]);
 
+  // Live preview unique Login ID during Self-Service Sign Up
+  useEffect(() => {
+    if (activeTab !== 'signup') return;
+    const trimmed = signupFullName.trim();
+    if (trimmed.length < 2) {
+      setSignupPreviewLoginId('');
+      setSignupCheckingId(false);
+      return;
+    }
+
+    const immediateBase = generateLoginIdBase(trimmed);
+    setSignupPreviewLoginId(immediateBase);
+    setSignupCheckingId(true);
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      resolveUniqueLoginId(trimmed)
+        .then((resolved) => {
+          if (!cancelled) setSignupPreviewLoginId(resolved);
+        })
+        .catch(() => {
+          // Keep base preview
+        })
+        .finally(() => {
+          if (!cancelled) setSignupCheckingId(false);
+        });
+    }, 280);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [signupFullName, activeTab, resolveUniqueLoginId]);
+
   if (!open) return null;
 
   const copyValue = async (key: string, text: string) => {
@@ -222,6 +270,43 @@ export function AccountPortalModal({
       setLoginError(parseAuthError(err).message);
     } finally {
       setLoginBusy(false);
+    }
+  };
+
+  const handleOperatorSignUp = async (e: FormEvent) => {
+    e.preventDefault();
+    setSignupError(null);
+    setSignupNeedsEmailSetup(false);
+
+    const passwordToUse =
+      signupPasswordMode === 'manual' ? signupManualPassword.trim() : signupAutoPassword;
+
+    if (signupFullName.trim().length < 2) {
+      setSignupError('Please enter your Full Name (at least 2 characters).');
+      return;
+    }
+    if (passwordToUse.length < 6) {
+      setSignupError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    setSignupBusy(true);
+    try {
+      const creds = await signUpOperatorUser({
+        fullName: signupFullName.trim(),
+        password: passwordToUse,
+      });
+      setSignupCredentials(creds);
+      setSignupFullName('');
+      setSignupPreviewLoginId('');
+      setSignupManualPassword('');
+      setSignupAutoPassword(generateSecurePassword(12));
+    } catch (err) {
+      const parsed = parseAuthError(err);
+      setSignupError(parsed.message);
+      setSignupNeedsEmailSetup(parsed.isEmailAuthDisabled);
+    } finally {
+      setSignupBusy(false);
     }
   };
 
@@ -385,30 +470,42 @@ export function AccountPortalModal({
 
         {/* Role Mode Switcher */}
         <div className="px-5 pt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="inline-flex p-1 rounded-xl bg-[#151927] border border-white/10">
+          <div className="inline-flex flex-wrap p-1 rounded-xl bg-[#151927] border border-white/10 gap-1">
             <button
               type="button"
               onClick={() => setActiveTab('operator')}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+              className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
                 activeTab === 'operator'
                   ? 'bg-[#2563EB] text-white shadow'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
               <LogIn className="w-4 h-4" aria-hidden="true" />
-              <span>Operator Login</span>
+              <span>Login</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('signup')}
+              className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+                activeTab === 'signup'
+                  ? 'bg-[#16A34A] text-white shadow'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <UserPlus className="w-4 h-4" aria-hidden="true" />
+              <span>Sign Up</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('admin')}
-              className={`inline-flex items-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
+              className={`inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all ${
                 activeTab === 'admin'
                   ? 'bg-[#DC2626] text-white shadow'
                   : 'text-zinc-400 hover:text-white'
               }`}
             >
               <ShieldCheck className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
-              <span>Super Admin Panel</span>
+              <span>Super Admin</span>
             </button>
           </div>
 
@@ -588,9 +685,323 @@ export function AccountPortalModal({
                     <span>{loginBusy ? 'Signing In...' : 'Sign In & Open My Scoreboard'}</span>
                   </button>
 
-                  <p className="text-[11px] text-zinc-500 text-center">
-                    Only Super Admin can create accounts or reset forgotten passwords.
-                  </p>
+                  <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-zinc-400">New user? Create your own account first:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginError(null);
+                        setActiveTab('signup');
+                      }}
+                      className="font-bold text-[#4ADE80] hover:text-white transition-colors"
+                    >
+                      Sign Up / Create Account →
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* ==============================================================
+              TAB 2: SELF-SERVICE USER SIGN UP (CREATE ACCOUNT → THEN LOGIN)
+             ============================================================== */}
+          {activeTab === 'signup' && (
+            <div className="space-y-5">
+              {signupCredentials ? (
+                <div className="rounded-2xl bg-gradient-to-br from-[#0F231B] via-[#101C28] to-[#171226] border-2 border-[#4ADE80]/60 p-5 sm:p-6 space-y-5 shadow-[0_18px_50px_rgba(16,185,129,0.2)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="inline-flex items-center gap-1.5 text-xs font-mono font-extrabold text-[#4ADE80]">
+                        <Sparkles className="w-4 h-4" aria-hidden="true" />
+                        <span>ACCOUNT CREATED! SAVE DETAILS &amp; LOGIN NOW</span>
+                      </p>
+                      <h3 className="font-display text-xl font-extrabold text-white">
+                        {signupCredentials.fullName}
+                      </h3>
+                      <p className="text-xs text-zinc-300">
+                        Your unique Login ID, Password, separate Scoreboard URL &amp; vMix Overlay URL are ready. Copy them, then click Login Now!
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyValue('signup-copy-all', formatCredentialsCopyText(signupCredentials))
+                      }
+                      className="btn-gold-pro inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-extrabold rounded-xl"
+                    >
+                      {copiedKey === 'signup-copy-all' ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                      <span>
+                        {copiedKey === 'signup-copy-all' ? 'ALL DETAILS COPIED!' : 'COPY ALL DETAILS'}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="rounded-xl bg-black/40 border border-white/10 p-3.5">
+                      <p className="text-[10px] font-mono uppercase text-zinc-400">Full Name</p>
+                      <p className="text-sm font-bold text-white mt-1">
+                        {signupCredentials.fullName}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl bg-black/40 border border-[#FACC15]/35 p-3.5 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-mono uppercase text-[#FACC15]">
+                          Your Unique Login ID
+                        </p>
+                        <p className="text-sm font-mono font-extrabold text-white mt-1 truncate">
+                          {signupCredentials.loginId}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyValue('su-id', signupCredentials.loginId)}
+                        className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-200 shrink-0"
+                        title="Copy Login ID"
+                      >
+                        {copiedKey === 'su-id' ? (
+                          <Check className="w-4 h-4 text-[#4ADE80]" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="rounded-xl bg-black/40 border border-[#4ADE80]/35 p-3.5 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-mono uppercase text-[#4ADE80]">
+                          Your Password
+                        </p>
+                        <p className="text-sm font-mono font-extrabold text-white mt-1 truncate">
+                          {signupCredentials.password}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => copyValue('su-pw', signupCredentials.password)}
+                        className="p-2 rounded-lg bg-white/5 hover:bg-white/15 text-zinc-200 shrink-0"
+                        title="Copy Password"
+                      >
+                        {copiedKey === 'su-pw' ? (
+                          <Check className="w-4 h-4 text-[#4ADE80]" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="rounded-xl bg-black/40 border border-white/10 p-3.5 space-y-1.5">
+                      <p className="text-[10px] font-mono uppercase text-[#FACC15]">
+                        Separate Scoreboard URL
+                      </p>
+                      <p className="text-xs font-mono text-zinc-200 break-all">
+                        {signupCredentials.scoreboardUrl}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-black/40 border border-white/10 p-3.5 space-y-1.5">
+                      <p className="text-[10px] font-mono uppercase text-[#38BDF8]">
+                        Separate vMix Overlay URL (Transparent)
+                      </p>
+                      <p className="text-xs font-mono text-zinc-200 break-all">
+                        {signupCredentials.vmixOverlayUrl}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLoginIdInput(signupCredentials.loginId);
+                        setLoginPasswordInput('');
+                        setSignupCredentials(null);
+                        setActiveTab('operator');
+                      }}
+                      className="btn-primary-pro inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-extrabold rounded-xl"
+                    >
+                      <LogIn className="w-4 h-4" aria-hidden="true" />
+                      <span>Login Now with {signupCredentials.loginId} →</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setSignupCredentials(null)}
+                      className="btn-glass-pro px-4 py-3 text-xs font-bold rounded-xl text-zinc-200"
+                    >
+                      Create Another Account
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <form
+                  onSubmit={handleOperatorSignUp}
+                  className="max-w-lg mx-auto rounded-2xl bg-[#131724] border border-[#4ADE80]/30 p-6 space-y-5"
+                >
+                  <div className="space-y-1">
+                    <h3 className="font-display text-lg font-extrabold text-white">
+                      Create New Account (Sign Up)
+                    </h3>
+                    <p className="text-xs text-zinc-400">
+                      Enter your Full Name and set a Password. Your unique Login ID, separate Scoreboard, and dedicated vMix Overlay URL will be generated automatically!
+                    </p>
+                  </div>
+
+                  {signupError && (
+                    <div className="rounded-xl bg-red-500/12 border border-red-500/40 px-3.5 py-3 text-xs text-red-200 space-y-2">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                        <span>{signupError}</span>
+                      </div>
+                      {signupNeedsEmailSetup && (
+                        <a
+                          href={FIREBASE_CONSOLE_AUTH_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn-gold-pro inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-extrabold rounded-lg"
+                        >
+                          <span>Enable Email/Password in Firebase Console</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="signup-fullname"
+                      className="block text-xs font-bold text-zinc-200"
+                    >
+                      1. Full Name *
+                    </label>
+                    <input
+                      id="signup-fullname"
+                      type="text"
+                      value={signupFullName}
+                      onChange={(e) => setSignupFullName(e.target.value)}
+                      placeholder="e.g. Bharat Nirguda / Papya Khadke"
+                      required
+                      className="w-full px-4 py-3 text-sm bg-[#0A0D15] border border-white/15 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#4ADE80]"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-bold text-zinc-200">
+                      2. Your Auto-Generated Unique Login ID
+                    </label>
+                    <div className="w-full px-4 py-3 text-sm font-mono font-extrabold bg-[#0A0D15]/80 border border-[#FACC15]/30 rounded-xl flex items-center justify-between gap-2">
+                      <span className={signupPreviewLoginId ? 'text-[#FACC15]' : 'text-zinc-500'}>
+                        {signupPreviewLoginId || 'Type your Full Name above...'}
+                      </span>
+                      {signupCheckingId ? (
+                        <span className="text-[10px] text-zinc-400">Checking...</span>
+                      ) : signupPreviewLoginId ? (
+                        <span className="text-[10px] text-[#4ADE80]">AVAILABLE</span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 rounded-xl bg-[#0B0E17] border border-white/10 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-zinc-200">
+                        3. Choose Password (min 6 chars)
+                      </span>
+                      <div className="inline-flex p-0.5 rounded-lg bg-[#151A28] border border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => setSignupPasswordMode('manual')}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
+                            signupPasswordMode === 'manual'
+                              ? 'bg-[#38BDF8] text-black'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          My Password
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSignupPasswordMode('auto')}
+                          className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-colors ${
+                            signupPasswordMode === 'auto'
+                              ? 'bg-[#FACC15] text-black'
+                              : 'text-zinc-400 hover:text-white'
+                          }`}
+                        >
+                          Auto Strong
+                        </button>
+                      </div>
+                    </div>
+
+                    {signupPasswordMode === 'manual' ? (
+                      <div className="relative">
+                        <input
+                          id="signup-password"
+                          type={showSignupPassword ? 'text' : 'password'}
+                          value={signupManualPassword}
+                          onChange={(e) => setSignupManualPassword(e.target.value)}
+                          placeholder="Create a strong password (min 6 chars)"
+                          minLength={6}
+                          required
+                          className="w-full pl-4 pr-11 py-3 text-sm font-mono bg-[#121625] border border-[#38BDF8]/40 rounded-xl text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#4ADE80]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowSignupPassword((v) => !v)}
+                          aria-label={showSignupPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                        >
+                          {showSignupPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type={showSignupPassword ? 'text' : 'password'}
+                          readOnly
+                          value={signupAutoPassword}
+                          className="flex-1 min-w-[180px] px-3.5 py-2.5 text-sm font-mono font-bold bg-[#121625] border border-[#4ADE80]/35 rounded-xl text-[#4ADE80]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setSignupAutoPassword(generateSecurePassword(12))}
+                          className="btn-glass-pro inline-flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold rounded-xl"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-[#FACC15]" />
+                          <span>New</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={signupBusy}
+                    className="w-full inline-flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-extrabold rounded-xl bg-gradient-to-b from-[#22C55E] to-[#16A34A] hover:from-[#4ADE80] hover:to-[#22C55E] text-white border border-[#86EFAC]/50 shadow-[0_10px_24px_-8px_rgba(34,197,94,0.75)] transition-all active:scale-95 disabled:opacity-60"
+                  >
+                    <UserPlus className="w-4 h-4" aria-hidden="true" />
+                    <span>{signupBusy ? 'Creating Account...' : 'Sign Up & Create My Account'}</span>
+                  </button>
+
+                  <div className="pt-2 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-zinc-400">Already have an account?</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSignupError(null);
+                        setActiveTab('operator');
+                      }}
+                      className="font-bold text-[#38BDF8] hover:text-white transition-colors"
+                    >
+                      Go to Login →
+                    </button>
+                  </div>
                 </form>
               )}
             </div>

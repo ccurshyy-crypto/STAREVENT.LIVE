@@ -148,11 +148,20 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // 2. Operator User Accounts (Strictly isolated; zero plaintext passwords)
+    // 2. Operator User Accounts (Self-signup allowed strictly for own role='user'; updates/deletes/list strictly Super Admin)
     match /userAccounts/{userUid} {
       allow get: if isSuperAdmin() || isOwner(userUid);
       allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin() && isValidUserAccount(request.resource.data, userUid);
+      allow create: if isValidUserAccount(request.resource.data, userUid) && (
+        isSuperAdmin() ||
+        (
+          isOwner(userUid) &&
+          request.resource.data.role == 'user' &&
+          request.resource.data.status == 'active' &&
+          request.resource.data.passwordVersion == 1 &&
+          request.resource.data.createdByUid == request.auth.uid
+        )
+      );
       allow update: if isSuperAdmin() &&
         isValidUserAccount(request.resource.data, userUid) &&
         request.resource.data.uid == resource.data.uid &&
@@ -162,11 +171,20 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // 3. Non-PII Login ID Lookup (exact-key get only for sign-in; list/write strictly Super Admin)
+    // 3. Non-PII Login ID Lookup (exact-key get for sign-in/uniqueness; self-signup can only create unused ID for own uid)
     match /loginLookup/{loginId} {
       allow get: if isValidLoginId(loginId);
       allow list: if isSuperAdmin();
-      allow create, update: if isSuperAdmin() && isValidLoginLookup(request.resource.data, loginId);
+      allow create: if isValidLoginLookup(request.resource.data, loginId) && (
+        isSuperAdmin() ||
+        (
+          isAuthenticated() &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.status == 'active' &&
+          request.resource.data.passwordVersion == 1
+        )
+      );
+      allow update: if isSuperAdmin() && isValidLoginLookup(request.resource.data, loginId);
       allow delete: if isSuperAdmin();
     }
 
