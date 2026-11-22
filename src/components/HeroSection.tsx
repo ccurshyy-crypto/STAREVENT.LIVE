@@ -12,10 +12,10 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
   const [bannerError, setBannerError] = useState(false);
 
   return (
-    <section id="top" className="relative pt-5 pb-12 sm:pt-8 sm:pb-16 lg:pb-20 border-b border-white/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-7 sm:space-y-9">
+    <section id="top" className="relative pt-4 pb-10 sm:pt-8 sm:pb-16 lg:pb-20 border-b border-white/10">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-6 sm:space-y-9">
         {/* Top Auspicious Studio Ribbon */}
-        <div className="relative overflow-hidden rounded-2xl border border-[#FACC15]/30 studio-strip-animated-bg px-4 sm:px-6 py-4 shadow-[0_12px_32px_rgba(0,0,0,0.48)]">
+        <div className="relative overflow-hidden rounded-2xl border border-[#FACC15]/30 studio-strip-animated-bg px-3 sm:px-6 py-3 sm:py-4 shadow-[0_12px_32px_rgba(0,0,0,0.48)]">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#FACC15]/65 to-transparent"
@@ -33,7 +33,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
                 aria-hidden="true"
                 className="hidden sm:block h-[1.5px] w-16 md:w-28 bg-gradient-to-r from-transparent via-[#FACC15]/60 to-[#FACC15]"
               />
-              <p className="font-display text-xl sm:text-3xl md:text-4xl font-extrabold tracking-normal [word-spacing:0.12em] text-center leading-[1.4] ganesh-invocation-text select-none">
+              <p className="font-display text-lg sm:text-3xl md:text-4xl font-extrabold tracking-normal [word-spacing:0.1em] text-center leading-[1.35] ganesh-invocation-text select-none">
                 {STUDIO_CONTACT.invocation}
               </p>
               <span
@@ -42,7 +42,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
               />
             </div>
 
-            <div className="mt-3 pt-2.5 w-full border-t border-white/10 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-1.5 text-xs sm:text-sm text-zinc-200">
+            <div className="mt-2.5 pt-2 w-full border-t border-white/10 flex flex-wrap items-center justify-center gap-x-2.5 sm:gap-x-3.5 gap-y-1.5 text-[11px] sm:text-sm text-zinc-200">
               <span className="font-mono text-zinc-100">{STUDIO_CONTACT.domain}</span>
               <span aria-hidden="true" className="text-zinc-500">·</span>
               <a
@@ -110,10 +110,10 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
             {UI_COPY.hero.subcopy[lang]}
           </p>
 
-          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-4 w-full sm:w-auto">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-4 w-full sm:w-auto">
             <a
               href="#book"
-              className="btn-primary-pro w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2.5 px-7 py-3.5 text-sm sm:text-base font-bold rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+              className="btn-primary-pro w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-5 sm:px-7 py-3 text-sm sm:text-base font-bold rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             >
               <span>{UI_COPY.hero.primaryCta[lang]}</span>
               <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -125,7 +125,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
                 e.preventDefault();
                 onOpenOverlays();
               }}
-              className="btn-gold-pro w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3.5 text-sm sm:text-base font-extrabold text-black rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white tabular-nums"
+              className="btn-gold-pro w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 text-sm sm:text-base font-extrabold text-black rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white tabular-nums"
             >
               <Play className="w-4 h-4 text-[#991B1B] shrink-0" aria-hidden="true" />
               <span>{UI_COPY.hero.secondaryCta[lang]}</span>
@@ -134,7 +134,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
         </div>
 
         {/* BIG FULL-WIDTH OFFICIAL STAR EVENT LIVE BANNER */}
-        <figure className="w-full bg-[#140A0E]/92 border border-[#FACC15]/35 rounded-2xl p-2 sm:p-3.5 lg:p-4 shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
+        <figure className="w-full bg-[#140A0E]/92 border border-[#FACC15]/35 rounded-2xl p-1.5 sm:p-3.5 lg:p-4 shadow-[0_24px_64px_rgba(0,0,0,0.68)]">
           {!bannerError ? (
             <div className="overflow-hidden rounded-xl bg-[#0B0609]">
               <img
@@ -192,18 +192,18 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
           </figcaption>
         </figure>
 
-        {/* Responsive 4-Column Capability Strip */}
-        <div className="pt-6 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-7">
+        {/* Responsive 2x2 Mobile / 4-Column Desktop Capability Strip */}
+        <div className="pt-5 border-t border-white/10 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 lg:gap-7">
           {UI_COPY.hero.stats.map((stat) => (
             <div
               key={stat.value}
-              className="rounded-xl bg-white/[0.03] border border-white/8 p-4 space-y-1.5"
+              className="rounded-xl bg-white/[0.03] border border-white/8 p-3 sm:p-4 space-y-1 sm:space-y-1.5 min-w-0"
             >
-              <p className="font-mono text-lg sm:text-xl font-bold text-[#FACC15] tabular-nums">
+              <p className="font-mono text-base sm:text-xl font-bold text-[#FACC15] tabular-nums">
                 {stat.value}
               </p>
-              <p className="text-sm font-semibold text-white leading-snug">{stat.label[lang]}</p>
-              <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">
+              <p className="text-xs sm:text-sm font-semibold text-white leading-snug">{stat.label[lang]}</p>
+              <p className="text-[11px] sm:text-[13px] text-zinc-400 leading-relaxed">
                 {stat.detail[lang]}
               </p>
             </div>

@@ -72,8 +72,8 @@ export function Navbar({
         <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FACC15] via-50% to-[#EF4444] opacity-85 topbar-beam-sweep" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto min-h-[72px] py-2 px-3 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Zone 1: Prominent Star Event Live Emblem + Large Bold Name */}
+      <div className="relative z-10 max-w-7xl mx-auto min-h-[64px] sm:min-h-[72px] py-2 px-2.5 sm:px-6 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
+        {/* Zone 1: Prominent Star Event Live Emblem + Bold Name (Clean Mobile Fit + Big Tablet/Desktop) */}
         <a
           href="/"
           onClick={(e) => {
@@ -81,21 +81,21 @@ export function Navbar({
             setMobileOpen(false);
             onNavigateHome('top');
           }}
-          className="inline-flex items-center gap-2.5 sm:gap-3 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded-xl"
+          className="inline-flex items-center gap-2 sm:gap-3 min-w-0 shrink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded-xl"
         >
           <span
             aria-hidden="true"
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#FACC15] via-[#DC2626] to-[#7F1D1D] p-[2px] shadow-[0_0_18px_rgba(250,204,21,0.45)] flex items-center justify-center shrink-0"
+            className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#FACC15] via-[#DC2626] to-[#7F1D1D] p-[2px] shadow-[0_0_18px_rgba(250,204,21,0.45)] flex items-center justify-center shrink-0"
           >
             <span className="w-full h-full rounded-full bg-[#13060A] flex flex-col items-center justify-center leading-none">
-              <span className="text-[#FACC15] text-base sm:text-lg leading-none">★</span>
-              <span className="font-display text-[7px] sm:text-[8px] font-black tracking-wider text-white">
+              <span className="text-[#FACC15] text-sm sm:text-lg leading-none">★</span>
+              <span className="font-display text-[6.5px] sm:text-[8px] font-black tracking-wider text-white">
                 LIVE
               </span>
             </span>
           </span>
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-lg sm:text-2xl font-black tracking-tight">
+          <span className="flex flex-col leading-none min-w-0">
+            <span className="font-display text-[15px] min-[380px]:text-base sm:text-2xl font-black tracking-tight truncate">
               <span className="text-[#FACC15]">STAR EVENT</span>{' '}
               <span className="text-[#EF4444]">LIVE</span>
             </span>
@@ -131,13 +131,13 @@ export function Navbar({
         </nav>
 
         {/* Zone 3: Language + Login/Admin + Call + Mobile/Tablet Menu */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
           <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
 
           <button
             type="button"
             onClick={() => onOpenAccountPortal(isSuperAdmin ? 'admin' : 'operator')}
-            className={`min-h-[40px] inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+            className={`min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
               isSuperAdmin
                 ? 'btn-gold-pro text-black'
                 : userAccount
@@ -147,19 +147,19 @@ export function Navbar({
           >
             {isSuperAdmin ? (
               <>
-                <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
                 <span>Admin</span>
               </>
             ) : userAccount ? (
               <>
-                <UserCircle2 className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span className="max-w-[76px] sm:max-w-[100px] truncate font-mono text-xs">
+                <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+                <span className="max-w-[60px] sm:max-w-[100px] truncate font-mono text-[11px] sm:text-xs">
                   {userAccount.loginId}
                 </span>
               </>
             ) : (
               <>
-                <UserCircle2 className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
+                <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                 <span className="hidden sm:inline">Login / Sign Up</span>
                 <span className="sm:hidden">Login</span>
               </>
@@ -180,7 +180,7 @@ export function Navbar({
             onClick={() => setMobileOpen((prev) => !prev)}
             aria-expanded={mobileOpen}
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
-            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-white/18 bg-white/[0.05] text-zinc-100 hover:text-white hover:border-[#FACC15]/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+            className="lg:hidden inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-white/18 bg-white/[0.05] text-zinc-100 hover:text-white hover:border-[#FACC15]/60 transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
           >
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

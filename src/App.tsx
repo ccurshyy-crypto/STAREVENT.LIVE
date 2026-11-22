@@ -593,11 +593,11 @@ export default function App() {
             {/* Paid Transparent Overlays Store Callout Section — clicking opens /overlays page */}
             <section
               id="studio"
-              className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
+              className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
             >
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
                 <ScrollReveal>
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 sm:gap-6 mb-8 sm:mb-10">
                   <div className="max-w-3xl space-y-3.5">
                     <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                       {UI_COPY.studioSection.kicker[lang]}
@@ -619,7 +619,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => navigateToOverlays()}
-                    className="btn-primary-pro inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                    className="btn-primary-pro w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 text-sm font-bold rounded-xl text-center sm:whitespace-nowrap shrink-0 self-stretch sm:self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                   >
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
@@ -632,7 +632,7 @@ export default function App() {
                 </div>
                 </ScrollReveal>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
                   {OVERLAY_PRODUCTS.map((product, idx) => {
                     const isUnlocked = Boolean(product.isFreeDemo) || unlockedSkus.includes(product.sku);
                     const styleBadge =

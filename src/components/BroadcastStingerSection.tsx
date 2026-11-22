@@ -91,10 +91,10 @@ export function BroadcastStingerSection({
   return (
     <section
       id="youtube-channel"
-      className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
+      className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left: 16:9 Broadcast Stinger Motion Showcase */}
           <ScrollReveal direction="left" className="lg:col-span-7">
             <div className="studio-card-animate bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
@@ -139,7 +139,7 @@ export function BroadcastStingerSection({
                 </div>
 
                 {!videoError && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={handleTogglePlay}
@@ -243,12 +243,12 @@ export function BroadcastStingerSection({
               </p>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3.5">
+            <div className="pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2.5 sm:gap-3.5">
               <a
                 href={STUDIO_CONTACT.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary-pro inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="btn-primary-pro w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-5 sm:px-6 py-3.5 text-sm font-bold rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <Youtube className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>
@@ -262,7 +262,7 @@ export function BroadcastStingerSection({
               <button
                 type="button"
                 onClick={onOpenOverlays}
-                className="btn-glass-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-bold text-zinc-100 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-glass-pro w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 text-sm font-bold text-zinc-100 rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>{lang === 'mr' ? 'लाईव्ह ओव्हरले पहा' : 'Explore Live Overlays'}</span>
               </button>

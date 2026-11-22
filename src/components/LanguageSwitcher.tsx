@@ -72,10 +72,13 @@ export function LanguageSwitcher({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Change language"
-        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-semibold text-zinc-100 hover:text-white bg-black/55 hover:bg-white/10 border border-white/15 hover:border-[#FACC15]/50 rounded-lg transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+        className="min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-semibold text-zinc-100 hover:text-white bg-black/55 hover:bg-white/10 border border-white/15 hover:border-[#FACC15]/50 rounded-lg transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
       >
         <Globe className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-        <span>{currentOption.nativeLabel}</span>
+        <span className="sm:hidden uppercase font-mono text-[11px] font-bold">
+          {currentOption.id}
+        </span>
+        <span className="hidden sm:inline">{currentOption.nativeLabel}</span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-150 shrink-0 ${
             open ? 'rotate-180' : ''

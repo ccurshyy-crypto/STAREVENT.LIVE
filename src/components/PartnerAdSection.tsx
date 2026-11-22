@@ -92,18 +92,18 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
     <section
       id="featured-advertisement"
       aria-label="Advertise"
-      className="py-12 sm:py-16 lg:py-20 border-b border-white/10"
+      className="py-10 sm:py-16 lg:py-20 border-b border-white/10"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-8">
         {/* BIG BOLD ADVERTISE HEADING */}
-        <h2 className="font-display text-4xl sm:text-5xl md:text-6xl font-black text-center tracking-[0.08em] uppercase text-[#FACC15] drop-shadow-[0_4px_24px_rgba(250,204,21,0.35)]">
+        <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-black text-center tracking-[0.08em] uppercase text-[#FACC15] drop-shadow-[0_4px_24px_rgba(250,204,21,0.35)]">
           ADVERTISE
         </h2>
 
         {/* SINGLE BIG AUTO-CHANGING BANNER SHOWCASE */}
-        <div className="bg-[#120A10]/90 border border-[#FACC15]/35 rounded-2xl p-3 sm:p-5 shadow-[0_24px_60px_rgba(0,0,0,0.65)] space-y-5">
+        <div className="bg-[#120A10]/90 border border-[#FACC15]/35 rounded-2xl p-2.5 sm:p-5 shadow-[0_24px_60px_rgba(0,0,0,0.65)] space-y-4 sm:space-y-5">
           {/* Rotating Single Image Stage */}
           <div className="relative group rounded-xl overflow-hidden bg-[#08060A] border border-white/10">
             <button
@@ -175,12 +175,12 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
           </div>
 
           {/* ONLY PHONE NUMBER & INSTAGRAM ID — BIG, BOLD, CRYSTAL CLEAR */}
-          <div className="pt-1 pb-2 px-2 flex flex-col sm:flex-row flex-wrap items-center justify-center gap-3 sm:gap-5">
+          <div className="pt-1 pb-1.5 px-1 sm:px-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-5">
             {activeSlide.phones.map((phone) => (
               <a
                 key={phone.display}
                 href={phone.href}
-                className="btn-primary-pro w-full sm:w-auto min-h-[54px] inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-mono text-xl sm:text-2xl font-black text-white tracking-wide tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-primary-pro w-full sm:w-auto min-h-[50px] sm:min-h-[54px] inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-mono text-lg sm:text-2xl font-black text-white tracking-wide tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#FACC15] shrink-0" aria-hidden="true" />
                 <span>{phone.display}</span>
@@ -191,10 +191,10 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
               href={activeSlide.instagram.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn-gold-pro w-full sm:w-auto min-h-[54px] inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-xl font-display text-lg sm:text-2xl font-black text-black tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="btn-gold-pro w-full sm:w-auto min-h-[50px] sm:min-h-[54px] inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-display text-base sm:text-2xl font-black text-black tracking-tight focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white min-w-0"
             >
               <Instagram className="w-5 h-5 sm:w-6 sm:h-6 text-[#9D174D] shrink-0" aria-hidden="true" />
-              <span className="truncate max-w-[260px] sm:max-w-none">{activeSlide.instagram.handle}</span>
+              <span className="truncate">{activeSlide.instagram.handle}</span>
             </a>
           </div>
         </div>
@@ -217,7 +217,7 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
               type="button"
               onClick={() => setLightboxOpen(false)}
               aria-label="Close advertisement preview"
-              className="absolute -top-3 -right-3 z-20 w-10 h-10 rounded-full bg-[#DC2626] text-white flex items-center justify-center shadow-xl"
+              className="absolute top-2 right-2 sm:-top-3 sm:-right-3 z-20 w-10 h-10 rounded-full bg-[#DC2626] text-white flex items-center justify-center shadow-xl"
             >
               <X className="w-5 h-5" aria-hidden="true" />
             </button>

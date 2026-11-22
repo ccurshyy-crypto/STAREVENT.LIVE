@@ -91,10 +91,10 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
   return (
     <section
       id="spotlight"
-      className="py-20 sm:py-24 border-b border-white/10 bg-[#090B12]/34 backdrop-blur-[2px]"
+      className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/34 backdrop-blur-[2px]"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
           {/* Left: Official Promotional Poster */}
           <ScrollReveal direction="left" className="lg:col-span-5">
             <figure className="studio-card-animate group bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
@@ -191,11 +191,11 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
             </div>
 
             {/* Direct Action Row */}
-            <div className="pt-2 flex flex-wrap items-center gap-3.5">
+            <div className="pt-2 flex flex-wrap items-center gap-2.5 sm:gap-3.5">
               <button
                 type="button"
                 onClick={onBookNow}
-                className="btn-primary-pro inline-flex items-center gap-2 px-6 py-3.5 text-sm font-bold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="btn-primary-pro w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 text-sm font-bold rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <span>{lang === 'mr' ? 'कार्यक्रम बुक करा' : 'Book Your Coverage'}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -205,7 +205,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                 href={STUDIO_CONTACT.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-glass-pro inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-100 rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="btn-glass-pro flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-3 text-xs sm:text-sm font-semibold text-zinc-100 rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
                 <span>{STUDIO_CONTACT.youtubeHandle}</span>
@@ -218,7 +218,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                   href={ig.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#F472B6]/60 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                  className="inline-flex items-center justify-center gap-2 px-3.5 sm:px-4 py-3 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#F472B6]/60 rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                 >
                   <Instagram className="w-4 h-4 text-[#F472B6] shrink-0" aria-hidden="true" />
                   <span>{ig.handle}</span>
@@ -228,7 +228,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
 
               <a
                 href={STUDIO_CONTACT.phoneHref}
-                className="inline-flex items-center gap-2 px-4 py-3.5 text-sm font-mono font-bold text-[#FACC15] hover:text-white transition-colors whitespace-nowrap shrink-0 tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded-lg"
+                className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-3 text-sm font-mono font-bold text-[#FACC15] hover:text-white transition-colors whitespace-nowrap tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded-lg"
               >
                 <Phone className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>{STUDIO_CONTACT.phoneDisplay}</span>
@@ -255,7 +255,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
               type="button"
               onClick={() => setLightboxOpen(false)}
               aria-label={lang === 'mr' ? 'बंद करा' : 'Close'}
-              className="absolute -top-3 -right-3 w-10 h-10 rounded-full bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center shadow-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+              className="absolute top-2 right-2 sm:-top-3 sm:-right-3 w-10 h-10 rounded-full bg-[#DC2626] hover:bg-[#B91C1C] text-white flex items-center justify-center shadow-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
             >
               <X className="w-5 h-5" aria-hidden="true" />
             </button>

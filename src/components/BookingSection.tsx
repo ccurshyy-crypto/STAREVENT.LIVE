@@ -166,9 +166,9 @@ export function BookingSection({
   };
 
   return (
-    <section id="book" className="py-20 sm:py-24 bg-[#090B12]/36 backdrop-blur-[2px]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
+    <section id="book" className="py-12 sm:py-20 lg:py-24 bg-[#090B12]/36 backdrop-blur-[2px]">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left column: Direct Studio Hotline & Promise */}
           <ScrollReveal direction="left" className="lg:col-span-5 space-y-8">
             <div className="space-y-3.5">
@@ -188,14 +188,14 @@ export function BookingSection({
             </div>
 
             {/* Direct Phone Callout */}
-            <div className="bg-[#121216] border border-white/12 rounded-2xl p-6 space-y-5">
+            <div className="bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-6 space-y-5">
               <div className="space-y-1">
                 <p className="text-xs text-zinc-400">
                   {lang === 'mr' ? 'थेट बुकिंग व चौकशीसाठी संपर्क करा' : 'Direct Booking & Dispatch Hotline'}
                 </p>
                 <a
                   href={STUDIO_CONTACT.phoneHref}
-                  className="inline-block font-mono text-3xl sm:text-4xl font-extrabold text-[#FACC15] hover:text-white transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded"
+                  className="inline-block font-mono text-2xl sm:text-4xl font-extrabold text-[#FACC15] hover:text-white transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded"
                 >
                   {STUDIO_CONTACT.phoneDisplay}
                 </a>
@@ -269,7 +269,7 @@ export function BookingSection({
           </ScrollReveal>
 
           {/* Right column: Validated Booking Inquiry Form / Confirmation */}
-          <ScrollReveal direction="right" delay={100} className="lg:col-span-7 bg-[#121216] border border-white/12 rounded-2xl p-6 sm:p-8">
+          <ScrollReveal direction="right" delay={100} className="lg:col-span-7 bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-8">
             {submitted ? (
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -330,7 +330,7 @@ export function BookingSection({
                     href={submitted.whatsappHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap"
+                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors text-center sm:whitespace-nowrap"
                   >
                     <MessageCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>
@@ -545,7 +545,7 @@ export function BookingSection({
 
                 <button
                   type="submit"
-                  className="btn-primary-pro w-full py-3.5 px-6 text-sm font-bold rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121216]"
+                  className="btn-primary-pro w-full py-3.5 px-5 text-sm font-bold rounded-xl text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#121216]"
                 >
                   {lang === 'mr'
                     ? 'बुकिंग विनंती तयार करा'

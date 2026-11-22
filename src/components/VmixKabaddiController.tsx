@@ -441,8 +441,8 @@ export function VmixKabaddiController({
               </span>
             </div>
 
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
                 {[1, 2, 3, 4, 5, 6, 7].map((num) => {
                   const active = num <= onMat;
                   return (
