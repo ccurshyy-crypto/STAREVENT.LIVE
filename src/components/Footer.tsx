@@ -6,6 +6,7 @@ import { SpinningLogoVideo } from './SpinningLogoVideo';
 interface FooterProps {
   lang: Language;
   onNavigateHome: (sectionId?: string) => void;
+  onNavigateServices: () => void;
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
 }
@@ -13,18 +14,19 @@ interface FooterProps {
 export function Footer({
   lang,
   onNavigateHome,
+  onNavigateServices,
   onNavigateOverlays,
   onNavigatePackages,
 }: FooterProps) {
   return (
-    <footer className="relative z-10 border-t border-white/10 bg-[#09090B]/88 backdrop-blur-sm py-12">
+    <footer className="relative z-10 border-t border-white/10 bg-[#09060B]/92 py-12">
       <ScrollReveal>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
             <SpinningLogoVideo
-              className="w-12 h-12"
-              resolution={160}
+              className="w-16 h-16 sm:w-20 sm:h-20"
+              resolution={128}
               label="Star Event Live 3D logo"
             />
             <div className="space-y-1">
@@ -34,7 +36,7 @@ export function Footer({
                   e.preventDefault();
                   onNavigateHome('top');
                 }}
-                className="font-display text-lg font-extrabold tracking-tight text-white inline-block"
+                className="font-display text-xl sm:text-2xl font-black tracking-tight text-white inline-block"
               >
                 <span className="text-[#FACC15]">STAR EVENT</span>{' '}
                 <span className="text-[#EF4444]">LIVE</span>
@@ -47,7 +49,7 @@ export function Footer({
 
           <nav
             aria-label="Footer navigation"
-            className="flex flex-wrap items-center gap-6 text-xs sm:text-sm text-zinc-400"
+            className="flex flex-wrap items-center gap-5 sm:gap-6 text-xs sm:text-sm text-zinc-300"
           >
             <a
               href="/"
@@ -60,10 +62,10 @@ export function Footer({
               {UI_COPY.nav.home[lang]}
             </a>
             <a
-              href="/#services"
+              href="/services"
               onClick={(e) => {
                 e.preventDefault();
-                onNavigateHome('services');
+                onNavigateServices();
               }}
               className="hover:text-white transition-colors whitespace-nowrap"
             >

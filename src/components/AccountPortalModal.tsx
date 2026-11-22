@@ -38,7 +38,7 @@ interface AccountPortalModalProps {
   initialTab?: 'operator' | 'admin';
   lang: Language;
   onClose: () => void;
-  onOpenUserScoreboard: (matchRoomId: string) => void;
+  onOpenUserScoreboard: (matchRoomId: string, uid?: string) => void;
 }
 
 function parseAuthError(err: unknown): { message: string; isEmailAuthDisabled: boolean } {
@@ -265,7 +265,8 @@ export function AccountPortalModal({
     try {
       const account = await signInOperatorWithLoginId(loginIdInput, loginPasswordInput);
       setLoginPasswordInput('');
-      onOpenUserScoreboard(account.matchRoomId);
+      onOpenUserScoreboard(account.matchRoomId, account.uid);
+      onClose();
     } catch (err) {
       setLoginError(parseAuthError(err).message);
     } finally {
@@ -551,7 +552,7 @@ export function AccountPortalModal({
                     <button
                       type="button"
                       onClick={() => {
-                        onOpenUserScoreboard(userAccount.matchRoomId);
+                        onOpenUserScoreboard(userAccount.matchRoomId, userAccount.uid);
                         onClose();
                       }}
                       className="btn-gold-pro inline-flex items-center gap-2 px-5 py-3 text-sm font-extrabold rounded-xl"
@@ -1559,7 +1560,7 @@ export function AccountPortalModal({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      onOpenUserScoreboard(acc.matchRoomId);
+                                      onOpenUserScoreboard(acc.matchRoomId, acc.uid);
                                       onClose();
                                     }}
                                     className="btn-glass-pro inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg text-[#4ADE80]"

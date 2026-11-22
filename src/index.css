@@ -788,6 +788,75 @@ body.overlay-chroma-blue #root {
   transform: translateY(0px) scale(0.975);
 }
 
+/* Ultra-fast GPU-only Star Event Live Stage Background animations */
+@keyframes starStageBeamLeft {
+  0%,
+  100% {
+    transform: rotate(-18deg) translate3d(0, 0, 0);
+    opacity: 0.72;
+  }
+  50% {
+    transform: rotate(-4deg) translate3d(2%, 0, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes starStageBeamRight {
+  0%,
+  100% {
+    transform: rotate(18deg) translate3d(0, 0, 0);
+    opacity: 0.68;
+  }
+  50% {
+    transform: rotate(4deg) translate3d(-2%, 0, 0);
+    opacity: 0.98;
+  }
+}
+
+@keyframes starTwinkle {
+  0%,
+  100% {
+    transform: scale(0.75);
+    opacity: 0.16;
+  }
+  50% {
+    transform: scale(1.22);
+    opacity: 0.72;
+  }
+}
+
+@keyframes starSignalPulse {
+  0%,
+  100% {
+    transform: translateX(-50%) scale(0.96);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateX(-50%) scale(1.04);
+    opacity: 0.85;
+  }
+}
+
+.star-stage-beam-left {
+  animation: starStageBeamLeft 11s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.star-stage-beam-right {
+  animation: starStageBeamRight 13s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.star-twinkle-dot {
+  animation: starTwinkle 4s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
+.star-signal-pulse {
+  animation: starSignalPulse 7s ease-in-out infinite;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

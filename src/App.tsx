@@ -8,14 +8,16 @@ import { HeroSection } from './components/HeroSection';
 import { HomeAnimatedBackground } from './components/HomeAnimatedBackground';
 import { KabaddiRemoteController } from './components/KabaddiRemoteController';
 import { PreviewMode } from './components/LiveStudioPreview';
-import { Navbar } from './components/Navbar';
+import { Navbar, MainPageRoute } from './components/Navbar';
 import { OverlayOutputView } from './components/OverlayOutputView';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
 import { PartnerAdSection } from './components/PartnerAdSection';
 import { ScrollReveal } from './components/ScrollReveal';
-import { ServicesSection } from './components/ServicesSection';
+import { ServicesPage } from './components/ServicesPage';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
+import { UserControlPanelView } from './components/UserControlPanelView';
+import { UserScoreboardOverlayView } from './components/UserScoreboardOverlayView';
 import { EventCategoryId, Language, UI_COPY } from './data/content';
 import {
   OVERLAY_PRODUCTS,
@@ -87,13 +89,32 @@ function savePendingOrders(orders: Partial<Record<OverlaySku, PendingOverlayOrde
   }
 }
 
-type PageRoute = 'home' | 'overlays' | 'packages';
+type PageRoute = MainPageRoute;
 
 function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
+  if (window.location.pathname.startsWith('/services')) return 'services';
   if (window.location.pathname.startsWith('/overlays')) return 'overlays';
   if (window.location.pathname.startsWith('/packages')) return 'packages';
   return 'home';
+}
+
+function parseUserScoreboardRoute(): { targetUid: string; background: OverlayBackground } | null {
+  if (typeof window === 'undefined') return null;
+  const match = window.location.pathname.match(/^\/scoreboard\/([A-Za-z0-9_-]{3,128})\/?$/);
+  if (!match) return null;
+  const params = new URLSearchParams(window.location.search);
+  const bgParam = params.get('bg')?.toLowerCase();
+  const background: OverlayBackground =
+    bgParam === 'green' ? 'green' : bgParam === 'blue' ? 'blue' : 'transparent';
+  return { targetUid: decodeURIComponent(match[1]), background };
+}
+
+function parseUserControlRoute(): { targetUid: string } | null {
+  if (typeof window === 'undefined') return null;
+  const match = window.location.pathname.match(/^\/control\/([A-Za-z0-9_-]{3,128})\/?$/);
+  if (!match) return null;
+  return { targetUid: decodeURIComponent(match[1]) };
 }
 
 function parseOverlayRoute() {
@@ -166,9 +187,13 @@ function parseRemoteRoute() {
 }
 
 export default function App() {
+  const userScoreboardRoute = useMemo(() => parseUserScoreboardRoute(), []);
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
   const remoteRoute = useMemo(() => parseRemoteRoute(), []);
 
+  const [controlTargetUid, setControlTargetUid] = useState<string | null>(
+    () => parseUserControlRoute()?.targetUid ?? null
+  );
   const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [previewMode, setPreviewMode] = useState<PreviewMode>('kabaddi');
@@ -225,7 +250,7 @@ export default function App() {
 
   // On mount: strictly verify stored tokens & check pending orders against the server!
   useEffect(() => {
-    if (overlayRoute || remoteRoute) return;
+    if (userScoreboardRoute || overlayRoute || remoteRoute) return;
     let active = true;
 
     const validateOnServer = async () => {
@@ -281,7 +306,7 @@ export default function App() {
       active = false;
       window.clearInterval(recheckTimer);
     };
-  }, [overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
+  }, [userScoreboardRoute, overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
 
   // Automatic 24-hour expiry watcher: re-locks overlays the exact second expiresAt passes
   useEffect(() => {
@@ -306,13 +331,24 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      setControlTargetUid(parseUserControlRoute()?.targetUid ?? null);
       setCurrentPage(getInitialPage());
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // If opened as an OBS Browser Source or vMix Web Browser Input, render pure transparent overlay only
+  // 1. Per-user pure transparent vMix / OBS Scoreboard Overlay (`/scoreboard/{USER_UID}`)
+  if (userScoreboardRoute) {
+    return (
+      <UserScoreboardOverlayView
+        targetUid={userScoreboardRoute.targetUid}
+        background={userScoreboardRoute.background}
+      />
+    );
+  }
+
+  // 2. Legacy OBS/vMix transparent overlay routes (`/overlay/kabaddi`, `/overlay/haldi`)
   if (overlayRoute) {
     return (
       <OverlayOutputView
@@ -328,7 +364,7 @@ export default function App() {
     );
   }
 
-  // If opened on mobile/tablet/laptop as Kabaddi Remote Controller, render dedicated mobile-first controller
+  // 3. Dedicated mobile remote controller route
   if (remoteRoute) {
     return (
       <KabaddiRemoteController
@@ -360,7 +396,17 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const navigateToServices = () => {
+    setControlTargetUid(null);
+    if (window.location.pathname !== '/services') {
+      window.history.pushState({}, '', '/services');
+    }
+    setCurrentPage('services');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const navigateToPackages = () => {
+    setControlTargetUid(null);
     if (window.location.pathname !== '/packages') {
       window.history.pushState({}, '', '/packages');
     }
@@ -369,6 +415,7 @@ export default function App() {
   };
 
   const navigateHome = (sectionId?: string) => {
+    setControlTargetUid(null);
     const targetUrl = sectionId && sectionId !== 'top' ? `/#${sectionId}` : '/';
     if (window.location.pathname !== '/' || (sectionId && window.location.hash !== `#${sectionId}`)) {
       window.history.pushState({}, '', targetUrl);
@@ -390,7 +437,19 @@ export default function App() {
     }
   };
 
+  const navigateToUserControl = (uid: string) => {
+    const cleanUid = uid.trim();
+    if (!cleanUid) return;
+    const targetPath = `/control/${encodeURIComponent(cleanUid)}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState({}, '', targetPath);
+    }
+    setControlTargetUid(cleanUid);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handlePreviewEvent = (mode: PreviewMode) => {
+    setControlTargetUid(null);
     navigateToOverlays(mode, mode === 'haldi' ? 'festive' : undefined);
   };
 
@@ -422,7 +481,12 @@ export default function App() {
     setAccountModalOpen(true);
   };
 
-  const handleOpenUserScoreboard = (matchRoomId: string) => {
+  const handleOpenUserScoreboard = (matchRoomId: string, uid?: string) => {
+    if (uid && uid.trim()) {
+      navigateToUserControl(uid);
+      return;
+    }
+    setControlTargetUid(null);
     setForcedMatchRoomId(matchRoomId);
     setPreviewMode('kabaddi');
     setActiveStyle('classic');
@@ -435,8 +499,30 @@ export default function App() {
     }, 90);
   };
 
+  // 4. Protected per-user Admin Control Panel (`/control/{USER_UID}`)
+  if (controlTargetUid) {
+    return (
+      <>
+        <UserControlPanelView
+          targetUid={controlTargetUid}
+          lang={lang}
+          onNavigateHome={() => navigateHome('top')}
+          onNavigateToControl={navigateToUserControl}
+          onOpenAccountPortal={handleOpenAccountPortal}
+        />
+        <AccountPortalModal
+          open={accountModalOpen}
+          initialTab={accountModalTab}
+          lang={lang}
+          onClose={() => setAccountModalOpen(false)}
+          onOpenUserScoreboard={handleOpenUserScoreboard}
+        />
+      </>
+    );
+  }
+
   return (
-    <div className="relative min-h-screen bg-[#07080F] text-[#F4F4F5] flex flex-col">
+    <div className="relative min-h-screen bg-[#07080F] text-[#F4F4F5] flex flex-col overflow-x-clip">
       <HomeAnimatedBackground />
 
       <Navbar
@@ -444,6 +530,7 @@ export default function App() {
         onChangeLang={setLang}
         currentPage={currentPage}
         onNavigateHome={navigateHome}
+        onNavigateServices={navigateToServices}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
         onOpenAccountPortal={handleOpenAccountPortal}
@@ -451,7 +538,14 @@ export default function App() {
 
       <main className="relative z-10 flex-1">
         <div key={currentPage} className="page-transition-enter">
-        {currentPage === 'overlays' ? (
+        {currentPage === 'services' ? (
+          <ServicesPage
+            lang={lang}
+            onPreviewEvent={handlePreviewEvent}
+            onBookEvent={handleBookEvent}
+            onBackHome={() => navigateHome('top')}
+          />
+        ) : currentPage === 'overlays' ? (
           <OverlaysPage
             lang={lang}
             activeMode={previewMode}
@@ -483,12 +577,6 @@ export default function App() {
             <HeroSection
               lang={lang}
               onOpenOverlays={() => navigateToOverlays()}
-            />
-
-            <ServicesSection
-              lang={lang}
-              onPreviewEvent={handlePreviewEvent}
-              onBookEvent={handleBookEvent}
             />
 
             <PartnerAdSection
@@ -657,6 +745,7 @@ export default function App() {
       <Footer
         lang={lang}
         onNavigateHome={navigateHome}
+        onNavigateServices={navigateToServices}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
       />

@@ -1,4 +1,4 @@
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useRef, useState } from 'react';
 import {
   ArrowLeftRight,
   Check,
@@ -111,6 +111,15 @@ interface VmixKabaddiControllerProps {
   onOpenRemoteModal: () => void;
   onDownloadPng: () => void;
   onRequestPurchase: (sku: OverlaySku) => void;
+  // Isolated per-user Firebase scoreboard mode props
+  isolatedUserMode?: boolean;
+  undoCount?: number;
+  lastUndoLabel?: string | null;
+  savingSettings?: boolean;
+  controlUrl?: string;
+  onPlayerOut?: (team: 'A' | 'B') => void;
+  onAllOut?: (team: 'A' | 'B') => void;
+  onFlushSettings?: () => void;
 }
 
 export function VmixKabaddiController({
@@ -164,10 +173,28 @@ export function VmixKabaddiController({
   onOpenRemoteModal,
   onDownloadPng,
   onRequestPurchase,
+  isolatedUserMode = false,
+  undoCount = 0,
+  lastUndoLabel = null,
+  savingSettings = false,
+  controlUrl,
+  onPlayerOut,
+  onAllOut,
+  onFlushSettings,
 }: VmixKabaddiControllerProps) {
   const [activeTab, setActiveTab] = useState<ConsoleTab>('dashboard');
   const [selectedTeam, setSelectedTeam] = useState<'A' | 'B'>('A');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+
+  // Strict anti-double-click guard so 1 click = strictly 1 action (never double-fires)
+  const lastActionTsRef = useRef<number>(0);
+  const guardSingleAction = () => {
+    const now = Date.now();
+    if (now - lastActionTsRef.current < 110) return false;
+    lastActionTsRef.current = now;
+    return true;
+  };
 
   const teamAOnMat = Math.max(0, Math.min(7, state.teamAPlayersOnMat ?? 7));
   const teamBOnMat = Math.max(0, Math.min(7, state.teamBPlayersOnMat ?? 7));
@@ -187,15 +214,15 @@ export function VmixKabaddiController({
     }
   };
 
-  // Atomic point modifier + automatic raid timer reset when Auto Rules is ON
+  // Atomic point modifier: strictly 1 click = exact delta (no duplicate events or auto score drift)
   const applyTeamPoints = (
     team: 'A' | 'B',
     kind: 'raid' | 'bonus' | 'lona',
     delta: number
   ) => {
+    if (!guardSingleAction()) return;
     onSendAction(kind, { team, points: delta });
-    if (autoRulesEnabled && delta > 0 && kind === 'raid') {
-      // Automatically reset raid clock for the next raid when match is running
+    if (!isolatedUserMode && autoRulesEnabled && delta > 0 && kind === 'raid') {
       onSendAction('raid_reset');
       if (state.matchRunning) {
         window.setTimeout(() => onSendAction('raid_toggle'), 120);
@@ -203,15 +230,45 @@ export function VmixKabaddiController({
     }
   };
 
-  // Smart player count click: if Auto Rules is ON and count hits 0, automatically award All Out (+2) to opponent & revive all 7!
+  // Player-Out dot setter: in isolated mode, strictly updates dots (1 Out = 1 dot removed, undoable)
   const handleSetPlayersOnMat = (team: 'A' | 'B', nextCount: number) => {
+    if (!guardSingleAction()) return;
     const clamped = Math.max(0, Math.min(7, nextCount));
-    if (autoRulesEnabled && clamped === 0) {
+    if (!isolatedUserMode && autoRulesEnabled && clamped === 0) {
       const winnerTeam = team === 'A' ? 'B' : 'A';
       onSendAction('all_out', { team: winnerTeam, points: 2 });
       return;
     }
     onSendAction('players_on_mat', { team, count: clamped });
+  };
+
+  const handleSinglePlayerOut = (team: 'A' | 'B', currentOnMat: number) => {
+    if (!guardSingleAction()) return;
+    if (currentOnMat <= 0) return;
+    if (onPlayerOut) {
+      onPlayerOut(team);
+      return;
+    }
+    handleSetPlayersOnMat(team, currentOnMat - 1);
+  };
+
+  const handleAllOutClick = (team: 'A' | 'B') => {
+    if (!guardSingleAction()) return;
+    if (onAllOut) {
+      onAllOut(team);
+      return;
+    }
+    onSendAction('all_out', { team, points: 2 });
+  };
+
+  const handleSafeUndo = () => {
+    if (!canUndo || !guardSingleAction()) return;
+    onUndo();
+  };
+
+  const handleConfirmResetScore = () => {
+    setResetConfirmOpen(false);
+    onResetMatch();
   };
 
   const handleToggleGraphic = (panel: KabaddiGraphicPanel) => {
@@ -295,6 +352,7 @@ export function VmixKabaddiController({
               onChange={(e) =>
                 onUpdateState(isA ? { teamAName: e.target.value } : { teamBName: e.target.value })
               }
+              onBlur={() => onFlushSettings?.()}
               className="mt-0.5 w-full bg-transparent font-display text-base sm:text-lg font-extrabold text-white focus:outline-none focus:bg-black/30 rounded px-1 -ml-1 transition-colors"
             />
           </div>
@@ -408,8 +466,9 @@ export function VmixKabaddiController({
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   type="button"
-                  onClick={() => handleSetPlayersOnMat(team, onMat - 1)}
-                  className="px-2.5 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/35 text-red-200 text-[11px] font-bold transition-all active:scale-95 whitespace-nowrap"
+                  disabled={onMat <= 0}
+                  onClick={() => handleSinglePlayerOut(team, onMat)}
+                  className="px-2.5 py-1.5 rounded-lg bg-red-500/15 hover:bg-red-500/25 border border-red-400/35 text-red-200 text-[11px] font-bold transition-all active:scale-95 whitespace-nowrap disabled:opacity-35"
                 >
                   1 Out
                 </button>
@@ -430,7 +489,7 @@ export function VmixKabaddiController({
 
   return (
     <div className="bg-[#0F1420]/90 backdrop-blur-md border border-white/14 rounded-2xl overflow-hidden shadow-[0_24px_64px_rgba(0,0,0,0.65)]">
-      {/* Top Studio Header Bar: Match ID, Live Sync Status, Auto Mode & Quick Utilities */}
+      {/* Top Studio Header Bar: Match ID, Live Sync Status, Undo, Reset Score & Quick Utilities */}
       <div className="bg-[#0B0F19]/95 border-b border-white/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <span className="font-display text-sm font-extrabold text-white tracking-tight">
@@ -438,24 +497,33 @@ export function VmixKabaddiController({
           </span>
           <span aria-hidden="true" className="text-zinc-600">·</span>
 
-          <div className="inline-flex items-center gap-1.5 bg-[#151C2B] border border-white/15 rounded-lg px-2.5 py-1">
-            <span className="font-mono text-[10px] font-bold text-zinc-400">MATCH ID</span>
-            <input
-              type="text"
-              aria-label="Unique Match ID"
-              value={roomInput}
-              onChange={(e) => onChangeRoomInput(e.target.value)}
-              className="w-24 bg-transparent font-mono text-xs font-extrabold text-[#FACC15] uppercase focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={onGenerateMatchId}
-              title="Generate fresh unique Match ID"
-              className="px-2 py-0.5 text-[10px] font-semibold bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
-            >
-              New
-            </button>
-          </div>
+          {isolatedUserMode ? (
+            <div className="inline-flex items-center gap-1.5 bg-[#151C2B] border border-[#4ADE80]/30 rounded-lg px-2.5 py-1">
+              <span className="font-mono text-[10px] font-bold text-zinc-400">ACCOUNT</span>
+              <span className="font-mono text-xs font-extrabold text-[#FACC15] uppercase">
+                {roomInput}
+              </span>
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-1.5 bg-[#151C2B] border border-white/15 rounded-lg px-2.5 py-1">
+              <span className="font-mono text-[10px] font-bold text-zinc-400">MATCH ID</span>
+              <input
+                type="text"
+                aria-label="Unique Match ID"
+                value={roomInput}
+                onChange={(e) => onChangeRoomInput(e.target.value)}
+                className="w-24 bg-transparent font-mono text-xs font-extrabold text-[#FACC15] uppercase focus:outline-none"
+              />
+              <button
+                type="button"
+                onClick={onGenerateMatchId}
+                title="Generate fresh unique Match ID"
+                className="px-2 py-0.5 text-[10px] font-semibold bg-white/10 hover:bg-white/20 text-white rounded transition-colors"
+              >
+                New
+              </button>
+            </div>
+          )}
 
           <span
             className={`font-mono text-xs font-bold tabular-nums ${
@@ -467,7 +535,11 @@ export function VmixKabaddiController({
             }`}
           >
             {connectionStatus === 'live' && connected
-              ? `${transport === 'ws' ? 'WS LIVE' : transport === 'firebase' ? 'CLOUD LIVE' : transport === 'sse' ? 'SSE LIVE' : 'SYNC LIVE'} (${connectedDisplays} vMix/OBS)`
+              ? isolatedUserMode
+                ? savingSettings
+                  ? 'FIREBASE SYNC · SAVING...'
+                  : 'FIREBASE CLOUD LIVE'
+                : `${transport === 'ws' ? 'WS LIVE' : transport === 'firebase' ? 'CLOUD LIVE' : transport === 'sse' ? 'SSE LIVE' : 'SYNC LIVE'} (${connectedDisplays} vMix/OBS)`
               : connectionStatus === 'reconnecting'
                 ? 'Reconnecting...'
                 : 'Offline'}
@@ -475,71 +547,96 @@ export function VmixKabaddiController({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Automatic Scoreboard Rules Toggle */}
-          <button
-            type="button"
-            onClick={onToggleAutoRules}
-            aria-pressed={autoRulesEnabled}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
-              autoRulesEnabled
-                ? 'bg-[#14532D]/85 border-[#4ADE80]/60 text-[#BBF7D0]'
-                : 'bg-white/[0.06] border-white/15 text-zinc-300 hover:text-white'
-            }`}
-          >
-            <Zap className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-            <span>Auto Mode: {autoRulesEnabled ? 'ON' : 'OFF'}</span>
-          </button>
+          {!isolatedUserMode && (
+            <>
+              {/* Automatic Scoreboard Rules Toggle */}
+              <button
+                type="button"
+                onClick={onToggleAutoRules}
+                aria-pressed={autoRulesEnabled}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
+                  autoRulesEnabled
+                    ? 'bg-[#14532D]/85 border-[#4ADE80]/60 text-[#BBF7D0]'
+                    : 'bg-white/[0.06] border-white/15 text-zinc-300 hover:text-white'
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+                <span>Auto Mode: {autoRulesEnabled ? 'ON' : 'OFF'}</span>
+              </button>
 
-          {/* 1-Click Auto Demo Play for Instant Hands-Free vMix Testing */}
-          <button
-            type="button"
-            onClick={onToggleAutoDemo}
-            aria-pressed={autoDemoActive}
-            className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
-              autoDemoActive
-                ? 'bg-[#7C3AED] border-[#C4B5FD] text-white shadow-[0_0_16px_rgba(124,58,237,0.55)]'
-                : 'btn-glass-pro text-zinc-100'
-            }`}
-          >
-            <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-            <span>{autoDemoActive ? 'Stop Auto Play' : 'Auto Play'}</span>
-          </button>
+              {/* 1-Click Auto Demo Play for Instant Hands-Free vMix Testing */}
+              <button
+                type="button"
+                onClick={onToggleAutoDemo}
+                aria-pressed={autoDemoActive}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
+                  autoDemoActive
+                    ? 'bg-[#7C3AED] border-[#C4B5FD] text-white shadow-[0_0_16px_rgba(124,58,237,0.55)]'
+                    : 'btn-glass-pro text-zinc-100'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+                <span>{autoDemoActive ? 'Stop Auto Play' : 'Auto Play'}</span>
+              </button>
+            </>
+          )}
 
+          {/* Dedicated Multi-Step UNDO Button */}
           <button
             type="button"
             disabled={!canUndo}
-            onClick={onUndo}
-            title="Undo last action"
-            className="btn-glass-pro inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-100 disabled:opacity-35 whitespace-nowrap"
+            onClick={handleSafeUndo}
+            title={lastUndoLabel ? `Undo: ${lastUndoLabel}` : 'Undo last scoreboard action'}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-400/45 text-amber-100 transition-all active:scale-95 disabled:opacity-35 whitespace-nowrap"
           >
-            <Undo2 className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Undo</span>
-          </button>
-
-          <button
-            type="button"
-            disabled={!canRedo}
-            onClick={onRedo}
-            title="Redo last action"
-            className="btn-glass-pro inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-100 disabled:opacity-35 whitespace-nowrap"
-          >
-            <Redo2 className="w-3.5 h-3.5" aria-hidden="true" />
-            <span>Redo</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenRemoteModal}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] hover:from-[#3B82F6] hover:to-[#2563EB] border border-[#93C5FD]/40 rounded-xl transition-all active:scale-95 whitespace-nowrap"
-          >
-            <Smartphone className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-            <span>Mobile QR</span>
-            {connectedControllers > 0 && (
-              <span className="px-1.5 py-0.5 bg-[#FACC15] text-black rounded-md font-mono text-[10px]">
-                {connectedControllers}
+            <Undo2 className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+            <span>UNDO</span>
+            {undoCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-md bg-[#FACC15] text-black font-mono text-[10px] font-black tabular-nums">
+                {undoCount}
               </span>
             )}
           </button>
+
+          {!isolatedUserMode && (
+            <button
+              type="button"
+              disabled={!canRedo}
+              onClick={onRedo}
+              title="Redo last action"
+              className="btn-glass-pro inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl text-zinc-100 disabled:opacity-35 whitespace-nowrap"
+            >
+              <Redo2 className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Redo</span>
+            </button>
+          )}
+
+          {/* Dedicated RESET SCORE Button (Opens In-App Confirmation Modal) */}
+          <button
+            type="button"
+            onClick={() => setResetConfirmOpen(true)}
+            title="Reset match scores and player dots (preserves team names, logos, and settings)"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-red-600/20 hover:bg-red-600/35 border border-red-400/50 text-red-100 transition-all active:scale-95 whitespace-nowrap"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-[#F87171]" aria-hidden="true" />
+            <span>RESET SCORE</span>
+          </button>
+
+          {!isolatedUserMode && (
+            <button
+              type="button"
+              onClick={onOpenRemoteModal}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-white bg-gradient-to-b from-[#2563EB] to-[#1D4ED8] hover:from-[#3B82F6] hover:to-[#2563EB] border border-[#93C5FD]/40 rounded-xl transition-all active:scale-95 whitespace-nowrap"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+              <span>Mobile QR</span>
+              {connectedControllers > 0 && (
+                <span className="px-1.5 py-0.5 bg-[#FACC15] text-black rounded-md font-mono text-[10px]">
+                  {connectedControllers}
+                </span>
+              )}
+            </button>
+          )}
 
           <button
             type="button"
@@ -916,7 +1013,7 @@ export function VmixKabaddiController({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onSendAction('all_out', { team: selectedTeam, points: 2 })}
+                  onClick={() => handleAllOutClick(selectedTeam)}
                   className="btn-primary-pro min-h-[44px] px-2 py-2 rounded-xl text-[11px] font-extrabold text-white leading-tight"
                 >
                   All Out +2
@@ -1056,14 +1153,21 @@ export function VmixKabaddiController({
                   />
                 </div>
                 <div className="space-y-1">
-                  <label htmlFor="kbd-league" className="block text-[11px] text-zinc-400">
-                    League / Sponsor
+                  <label htmlFor="kbd-sponsor" className="block text-[11px] text-zinc-400">
+                    Sponsor Name (Saved Permanently)
                   </label>
                   <input
-                    id="kbd-league"
+                    id="kbd-sponsor"
                     type="text"
-                    value={state.kabaddiLeague ?? ''}
-                    onChange={(e) => onUpdateState({ kabaddiLeague: e.target.value })}
+                    value={state.sponsorName ?? ''}
+                    placeholder="e.g. Star Event Live"
+                    onChange={(e) =>
+                      onUpdateState({
+                        sponsorName: e.target.value,
+                        kabaddiLeague: e.target.value,
+                      })
+                    }
+                    onBlur={() => onFlushSettings?.()}
                     className="w-full px-3 py-2 text-xs font-semibold bg-[#0E131D] border border-white/15 rounded-xl text-white focus:outline-none focus:border-[#FACC15]"
                   />
                 </div>
@@ -1276,11 +1380,11 @@ export function VmixKabaddiController({
                 </button>
                 <button
                   type="button"
-                  onClick={onResetMatch}
+                  onClick={() => setResetConfirmOpen(true)}
                   className="btn-primary-pro min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs font-extrabold rounded-xl text-white"
                 >
                   <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                  <span>Reset Full Match Score &amp; Cards</span>
+                  <span>Reset Match Score &amp; Dots</span>
                 </button>
               </div>
             </div>
@@ -1512,6 +1616,70 @@ export function VmixKabaddiController({
           )}
         </div>
       </div>
+
+      {/* Private Control Panel URL helper strip in Isolated User Mode */}
+      {isolatedUserMode && controlUrl && (
+        <div className="bg-[#090D16] border-t border-white/8 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono text-zinc-400">
+          <span className="truncate">
+            Control Panel: <span className="text-zinc-200">{controlUrl}</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => copyText('ctrl-url', controlUrl)}
+            className="text-[#FACC15] hover:text-white font-bold whitespace-nowrap"
+          >
+            {copiedKey === 'ctrl-url' ? 'Control URL Copied' : 'Copy Control URL'}
+          </button>
+        </div>
+      )}
+
+      {/* In-App Confirmation Modal for RESET SCORE */}
+      {resetConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reset-score-modal-title"
+          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+        >
+          <div className="w-full max-w-md bg-[#111625] border-2 border-[#EF4444]/65 rounded-2xl p-6 shadow-[0_24px_70px_rgba(0,0,0,0.85)] space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 border border-red-400/40 flex items-center justify-center shrink-0">
+                <RotateCcw className="w-5 h-5 text-[#F87171]" aria-hidden="true" />
+              </div>
+              <div className="space-y-1">
+                <h3
+                  id="reset-score-modal-title"
+                  className="font-display text-lg font-extrabold text-white leading-snug"
+                >
+                  Are you sure you want to reset the match score?
+                </h3>
+                <p className="text-xs text-zinc-400 leading-relaxed">
+                  Team A &amp; Team B scores will reset to 0, player dots to 7/7, and clocks to 30s.
+                  Your Team Names, Player Names, Logos, Sponsor, Tournament Details, and Settings
+                  will NOT be deleted.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setResetConfirmOpen(false)}
+                className="btn-glass-pro px-4 py-2.5 text-xs font-extrabold rounded-xl text-zinc-100"
+              >
+                CANCEL
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmResetScore}
+                className="px-5 py-2.5 text-xs font-extrabold rounded-xl bg-[#DC2626] hover:bg-[#EF4444] text-white border border-red-300/40 shadow-lg transition-colors"
+              >
+                CONFIRM RESET
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -32,7 +32,11 @@
       (function () {
         var qs = window.location.search || '';
         var p = window.location.pathname || '';
-        if (qs.indexOf('overlay=') !== -1 || p.indexOf('/overlay/') === 0) {
+        if (
+          qs.indexOf('overlay=') !== -1 ||
+          p.indexOf('/overlay/') === 0 ||
+          p.indexOf('/scoreboard/') === 0
+        ) {
           var bg = new URLSearchParams(qs).get('bg');
           var cls =
             bg === 'green'
