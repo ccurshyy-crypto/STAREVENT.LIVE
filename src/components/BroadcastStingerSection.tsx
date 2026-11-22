@@ -9,6 +9,7 @@ import {
   Youtube,
 } from 'lucide-react';
 import { Language, STUDIO_CONTACT } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 
 interface BroadcastStingerSectionProps {
   lang: Language;
@@ -95,8 +96,8 @@ export function BroadcastStingerSection({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           {/* Left: 16:9 Broadcast Stinger Motion Showcase */}
-          <div className="lg:col-span-7">
-            <div className="bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+          <ScrollReveal direction="left" className="lg:col-span-7">
+            <div className="studio-card-animate bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
               <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
                 {!videoError ? (
                   <video
@@ -195,10 +196,10 @@ export function BroadcastStingerSection({
                 )}
               </div>
             </div>
-          </div>
+          </ScrollReveal>
 
           {/* Right: YouTube Channel Subscribe & Broadcast Transition Context */}
-          <div className="lg:col-span-5 space-y-6">
+          <ScrollReveal direction="right" delay={100} className="lg:col-span-5 space-y-6">
             <div className="space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {lang === 'mr'
@@ -247,7 +248,7 @@ export function BroadcastStingerSection({
                 href={STUDIO_CONTACT.youtubeUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <Youtube className="w-4 h-4 shrink-0" aria-hidden="true" />
                 <span>
@@ -261,12 +262,12 @@ export function BroadcastStingerSection({
               <button
                 type="button"
                 onClick={onOpenOverlays}
-                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>{lang === 'mr' ? 'लाईव्ह ओव्हरले पहा' : 'Explore Live Overlays'}</span>
               </button>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
     </section>

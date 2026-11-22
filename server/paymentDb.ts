@@ -28,6 +28,7 @@ export const SERVER_PLANS: Record<PlanId, ServerPlan> = {
 
 export const VALID_SKUS = new Set<string>([
   'kabaddi-classic',
+  'haldi-wedding',
   'haldi-festive',
   'haldi-classic',
   'haldi-modern',

@@ -7,6 +7,7 @@ import {
   Language,
   UI_COPY,
 } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 
 interface ServicesSectionProps {
   lang: Language;
@@ -86,7 +87,7 @@ export function ServicesSection({
         <button
           type="button"
           onClick={() => onBookEvent(service.id)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+          className="cta-btn-animate inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
         >
           <span>{UI_COPY.servicesSection.selectBtn[lang]}</span>
           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -110,31 +111,33 @@ export function ServicesSection({
     <section id="services" className="py-20 sm:py-24 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
-        <div className="max-w-3xl space-y-3.5 mb-12">
-          <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
-            {UI_COPY.servicesSection.kicker[lang]}
-          </p>
-          <h2
-            className={`font-display text-2xl sm:text-4xl font-bold text-white ${
-              lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
-            }`}
-          >
-            {UI_COPY.servicesSection.heading[lang]}
-          </h2>
-          <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
-            {UI_COPY.servicesSection.intro[lang]}
-          </p>
-        </div>
+        <ScrollReveal>
+          <div className="max-w-3xl space-y-3.5 mb-12">
+            <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
+              {UI_COPY.servicesSection.kicker[lang]}
+            </p>
+            <h2
+              className={`font-display text-2xl sm:text-4xl font-bold text-white ${
+                lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
+              }`}
+            >
+              {UI_COPY.servicesSection.heading[lang]}
+            </h2>
+            <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
+              {UI_COPY.servicesSection.intro[lang]}
+            </p>
+          </div>
+        </ScrollReveal>
 
         {/* All 6 Event Services with real on-site & studio photography */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {featuredServices.map((service) => {
+          {featuredServices.map((service, idx) => {
             const hasFailed = Boolean(failedImages[service.id]);
             const isContain = service.imageFit === 'contain';
             return (
+              <ScrollReveal key={service.id} delay={(idx % 3) * 85} className="h-full">
               <article
-                key={service.id}
-                className="group bg-[#121216] border border-white/10 hover:border-[#FACC15]/35 rounded-2xl overflow-hidden flex flex-col transition-colors duration-150"
+                className="studio-card-animate h-full group bg-[#121216] border border-white/10 hover:border-[#FACC15]/35 rounded-2xl overflow-hidden flex flex-col transition-colors duration-150"
               >
                 {/* Real On-Site / Studio Photo */}
                 {service.image && (
@@ -196,24 +199,27 @@ export function ServicesSection({
                   {renderCardBody(service)}
                 </div>
               </article>
+              </ScrollReveal>
             );
           })}
         </div>
 
         {additionalServices.length > 0 && (
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-            {additionalServices.map((service) => (
-              <article
-                key={service.id}
-                className="group bg-[#121216] border border-white/10 hover:border-white/25 rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-colors duration-150"
-              >
-                {renderCardBody(service)}
-              </article>
+            {additionalServices.map((service, idx) => (
+              <ScrollReveal key={service.id} delay={idx * 90} className="h-full">
+                <article
+                  className="studio-card-animate h-full group bg-[#121216] border border-white/10 hover:border-white/25 rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-colors duration-150"
+                >
+                  {renderCardBody(service)}
+                </article>
+              </ScrollReveal>
             ))}
           </div>
         )}
 
         {/* 4 Core Production Capabilities from the banner */}
+        <ScrollReveal delay={80}>
         <div className="mt-12 pt-10 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-7">
           <div className="space-y-2">
             <h4 className="text-sm font-bold text-white leading-snug">
@@ -256,6 +262,7 @@ export function ServicesSection({
             </p>
           </div>
         </div>
+        </ScrollReveal>
       </div>
 
       {/* Full-size Photo Lightbox Modal */}

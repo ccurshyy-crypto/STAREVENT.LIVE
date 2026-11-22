@@ -12,6 +12,7 @@ import { OverlayOutputView } from './components/OverlayOutputView';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
 import { PartnerAdSection } from './components/PartnerAdSection';
+import { ScrollReveal } from './components/ScrollReveal';
 import { ServicesSection } from './components/ServicesSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { EventCategoryId, Language, UI_COPY } from './data/content';
@@ -426,6 +427,7 @@ export default function App() {
       />
 
       <main className="relative z-10 flex-1">
+        <div key={currentPage} className="page-transition-enter">
         {currentPage === 'overlays' ? (
           <OverlaysPage
             lang={lang}
@@ -484,6 +486,7 @@ export default function App() {
               className="py-20 sm:py-24 border-b border-white/10 bg-[#0C0C0F]/68 backdrop-blur-[2px]"
             >
               <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <ScrollReveal>
                 <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
                   <div className="max-w-3xl space-y-3.5">
                     <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
@@ -498,15 +501,15 @@ export default function App() {
                     </h2>
                     <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
                       {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या वॉटरमार्कसह), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड (30s टायमर) आणि हळदी-लग्न ओव्हरले (2 स्टाईल) — आजची ऑफर: फक्त ₹1 पेमेंट करा, 1 दिवसासाठी (24 तास) आपोआप अनलॉक होईल.'
-                        : "FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark), watermark-free Kabaddi Pro Scoreboard (30s timer), and 2 Haldi & Wedding overlays for OBS & vMix — Today's Offer: Pay ₹1 for instant 1-Day (24h) auto-unlock."}
+                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो, प्रो कबड्डी कंट्रोलर, कस्टम रॉयल वेडिंग फ्रेम आणि हळदी अ‍ॅनिमेटेड ओव्हरले — आजची ऑफर: फक्त ₹1 पेमेंट करा, 1 दिवसासाठी (24 तास) आपोआप अनलॉक होईल.'
+                        : "FREE Kabaddi Demo, Pro vMix/OBS Kabaddi Controller, Customizable Royal Wedding Frame, and Animated Haldi Overlays for OBS & vMix — Today's Offer: Pay ₹1 for instant 1-Day (24h) auto-unlock."}
                     </p>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => navigateToOverlays()}
-                    className="inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                    className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                   >
                     <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                     <span>
@@ -517,26 +520,29 @@ export default function App() {
                     <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
                   </button>
                 </div>
+                </ScrollReveal>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {OVERLAY_PRODUCTS.map((product) => {
+                  {OVERLAY_PRODUCTS.map((product, idx) => {
                     const isUnlocked = Boolean(product.isFreeDemo) || unlockedSkus.includes(product.sku);
                     const styleBadge =
                       product.mode === 'kabaddi'
                         ? product.isFreeDemo
                           ? 'FREE DEMO'
                           : 'PRO SCOREBOARD'
-                        : product.style === 'festive'
-                          ? 'ANIMATED ROYAL'
-                          : product.style === 'classic'
-                            ? 'STYLE 1'
-                            : 'STYLE 2';
+                        : product.style === 'wedding'
+                          ? 'WEDDING FRAME'
+                          : product.style === 'festive'
+                            ? 'ANIMATED ROYAL'
+                            : product.style === 'classic'
+                              ? 'STYLE 1'
+                              : 'STYLE 2';
                     return (
+                      <ScrollReveal key={product.sku} delay={(idx % 3) * 80} className="h-full">
                       <button
-                        key={product.sku}
                         type="button"
                         onClick={() => navigateToOverlays(product.mode, product.style)}
-                        className={`group text-left bg-[#121216] border rounded-2xl p-5 flex flex-col justify-between gap-5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                        className={`studio-card-animate w-full h-full group text-left bg-[#121216] border rounded-2xl p-5 flex flex-col justify-between gap-5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
                           product.isFreeDemo
                             ? 'border-[#4ADE80]/40 hover:border-[#4ADE80]'
                             : 'border-white/10 hover:border-[#FACC15]/70'
@@ -600,6 +606,7 @@ export default function App() {
                           </span>
                         </div>
                       </button>
+                      </ScrollReveal>
                     );
                   })}
                 </div>
@@ -622,6 +629,7 @@ export default function App() {
             />
           </>
         )}
+        </div>
       </main>
 
       <Footer

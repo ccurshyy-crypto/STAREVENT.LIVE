@@ -1,12 +1,14 @@
 export type OverlayMode = 'kabaddi' | 'haldi';
 
-export type OverlayStyle = 'classic' | 'modern' | 'demo' | 'festive';
+export type OverlayStyle = 'classic' | 'modern' | 'demo' | 'festive' | 'wedding';
 
 export type HaldiAnimationMode = 'festive' | 'shimmer' | 'petals' | 'beat' | 'static';
 
 export type HaldiColorTheme = 'royal-maroon' | 'turmeric-gold' | 'saffron-red' | 'emerald-gold';
 
 export type HaldiAnimSpeed = 'slow' | 'normal' | 'fast';
+
+export type WeddingBottomAnimation = 'gentle' | 'shimmer' | 'petals' | 'static';
 
 export type OverlayBackground = 'transparent' | 'green' | 'blue';
 
@@ -44,6 +46,7 @@ export function normalizeStyleForMode(mode: OverlayMode, style?: string): Overla
   if (mode === 'kabaddi') {
     return style === 'demo' ? 'demo' : 'classic';
   }
+  if (style === 'wedding') return 'wedding';
   if (style === 'festive') return 'festive';
   if (style === 'modern') return 'modern';
   return 'classic';
@@ -114,7 +117,7 @@ export interface LiveOverlayState {
   runnerUpTeam?: string;
   thirdPlaceTeam?: string;
   fourthPlaceTeam?: string;
-  // Haldi & Wedding Ceremony Overlay state (3 Styles including Royal Animated Festive Bar)
+  // Haldi & Wedding Ceremony Overlay state
   haldiTag: string;
   haldiHeader: string;
   haldiTitle: string;
@@ -129,6 +132,19 @@ export interface LiveOverlayState {
   haldiShowTopHeader: boolean;
   haldiShowDecor: boolean;
   haldiShowPetals: boolean;
+  // Royal Customizable Wedding Frame Overlay state (name, color & subtle bottom animation)
+  weddingGroomName?: string;
+  weddingBrideName?: string;
+  weddingConnector?: string;
+  weddingEventLabel?: string;
+  weddingDateVenue?: string;
+  weddingTopHeader?: string;
+  weddingPrimaryColor?: string;
+  weddingAccentColor?: string;
+  weddingTextColor?: string;
+  weddingBottomAnim?: WeddingBottomAnimation;
+  weddingShowTopHeader?: boolean;
+  weddingShowCornerFrame?: boolean;
 }
 
 export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlayState {
@@ -211,5 +227,17 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     haldiShowTopHeader: false,
     haldiShowDecor: true,
     haldiShowPetals: true,
+    weddingGroomName: 'चि. रोहित',
+    weddingBrideName: 'चि. सौ. कां. प्रिया',
+    weddingConnector: 'व',
+    weddingEventLabel: 'शुभ विवाह सोहळा',
+    weddingDateVenue: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
+    weddingTopHeader: '|| श्री गणेशाय नमः ||',
+    weddingPrimaryColor: '#6B0F26',
+    weddingAccentColor: '#F5C542',
+    weddingTextColor: '#FFFFFF',
+    weddingBottomAnim: 'gentle',
+    weddingShowTopHeader: true,
+    weddingShowCornerFrame: true,
   };
 }

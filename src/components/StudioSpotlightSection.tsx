@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, ExternalLink, Instagram, Maximize2, Phone, Video, X, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 
 interface StudioSpotlightSectionProps {
   lang: Language;
@@ -95,8 +96,8 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
           {/* Left: Official Promotional Poster */}
-          <div className="lg:col-span-5">
-            <figure className="group bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+          <ScrollReveal direction="left" className="lg:col-span-5">
+            <figure className="studio-card-animate group bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
               {!posterError ? (
                 <button
                   type="button"
@@ -146,10 +147,10 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                 </span>
               </figcaption>
             </figure>
-          </div>
+          </ScrollReveal>
 
           {/* Right: Editorial Brand Story & Capabilities */}
-          <div className="lg:col-span-7 space-y-8">
+          <ScrollReveal direction="right" delay={100} className="lg:col-span-7 space-y-8">
             <div className="space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {lang === 'mr'
@@ -194,7 +195,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
               <button
                 type="button"
                 onClick={onBookNow}
-                className="inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="cta-btn-animate inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <span>{lang === 'mr' ? 'कार्यक्रम बुक करा' : 'Book Your Coverage'}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -233,7 +234,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                 <span>{STUDIO_CONTACT.phoneDisplay}</span>
               </a>
             </div>
-          </div>
+          </ScrollReveal>
         </div>
       </div>
 

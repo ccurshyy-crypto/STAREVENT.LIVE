@@ -10,7 +10,6 @@ import {
   ImagePlus,
   Lock,
   Radio,
-  Smartphone,
   Trash2,
   Tv,
 } from 'lucide-react';
@@ -36,15 +35,16 @@ import {
   OverlayBackground,
   OverlayMode,
   OverlayStyle,
+  WeddingBottomAnimation,
 } from '../types/overlay';
 import {
   downloadHaldiOverlayPng,
   downloadKabaddiOverlayPng,
 } from '../utils/exportOverlayPng';
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
-import { KabaddiControlDesk } from './KabaddiControlDesk';
 import { KabaddiRemoteModal } from './KabaddiRemoteModal';
-import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
+import { VmixKabaddiController } from './VmixKabaddiController';
+import { WEDDING_COLOR_PRESETS, WeddingFrameOverlay } from './WeddingFrameOverlay';
 
 export type PreviewMode = OverlayMode;
 
@@ -144,6 +144,7 @@ export function LiveStudioPreview({
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
   const isClassic = resolvedStyle === 'classic';
   const isFestive = resolvedStyle === 'festive';
+  const isWeddingFrame = resolvedStyle === 'wedding';
   const isFreeDemo = activeMode === 'kabaddi' && resolvedStyle === 'demo';
   const currentSku = getOverlaySku(activeMode, resolvedStyle);
   const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
@@ -264,37 +265,6 @@ export function LiveStudioPreview({
     }, 1800);
   };
 
-  const handleKabaddiScore = (team: 'A' | 'B', delta: number, alertText?: string) => {
-    if (team === 'A') {
-      updateState({
-        mode: 'kabaddi',
-        teamAScore: Math.max(0, state.teamAScore + delta),
-        ...(alertText ? { kabaddiAlert: alertText } : {}),
-      });
-    } else {
-      updateState({
-        mode: 'kabaddi',
-        teamBScore: Math.max(0, state.teamBScore + delta),
-        ...(alertText ? { kabaddiAlert: alertText } : {}),
-      });
-    }
-    if (alertText) {
-      triggerKabaddiAlert(alertText);
-    }
-  };
-
-  const handleKabaddiQuickPoint = (
-    team: 'A' | 'B',
-    kind: 'raid' | 'bonus' | 'tackle' | 'super_tackle' | 'all_out' | 'super_raid'
-  ) => {
-    if (kind === 'raid') sendAction('raid', { team, points: 1 });
-    else if (kind === 'super_raid') sendAction('raid', { team, points: 3 });
-    else if (kind === 'bonus') sendAction('bonus', { team });
-    else if (kind === 'tackle') sendAction('tackle', { team, points: 1 });
-    else if (kind === 'super_tackle') sendAction('tackle', { team, points: 2 });
-    else if (kind === 'all_out') sendAction('all_out', { team });
-  };
-
   const handleKabaddiTimeout = (target: KabaddiTimeoutTeam) => {
     if (!target) {
       sendAction('clear_timeout');
@@ -311,7 +281,8 @@ export function LiveStudioPreview({
         matchUpdatedAt: Date.now(),
       });
     } else {
-      const startFrom = displayMatchSeconds === 0 ? 30 : displayMatchSeconds;
+      const startFrom =
+        displayMatchSeconds === 0 ? state.kabaddiMatchDuration || 1200 : displayMatchSeconds;
       updateState({
         matchRunning: true,
         matchSeconds: startFrom,
@@ -320,33 +291,12 @@ export function LiveStudioPreview({
     }
   };
 
-  const handleAdjustMatchSeconds = (deltaSec: number) => {
-    const nextSec = Math.max(0, Math.min(99 * 60, displayMatchSeconds + deltaSec));
-    updateState({
-      matchSeconds: nextSec,
-      matchUpdatedAt: Date.now(),
-    });
-  };
-
   const handleSetMatchPreset = (seconds: number, autoStart = true) => {
     updateState({
       matchRunning: autoStart,
       matchSeconds: Math.max(0, seconds),
       matchUpdatedAt: Date.now(),
     });
-  };
-
-  const handleToggleSinBin = (team: 'A' | 'B') => {
-    const now = Date.now();
-    if (team === 'A') {
-      updateState({
-        teamABinEndAt: teamABinRemaining > 0 ? null : now + 2 * 60 * 1000,
-      });
-    } else {
-      updateState({
-        teamBBinEndAt: teamBBinRemaining > 0 ? null : now + 2 * 60 * 1000,
-      });
-    }
   };
 
   const handleSwapTeams = () => {
@@ -509,6 +459,17 @@ export function LiveStudioPreview({
         theme: state.haldiTheme,
         showTopHeader: state.haldiShowTopHeader,
         showDecor: state.haldiShowDecor,
+        weddingGroomName: state.weddingGroomName,
+        weddingBrideName: state.weddingBrideName,
+        weddingConnector: state.weddingConnector,
+        weddingEventLabel: state.weddingEventLabel,
+        weddingDateVenue: state.weddingDateVenue,
+        weddingTopHeader: state.weddingTopHeader,
+        weddingPrimaryColor: state.weddingPrimaryColor,
+        weddingAccentColor: state.weddingAccentColor,
+        weddingTextColor: state.weddingTextColor,
+        weddingShowTopHeader: state.weddingShowTopHeader,
+        weddingShowCornerFrame: state.weddingShowCornerFrame,
         customLogoUrl: state.showLogo ? state.customLogoUrl : '',
         logoCorner: state.logoCorner,
       });
@@ -627,23 +588,63 @@ export function LiveStudioPreview({
     }
   };
 
+  const applyWeddingPreset = (preset: 'mr' | 'hi' | 'gu' | 'en') => {
+    if (preset === 'mr') {
+      updateState({
+        weddingGroomName: 'चि. रोहित',
+        weddingBrideName: 'चि. सौ. कां. प्रिया',
+        weddingConnector: 'व',
+        weddingEventLabel: 'शुभ विवाह सोहळा',
+        weddingDateVenue: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
+        weddingTopHeader: '|| श्री गणेशाय नमः ||',
+      });
+    } else if (preset === 'hi') {
+      updateState({
+        weddingGroomName: 'चि. आरव',
+        weddingBrideName: 'सौ. का. अनन्या',
+        weddingConnector: 'संग',
+        weddingEventLabel: 'शुभ विवाह समारोह',
+        weddingDateVenue: 'लाइव प्रसारण • दिनांक व स्थान',
+        weddingTopHeader: '|| श्री गणेशाय नमः ||',
+      });
+    } else if (preset === 'gu') {
+      updateState({
+        weddingGroomName: 'ચિ. દેવ',
+        weddingBrideName: 'ચિ. મીરા',
+        weddingConnector: 'સંગ',
+        weddingEventLabel: 'શુભ લગ્ન પ્રસંગ',
+        weddingDateVenue: 'લાઇવ પ્રસારણ • તારીખ અને સ્થળ',
+        weddingTopHeader: '|| શ્રી ગણેશાય નમઃ ||',
+      });
+    } else {
+      updateState({
+        weddingGroomName: 'ROHIT SHARMA',
+        weddingBrideName: 'PRIYA PATIL',
+        weddingConnector: 'Weds',
+        weddingEventLabel: 'WEDDING CEREMONY LIVE',
+        weddingDateVenue: '24 Nov 2026 • Live Broadcast',
+        weddingTopHeader: 'SHUBH VIVAH · LIVE COVERAGE',
+      });
+    }
+  };
+
   const modeTabs: { id: PreviewMode; label: Record<Language, string> }[] = [
     {
       id: 'kabaddi',
       label: {
-        en: 'Kabaddi Scoreboard',
-        mr: 'कबड्डी स्कोअरबोर्ड',
-        hi: 'कबड्डी स्कोरबोर्ड',
-        gu: 'કબડ્ડી સ્કોરબોર્ડ',
+        en: 'Kabaddi Controller',
+        mr: 'कबड्डी कंट्रोलर',
+        hi: 'कबड्डी कंट्रोलर',
+        gu: 'કબડ્ડી કંટ્રોલર',
       },
     },
     {
       id: 'haldi',
       label: {
-        en: 'Haldi & Wedding (3)',
-        mr: 'हळदी व लग्न ओव्हरले (3)',
-        hi: 'हल्दी व शादी ओवरले (3)',
-        gu: 'હળદી અને લગ્ન ઓવરલે (3)',
+        en: 'Wedding & Haldi (4)',
+        mr: 'लग्न व हळदी ओव्हरले (4)',
+        hi: 'शादी व हल्दी ओवरले (4)',
+        gu: 'લગ્ન અને હળદી ઓવરલે (4)',
       },
     },
   ];
@@ -691,12 +692,28 @@ export function LiveStudioPreview({
         ]
       : [
           {
+            id: 'wedding',
+            label: {
+              en: 'Royal Wedding Frame · Custom Color',
+              mr: 'रॉयल वेडिंग फ्रेम · नाव व कलर कस्टमाईज',
+              hi: 'रॉयल वेडिंग फ्रेम · नाम व कलर कस्टमाइज़',
+              gu: 'રોયલ વેડિંગ ફ્રેમ · નામ અને કલર કસ્ટમાઇઝ',
+            },
+            desc: {
+              en: 'Custom Groom/Bride names + Color picker + Subtle bottom motion (₹1)',
+              mr: 'वधू-वर नाव + कलर पिकर + हलके बॉटम अ‍ॅनिमेशन (फक्त ₹1)',
+              hi: 'वर-वधू नाम + कलर पिकर + हल्का बॉटम एनिमेशन (सिर्फ ₹1)',
+              gu: 'વર-વધૂ નામ + કલર પિકર + હળવું બોટમ એનિમેશન (માત્ર ₹1)',
+            },
+            badge: 'NEW FRAME',
+          },
+          {
             id: 'festive',
             label: {
-              en: 'Royal Animated · Dhol & Kalash',
-              mr: 'रॉयल अ‍ॅनिमेटेड · ढोलक व ॐ कलश',
-              hi: 'रॉयल एनिमेटेड · ढोलक व ॐ कलश',
-              gu: 'રોયલ એનિમેટેડ · ઢોલક અને ॐ કળશ',
+              en: 'Royal Haldi · Dhol & Kalash',
+              mr: 'रॉयल हळदी · ढोलक व ॐ कलश',
+              hi: 'रॉयल हल्दी · ढोलक व ॐ कलश',
+              gu: 'રોયલ હળદી · ઢોલક અને ॐ કળશ',
             },
             desc: {
               en: 'Full custom text + 5 live animations + 4 themes (₹1 / 1 Day)',
@@ -709,7 +726,7 @@ export function LiveStudioPreview({
           {
             id: 'classic',
             label: {
-              en: 'Style 1 · Shahi Haldi & Wedding',
+              en: 'Style 1 · Shahi Gold Frame',
               mr: 'स्टाईल 1 · शाही हळदी-लग्न फ्रेम',
               hi: 'स्टाइल 1 · शाही हल्दी-शादी फ्रेम',
               gu: 'સ્ટાઇલ 1 · શાહી હળદી-લગ્ન ફ્રેમ',
@@ -743,11 +760,13 @@ export function LiveStudioPreview({
       ? isFreeDemo
         ? 'FREE DEMO'
         : 'PRO SCOREBOARD'
-      : resolvedStyle === 'festive'
-        ? 'ROYAL ANIMATED'
-        : resolvedStyle === 'classic'
-          ? 'STYLE 1'
-          : 'STYLE 2';
+      : isWeddingFrame
+        ? 'ROYAL WEDDING FRAME'
+        : isFestive
+          ? 'ROYAL HALDI ANIMATED'
+          : resolvedStyle === 'classic'
+            ? 'STYLE 1'
+            : 'STYLE 2';
 
   const activePlatformObj = PLATFORMS.find((p) => p.id === platform) ?? PLATFORMS[0];
 
@@ -817,7 +836,11 @@ export function LiveStudioPreview({
         {/* Style / Tier Visual Picker Bar */}
         <div
           className={`mb-6 grid grid-cols-1 gap-3 ${
-            styleOptions.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+            styleOptions.length === 4
+              ? 'sm:grid-cols-2 lg:grid-cols-4'
+              : styleOptions.length === 3
+                ? 'sm:grid-cols-3'
+                : 'sm:grid-cols-2'
           }`}
         >
           {styleOptions.map((opt) => {
@@ -867,14 +890,59 @@ export function LiveStudioPreview({
           })}
         </div>
 
-        {/* Main Studio Grid: Monitor + Control Desk */}
+        {/* Main Studio Area: Full-Width vMix Kabaddi Controller OR Haldi/Wedding Broadcast Monitor + Customizer */}
+        {activeMode === 'kabaddi' ? (
+          <div className="space-y-4">
+            <VmixKabaddiController
+              lang={lang}
+              state={state}
+              displayMatchSeconds={displayMatchSeconds}
+              displayRaidSeconds={displayRaidSeconds}
+              teamABinRemaining={teamABinRemaining}
+              teamBBinRemaining={teamBBinRemaining}
+              connected={connected}
+              connectedDisplays={connectedDisplays}
+              connectedControllers={connectedControllers}
+              roomInput={roomInput}
+              onChangeRoomInput={(val) => setRoomInput(sanitizeRoomIdClient(val))}
+              outputBg={outputBg}
+              onChangeOutputBg={setOutputBg}
+              transparentBg={transparentBg}
+              onToggleTransparentBg={() => setTransparentBg((v) => !v)}
+              lockModeInUrl={lockModeInUrl}
+              onToggleLockModeInUrl={() => setLockModeInUrl((v) => !v)}
+              obsBrowserUrl={obsBrowserUrl}
+              vmixBrowserUrl={vmixBrowserUrl}
+              isPrivateDevPreview={isPrivateDevPreview}
+              isFreeDemo={isFreeDemo}
+              isCurrentUnlocked={isCurrentUnlocked}
+              activeToken={activeToken}
+              currentSku={currentSku}
+              nowTs={nowTs}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={() => sendAction('undo')}
+              onRedo={() => sendAction('redo')}
+              onUpdateState={updateState}
+              onTriggerAlert={triggerKabaddiAlert}
+              onTimeout={handleKabaddiTimeout}
+              onToggleMatchTimer={handleToggleMatchTimer}
+              onSetMatchPreset={handleSetMatchPreset}
+              onToggleRaidTimer={handleToggleRaidTimer}
+              onResetRaidTimer={handleResetRaidTimer}
+              onUploadTeamLogo={handleUploadTeamLogo}
+              onRemoveTeamLogo={handleRemoveTeamLogo}
+              onSwapTeams={handleSwapTeams}
+              onResetMatch={handleResetKabaddi}
+              onOpenRemoteModal={() => setRemoteModalOpen(true)}
+              onDownloadPng={handleDownloadOverlay}
+              onRequestPurchase={onRequestPurchase}
+            />
+          </div>
+        ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
           {/* Broadcast Program Monitor (16:9) + OBS/vMix URL Panel */}
-          <div
-            className={`${
-              activeMode === 'kabaddi' ? 'xl:col-span-7' : 'xl:col-span-8'
-            } bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-5`}
-          >
+          <div className="xl:col-span-8 bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-5">
             {/* Monitor top toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-white/8 text-xs text-zinc-400">
               <div className="flex flex-wrap items-center gap-2">
@@ -894,67 +962,65 @@ export function LiveStudioPreview({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {activeMode === 'haldi' && (
-                  <>
-                    <label className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-200 border-white/15 hover:border-[#FACC15]/70 transition-colors cursor-pointer whitespace-nowrap shrink-0">
-                      <ImagePlus className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                      <span>
-                        {state.customLogoUrl
-                          ? lang === 'mr'
-                            ? 'लोगो बदला'
-                            : 'Change Logo'
-                          : lang === 'mr'
-                            ? 'कस्टम लोगो'
-                            : 'Add Logo'}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleUploadCustomLogo}
-                        className="sr-only"
-                      />
-                    </label>
+                <>
+                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-200 border-white/15 hover:border-[#FACC15]/70 transition-colors cursor-pointer whitespace-nowrap shrink-0">
+                    <ImagePlus className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
+                    <span>
+                      {state.customLogoUrl
+                        ? lang === 'mr'
+                          ? 'लोगो बदला'
+                          : 'Change Logo'
+                        : lang === 'mr'
+                          ? 'कस्टम लोगो'
+                          : 'Add Logo'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadCustomLogo}
+                      className="sr-only"
+                    />
+                  </label>
 
-                    {state.customLogoUrl && (
-                      <>
+                  {state.customLogoUrl && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => updateState({ showLogo: !state.showLogo })}
+                        aria-pressed={state.showLogo}
+                        className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded border transition-colors whitespace-nowrap shrink-0 ${
+                          state.showLogo
+                            ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
+                            : 'bg-[#18181D] text-zinc-400 border-white/15 hover:border-white/30'
+                        }`}
+                      >
+                        {state.showLogo ? 'Logo: ON' : 'Logo: OFF'}
+                      </button>
+                      {state.showLogo && (
                         <button
                           type="button"
-                          onClick={() => updateState({ showLogo: !state.showLogo })}
-                          aria-pressed={state.showLogo}
-                          className={`px-2.5 py-1 text-[11px] font-mono font-semibold rounded border transition-colors whitespace-nowrap shrink-0 ${
-                            state.showLogo
-                              ? 'bg-[#1D1618] text-[#FACC15] border-[#FACC15]/70'
-                              : 'bg-[#18181D] text-zinc-400 border-white/15 hover:border-white/30'
-                          }`}
+                          onClick={() =>
+                            updateState({
+                              logoCorner:
+                                state.logoCorner === 'top-right' ? 'top-left' : 'top-right',
+                            })
+                          }
+                          className="px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-300 border-white/15 hover:border-white/30 transition-colors whitespace-nowrap shrink-0"
                         >
-                          {state.showLogo ? 'Logo: ON' : 'Logo: OFF'}
+                          {state.logoCorner === 'top-right' ? 'Pos: Right' : 'Pos: Left'}
                         </button>
-                        {state.showLogo && (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              updateState({
-                                logoCorner:
-                                  state.logoCorner === 'top-right' ? 'top-left' : 'top-right',
-                              })
-                            }
-                            className="px-2.5 py-1 text-[11px] font-mono font-semibold rounded border bg-[#18181D] text-zinc-300 border-white/15 hover:border-white/30 transition-colors whitespace-nowrap shrink-0"
-                          >
-                            {state.logoCorner === 'top-right' ? 'Pos: Right' : 'Pos: Left'}
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={handleRemoveCustomLogo}
-                          aria-label={lang === 'mr' ? 'लोगो काढा' : 'Remove custom logo'}
-                          className="p-1 text-zinc-400 hover:text-[#F87171] border border-white/15 rounded transition-colors"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </>
-                )}
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleRemoveCustomLogo}
+                        aria-label={lang === 'mr' ? 'लोगो काढा' : 'Remove custom logo'}
+                        className="p-1 text-zinc-400 hover:text-[#F87171] border border-white/15 rounded transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      </button>
+                    </>
+                  )}
+                </>
 
                 <button
                   type="button"
@@ -998,171 +1064,177 @@ export function LiveStudioPreview({
               className={`relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between p-3.5 sm:p-5 transition-opacity duration-200 ${
                 state.visible ? 'opacity-100' : 'opacity-25'
               } ${
-                isClassic && activeMode === 'haldi'
+                isClassic
                   ? 'border-2 border-[#FACC15] shadow-[inset_0_0_0_4px_#B45309]'
                   : 'border border-white/12'
               } ${
                 transparentBg
                   ? ''
-                  : activeMode === 'kabaddi'
-                    ? 'bg-gradient-to-br from-[#0F172A] via-[#131924] to-[#09090B]'
-                    : 'bg-gradient-to-br from-[#452705] via-[#261607] to-[#09090B]'
+                  : 'bg-gradient-to-br from-[#452705] via-[#261607] to-[#09090B]'
               }`}
               style={monitorBackgroundStyle}
             >
-              {/* Classic Haldi ornamental corners */}
-              {isClassic && activeMode === 'haldi' && (
+              {isWeddingFrame ? (
                 <>
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-2.5 left-2.5 w-7 h-7 border-t-2 border-l-2 border-[#FACC15]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute top-2.5 right-2.5 w-7 h-7 border-t-2 border-r-2 border-[#FACC15]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-2.5 left-2.5 w-7 h-7 border-b-2 border-l-2 border-[#FACC15]"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-2.5 right-2.5 w-7 h-7 border-b-2 border-r-2 border-[#FACC15]"
-                  />
-                </>
-              )}
+                  {/* Center safe zone label */}
+                  <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-3">
+                    <p className="font-mono text-[11px] sm:text-xs text-zinc-200 bg-black/60 px-3 py-1.5 rounded border border-white/10">
+                      {lang === 'mr'
+                        ? 'क्लियर सेंटर (OBS / vMix मध्ये येथे तुमचा लाईव्ह कॅमेरा दिसेल)'
+                        : 'CLEAR CENTER · LIVE OBS / vMix CAMERA FEED SHOWS HERE'}
+                    </p>
+                  </div>
 
-              {/* Top Layer */}
-              {activeMode === 'haldi' ? (
-                <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
-                  {isFestive ? (
-                    state.haldiShowTopHeader && state.haldiHeader.trim() ? (
-                      <div className="mx-auto bg-gradient-to-r from-[#4D0414]/95 via-[#8F0C26]/95 to-[#4D0414]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
-                        {state.haldiHeader}
+                  <WeddingFrameOverlay
+                    variant="studio"
+                    groomName={state.weddingGroomName}
+                    brideName={state.weddingBrideName}
+                    connector={state.weddingConnector}
+                    eventLabel={state.weddingEventLabel}
+                    dateVenue={state.weddingDateVenue}
+                    topHeader={state.weddingTopHeader}
+                    primaryColor={state.weddingPrimaryColor}
+                    accentColor={state.weddingAccentColor}
+                    textColor={state.weddingTextColor}
+                    bottomAnim={state.weddingBottomAnim}
+                    showTopHeader={state.weddingShowTopHeader}
+                    showCornerFrame={state.weddingShowCornerFrame}
+                  />
+
+                  {state.showLogo && state.customLogoUrl && (
+                    <div
+                      className={`pointer-events-none absolute top-14 sm:top-16 z-20 ${
+                        state.logoCorner === 'top-left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5'
+                      }`}
+                    >
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-[#FACC15] bg-black/75 p-1.5 overflow-hidden flex items-center justify-center drop-shadow-[0_6px_14px_rgba(0,0,0,0.65)]">
+                        <img
+                          src={state.customLogoUrl}
+                          alt="Custom overlay logo"
+                          className="w-full h-full object-contain rounded-full"
+                        />
                       </div>
-                    ) : (
-                      <div className="h-2" aria-hidden="true" />
-                    )
-                  ) : isClassic ? (
-                    <>
-                      <div className="inline-flex items-center gap-1.5 bg-[#B45309]/95 border border-[#FACC15] text-[#FEF08A] px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
-                        <span>{state.haldiTag}</span>
-                      </div>
-                      <div className="bg-[#78350F]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
-                        {state.haldiHeader}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="ml-auto bg-[#180F06]/88 border border-[#FACC15]/85 rounded-full px-3.5 py-1 text-[10px] sm:text-xs font-display font-bold text-[#FACC15]">
-                      {state.haldiHeader}
                     </div>
                   )}
-                </div>
+                </>
               ) : (
-                <div className="h-3" aria-hidden="true" />
-              )}
+                <>
+                  {/* Classic Haldi ornamental corners */}
+                  {isClassic && (
+                    <>
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-2.5 left-2.5 w-7 h-7 border-t-2 border-l-2 border-[#FACC15]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-2.5 right-2.5 w-7 h-7 border-t-2 border-r-2 border-[#FACC15]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute bottom-2.5 left-2.5 w-7 h-7 border-b-2 border-l-2 border-[#FACC15]"
+                      />
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute bottom-2.5 right-2.5 w-7 h-7 border-b-2 border-r-2 border-[#FACC15]"
+                      />
+                    </>
+                  )}
 
-              {/* Optional User-Uploaded Custom Logo Watermark (Haldi & Wedding mode) */}
-              {activeMode === 'haldi' && state.showLogo && state.customLogoUrl && (
-                <div
-                  className={`pointer-events-none absolute top-14 sm:top-16 z-20 ${
-                    state.logoCorner === 'top-left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5'
-                  }`}
-                >
-                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-[#FACC15] bg-black/75 p-1.5 overflow-hidden flex items-center justify-center drop-shadow-[0_6px_14px_rgba(0,0,0,0.65)]">
-                    <img
-                      src={state.customLogoUrl}
-                      alt="Custom overlay logo"
-                      className="w-full h-full object-contain rounded-full"
-                    />
+                  {/* Top Layer */}
+                  <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
+                    {isFestive ? (
+                      state.haldiShowTopHeader && state.haldiHeader.trim() ? (
+                        <div className="mx-auto bg-gradient-to-r from-[#4D0414]/95 via-[#8F0C26]/95 to-[#4D0414]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
+                          {state.haldiHeader}
+                        </div>
+                      ) : (
+                        <div className="h-2" aria-hidden="true" />
+                      )
+                    ) : isClassic ? (
+                      <>
+                        <div className="inline-flex items-center gap-1.5 bg-[#B45309]/95 border border-[#FACC15] text-[#FEF08A] px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
+                          <span>{state.haldiTag}</span>
+                        </div>
+                        <div className="bg-[#78350F]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
+                          {state.haldiHeader}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="ml-auto bg-[#180F06]/88 border border-[#FACC15]/85 rounded-full px-3.5 py-1 text-[10px] sm:text-xs font-display font-bold text-[#FACC15]">
+                        {state.haldiHeader}
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
 
-              {/* Center Safe Zone */}
-              <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-3">
-                {activeMode === 'kabaddi' && state.kabaddiAlert ? (
-                  <div className="bg-[#DC2626] border-2 border-[#FACC15] px-6 py-2.5 rounded-lg text-white font-display font-extrabold text-xl sm:text-3xl tracking-tight shadow-lg">
-                    {state.kabaddiAlert}
-                  </div>
-                ) : (
-                  <p className="font-mono text-[11px] sm:text-xs text-zinc-200 bg-black/65 px-3 py-1.5 rounded border border-white/10">
-                    {lang === 'mr'
-                      ? 'क्लियर सेंटर (OBS / vMix मध्ये येथे तुमचा लाईव्ह कॅमेरा दिसेल)'
-                      : 'CLEAR CENTER · LIVE OBS / vMix CAMERA FEED SHOWS HERE'}
-                  </p>
-                )}
-              </div>
-
-              {/* Bottom On-Screen Graphic */}
-              <div className="relative z-10 w-full">
-                {activeMode === 'kabaddi' ? (
-                  <KabaddiScoreboardBar
-                    variant="studio"
-                    teamAName={state.teamAName}
-                    teamACode={state.teamACode}
-                    teamAColor={state.teamAColor}
-                    teamAScore={state.teamAScore}
-                    teamALogoUrl={state.teamALogoUrl}
-                    teamAYellowCards={state.teamAYellowCards}
-                    teamARedCards={state.teamARedCards}
-                    teamABinRemaining={teamABinRemaining}
-                    teamBName={state.teamBName}
-                    teamBCode={state.teamBCode}
-                    teamBColor={state.teamBColor}
-                    teamBScore={state.teamBScore}
-                    teamBLogoUrl={state.teamBLogoUrl}
-                    teamBYellowCards={state.teamBYellowCards}
-                    teamBRedCards={state.teamBRedCards}
-                    teamBBinRemaining={teamBBinRemaining}
-                    matchSeconds={displayMatchSeconds}
-                    raidSeconds={displayRaidSeconds}
-                    raidRunning={state.raidRunning}
-                    halfLabel={state.kabaddiHalf}
-                    matchStatus={state.matchStatus}
-                    timeoutTeam={state.timeoutTeam}
-                    doOrDie={state.doOrDie}
-                    subtitle={state.kabaddiSubtitle}
-                    showDemoWatermark={isFreeDemo}
-                  />
-                ) : isFestive ? (
-                  <HaldiFestiveOverlayBar
-                    variant="studio"
-                    leftText={state.haldiLeftText}
-                    centerMain={state.haldiCenterMain}
-                    centerSub={state.haldiCenterSub}
-                    rightText={state.haldiRightText}
-                    animation={state.haldiAnimation}
-                    theme={state.haldiTheme}
-                    speed={state.haldiAnimSpeed}
-                    showDecor={state.haldiShowDecor}
-                    showPetals={state.haldiShowPetals}
-                  />
-                ) : isClassic ? (
-                  <div className="bg-gradient-to-r from-[#78350F]/95 via-[#B45309]/95 to-[#78350F]/95 border-2 border-[#FACC15] rounded-xl px-4 py-2.5 text-center shadow-lg">
-                    <p className="font-display text-sm sm:text-xl font-extrabold text-white truncate leading-normal py-0.5">
-                      {state.haldiTitle}
-                    </p>
-                    <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] mt-0.5 truncate leading-normal">
-                      {state.haldiSubtitle}
-                    </p>
-                  </div>
-                ) : (
-                  /* Haldi Style 2: Minimal Floral Cinematic Ribbon */
-                  <div className="w-[88%] mx-auto bg-gradient-to-r from-[#221204]/90 via-[#92400E]/95 to-[#221204]/90 border-2 border-[#FDE047] rounded-full px-5 sm:px-7 py-2.5 flex items-center justify-between gap-3 shadow-xl">
-                    <span className="w-2.5 h-2.5 rotate-45 bg-[#FACC15] shrink-0" aria-hidden="true" />
-                    <div className="min-w-0 text-center flex-1">
-                      <p className="font-display text-sm sm:text-lg font-extrabold text-white truncate leading-normal py-0.5">
-                        {state.haldiTitle}
-                      </p>
-                      <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] truncate leading-normal">
-                        {state.haldiTag} • {state.haldiSubtitle}
-                      </p>
+                  {/* Optional User-Uploaded Custom Logo Watermark */}
+                  {state.showLogo && state.customLogoUrl && (
+                    <div
+                      className={`pointer-events-none absolute top-14 sm:top-16 z-20 ${
+                        state.logoCorner === 'top-left' ? 'left-4 sm:left-5' : 'right-4 sm:right-5'
+                      }`}
+                    >
+                      <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full border-2 border-[#FACC15] bg-black/75 p-1.5 overflow-hidden flex items-center justify-center drop-shadow-[0_6px_14px_rgba(0,0,0,0.65)]">
+                        <img
+                          src={state.customLogoUrl}
+                          alt="Custom overlay logo"
+                          className="w-full h-full object-contain rounded-full"
+                        />
+                      </div>
                     </div>
-                    <span className="w-2.5 h-2.5 rotate-45 bg-[#FACC15] shrink-0" aria-hidden="true" />
+                  )}
+
+                  {/* Center Safe Zone */}
+                  <div className="relative z-10 my-auto flex flex-col items-center justify-center text-center px-3">
+                    <p className="font-mono text-[11px] sm:text-xs text-zinc-200 bg-black/65 px-3 py-1.5 rounded border border-white/10">
+                      {lang === 'mr'
+                        ? 'क्लियर सेंटर (OBS / vMix मध्ये येथे तुमचा लाईव्ह कॅमेरा दिसेल)'
+                        : 'CLEAR CENTER · LIVE OBS / vMix CAMERA FEED SHOWS HERE'}
+                    </p>
                   </div>
-                )}
-              </div>
+
+                  {/* Bottom On-Screen Graphic */}
+                  <div className="relative z-10 w-full">
+                    {isFestive ? (
+                      <HaldiFestiveOverlayBar
+                        variant="studio"
+                        leftText={state.haldiLeftText}
+                        centerMain={state.haldiCenterMain}
+                        centerSub={state.haldiCenterSub}
+                        rightText={state.haldiRightText}
+                        animation={state.haldiAnimation}
+                        theme={state.haldiTheme}
+                        speed={state.haldiAnimSpeed}
+                        showDecor={state.haldiShowDecor}
+                        showPetals={state.haldiShowPetals}
+                      />
+                    ) : isClassic ? (
+                      <div className="bg-gradient-to-r from-[#78350F]/95 via-[#B45309]/95 to-[#78350F]/95 border-2 border-[#FACC15] rounded-xl px-4 py-2.5 text-center shadow-lg">
+                        <p className="font-display text-sm sm:text-xl font-extrabold text-white truncate leading-normal py-0.5">
+                          {state.haldiTitle}
+                        </p>
+                        <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] mt-0.5 truncate leading-normal">
+                          {state.haldiSubtitle}
+                        </p>
+                      </div>
+                    ) : (
+                      /* Haldi Style 2: Minimal Floral Cinematic Ribbon */
+                      <div className="w-[88%] mx-auto bg-gradient-to-r from-[#221204]/90 via-[#92400E]/95 to-[#221204]/90 border-2 border-[#FDE047] rounded-full px-5 sm:px-7 py-2.5 flex items-center justify-between gap-3 shadow-xl">
+                        <span className="w-2.5 h-2.5 rotate-45 bg-[#FACC15] shrink-0" aria-hidden="true" />
+                        <div className="min-w-0 text-center flex-1">
+                          <p className="font-display text-sm sm:text-lg font-extrabold text-white truncate leading-normal py-0.5">
+                            {state.haldiTitle}
+                          </p>
+                          <p className="text-[10px] sm:text-xs font-medium text-[#FEF08A] truncate leading-normal">
+                            {state.haldiTag} • {state.haldiSubtitle}
+                          </p>
+                        </div>
+                        <span className="w-2.5 h-2.5 rotate-45 bg-[#FACC15] shrink-0" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* OBS Studio & vMix Live Browser Source URL Support Panel */}
@@ -1178,38 +1250,17 @@ export function LiveStudioPreview({
                     </span>
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {isFreeDemo
+                    {isCurrentUnlocked && activeToken
                       ? lang === 'mr'
-                        ? 'मोफत डेमो सक्रिय · छोटा STAR EVENT LIVE वॉटरमार्क राहील. आजची ऑफर: वॉटरमार्क-फ्री प्रो फक्त ₹1.'
-                        : "FREE Demo Active · Includes small STAR EVENT LIVE watermark. Today's Offer: Watermark-free Pro just ₹1."
-                      : isCurrentUnlocked && activeToken
-                        ? lang === 'mr'
-                          ? `पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
-                          : `Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
-                        : lang === 'mr'
-                          ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — 1 दिवसासाठी (24 तास) OBS/vMix URL आपोआप अनलॉक होईल, त्यानंतर एक्सपायर होईल.'
-                          : "Today's Offer: Pay ₹1 — auto-unlocks OBS/vMix URL & PNG export for 1 Day (24h), then auto-expires."}
+                        ? `पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
+                        : `Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
+                      : lang === 'mr'
+                        ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — 1 दिवसासाठी (24 तास) OBS/vMix URL आपोआप अनलॉक होईल, त्यानंतर एक्सपायर होईल.'
+                        : "Today's Offer: Pay ₹1 — auto-unlocks OBS/vMix URL & PNG export for 1 Day (24h), then auto-expires."}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  {activeMode === 'kabaddi' && (
-                    <button
-                      type="button"
-                      onClick={() => setRemoteModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-white bg-[#1D4ED8] hover:bg-[#1E40AF] border border-[#60A5FA]/50 rounded-lg transition-colors whitespace-nowrap shrink-0"
-                    >
-                      <Smartphone className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-                      <span>
-                        {lang === 'mr' ? 'रिमोट कंट्रोल (QR / PIN)' : 'Remote Control (QR / PIN)'}
-                      </span>
-                      {connectedControllers > 0 && (
-                        <span className="ml-0.5 px-1.5 py-0.5 text-[10px] font-mono font-extrabold bg-[#FACC15] text-black rounded">
-                          {connectedControllers}
-                        </span>
-                      )}
-                    </button>
-                  )}
 
                   {isCurrentUnlocked ? (
                     <>
@@ -1419,12 +1470,8 @@ export function LiveStudioPreview({
             </div>
           </div>
 
-          {/* Interactive Control Desk (Bottom Frame, Pro Kabaddi Deck, or Haldi & Wedding) */}
-          <div
-            className={`${
-              activeMode === 'kabaddi' ? 'xl:col-span-5' : 'xl:col-span-4'
-            } bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-6`}
-          >
+          {/* Interactive Control Desk (Wedding Frame & Haldi Customizers) */}
+          <div className="xl:col-span-4 bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-5 flex flex-col justify-between gap-6">
             <div className="space-y-5">
               {/* Broadcast Output Mode Selector */}
               <div className="space-y-2.5">
@@ -1450,34 +1497,290 @@ export function LiveStudioPreview({
                 </div>
               </div>
 
-              {activeMode === 'kabaddi' ? (
-                <KabaddiControlDesk
-                  lang={lang}
-                  state={state}
-                  displayMatchSeconds={displayMatchSeconds}
-                  displayRaidSeconds={displayRaidSeconds}
-                  teamABinRemaining={teamABinRemaining}
-                  teamBBinRemaining={teamBBinRemaining}
-                  onUpdateState={updateState}
-                  onScoreDelta={handleKabaddiScore}
-                  onQuickPoint={handleKabaddiQuickPoint}
-                  onTimeout={handleKabaddiTimeout}
-                  canUndo={canUndo}
-                  canRedo={canRedo}
-                  onUndo={() => sendAction('undo')}
-                  onRedo={() => sendAction('redo')}
-                  onToggleMatchTimer={handleToggleMatchTimer}
-                  onResetMatchTimer={() => sendAction('timer_reset', { seconds: 30, autoStart: false })}
-                  onAdjustMatchSeconds={handleAdjustMatchSeconds}
-                  onSetMatchPreset={handleSetMatchPreset}
-                  onToggleRaidTimer={handleToggleRaidTimer}
-                  onResetRaidTimer={handleResetRaidTimer}
-                  onToggleSinBin={handleToggleSinBin}
-                  onUploadTeamLogo={handleUploadTeamLogo}
-                  onRemoveTeamLogo={handleRemoveTeamLogo}
-                  onSwapTeams={handleSwapTeams}
-                  onResetMatch={handleResetKabaddi}
-                />
+              {isWeddingFrame ? (
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-zinc-200">
+                      {lang === 'mr'
+                        ? 'वेडिंग फ्रेम नाव, कलर व अ‍ॅनिमेशन कस्टमाईज'
+                        : lang === 'hi'
+                          ? 'वेडिंग फ्रेम नाम, कलर और एनिमेशन कस्टमाइज़'
+                          : lang === 'gu'
+                            ? 'વેડિંગ ફ્રેમ નામ, કલર અને એનિમેશન કસ્ટમાઇઝ'
+                            : 'Wedding Frame Name, Color & Motion'}
+                    </p>
+                    <span className="font-mono text-[10px] text-[#FACC15]">OBS/vMix SYNC</span>
+                  </div>
+
+                  {/* 1-Click Language Wedding Presets */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => applyWeddingPreset('mr')}
+                      className="py-1.5 px-2 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FACC15] border-[#FACC15]/45 transition-colors whitespace-nowrap"
+                    >
+                      मराठी विवाह
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyWeddingPreset('hi')}
+                      className="py-1.5 px-2 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FEF08A] border-[#FACC15]/35 transition-colors whitespace-nowrap"
+                    >
+                      हिंदी विवाह
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyWeddingPreset('gu')}
+                      className="py-1.5 px-2 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FEF08A] border-[#FACC15]/35 transition-colors whitespace-nowrap"
+                    >
+                      ગુજરાતી લગ્ન
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyWeddingPreset('en')}
+                      className="py-1.5 px-2 text-[11px] font-semibold rounded-lg border bg-[#1B1822] hover:bg-[#262132] text-white border-white/15 transition-colors whitespace-nowrap"
+                    >
+                      English Wedding
+                    </button>
+                  </div>
+
+                  {/* Groom Name, Connector & Bride Name */}
+                  <div className="grid grid-cols-12 gap-2">
+                    <div className="col-span-5 space-y-1">
+                      <label htmlFor="wed-groom-name" className="block text-[11px] text-zinc-400">
+                        Groom Name (वर)
+                      </label>
+                      <input
+                        id="wed-groom-name"
+                        type="text"
+                        value={state.weddingGroomName ?? ''}
+                        onChange={(e) => updateState({ weddingGroomName: e.target.value })}
+                        placeholder="चि. रोहित"
+                        className="w-full px-2.5 py-1.5 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="col-span-2 space-y-1">
+                      <label htmlFor="wed-connector" className="block text-[11px] text-zinc-400 text-center">
+                        &amp;
+                      </label>
+                      <input
+                        id="wed-connector"
+                        type="text"
+                        value={state.weddingConnector ?? 'व'}
+                        onChange={(e) => updateState({ weddingConnector: e.target.value })}
+                        placeholder="व"
+                        className="w-full px-1.5 py-1.5 text-xs font-bold text-center bg-[#18181D] border border-[#FACC15]/40 rounded-lg text-[#FACC15] focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="col-span-5 space-y-1">
+                      <label htmlFor="wed-bride-name" className="block text-[11px] text-zinc-400">
+                        Bride Name (वधू)
+                      </label>
+                      <input
+                        id="wed-bride-name"
+                        type="text"
+                        value={state.weddingBrideName ?? ''}
+                        onChange={(e) => updateState({ weddingBrideName: e.target.value })}
+                        placeholder="चि. सौ. कां. प्रिया"
+                        className="w-full px-2.5 py-1.5 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Ceremony Title & Date/Venue */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label htmlFor="wed-event-label" className="block text-[11px] text-zinc-400">
+                        Wedding Title
+                      </label>
+                      <input
+                        id="wed-event-label"
+                        type="text"
+                        value={state.weddingEventLabel ?? ''}
+                        onChange={(e) => updateState({ weddingEventLabel: e.target.value })}
+                        placeholder="शुभ विवाह सोहळा"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="wed-top-header" className="block text-[11px] text-zinc-400">
+                        Top Blessing Text
+                      </label>
+                      <input
+                        id="wed-top-header"
+                        type="text"
+                        value={state.weddingTopHeader ?? ''}
+                        onChange={(e) => updateState({ weddingTopHeader: e.target.value })}
+                        placeholder="|| श्री गणेशाय नमः ||"
+                        className="w-full px-2.5 py-1.5 text-xs bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="wed-date-venue" className="block text-[11px] text-zinc-400">
+                      Date, Venue &amp; Subtitle
+                    </label>
+                    <input
+                      id="wed-date-venue"
+                      type="text"
+                      value={state.weddingDateVenue ?? ''}
+                      onChange={(e) => updateState({ weddingDateVenue: e.target.value })}
+                      placeholder="24 नोव्हेंबर 2026 • थेट प्रक्षेपण"
+                      className="w-full px-2.5 py-1.5 text-xs bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                    />
+                  </div>
+
+                  {/* Quick Royal Color Themes */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-zinc-400">
+                      Wedding Color Theme (कलर थीम निवडा)
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {WEDDING_COLOR_PRESETS.map((preset) => {
+                        const active =
+                          (state.weddingPrimaryColor || '#6B0F26').toLowerCase() ===
+                          preset.primary.toLowerCase();
+                        return (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            onClick={() =>
+                              updateState({
+                                weddingPrimaryColor: preset.primary,
+                                weddingAccentColor: preset.accent,
+                                weddingTextColor: preset.text,
+                              })
+                            }
+                            className={`flex items-center gap-1.5 px-2 py-1.5 text-[10px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                              active
+                                ? 'bg-[#211A0E] text-[#FACC15] border-[#FACC15]'
+                                : 'bg-[#18181D] text-zinc-300 border-white/12 hover:border-white/30'
+                            }`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className="w-3 h-3 rounded-sm border shrink-0"
+                              style={{
+                                backgroundColor: preset.primary,
+                                borderColor: preset.accent,
+                              }}
+                            />
+                            <span className="truncate">{preset.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Live Color Pickers (Frame, Gold Border, Name Text) */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <label className="flex flex-col gap-1 bg-[#18181D] border border-white/12 rounded-lg p-2 cursor-pointer">
+                      <span className="text-[10px] text-zinc-400">Frame Color</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={state.weddingPrimaryColor || '#6B0F26'}
+                          onChange={(e) => updateState({ weddingPrimaryColor: e.target.value })}
+                          className="w-6 h-5 bg-transparent border-0 cursor-pointer p-0"
+                        />
+                        <span className="font-mono text-[10px] text-zinc-200 uppercase">
+                          {state.weddingPrimaryColor || '#6B0F26'}
+                        </span>
+                      </div>
+                    </label>
+                    <label className="flex flex-col gap-1 bg-[#18181D] border border-white/12 rounded-lg p-2 cursor-pointer">
+                      <span className="text-[10px] text-zinc-400">Border Color</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={state.weddingAccentColor || '#F5C542'}
+                          onChange={(e) => updateState({ weddingAccentColor: e.target.value })}
+                          className="w-6 h-5 bg-transparent border-0 cursor-pointer p-0"
+                        />
+                        <span className="font-mono text-[10px] text-zinc-200 uppercase">
+                          {state.weddingAccentColor || '#F5C542'}
+                        </span>
+                      </div>
+                    </label>
+                    <label className="flex flex-col gap-1 bg-[#18181D] border border-white/12 rounded-lg p-2 cursor-pointer">
+                      <span className="text-[10px] text-zinc-400">Name Color</span>
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="color"
+                          value={state.weddingTextColor || '#FFFFFF'}
+                          onChange={(e) => updateState({ weddingTextColor: e.target.value })}
+                          className="w-6 h-5 bg-transparent border-0 cursor-pointer p-0"
+                        />
+                        <span className="font-mono text-[10px] text-zinc-200 uppercase">
+                          {state.weddingTextColor || '#FFFFFF'}
+                        </span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Subtle Bottom Frame Animation Selector */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-zinc-400">
+                      Bottom Frame Soft Animation (हलके बॉटम अ‍ॅनिमेशन)
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          { id: 'gentle', label: 'Soft Glow + Sheen' },
+                          { id: 'shimmer', label: 'Light Shimmer' },
+                          { id: 'petals', label: 'Soft Gold Sparks' },
+                          { id: 'static', label: 'Static Clean' },
+                        ] as { id: WeddingBottomAnimation; label: string }[]
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => updateState({ weddingBottomAnim: opt.id })}
+                          className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                            (state.weddingBottomAnim || 'gentle') === opt.id
+                              ? 'bg-[#FACC15] text-black border-[#FACC15]'
+                              : 'bg-[#18181D] text-zinc-300 border-white/12 hover:border-white/30'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Frame Border & Top Header Toggles */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateState({ weddingShowCornerFrame: state.weddingShowCornerFrame === false })
+                      }
+                      aria-pressed={state.weddingShowCornerFrame !== false}
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.weddingShowCornerFrame !== false
+                          ? 'bg-[#1D160A] text-[#FACC15] border-[#FACC15]/60'
+                          : 'bg-[#18181D] text-zinc-400 border-white/12'
+                      }`}
+                    >
+                      Royal Border: {state.weddingShowCornerFrame !== false ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        updateState({ weddingShowTopHeader: state.weddingShowTopHeader === false })
+                      }
+                      aria-pressed={state.weddingShowTopHeader !== false}
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.weddingShowTopHeader !== false
+                          ? 'bg-[#1D160A] text-[#FACC15] border-[#FACC15]/60'
+                          : 'bg-[#18181D] text-zinc-400 border-white/12'
+                      }`}
+                    >
+                      Top Blessing: {state.weddingShowTopHeader !== false ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+                </div>
               ) : isFestive ? (
                 <div className="space-y-4 pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between gap-2">
@@ -1813,7 +2116,7 @@ export function LiveStudioPreview({
               <button
                 type="button"
                 onClick={() => onBookFromPreview(activeMode)}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="cta-btn-animate w-full inline-flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
               >
                 <span>
                   {lang === 'mr'
@@ -1825,6 +2128,7 @@ export function LiveStudioPreview({
             </div>
           </div>
         </div>
+        )}
       </div>
       <KabaddiRemoteModal
         open={remoteModalOpen}

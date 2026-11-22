@@ -11,6 +11,7 @@ import {
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiGraphicOverlay } from './KabaddiGraphicOverlay';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
+import { WeddingFrameOverlay } from './WeddingFrameOverlay';
 
 interface OverlayOutputViewProps {
   initialMode?: OverlayMode;
@@ -195,6 +196,7 @@ export function OverlayOutputView({
 
   const isClassic = activeStyle === 'classic';
   const isFestive = activeStyle === 'festive';
+  const isWeddingFrame = activeStyle === 'wedding';
 
   if (accessState !== 'active') {
     return (
@@ -274,6 +276,49 @@ export function OverlayOutputView({
   }
 
   // HALDI & WEDDING MODE
+  if (isWeddingFrame) {
+    return (
+      <div
+        className={`fixed inset-0 w-screen h-screen overflow-hidden select-none transition-opacity duration-300 ${
+          merged.visible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <WeddingFrameOverlay
+          variant="output"
+          groomName={merged.weddingGroomName}
+          brideName={merged.weddingBrideName}
+          connector={merged.weddingConnector}
+          eventLabel={merged.weddingEventLabel}
+          dateVenue={merged.weddingDateVenue}
+          topHeader={merged.weddingTopHeader}
+          primaryColor={merged.weddingPrimaryColor}
+          accentColor={merged.weddingAccentColor}
+          textColor={merged.weddingTextColor}
+          bottomAnim={merged.weddingBottomAnim}
+          showTopHeader={merged.weddingShowTopHeader}
+          showCornerFrame={merged.weddingShowCornerFrame}
+        />
+
+        {/* Optional User-Uploaded Custom Logo Watermark */}
+        {merged.showLogo && merged.customLogoUrl && (
+          <div
+            className={`pointer-events-none absolute top-[5.5vh] z-20 ${
+              merged.logoCorner === 'top-left' ? 'left-[3vw]' : 'right-[3vw]'
+            }`}
+          >
+            <div className="w-[clamp(74px,7.2vw,136px)] h-[clamp(74px,7.2vw,136px)] rounded-full border-2 border-[#FACC15] bg-black/75 p-2 overflow-hidden flex items-center justify-center drop-shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
+              <img
+                src={merged.customLogoUrl}
+                alt="Custom overlay logo"
+                className="w-full h-full object-contain rounded-full"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (isFestive) {
     return (
       <div

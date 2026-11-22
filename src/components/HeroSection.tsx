@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ArrowRight, ExternalLink, Instagram, Play, Video, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ScrollReveal } from './ScrollReveal';
 import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface HeroSectionProps {
@@ -17,7 +18,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
     <section id="top" className="relative pt-8 pb-16 sm:pt-12 sm:pb-20 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Top studio auspicious ribbon: grand centered animated Shree Ganeshay Namah + utility row */}
-        <div className="relative overflow-hidden rounded-2xl border border-[#FACC15]/30 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-6 pt-5 pb-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.48)]">
+        <div className="site-hero-enter relative overflow-hidden rounded-2xl border border-[#FACC15]/30 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-6 pt-5 pb-3.5 shadow-[0_12px_36px_rgba(0,0,0,0.48)]">
           {/* Gliding studio light sheen */}
           <div
             aria-hidden="true"
@@ -90,7 +91,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
         {/* Hero Proposition & Focal Official Studio Banner */}
         <div className="pt-10 lg:pt-12 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           <div className="lg:col-span-5 space-y-6">
-            <div className="flex items-center gap-4">
+            <div className="site-hero-enter site-hero-delay-1 flex items-center gap-4">
               <SpinningLogoVideo
                 className="w-16 h-16 sm:w-20 sm:h-20"
                 resolution={220}
@@ -107,7 +108,7 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
             </div>
 
             <h1
-              className={`font-display font-extrabold text-white text-[clamp(2rem,3.4vw,3.15rem)] ${
+              className={`site-hero-enter site-hero-delay-2 font-display font-extrabold text-white text-[clamp(2rem,3.4vw,3.15rem)] ${
                 lang !== 'en'
                   ? 'leading-[1.38] tracking-normal'
                   : 'leading-[1.16] tracking-tight'
@@ -116,14 +117,14 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
               {UI_COPY.hero.headline[lang]}
             </h1>
 
-            <p className="text-base sm:text-[17px] leading-[1.75] text-zinc-300 max-w-xl">
+            <p className="site-hero-enter site-hero-delay-3 text-base sm:text-[17px] leading-[1.75] text-zinc-300 max-w-xl">
               {UI_COPY.hero.subcopy[lang]}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="site-hero-enter site-hero-delay-4 flex flex-wrap items-center gap-4 pt-2">
               <a
                 href="#book"
-                className="inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
+                className="cta-btn-animate inline-flex items-center gap-2.5 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] focus-visible:ring-offset-2 focus-visible:ring-offset-[#09090B]"
               >
                 <span>{UI_COPY.hero.primaryCta[lang]}</span>
                 <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
@@ -135,21 +136,21 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
                   e.preventDefault();
                   onOpenOverlays();
                 }}
-                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
+                className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#FACC15]/50 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
               >
                 <Play className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
                 <span>{UI_COPY.hero.secondaryCta[lang]}</span>
               </a>
             </div>
 
-            <p className="pt-2 text-sm text-zinc-400">
+            <p className="site-hero-enter site-hero-delay-4 pt-2 text-sm text-zinc-400">
               {STUDIO_CONTACT.promise[lang]}
             </p>
           </div>
 
           {/* Focal Official Studio Banner Display */}
-          <div className="lg:col-span-7">
-            <figure className="bg-[#121216] border border-white/12 rounded-2xl p-3 sm:p-4">
+          <div className="lg:col-span-7 site-hero-enter site-hero-delay-2">
+            <figure className="studio-card-animate bg-[#121216] border border-white/12 rounded-2xl p-3 sm:p-4">
               {!bannerError ? (
                 <div className="overflow-hidden rounded-xl bg-[#0B0B0E]">
                   <img
@@ -218,14 +219,16 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
 
         {/* Full-width 4-column studio capability strip below hero */}
         <div className="mt-12 pt-8 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
-          {UI_COPY.hero.stats.map((stat) => (
-            <div key={stat.value} className="space-y-2">
-              <p className="font-mono text-lg sm:text-xl font-bold text-[#FACC15] tabular-nums">
-                {stat.value}
-              </p>
-              <p className="text-sm font-semibold text-white leading-snug">{stat.label[lang]}</p>
-              <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">{stat.detail[lang]}</p>
-            </div>
+          {UI_COPY.hero.stats.map((stat, idx) => (
+            <ScrollReveal key={stat.value} delay={idx * 85}>
+              <div className="space-y-2">
+                <p className="font-mono text-lg sm:text-xl font-bold text-[#FACC15] tabular-nums">
+                  {stat.value}
+                </p>
+                <p className="text-sm font-semibold text-white leading-snug">{stat.label[lang]}</p>
+                <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">{stat.detail[lang]}</p>
+              </div>
+            </ScrollReveal>
           ))}
         </div>
       </div>

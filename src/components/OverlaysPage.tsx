@@ -16,6 +16,8 @@ import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { LiveStudioPreview } from './LiveStudioPreview';
 import { OverlayCheckoutModal } from './OverlayCheckoutModal';
+import { ScrollReveal } from './ScrollReveal';
+import { WeddingFrameOverlay } from './WeddingFrameOverlay';
 
 interface OverlaysPageProps {
   lang: Language;
@@ -66,6 +68,37 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           matchSeconds={30}
           halfLabel="1ST HALF"
           showDemoWatermark={style === 'demo'}
+        />
+      </div>
+    );
+  }
+
+  if (style === 'wedding') {
+    return (
+      <div
+        className="relative aspect-video w-full rounded-xl overflow-hidden border border-[#FACC15]/50"
+        style={{
+          backgroundColor: '#18181B',
+          backgroundImage:
+            'linear-gradient(45deg, #27272A 25%, transparent 25%), linear-gradient(-45deg, #27272A 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272A 75%), linear-gradient(-45deg, transparent 75%, #27272A 75%)',
+          backgroundSize: '18px 18px',
+          backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
+        }}
+      >
+        <WeddingFrameOverlay
+          variant="mini"
+          groomName="चि. रोहित"
+          brideName="चि. सौ. कां. प्रिया"
+          connector="व"
+          eventLabel="शुभ विवाह सोहळा"
+          dateVenue="थेट प्रक्षेपण • दिनांक व ठिकाण"
+          topHeader="|| श्री गणेशाय नमः ||"
+          primaryColor="#6B0F26"
+          accentColor="#F5C542"
+          textColor="#FFFFFF"
+          bottomAnim="gentle"
+          showTopHeader
+          showCornerFrame
         />
       </div>
     );
@@ -302,7 +335,7 @@ export function OverlaysPage({
           </div>
 
           {/* Store Header */}
-          <div className="pt-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
+          <div className="pt-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10 site-hero-enter">
             <div className="max-w-3xl space-y-3.5">
               <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
                 {tLang(
@@ -353,9 +386,9 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { en: 'All (5)', mr: 'सर्व (5)', hi: 'सभी (5)', gu: 'બધા (5)' } },
+                  { id: 'all', label: { en: 'All (6)', mr: 'सर्व (6)', hi: 'सभी (6)', gu: 'બધા (6)' } },
                   { id: 'kabaddi', label: { en: 'Kabaddi (2)', mr: 'कबड्डी (2)', hi: 'कबड्डी (2)', gu: 'કબડ્ડી (2)' } },
-                  { id: 'haldi', label: { en: 'Haldi & Wedding (3)', mr: 'हळदी व लग्न (3)', hi: 'हल्दी और शादी (3)', gu: 'હળદી અને લગ્ન (3)' } },
+                  { id: 'haldi', label: { en: 'Wedding & Haldi (4)', mr: 'लग्न व हळदी (4)', hi: 'शादी और हल्दी (4)', gu: 'લગ્ન અને હળદી (4)' } },
                 ] as const
               ).map((tab) => (
                 <button
@@ -374,9 +407,9 @@ export function OverlaysPage({
             </div>
           </div>
 
-          {/* Overlay Product Cards (Free Kabaddi Demo + Paid ₹99 / 1 Day Overlays) */}
+          {/* Overlay Product Cards (Free Kabaddi Demo + Paid ₹1 / 1 Day Overlays) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {visibleProducts.map((product) => {
+            {visibleProducts.map((product, idx) => {
               const isFreeDemo = Boolean(product.isFreeDemo);
               const token = verifiedTokens.find((t) => t.sku === product.sku && t.expiresAt > nowTs);
               const isUnlocked = isFreeDemo || Boolean(token && unlockedSkus.includes(product.sku));
@@ -386,9 +419,9 @@ export function OverlaysPage({
                 activeMode === product.mode && activeStyle === product.style;
 
               return (
+                <ScrollReveal key={product.sku} delay={(idx % 2) * 90} className="h-full">
                 <article
-                  key={product.sku}
-                  className={`bg-[#121216]/84 backdrop-blur-sm border rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-5 transition-colors ${
+                  className={`studio-card-animate h-full bg-[#121216]/84 backdrop-blur-sm border rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-5 transition-colors ${
                     isActiveInStudio
                       ? 'border-[#FACC15]/80'
                       : isFreeDemo
@@ -544,7 +577,7 @@ export function OverlaysPage({
                       <button
                         type="button"
                         onClick={() => handleOpenCheckout(product, '1day')}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap tabular-nums"
+                        className="cta-btn-animate flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap tabular-nums"
                       >
                         <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
                         <span>
@@ -565,6 +598,7 @@ export function OverlaysPage({
                     </button>
                   </div>
                 </article>
+                </ScrollReveal>
               );
             })}
           </div>

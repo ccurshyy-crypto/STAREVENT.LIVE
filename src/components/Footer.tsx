@@ -1,5 +1,6 @@
 import { Instagram, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface FooterProps {
@@ -17,6 +18,7 @@ export function Footer({
 }: FooterProps) {
   return (
     <footer className="relative z-10 border-t border-white/10 bg-[#09090B]/88 backdrop-blur-sm py-12">
+      <ScrollReveal>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
@@ -142,6 +144,7 @@ export function Footer({
           </div>
         </div>
       </div>
+      </ScrollReveal>
     </footer>
   );
 }

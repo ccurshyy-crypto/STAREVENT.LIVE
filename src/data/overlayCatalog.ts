@@ -4,6 +4,7 @@ import { normalizeStyleForMode, OverlayMode, OverlayStyle } from '../types/overl
 export type OverlaySku =
   | 'kabaddi-demo'
   | 'kabaddi-classic'
+  | 'haldi-wedding'
   | 'haldi-festive'
   | 'haldi-classic'
   | 'haldi-modern';
@@ -252,6 +253,53 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
         'બંને બાજુ કસ્ટમ ટીમ લોગો અપલોડ કરો અને લાઇવ ટીમ કલર બદલો',
         'લાઇવ 30s ટાઈમર, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red કાર્ડ અને Sin Bin',
         'આજની ઓફર: ₹1 પેમેન્ટ કરો — 1 દિવસ (24 કલાક) માટે ઓટો અનલોક, પછી ઓટો એક્સપાયર',
+      ],
+    },
+  },
+  {
+    sku: 'haldi-wedding',
+    mode: 'haldi',
+    style: 'wedding',
+    originalPrice: 99,
+    salePrice: 1,
+    title: {
+      en: 'Royal Wedding Frame · Custom Names, Colors & Subtle Bottom Motion',
+      mr: 'रॉयल वेडिंग फ्रेम · वधू-वर नाव, कलर कस्टमाईज व हलके बॉटम अ‍ॅनिमेशन',
+      hi: 'रॉयल वेडिंग फ्रेम · वर-वधू नाम, कलर कस्टमाइज़ व हल्का बॉटम एनिमेशन',
+      gu: 'રોયલ વેડિંગ ફ્રેમ · વર-વધૂ નામ, કલર કસ્ટમાઇઝ અને હળવું બોટમ એનિમેશન',
+    },
+    subtitle: {
+      en: 'Full-screen ornamental wedding frame with editable Groom & Bride names, live color pickers & gentle bottom frame animation',
+      mr: 'फुल-स्क्रीन लग्न फ्रेम — वधू-वर नाव, कस्टम रंग निवड व खालच्या फ्रेमवर हलके सुंदर अ‍ॅनिमेशन (OBS/vMix)',
+      hi: 'फुल-स्क्रीन शादी फ्रेम — वर-वधू नाम, कस्टम कलर पिकर और नीचे हल्का प्रीमियम एनिमेशन (OBS/vMix)',
+      gu: 'ફુલ-સ્ક્રીન લગ્ન ફ્રેમ — વર-વધૂ નામ, કસ્ટમ કલર પિકર અને નીચે હળવું પ્રીમિયમ એનિમેશન (OBS/vMix)',
+    },
+    meta: {
+      en: ['Custom Names', 'Color Picker', 'Soft Bottom Anim'],
+      mr: ['कस्टम नावे', 'कलर पिकर', 'हलके अ‍ॅनिमेशन'],
+      hi: ['कस्टम नाम', 'कलर पिकर', 'हल्का एनिमेशन'],
+      gu: ['કસ્ટમ નામ', 'કલર પિકર', 'હળવું એનિમેશન'],
+    },
+    features: {
+      en: [
+        'Edit Groom & Bride names, connector (व / Weds / &), wedding title, date/venue & top Ganesh header live',
+        'Full color customization: 6 royal wedding palettes + custom Frame, Border & Text color pickers',
+        'Subtle, graceful bottom frame animation (Soft Glow, Light Shimmer, Gentle Sparks) synced live to OBS & vMix',
+      ],
+      mr: [
+        'वधू-वराचे नाव, मधले चिन्ह (व / संग / Weds), शुभ विवाह शीर्षक व तारीख-ठिकाण लाईव्ह बदला',
+        'फुल कलर कस्टमाईज: 6 शाही कलर थीम + फ्रेम, बॉर्डर आणि टेक्स्टसाठी थेट कलर पिकर',
+        'खालच्या फ्रेमवर हलके व आकर्षक अ‍ॅनिमेशन (Soft Glow, Light Shimmer, Sparks) — OBS व vMix मध्ये थेट सिंक',
+      ],
+      hi: [
+        'वर-वधू का नाम, बीच का शब्द (संग / व / Weds), शुभ विवाह टाइटल और तारीख-स्थान लाइव एडिट करें',
+        'फुल कलर कस्टमाइज़: 6 रॉयल वेडिंग थीम + फ्रेम, बॉर्डर और टेक्स्ट के लिए लाइव कलर पिकर',
+        'नीचे की फ्रेम में हल्का प्रीमियम एनिमेशन (Soft Glow, Light Shimmer, Sparks) — OBS और vMix लाइव सिंक',
+      ],
+      gu: [
+        'વર-વધૂનું નામ, વચ્ચેનું ચિહ્ન (સંગ / Weds), શુભ લગ્ન ટાઇટલ અને તારીખ-સ્થળ લાઇવ બદલો',
+        'ફુલ કલર કસ્ટમાઇઝ: 6 રોયલ વેડિંગ થીમ + ફ્રેમ, બોર્ડર અને ટેક્સ્ટ માટે લાઇવ કલર પિકર',
+        'નીચેની ફ્રેમમાં હળવું પ્રીમિયમ એનિમેશન (Soft Glow, Light Shimmer, Sparks) — OBS અને vMix લાઇવ સિંક',
       ],
     },
   },

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowRight, Maximize2, Radio, Sparkles, X } from 'lucide-react';
 import { Language, tLang } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 
 interface PartnerAdSectionProps {
   lang: Language;
@@ -89,8 +90,8 @@ export function PartnerAdSection({
         <div className="bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-5 sm:p-8 lg:p-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
             {/* Left: Official SAHYADRI EVENT LIVE Promotional Advertisement Poster */}
-            <div className="lg:col-span-5">
-              <div className="relative group rounded-xl overflow-hidden bg-[#09090D] border border-[#FACC15]/30 shadow-[0_20px_48px_rgba(0,0,0,0.58)]">
+            <ScrollReveal direction="left" className="lg:col-span-5">
+              <div className="studio-card-animate relative group rounded-xl overflow-hidden bg-[#09090D] border border-[#FACC15]/30 shadow-[0_20px_48px_rgba(0,0,0,0.58)]">
                 {!posterError ? (
                   <button
                     type="button"
@@ -142,10 +143,10 @@ export function PartnerAdSection({
                   </div>
                 )}
               </div>
-            </div>
+            </ScrollReveal>
 
             {/* Right: Featured Advertisement Editorial Copy & Direct CTAs */}
-            <div className="lg:col-span-7 flex flex-col justify-between space-y-6">
+            <ScrollReveal direction="right" delay={100} className="lg:col-span-7 flex flex-col justify-between space-y-6">
               <div className="space-y-4">
                 {/* Unboxed quiet metadata line (Zero-pill discipline) */}
                 <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-[#FACC15]">
@@ -219,7 +220,7 @@ export function PartnerAdSection({
                 <button
                   type="button"
                   onClick={onBookNow}
-                  className="inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                  className="cta-btn-animate inline-flex items-center gap-2 px-6 py-3.5 text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                 >
                   <span>
                     {tLang(
@@ -238,7 +239,7 @@ export function PartnerAdSection({
                 <button
                   type="button"
                   onClick={onOpenHaldiOverlay}
-                  className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-[#FACC15] bg-[#1B150A] hover:bg-[#271E0D] border border-[#FACC15]/45 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                  className="inline-flex items-center gap-2 px-5 py-3.5 text-sm font-semibold text-[#FACC15] bg-[#1B150A] hover:bg-[#271E0D] border border-[#FACC15]/45 rounded-lg transition-all duration-200 hover:-translate-y-0.5 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
                 >
                   <Sparkles className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>
@@ -254,7 +255,7 @@ export function PartnerAdSection({
                   </span>
                 </button>
               </div>
-            </div>
+            </ScrollReveal>
           </div>
         </div>
       </div>

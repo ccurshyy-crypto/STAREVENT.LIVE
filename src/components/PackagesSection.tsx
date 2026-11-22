@@ -6,6 +6,7 @@ import {
   PRODUCTION_PACKAGES,
   UI_COPY,
 } from '../data/content';
+import { ScrollReveal } from './ScrollReveal';
 
 interface PackagesSectionProps {
   lang: Language;
@@ -36,6 +37,7 @@ export function PackagesSection({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Heading */}
+        <ScrollReveal>
         <div className="max-w-3xl space-y-3.5 mb-12">
           <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
             {UI_COPY.packagesSection.kicker[lang]}
@@ -63,8 +65,10 @@ export function PackagesSection({
             {UI_COPY.packagesSection.intro[lang]}
           </p>
         </div>
+        </ScrollReveal>
 
         {/* Optional Add-ons Selector Bar */}
+        <ScrollReveal delay={70}>
         <div className="mb-10 bg-[#121216]/84 backdrop-blur-sm border border-white/10 rounded-2xl p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
             <h3 className="text-sm font-semibold text-white">
@@ -99,17 +103,18 @@ export function PackagesSection({
             })}
           </div>
         </div>
+        </ScrollReveal>
 
         {/* 3 Production Packages */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {PRODUCTION_PACKAGES.map((pkg) => {
+          {PRODUCTION_PACKAGES.map((pkg, idx) => {
             const isSelected = selectedPackageId === pkg.id;
             const estimatedTotal = pkg.basePrice + addOnsTotal;
 
             return (
+              <ScrollReveal key={pkg.id} delay={idx * 90} className="h-full">
               <div
-                key={pkg.id}
-                className={`rounded-2xl p-6 sm:p-7 flex flex-col justify-between border backdrop-blur-sm transition-colors duration-150 ${
+                className={`studio-card-animate h-full rounded-2xl p-6 sm:p-7 flex flex-col justify-between border backdrop-blur-sm transition-colors duration-150 ${
                   pkg.featured || isSelected
                     ? 'bg-[#151317]/88 border-[#DC2626]/70'
                     : 'bg-[#121216]/84 border-white/10 hover:border-white/25'
@@ -162,7 +167,7 @@ export function PackagesSection({
                     onClick={() => onSelectPackage(pkg.id)}
                     className={`w-full py-3 px-4 text-sm font-semibold rounded-lg transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
                       pkg.featured || isSelected
-                        ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white'
+                        ? 'cta-btn-animate bg-[#DC2626] hover:bg-[#B91C1C] text-white'
                         : 'bg-white/10 hover:bg-white/15 text-white'
                     }`}
                   >
@@ -170,6 +175,7 @@ export function PackagesSection({
                   </button>
                 </div>
               </div>
+              </ScrollReveal>
             );
           })}
         </div>

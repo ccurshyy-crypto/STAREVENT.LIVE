@@ -44,6 +44,17 @@ export interface HaldiOverlayExportOptions {
   theme?: HaldiColorTheme;
   showTopHeader?: boolean;
   showDecor?: boolean;
+  weddingGroomName?: string;
+  weddingBrideName?: string;
+  weddingConnector?: string;
+  weddingEventLabel?: string;
+  weddingDateVenue?: string;
+  weddingTopHeader?: string;
+  weddingPrimaryColor?: string;
+  weddingAccentColor?: string;
+  weddingTextColor?: string;
+  weddingShowTopHeader?: boolean;
+  weddingShowCornerFrame?: boolean;
   customLogoUrl?: string;
   logoCorner?: 'top-right' | 'top-left';
 }
@@ -608,6 +619,147 @@ export async function downloadHaldiOverlayPng(opts: HaldiOverlayExportOptions) {
     }
 
     triggerCanvasDownload(canvas, 'haldi-ceremony-royal-animated-1920x1080.png');
+    return;
+  }
+
+  if (opts.style === 'wedding') {
+    const primary = /^#[0-9a-fA-F]{6}$/.test(opts.weddingPrimaryColor || '')
+      ? opts.weddingPrimaryColor!
+      : '#6B0F26';
+    const accent = /^#[0-9a-fA-F]{6}$/.test(opts.weddingAccentColor || '')
+      ? opts.weddingAccentColor!
+      : '#F5C542';
+    const textCol = /^#[0-9a-fA-F]{6}$/.test(opts.weddingTextColor || '')
+      ? opts.weddingTextColor!
+      : '#FFFFFF';
+    const darkPrimary = shadeHexColor(primary, -0.42);
+    const brightPrimary = shadeHexColor(primary, 0.14);
+    const softAccent = shadeHexColor(accent, 0.35);
+
+    if (opts.weddingShowCornerFrame !== false) {
+      drawRoundedRect(ctx, 24, 24, 1872, 1032, 22);
+      ctx.strokeStyle = primary;
+      ctx.lineWidth = 10;
+      ctx.stroke();
+
+      drawRoundedRect(ctx, 24, 24, 1872, 1032, 22);
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+
+      const drawFiligree = (x: number, y: number, sx: number, sy: number) => {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(sx, sy);
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(0, 92);
+        ctx.lineTo(0, 12);
+        ctx.quadraticCurveTo(0, 0, 12, 0);
+        ctx.lineTo(92, 0);
+        ctx.stroke();
+        ctx.fillStyle = accent;
+        ctx.beginPath();
+        ctx.arc(16, 16, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+      drawFiligree(36, 36, 1, 1);
+      drawFiligree(1884, 36, -1, 1);
+      drawFiligree(36, 1044, 1, -1);
+      drawFiligree(1884, 1044, -1, -1);
+    }
+
+    if (opts.weddingShowTopHeader !== false && opts.weddingTopHeader?.trim()) {
+      drawRoundedRect(ctx, 640, 42, 640, 56, 28);
+      const topGrad = ctx.createLinearGradient(640, 42, 1280, 98);
+      topGrad.addColorStop(0, darkPrimary);
+      topGrad.addColorStop(0.5, primary);
+      topGrad.addColorStop(1, darkPrimary);
+      ctx.fillStyle = topGrad;
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.fillStyle = softAccent;
+      ctx.font = '700 24px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(opts.weddingTopHeader, 960, 71, 590);
+    }
+
+    // Bottom Wedding Name Plaque
+    const barX = 176;
+    const barY = 890;
+    const barW = 1568;
+    const barH = 142;
+
+    drawRoundedRect(ctx, barX, barY, barW, barH, 24);
+    const bGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+    bGrad.addColorStop(0, darkPrimary);
+    bGrad.addColorStop(0.28, primary);
+    bGrad.addColorStop(0.5, brightPrimary);
+    bGrad.addColorStop(0.72, primary);
+    bGrad.addColorStop(1, darkPrimary);
+    ctx.fillStyle = bGrad;
+    ctx.fill();
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 3.5;
+    ctx.stroke();
+
+    drawRoundedRect(ctx, barX + 10, barY + 10, barW - 20, barH - 20, 16);
+    ctx.strokeStyle = `${accent}77`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    if (opts.weddingEventLabel?.trim()) {
+      drawRoundedRect(ctx, 760, barY - 22, 400, 40, 20);
+      ctx.fillStyle = primary;
+      ctx.fill();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = softAccent;
+      ctx.font = '700 20px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(opts.weddingEventLabel, 960, barY - 1, 360);
+    }
+
+    // Center Connector Emblem + Groom & Bride Names
+    ctx.beginPath();
+    ctx.arc(960, barY + 56, 26, 0, Math.PI * 2);
+    ctx.fillStyle = accent;
+    ctx.fill();
+    ctx.fillStyle = darkPrimary;
+    ctx.font = '800 22px "Noto Sans Devanagari", "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(opts.weddingConnector || 'व', 960, barY + 57);
+
+    ctx.fillStyle = textCol;
+    ctx.font = '800 44px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(opts.weddingGroomName || 'चि. रोहित', 914, barY + 58, 660);
+    ctx.textAlign = 'left';
+    ctx.fillText(opts.weddingBrideName || 'चि. सौ. कां. प्रिया', 1006, barY + 58, 660);
+
+    if (opts.weddingDateVenue?.trim()) {
+      ctx.fillStyle = softAccent;
+      ctx.font = '600 22px "Noto Sans Devanagari", "Noto Sans Gujarati", "DM Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(opts.weddingDateVenue, 960, barY + 110, 1400);
+    }
+    ctx.textAlign = 'left';
+
+    if (opts.customLogoUrl) {
+      const logoCx = opts.logoCorner === 'top-left' ? 114 : 1806;
+      await drawCircularCustomLogo(ctx, opts.customLogoUrl, logoCx, 182, 58);
+    }
+
+    triggerCanvasDownload(canvas, 'royal-wedding-frame-1920x1080.png');
     return;
   }
 
