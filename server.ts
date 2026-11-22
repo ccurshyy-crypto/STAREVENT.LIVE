@@ -8,14 +8,20 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { WebSocket, WebSocketServer } from 'ws';
 import {
-  createDefaultOverlayState,
-  type KabaddiHalf,
-  type KabaddiMatchStatus,
-  type KabaddiTimeoutTeam,
   type LiveOverlayState,
-  type RemoteHistoryInfo,
   type RemotePresenceInfo,
 } from './src/types/overlay.ts';
+import {
+  applyKabaddiActionEngine,
+  applyOverlayPatchEngine,
+  getHistoryInfo,
+  getOrCreateRoom,
+  getRoomVersion,
+  hasRoom,
+  loadPersistedRooms,
+  sanitizeRoomId,
+  SERVER_BOOT_ID,
+} from './server/overlaySyncEngine.ts';
 
 import {
   activateOrderAndSubscription,
@@ -185,12 +191,9 @@ function isFakeUtr(utr: string): boolean {
   );
 }
 
-// Authoritative server-side room store for OBS & vMix Browser Sources (persisted to disk)
-const rooms = new Map<string, LiveOverlayState>();
-const roomVersions = new Map<string, number>();
+// Live SSE & display viewer presence trackers (room state managed by overlaySyncEngine.ts)
 const sseClients = new Map<string, Set<express.Response>>();
 const pollViewers = new Map<string, Map<string, number>>(); // roomId -> (viewerId -> lastSeenMs)
-let roomSaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Real-time WebSocket clients per Match/Room ID (vMix/OBS displays + Mobile/Tablet/Laptop controllers)
 const wsDisplays = new Map<string, Set<WebSocket>>();
@@ -306,41 +309,7 @@ function getLocalLanAddresses(): string[] {
   return Array.from(new Set(ips));
 }
 
-function loadPersistedRooms() {
-  try {
-    if (!fs.existsSync(ROOMS_FILE)) return;
-    const raw = fs.readFileSync(ROOMS_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      for (const [key, val] of Object.entries(parsed)) {
-        if (val && typeof val === 'object') {
-          const safeId = sanitizeRoomId(key);
-          rooms.set(safeId, { ...createDefaultOverlayState(safeId), ...(val as Partial<LiveOverlayState>), roomId: safeId });
-          roomVersions.set(safeId, 1);
-        }
-      }
-    }
-  } catch {
-    // ignore corrupt cache
-  }
-}
-
-function scheduleSaveRooms() {
-  if (roomSaveTimer) return;
-  roomSaveTimer = setTimeout(() => {
-    roomSaveTimer = null;
-    try {
-      ensureDataDir();
-      const obj: Record<string, LiveOverlayState> = {};
-      for (const [k, v] of rooms.entries()) {
-        obj[k] = v;
-      }
-      fs.writeFileSync(ROOMS_FILE, JSON.stringify(obj), 'utf-8');
-    } catch (err) {
-      console.error('Failed to persist overlay rooms:', err);
-    }
-  }, 250);
-}
+// Room state persistence is handled by server/overlaySyncEngine.ts
 
 function getConnectedDisplayCount(roomId: string): number {
   const wsDispSet = wsDisplays.get(roomId);
@@ -394,73 +363,39 @@ function getRemotePresence(roomId: string): RemotePresenceInfo {
 getPaymentDbPath();
 const orderSseClients = new Map<string, Set<express.Response>>();
 
-function sanitizeRoomId(raw: string): string {
-  const cleaned = raw.toLowerCase().replace(/[^a-z0-9-_]/g, '').slice(0, 40);
-  return cleaned || 'star-live-1';
-}
-
 loadPersistedRooms();
 loadRemoteMatches();
 
-function getOrCreateRoom(roomId: string): LiveOverlayState {
+function broadcastRoomState(
+  roomId: string,
+  state: LiveOverlayState,
+  meta?: { txId?: string; sourceClientId?: string }
+) {
   const safeId = sanitizeRoomId(roomId);
-  let state = rooms.get(safeId);
-  if (!state) {
-    state = createDefaultOverlayState(safeId);
-    rooms.set(safeId, state);
-    roomVersions.set(safeId, 1);
-  }
-  return state;
-}
-
-function getRoomVersion(roomId: string): number {
-  const safeId = sanitizeRoomId(roomId);
-  return roomVersions.get(safeId) ?? 1;
-}
-
-const MAX_HISTORY_STEPS = 40;
-const roomUndoStacks = new Map<string, LiveOverlayState[]>();
-const roomRedoStacks = new Map<string, LiveOverlayState[]>();
-
-function getHistoryInfo(roomId: string): RemoteHistoryInfo {
-  const safeId = sanitizeRoomId(roomId);
-  const undoCount = roomUndoStacks.get(safeId)?.length ?? 0;
-  const redoCount = roomRedoStacks.get(safeId)?.length ?? 0;
-  return {
-    canUndo: undoCount > 0,
-    canRedo: redoCount > 0,
-    undoCount,
-    redoCount,
-  };
-}
-
-function snapshotStateForHistory(state: LiveOverlayState, now: number): LiveOverlayState {
-  return {
-    ...state,
-    matchSeconds: computeLiveMatchSeconds(state, now),
-    raidSeconds: computeLiveRaidSeconds(state, now),
-    kabaddiAlert: null,
-  };
-}
-
-function broadcastRoomState(roomId: string, state: LiveOverlayState) {
-  const version = getRoomVersion(roomId);
+  const version = getRoomVersion(safeId);
   const serverNow = Date.now();
-  const presence = getRemotePresence(roomId);
-  const history = getHistoryInfo(roomId);
+  const presence = getRemotePresence(safeId);
+  const history = getHistoryInfo(safeId);
   const connectedDisplays = presence.displays;
 
-  const wsPayload = JSON.stringify({
-    type: 'sync',
+  const basePayload = {
     state,
     version,
     serverNow,
+    serverBootId: SERVER_BOOT_ID,
     connectedDisplays,
     presence,
     history,
+    ...(meta?.txId ? { txId: meta.txId } : {}),
+    ...(meta?.sourceClientId ? { sourceClientId: meta.sourceClientId } : {}),
+  };
+
+  const wsPayload = JSON.stringify({
+    type: 'sync',
+    ...basePayload,
   });
 
-  const dispSet = wsDisplays.get(roomId);
+  const dispSet = wsDisplays.get(safeId);
   if (dispSet && dispSet.size > 0) {
     for (const sock of dispSet) {
       if (sock.readyState === WebSocket.OPEN) {
@@ -475,7 +410,7 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
     }
   }
 
-  const ctrlMap = wsControllers.get(roomId);
+  const ctrlMap = wsControllers.get(safeId);
   if (ctrlMap && ctrlMap.size > 0) {
     for (const sock of ctrlMap.keys()) {
       if (sock.readyState === WebSocket.OPEN) {
@@ -490,18 +425,10 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
     }
   }
 
-  const clients = sseClients.get(roomId);
+  const clients = sseClients.get(safeId);
   if (!clients || clients.size === 0) return;
 
-  const ssePayload = JSON.stringify({
-    state,
-    version,
-    serverNow,
-    connectedDisplays,
-    presence,
-    history,
-  });
-
+  const ssePayload = JSON.stringify(basePayload);
   for (const res of clients) {
     try {
       res.write(`data: ${ssePayload}\n\n`);
@@ -514,479 +441,34 @@ function broadcastRoomState(roomId: string, state: LiveOverlayState) {
 function applyOverlayPatch(
   roomId: string,
   rawPatch: Partial<LiveOverlayState>,
-  options: { recordHistory?: boolean } = {}
+  options: { recordHistory?: boolean; txId?: string; sourceClientId?: string } = {}
 ) {
   const safeId = sanitizeRoomId(roomId);
-  const current = getOrCreateRoom(safeId);
-  const now = Date.now();
-  const patchKeys = Object.keys(rawPatch);
-  const isOnlyAlertClear =
-    patchKeys.length === 1 && patchKeys[0] === 'kabaddiAlert' && rawPatch.kabaddiAlert === null;
-  const shouldRecord = options.recordHistory !== false && patchKeys.length > 0 && !isOnlyAlertClear;
-
-  if (shouldRecord) {
-    let undoStack = roomUndoStacks.get(safeId);
-    if (!undoStack) {
-      undoStack = [];
-      roomUndoStacks.set(safeId, undoStack);
-    }
-    undoStack.push(snapshotStateForHistory(current, now));
-    if (undoStack.length > MAX_HISTORY_STEPS) {
-      undoStack.shift();
-    }
-    roomRedoStacks.set(safeId, []);
-  }
-
-  // Normalize timer timestamps against server clock so OBS/vMix on other PCs never suffer clock skew
-  const normalizedPatch: Partial<LiveOverlayState> = { ...rawPatch };
-  if (
-    typeof rawPatch.matchSeconds === 'number' ||
-    typeof rawPatch.matchRunning === 'boolean' ||
-    typeof rawPatch.matchUpdatedAt === 'number'
-  ) {
-    normalizedPatch.matchUpdatedAt = now;
-  }
-  if (
-    typeof rawPatch.raidSeconds === 'number' ||
-    typeof rawPatch.raidRunning === 'boolean' ||
-    typeof rawPatch.raidUpdatedAt === 'number'
-  ) {
-    normalizedPatch.raidUpdatedAt = now;
-  }
-
-  const nextState: LiveOverlayState = {
-    ...current,
-    ...normalizedPatch,
-    roomId: safeId,
-    updatedAt: now,
-  };
-
-  const nextVersion = getRoomVersion(safeId) + 1;
-  rooms.set(safeId, nextState);
-  roomVersions.set(safeId, nextVersion);
-  scheduleSaveRooms();
-  broadcastRoomState(safeId, nextState);
-
+  const res = applyOverlayPatchEngine(safeId, rawPatch, {
+    ...options,
+    onBroadcast: broadcastRoomState,
+  });
   return {
-    state: nextState,
-    version: nextVersion,
-    serverNow: now,
+    ...res,
     presence: getRemotePresence(safeId),
-    history: getHistoryInfo(safeId),
   };
-}
-
-function computeLiveMatchSeconds(state: LiveOverlayState, now: number): number {
-  if (!state.matchRunning) return Math.max(0, state.matchSeconds);
-  const elapsed = Math.floor(Math.max(0, now - state.matchUpdatedAt) / 1000);
-  return Math.max(0, state.matchSeconds - elapsed);
-}
-
-function computeLiveRaidSeconds(state: LiveOverlayState, now: number): number {
-  if (!state.raidRunning) return Math.max(0, state.raidSeconds);
-  const elapsed = Math.floor(Math.max(0, now - state.raidUpdatedAt) / 1000);
-  return Math.max(0, state.raidSeconds - elapsed);
-}
-
-const activeAlertTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-function scheduleAlertClear(roomId: string, ms = 2200) {
-  const prev = activeAlertTimers.get(roomId);
-  if (prev) clearTimeout(prev);
-  const timer = setTimeout(() => {
-    activeAlertTimers.delete(roomId);
-    const curr = rooms.get(roomId);
-    if (curr && curr.kabaddiAlert) {
-      applyOverlayPatch(roomId, { kabaddiAlert: null }, { recordHistory: false });
-    }
-  }, ms);
-  activeAlertTimers.set(roomId, timer);
 }
 
 function applyKabaddiRemoteAction(
   roomId: string,
   action: string,
-  payload: Record<string, unknown> = {}
+  payload: Record<string, unknown> = {},
+  options: { txId?: string; sourceClientId?: string } = {}
 ) {
   const safeId = sanitizeRoomId(roomId);
-  const current = getOrCreateRoom(safeId);
-  const now = Date.now();
-  const team = payload.team === 'B' ? 'B' : 'A';
-  const teamLabel = team === 'A' ? current.teamAName || 'TEAM A' : current.teamBName || 'TEAM B';
-
-  switch (action) {
-    case 'score': {
-      const delta = Math.max(-10, Math.min(10, Math.round(Number(payload.delta || 0))));
-      const alertText = typeof payload.alert === 'string' ? payload.alert.trim().slice(0, 60) : '';
-      const patch: Partial<LiveOverlayState> =
-        team === 'A'
-          ? { mode: 'kabaddi', teamAScore: Math.max(0, current.teamAScore + delta) }
-          : { mode: 'kabaddi', teamBScore: Math.max(0, current.teamBScore + delta) };
-      if (alertText) {
-        patch.kabaddiAlert = alertText;
-      }
-      const res = applyOverlayPatch(safeId, patch);
-      if (alertText) scheduleAlertClear(safeId);
-      return res;
-    }
-
-    case 'raid': {
-      const pts = Math.max(1, Math.min(6, Math.round(Number(payload.points || 1))));
-      const label = pts >= 3 ? `SUPER RAID! +${pts} ${teamLabel}` : `${teamLabel} · RAID +${pts}`;
-      const patch: Partial<LiveOverlayState> =
-        team === 'A'
-          ? {
-              mode: 'kabaddi',
-              teamAScore: Math.max(0, current.teamAScore + pts),
-              teamARaidPoints: Math.max(0, (current.teamARaidPoints ?? 0) + pts),
-              kabaddiAlert: label,
-            }
-          : {
-              mode: 'kabaddi',
-              teamBScore: Math.max(0, current.teamBScore + pts),
-              teamBRaidPoints: Math.max(0, (current.teamBRaidPoints ?? 0) + pts),
-              kabaddiAlert: label,
-            };
-      const res = applyOverlayPatch(safeId, patch);
-      scheduleAlertClear(safeId);
-      return res;
-    }
-
-    case 'bonus': {
-      const label = `${teamLabel} · BONUS +1`;
-      const patch: Partial<LiveOverlayState> =
-        team === 'A'
-          ? {
-              mode: 'kabaddi',
-              teamAScore: current.teamAScore + 1,
-              teamABonusPoints: Math.max(0, (current.teamABonusPoints ?? 0) + 1),
-              kabaddiAlert: label,
-            }
-          : {
-              mode: 'kabaddi',
-              teamBScore: current.teamBScore + 1,
-              teamBBonusPoints: Math.max(0, (current.teamBBonusPoints ?? 0) + 1),
-              kabaddiAlert: label,
-            };
-      const res = applyOverlayPatch(safeId, patch);
-      scheduleAlertClear(safeId);
-      return res;
-    }
-
-    case 'tackle': {
-      const pts = Math.max(1, Math.min(3, Math.round(Number(payload.points || 1))));
-      const label = pts >= 2 ? `SUPER TACKLE! +${pts} ${teamLabel}` : `${teamLabel} · TACKLE +${pts}`;
-      const patch: Partial<LiveOverlayState> =
-        team === 'A'
-          ? {
-              mode: 'kabaddi',
-              teamAScore: current.teamAScore + pts,
-              teamATacklePoints: Math.max(0, (current.teamATacklePoints ?? 0) + pts),
-              kabaddiAlert: label,
-            }
-          : {
-              mode: 'kabaddi',
-              teamBScore: current.teamBScore + pts,
-              teamBTacklePoints: Math.max(0, (current.teamBTacklePoints ?? 0) + pts),
-              kabaddiAlert: label,
-            };
-      const res = applyOverlayPatch(safeId, patch);
-      scheduleAlertClear(safeId);
-      return res;
-    }
-
-    case 'all_out': {
-      const label = `ALL OUT! +2 ${teamLabel}`;
-      const patch: Partial<LiveOverlayState> =
-        team === 'A'
-          ? { mode: 'kabaddi', teamAScore: current.teamAScore + 2, kabaddiAlert: label }
-          : { mode: 'kabaddi', teamBScore: current.teamBScore + 2, kabaddiAlert: label };
-      const res = applyOverlayPatch(safeId, patch);
-      scheduleAlertClear(safeId, 2600);
-      return res;
-    }
-
-    case 'timeout': {
-      const rawTarget = String(payload.target || 'OFFICIAL').toUpperCase();
-      const target: KabaddiTimeoutTeam =
-        rawTarget === 'A' ? 'A' : rawTarget === 'B' ? 'B' : 'OFFICIAL';
-      const liveMatchSec = computeLiveMatchSeconds(current, now);
-      const liveRaidSec = computeLiveRaidSeconds(current, now);
-      const timeoutTitle =
-        target === 'A'
-          ? `TIMEOUT · ${current.teamAName || 'TEAM A'}`
-          : target === 'B'
-            ? `TIMEOUT · ${current.teamBName || 'TEAM B'}`
-            : 'OFFICIAL TIMEOUT';
-      const res = applyOverlayPatch(safeId, {
-        mode: 'kabaddi',
-        matchStatus: 'TIMEOUT',
-        timeoutTeam: target,
-        matchRunning: false,
-        matchSeconds: liveMatchSec,
-        raidRunning: false,
-        raidSeconds: liveRaidSec,
-        kabaddiAlert: timeoutTitle,
-      });
-      scheduleAlertClear(safeId, 2600);
-      return res;
-    }
-
-    case 'clear_timeout': {
-      return applyOverlayPatch(safeId, {
-        matchStatus: 'LIVE',
-        timeoutTeam: null,
-        kabaddiAlert: null,
-      });
-    }
-
-    case 'half': {
-      const validHalves: KabaddiHalf[] = ['1ST HALF', '2ND HALF', 'HALF TIME', 'FULL TIME'];
-      const half = validHalves.includes(payload.half as KabaddiHalf)
-        ? (payload.half as KabaddiHalf)
-        : '1ST HALF';
-      const nextStatus: KabaddiMatchStatus =
-        half === 'HALF TIME' ? 'HALF TIME' : half === 'FULL TIME' ? 'FULL TIME' : 'LIVE';
-      const shouldPause = half === 'HALF TIME' || half === 'FULL TIME';
-      return applyOverlayPatch(safeId, {
-        kabaddiHalf: half,
-        matchStatus: nextStatus,
-        timeoutTeam: null,
-        ...(shouldPause
-          ? { matchRunning: false, matchSeconds: computeLiveMatchSeconds(current, now) }
-          : {}),
-      });
-    }
-
-    case 'status': {
-      const validStatuses: KabaddiMatchStatus[] = ['LIVE', 'PAUSED', 'TIMEOUT', 'HALF TIME', 'FULL TIME'];
-      const status = validStatuses.includes(payload.status as KabaddiMatchStatus)
-        ? (payload.status as KabaddiMatchStatus)
-        : 'LIVE';
-      const shouldPause = status !== 'LIVE';
-      return applyOverlayPatch(safeId, {
-        matchStatus: status,
-        timeoutTeam: status === 'TIMEOUT' ? current.timeoutTeam || 'OFFICIAL' : null,
-        ...(status === 'HALF TIME' ? { kabaddiHalf: 'HALF TIME' } : {}),
-        ...(status === 'FULL TIME' ? { kabaddiHalf: 'FULL TIME' } : {}),
-        ...(shouldPause
-          ? { matchRunning: false, matchSeconds: computeLiveMatchSeconds(current, now) }
-          : {}),
-      });
-    }
-
-    case 'timer_toggle': {
-      const liveSec = computeLiveMatchSeconds(current, now);
-      if (current.matchRunning) {
-        return applyOverlayPatch(safeId, {
-          matchRunning: false,
-          matchSeconds: liveSec,
-          matchStatus: current.matchStatus === 'LIVE' ? 'PAUSED' : current.matchStatus,
-        });
-      }
-      return applyOverlayPatch(safeId, {
-        matchRunning: true,
-        matchSeconds: liveSec === 0 ? 30 : liveSec,
-        matchStatus: 'LIVE',
-        timeoutTeam: null,
-      });
-    }
-
-    case 'timer_set': {
-      const sec = Math.max(0, Math.min(99 * 60, Math.round(Number(payload.seconds ?? 30))));
-      const autoStart = payload.autoStart !== false;
-      return applyOverlayPatch(safeId, {
-        matchSeconds: sec,
-        matchRunning: autoStart,
-        matchStatus: autoStart ? 'LIVE' : current.matchStatus || 'PAUSED',
-        timeoutTeam: autoStart ? null : current.timeoutTeam,
-      });
-    }
-
-    case 'timer_adjust': {
-      const delta = Math.max(-600, Math.min(600, Math.round(Number(payload.delta ?? 0))));
-      const liveSec = computeLiveMatchSeconds(current, now);
-      return applyOverlayPatch(safeId, {
-        matchSeconds: Math.max(0, Math.min(99 * 60, liveSec + delta)),
-      });
-    }
-
-    case 'raid_toggle': {
-      const liveRaid = computeLiveRaidSeconds(current, now);
-      if (current.raidRunning) {
-        return applyOverlayPatch(safeId, { raidRunning: false, raidSeconds: liveRaid });
-      }
-      return applyOverlayPatch(safeId, {
-        raidRunning: true,
-        raidSeconds: liveRaid === 0 ? 30 : liveRaid,
-      });
-    }
-
-    case 'raid_reset': {
-      return applyOverlayPatch(safeId, { raidRunning: false, raidSeconds: 30 });
-    }
-
-    case 'swap': {
-      return applyOverlayPatch(safeId, {
-        teamAName: current.teamBName,
-        teamACode: current.teamBCode,
-        teamAColor: current.teamBColor,
-        teamAScore: current.teamBScore,
-        teamARaidPoints: current.teamBRaidPoints ?? 0,
-        teamABonusPoints: current.teamBBonusPoints ?? 0,
-        teamATacklePoints: current.teamBTacklePoints ?? 0,
-        teamALogoUrl: current.teamBLogoUrl,
-        teamAYellowCards: current.teamBYellowCards,
-        teamARedCards: current.teamBRedCards,
-        teamABinEndAt: current.teamBBinEndAt,
-        teamBName: current.teamAName,
-        teamBCode: current.teamACode,
-        teamBColor: current.teamAColor,
-        teamBScore: current.teamAScore,
-        teamBRaidPoints: current.teamARaidPoints ?? 0,
-        teamBBonusPoints: current.teamABonusPoints ?? 0,
-        teamBTacklePoints: current.teamATacklePoints ?? 0,
-        teamBLogoUrl: current.teamALogoUrl,
-        teamBYellowCards: current.teamAYellowCards,
-        teamBRedCards: current.teamARedCards,
-        teamBBinEndAt: current.teamABinEndAt,
-      });
-    }
-
-    case 'timer_reset': {
-      const sec = Math.max(0, Math.min(99 * 60, Math.round(Number(payload.seconds ?? 30))));
-      const autoStart = payload.autoStart === true;
-      return applyOverlayPatch(safeId, {
-        matchSeconds: sec,
-        matchRunning: autoStart,
-        matchStatus: autoStart ? 'LIVE' : 'PAUSED',
-        timeoutTeam: null,
-      });
-    }
-
-    case 'undo': {
-      const undoStack = roomUndoStacks.get(safeId);
-      if (!undoStack || undoStack.length === 0) {
-        return {
-          state: current,
-          version: getRoomVersion(safeId),
-          serverNow: now,
-          presence: getRemotePresence(safeId),
-          history: getHistoryInfo(safeId),
-        };
-      }
-      const prevSnapshot = undoStack.pop()!;
-      let redoStack = roomRedoStacks.get(safeId);
-      if (!redoStack) {
-        redoStack = [];
-        roomRedoStacks.set(safeId, redoStack);
-      }
-      redoStack.push(snapshotStateForHistory(current, now));
-      if (redoStack.length > MAX_HISTORY_STEPS) {
-        redoStack.shift();
-      }
-      const restored: LiveOverlayState = {
-        ...prevSnapshot,
-        roomId: safeId,
-        kabaddiAlert: null,
-        matchUpdatedAt: now,
-        raidUpdatedAt: now,
-        updatedAt: now,
-      };
-      const nextVersion = getRoomVersion(safeId) + 1;
-      rooms.set(safeId, restored);
-      roomVersions.set(safeId, nextVersion);
-      scheduleSaveRooms();
-      broadcastRoomState(safeId, restored);
-      return {
-        state: restored,
-        version: nextVersion,
-        serverNow: now,
-        presence: getRemotePresence(safeId),
-        history: getHistoryInfo(safeId),
-      };
-    }
-
-    case 'redo': {
-      const redoStack = roomRedoStacks.get(safeId);
-      if (!redoStack || redoStack.length === 0) {
-        return {
-          state: current,
-          version: getRoomVersion(safeId),
-          serverNow: now,
-          presence: getRemotePresence(safeId),
-          history: getHistoryInfo(safeId),
-        };
-      }
-      const nextSnapshot = redoStack.pop()!;
-      let undoStack = roomUndoStacks.get(safeId);
-      if (!undoStack) {
-        undoStack = [];
-        roomUndoStacks.set(safeId, undoStack);
-      }
-      undoStack.push(snapshotStateForHistory(current, now));
-      if (undoStack.length > MAX_HISTORY_STEPS) {
-        undoStack.shift();
-      }
-      const restored: LiveOverlayState = {
-        ...nextSnapshot,
-        roomId: safeId,
-        kabaddiAlert: null,
-        matchUpdatedAt: now,
-        raidUpdatedAt: now,
-        updatedAt: now,
-      };
-      const nextVersion = getRoomVersion(safeId) + 1;
-      rooms.set(safeId, restored);
-      roomVersions.set(safeId, nextVersion);
-      scheduleSaveRooms();
-      broadcastRoomState(safeId, restored);
-      return {
-        state: restored,
-        version: nextVersion,
-        serverNow: now,
-        presence: getRemotePresence(safeId),
-        history: getHistoryInfo(safeId),
-      };
-    }
-
-    case 'reset': {
-      return applyOverlayPatch(safeId, {
-        teamAScore: 0,
-        teamBScore: 0,
-        teamARaidPoints: 0,
-        teamABonusPoints: 0,
-        teamATacklePoints: 0,
-        teamBRaidPoints: 0,
-        teamBBonusPoints: 0,
-        teamBTacklePoints: 0,
-        teamAYellowCards: 0,
-        teamARedCards: 0,
-        teamBYellowCards: 0,
-        teamBRedCards: 0,
-        teamABinEndAt: null,
-        teamBBinEndAt: null,
-        matchSeconds: 30,
-        matchRunning: true,
-        raidSeconds: 30,
-        raidRunning: false,
-        kabaddiHalf: '1ST HALF',
-        matchStatus: 'LIVE',
-        timeoutTeam: null,
-        doOrDie: false,
-        kabaddiAlert: null,
-      });
-    }
-
-    default:
-      return {
-        state: current,
-        version: getRoomVersion(safeId),
-        serverNow: now,
-        presence: getRemotePresence(safeId),
-        history: getHistoryInfo(safeId),
-      };
-  }
+  const res = applyKabaddiActionEngine(safeId, action, payload, {
+    ...options,
+    onBroadcast: broadcastRoomState,
+  });
+  return {
+    ...res,
+    presence: getRemotePresence(safeId),
+  };
 }
 
 function notifyOrderWatchers(order: PaymentOrderRecord) {
@@ -1863,17 +1345,31 @@ async function startServer() {
     }
 
     const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const txId = typeof body.txId === 'string' ? body.txId.trim().slice(0, 64) : undefined;
+    const sourceClientId =
+      typeof body.clientId === 'string' ? body.clientId.trim().slice(0, 48) : undefined;
+
     let result;
     if (typeof body.action === 'string' && body.action.trim()) {
       result = applyKabaddiRemoteAction(
         matchId,
         body.action.trim(),
-        body.payload && typeof body.payload === 'object' ? body.payload : {}
+        body.payload && typeof body.payload === 'object' ? body.payload : {},
+        { txId, sourceClientId }
       );
     } else if (body.patch && typeof body.patch === 'object') {
-      result = applyOverlayPatch(matchId, body.patch as Partial<LiveOverlayState>);
+      result = applyOverlayPatch(matchId, body.patch as Partial<LiveOverlayState>, {
+        txId,
+        sourceClientId,
+      });
     } else {
-      result = applyOverlayPatch(matchId, body as Partial<LiveOverlayState>);
+      const { txId: _t, clientId: _c, ...rest } = body;
+      void _t;
+      void _c;
+      result = applyOverlayPatch(matchId, rest as Partial<LiveOverlayState>, {
+        txId,
+        sourceClientId,
+      });
     }
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -1882,6 +1378,10 @@ async function startServer() {
       state: result.state,
       version: result.version,
       serverNow: result.serverNow,
+      serverBootId: result.serverBootId,
+      txId: result.txId,
+      sourceClientId: result.sourceClientId,
+      duplicate: Boolean(result.duplicate),
       connectedDisplays: result.presence.displays,
       presence: result.presence,
       history: result.history,
@@ -1896,6 +1396,7 @@ async function startServer() {
     const state = getOrCreateRoom(roomId);
     const version = getRoomVersion(roomId);
     const sinceVersion = Number(req.query.v || 0);
+    const clientBootId = String(req.query.boot || '').trim();
     const viewerId = String(req.query.viewer || '').trim().slice(0, 40);
 
     if (viewerId) {
@@ -1916,31 +1417,73 @@ async function startServer() {
     const connectedDisplays = presence.displays;
     const serverNow = Date.now();
 
-    if (sinceVersion > 0 && sinceVersion === version) {
-      res.json({ unchanged: true, version, serverNow, connectedDisplays, presence, history });
+    if (
+      sinceVersion > 0 &&
+      sinceVersion === version &&
+      (!clientBootId || clientBootId === SERVER_BOOT_ID)
+    ) {
+      res.json({
+        unchanged: true,
+        version,
+        serverNow,
+        serverBootId: SERVER_BOOT_ID,
+        connectedDisplays,
+        presence,
+        history,
+      });
       return;
     }
 
-    res.json({ state, version, serverNow, connectedDisplays, presence, history });
+    res.json({
+      state,
+      version,
+      serverNow,
+      serverBootId: SERVER_BOOT_ID,
+      connectedDisplays,
+      presence,
+      history,
+    });
   });
 
   app.post('/api/overlay/:roomId', (req, res) => {
     const roomId = sanitizeRoomId(req.params.roomId);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const result =
-      typeof body.action === 'string' && body.action.trim()
-        ? applyKabaddiRemoteAction(
-            roomId,
-            body.action.trim(),
-            body.payload && typeof body.payload === 'object' ? body.payload : {}
-          )
-        : applyOverlayPatch(roomId, body as Partial<LiveOverlayState>);
+    const txId = typeof body.txId === 'string' ? body.txId.trim().slice(0, 64) : undefined;
+    const sourceClientId =
+      typeof body.clientId === 'string' ? body.clientId.trim().slice(0, 48) : undefined;
+
+    let result;
+    if (typeof body.action === 'string' && body.action.trim()) {
+      result = applyKabaddiRemoteAction(
+        roomId,
+        body.action.trim(),
+        body.payload && typeof body.payload === 'object' ? body.payload : {},
+        { txId, sourceClientId }
+      );
+    } else if (body.patch && typeof body.patch === 'object') {
+      result = applyOverlayPatch(roomId, body.patch as Partial<LiveOverlayState>, {
+        txId,
+        sourceClientId,
+      });
+    } else {
+      const { txId: _t, clientId: _c, ...rest } = body;
+      void _t;
+      void _c;
+      result = applyOverlayPatch(roomId, rest as Partial<LiveOverlayState>, {
+        txId,
+        sourceClientId,
+      });
+    }
 
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     res.json({
       state: result.state,
       version: result.version,
       serverNow: result.serverNow,
+      serverBootId: result.serverBootId,
+      txId: result.txId,
+      sourceClientId: result.sourceClientId,
+      duplicate: Boolean(result.duplicate),
       connectedDisplays: result.presence.displays,
       presence: result.presence,
       history: result.history,
@@ -2099,13 +1642,13 @@ async function startServer() {
     broadcastRoomState(roomId, initialState);
 
     ws.on('message', (rawData) => {
-      if (role === 'display') return; // vMix/OBS displays are strictly read-only
-
       let msg: {
         type?: string;
         patch?: Partial<LiveOverlayState>;
         action?: string;
         payload?: Record<string, unknown>;
+        txId?: string;
+        clientId?: string;
       };
       try {
         msg = JSON.parse(rawData.toString('utf8'));
@@ -2115,12 +1658,43 @@ async function startServer() {
 
       if (msg.type === 'ping') {
         try {
-          ws.send(JSON.stringify({ type: 'pong', serverNow: Date.now() }));
+          ws.send(
+            JSON.stringify({
+              type: 'pong',
+              serverNow: Date.now(),
+              serverBootId: SERVER_BOOT_ID,
+              version: getRoomVersion(roomId),
+            })
+          );
         } catch {
           // ignore
         }
         return;
       }
+
+      if (msg.type === 'request_sync') {
+        try {
+          const current = getOrCreateRoom(roomId);
+          const presence = getRemotePresence(roomId);
+          ws.send(
+            JSON.stringify({
+              type: 'sync',
+              state: current,
+              version: getRoomVersion(roomId),
+              serverNow: Date.now(),
+              serverBootId: SERVER_BOOT_ID,
+              connectedDisplays: presence.displays,
+              presence,
+              history: getHistoryInfo(roomId),
+            })
+          );
+        } catch {
+          // ignore
+        }
+        return;
+      }
+
+      if (role === 'display') return; // vMix/OBS displays are strictly read-only
 
       if (role === 'controller') {
         // Re-check token validity on write in case session expired
@@ -2135,13 +1709,18 @@ async function startServer() {
         }
       }
 
+      const txId = typeof msg.txId === 'string' ? msg.txId.trim().slice(0, 64) : undefined;
+      const sourceClientId =
+        typeof msg.clientId === 'string' ? msg.clientId.trim().slice(0, 48) : undefined;
+
       if (msg.type === 'patch' && msg.patch && typeof msg.patch === 'object') {
-        applyOverlayPatch(roomId, msg.patch);
+        applyOverlayPatch(roomId, msg.patch, { txId, sourceClientId });
       } else if (msg.type === 'action' && typeof msg.action === 'string') {
         applyKabaddiRemoteAction(
           roomId,
           msg.action,
-          msg.payload && typeof msg.payload === 'object' ? msg.payload : {}
+          msg.payload && typeof msg.payload === 'object' ? msg.payload : {},
+          { txId, sourceClientId }
         );
       }
     });
@@ -2150,9 +1729,8 @@ async function startServer() {
       clearInterval(pingInterval);
       wsDisplays.get(roomId)?.delete(ws);
       wsControllers.get(roomId)?.delete(ws);
-      const curr = rooms.get(roomId);
-      if (curr) {
-        broadcastRoomState(roomId, curr);
+      if (hasRoom(roomId)) {
+        broadcastRoomState(roomId, getOrCreateRoom(roomId));
       }
     });
 

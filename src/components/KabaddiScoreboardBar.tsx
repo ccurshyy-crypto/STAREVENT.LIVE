@@ -7,7 +7,11 @@ export interface KabaddiScoreboardBarProps {
   teamACode?: string;
   teamAColor?: string;
   teamAScore: number;
+  teamABonusPoints?: number;
+  teamALonaPoints?: number;
+  teamAPlayersOnMat?: number;
   teamALogoUrl?: string;
+  teamAGreenCards?: number;
   teamAYellowCards?: number;
   teamARedCards?: number;
   teamABinRemaining?: number;
@@ -15,12 +19,17 @@ export interface KabaddiScoreboardBarProps {
   teamBCode?: string;
   teamBColor?: string;
   teamBScore: number;
+  teamBBonusPoints?: number;
+  teamBLonaPoints?: number;
+  teamBPlayersOnMat?: number;
   teamBLogoUrl?: string;
+  teamBGreenCards?: number;
   teamBYellowCards?: number;
   teamBRedCards?: number;
   teamBBinRemaining?: number;
   matchSeconds: number;
   raidSeconds?: number;
+  raidDuration?: number;
   raidRunning?: boolean;
   halfLabel: KabaddiHalf | string;
   matchStatus?: KabaddiMatchStatus;
@@ -76,7 +85,11 @@ export function KabaddiScoreboardBar({
   teamACode,
   teamAColor = '#C8102E',
   teamAScore,
+  teamABonusPoints = 0,
+  teamALonaPoints = 0,
+  teamAPlayersOnMat = 7,
   teamALogoUrl,
+  teamAGreenCards = 0,
   teamAYellowCards = 0,
   teamARedCards = 0,
   teamABinRemaining = 0,
@@ -84,12 +97,17 @@ export function KabaddiScoreboardBar({
   teamBCode,
   teamBColor = '#131D8A',
   teamBScore,
+  teamBBonusPoints = 0,
+  teamBLonaPoints = 0,
+  teamBPlayersOnMat = 7,
   teamBLogoUrl,
+  teamBGreenCards = 0,
   teamBYellowCards = 0,
   teamBRedCards = 0,
   teamBBinRemaining = 0,
   matchSeconds,
   raidSeconds = 30,
+  raidDuration = 30,
   raidRunning = false,
   halfLabel,
   matchStatus,
@@ -155,9 +173,23 @@ export function KabaddiScoreboardBar({
       ? 'w-[clamp(44px,4.5vw,84px)] h-[clamp(44px,4.5vw,84px)] p-1'
       : 'w-7 h-7 sm:w-10 sm:h-10 md:w-11 md:h-11 p-0.5';
 
-  const showRaidSub = raidRunning || raidSeconds < 30;
+  const showRaidSub = raidRunning || raidSeconds < raidDuration;
   const displayLeftCode = (teamACode || '').trim().toUpperCase();
   const displayRightCode = (teamBCode || '').trim().toUpperCase();
+  const safeAOnMat = Math.max(0, Math.min(7, Math.round(teamAPlayersOnMat)));
+  const safeBOnMat = Math.max(0, Math.min(7, Math.round(teamBPlayersOnMat)));
+
+  const playerDotClass = isMini
+    ? 'w-1.5 h-1.5'
+    : isOutput
+      ? 'w-[clamp(8px,0.72vw,14px)] h-[clamp(8px,0.72vw,14px)]'
+      : 'w-2 h-2 sm:w-2.5 sm:h-2.5';
+
+  const stripMetaClass = isMini
+    ? 'text-[5.5px]'
+    : isOutput
+      ? 'text-[clamp(9px,0.72vw,13px)]'
+      : 'text-[7px] sm:text-[9px]';
 
   return (
     <div className={`${wrapperWidthClass} select-none`}>
@@ -268,6 +300,70 @@ export function KabaddiScoreboardBar({
           })()}
         </div>
 
+        {/* Silver Top Strip (y: 25% -> 36%): Live 7 Player ON-MAT / OUT Dots & Bonus Indicator */}
+        <div className="absolute top-[25.5%] h-[10.5%] left-[3.8%] right-[3.8%] flex items-center justify-between pointer-events-none">
+          {/* Team A 7 Player Dots (Active vs OUT) */}
+          <div
+            className="w-[33%] flex items-center justify-start gap-1 sm:gap-1.5 pl-1"
+            aria-label={`${teamAName} ${safeAOnMat} of 7 players on mat`}
+          >
+            <div className="flex items-center gap-[3px] sm:gap-1">
+              {[1, 2, 3, 4, 5, 6, 7].map((idx) => {
+                const isOnMat = idx <= safeAOnMat;
+                return (
+                  <span
+                    key={`a-dot-${idx}`}
+                    className={`rounded-full transition-all duration-200 ${playerDotClass} ${
+                      isOnMat
+                        ? 'bg-[#16A34A] border border-[#14532D] shadow-[0_0_6px_rgba(22,163,74,0.65)]'
+                        : 'bg-[#DC2626]/25 border border-[#B91C1C]/75 scale-90'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+            {!isMini && (
+              <span className={`font-mono font-extrabold text-[#1E293B] uppercase whitespace-nowrap leading-none ${stripMetaClass}`}>
+                {safeAOnMat}/7 IN
+                {teamABonusPoints > 0 ? ` · B:${teamABonusPoints}` : ''}
+                {teamALonaPoints > 0 ? ` · L:${teamALonaPoints}` : ''}
+              </span>
+            )}
+          </div>
+
+          {/* Center Gap (above dark trapezoid clock pod) */}
+          <div className="w-[30%]" aria-hidden="true" />
+
+          {/* Team B 7 Player Dots (Active vs OUT) */}
+          <div
+            className="w-[33%] flex items-center justify-end gap-1 sm:gap-1.5 pr-1"
+            aria-label={`${teamBName} ${safeBOnMat} of 7 players on mat`}
+          >
+            {!isMini && (
+              <span className={`font-mono font-extrabold text-[#1E293B] uppercase whitespace-nowrap leading-none ${stripMetaClass}`}>
+                {teamBLonaPoints > 0 ? `L:${teamBLonaPoints} · ` : ''}
+                {teamBBonusPoints > 0 ? `B:${teamBBonusPoints} · ` : ''}
+                {safeBOnMat}/7 IN
+              </span>
+            )}
+            <div className="flex items-center gap-[3px] sm:gap-1">
+              {[1, 2, 3, 4, 5, 6, 7].map((idx) => {
+                const isOnMat = idx <= safeBOnMat;
+                return (
+                  <span
+                    key={`b-dot-${idx}`}
+                    className={`rounded-full transition-all duration-200 ${playerDotClass} ${
+                      isOnMat
+                        ? 'bg-[#16A34A] border border-[#14532D] shadow-[0_0_6px_rgba(22,163,74,0.65)]'
+                        : 'bg-[#DC2626]/25 border border-[#B91C1C]/75 scale-90'
+                    }`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         {/* Main Lower Band Content Layer (y: 36% -> 94%) */}
         <div className="absolute top-[36%] bottom-[6%] left-0 right-0 flex items-center">
           {/* LEFT WING (Team A: Logo + Name/Code/Cards + Score) */}
@@ -301,6 +397,14 @@ export function KabaddiScoreboardBar({
                         className={`font-mono font-bold text-white/80 leading-none ${codeTextClass}`}
                       >
                         {displayLeftCode}
+                      </span>
+                    )}
+                    {teamAGreenCards > 0 && (
+                      <span
+                        className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/40 border border-[#4ADE80]/70 font-mono font-bold text-[#86EFAC] leading-none ${codeTextClass}`}
+                      >
+                        <span className="w-1.5 h-2 rounded-[1px] bg-[#22C55E]" />
+                        {teamAGreenCards}
                       </span>
                     )}
                     {teamAYellowCards > 0 && (
@@ -395,6 +499,14 @@ export function KabaddiScoreboardBar({
                       >
                         <span className="w-1.5 h-2 rounded-[1px] bg-[#FACC15]" />
                         {teamBYellowCards}
+                      </span>
+                    )}
+                    {teamBGreenCards > 0 && (
+                      <span
+                        className={`inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-black/40 border border-[#4ADE80]/70 font-mono font-bold text-[#86EFAC] leading-none ${codeTextClass}`}
+                      >
+                        <span className="w-1.5 h-2 rounded-[1px] bg-[#22C55E]" />
+                        {teamBGreenCards}
                       </span>
                     )}
                     {displayRightCode && (

@@ -1,17 +1,15 @@
 import { useState } from 'react';
 import { ArrowRight, ExternalLink, Instagram, Play, Video, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { ScrollReveal } from './ScrollReveal';
 import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface HeroSectionProps {
   lang: Language;
-  onChangeLang: (lang: Language) => void;
   onOpenOverlays: () => void;
 }
 
-export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionProps) {
+export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
   const [bannerError, setBannerError] = useState(false);
 
   return (
@@ -53,37 +51,33 @@ export function HeroSection({ lang, onChangeLang, onOpenOverlays }: HeroSectionP
               />
             </div>
 
-            {/* Secondary Utility Bar: domain, YouTube channel & language switcher */}
-            <div className="mt-3.5 pt-3 w-full border-t border-white/10 flex flex-wrap items-center justify-between gap-3.5">
-              <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2 text-xs sm:text-sm text-zinc-200">
-                <span className="font-mono text-zinc-100">{STUDIO_CONTACT.domain}</span>
-                <span aria-hidden="true" className="text-zinc-500">·</span>
-                <a
-                  href={STUDIO_CONTACT.youtubeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-[#FACC15] transition-colors whitespace-nowrap"
-                >
-                  <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
-                  <span>YouTube ({STUDIO_CONTACT.youtubeHandle})</span>
-                </a>
-                {STUDIO_CONTACT.instagramAccounts.map((ig) => (
-                  <span key={ig.handle} className="inline-flex items-center gap-3">
-                    <span aria-hidden="true" className="text-zinc-500">·</span>
-                    <a
-                      href={ig.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-[#FACC15] transition-colors whitespace-nowrap"
-                    >
-                      <Instagram className="w-3.5 h-3.5 text-[#F472B6] shrink-0" aria-hidden="true" />
-                      <span>{ig.handle}</span>
-                    </a>
-                  </span>
-                ))}
-              </div>
-
-              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
+            {/* Secondary Utility Bar: domain & social channels */}
+            <div className="mt-3.5 pt-3 w-full border-t border-white/10 flex flex-wrap items-center justify-center gap-x-3.5 gap-y-2 text-xs sm:text-sm text-zinc-200">
+              <span className="font-mono text-zinc-100">{STUDIO_CONTACT.domain}</span>
+              <span aria-hidden="true" className="text-zinc-500">·</span>
+              <a
+                href={STUDIO_CONTACT.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-[#FACC15] transition-colors whitespace-nowrap"
+              >
+                <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
+                <span>YouTube ({STUDIO_CONTACT.youtubeHandle})</span>
+              </a>
+              {STUDIO_CONTACT.instagramAccounts.map((ig) => (
+                <span key={ig.handle} className="inline-flex items-center gap-3">
+                  <span aria-hidden="true" className="text-zinc-500">·</span>
+                  <a
+                    href={ig.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 font-semibold text-white hover:text-[#FACC15] transition-colors whitespace-nowrap"
+                  >
+                    <Instagram className="w-3.5 h-3.5 text-[#F472B6] shrink-0" aria-hidden="true" />
+                    <span>{ig.handle}</span>
+                  </a>
+                </span>
+              ))}
             </div>
           </div>
         </div>

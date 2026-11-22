@@ -104,6 +104,33 @@ const PLATFORMS: {
 const OBS_CUSTOM_CSS =
   'html, body { background-color: rgba(0, 0, 0, 0) !important; margin: 0 auto; overflow: hidden; }';
 
+const MATCH_ID_STORAGE_KEY = 'star_event_active_match_id_v1';
+
+function createUniqueMatchIdClient(): string {
+  const num = Math.floor(1000 + Math.random() * 9000);
+  return `kbd-${num}`;
+}
+
+function getInitialMatchId(): string {
+  if (typeof window === 'undefined') return 'kbd-1001';
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('match') || params.get('room');
+  if (fromUrl && fromUrl.trim()) {
+    return sanitizeRoomIdClient(fromUrl);
+  }
+  try {
+    const saved = window.localStorage.getItem(MATCH_ID_STORAGE_KEY);
+    if (saved && saved.trim()) {
+      return sanitizeRoomIdClient(saved);
+    }
+    const generated = createUniqueMatchIdClient();
+    window.localStorage.setItem(MATCH_ID_STORAGE_KEY, generated);
+    return generated;
+  } catch {
+    return createUniqueMatchIdClient();
+  }
+}
+
 export function LiveStudioPreview({
   lang,
   activeMode,
@@ -117,18 +144,34 @@ export function LiveStudioPreview({
 }: LiveStudioPreviewProps) {
   const [platform, setPlatform] = useState<PlatformId>('youtube-public');
   const [transparentBg, setTransparentBg] = useState(true);
-  const [roomInput, setRoomInput] = useState('star-live-1');
+  const [roomInput, setRoomInput] = useState<string>(() => getInitialMatchId());
   const [outputBg, setOutputBg] = useState<OverlayBackground>('transparent');
   const [lockModeInUrl, setLockModeInUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
 
+  const handleSetMatchId = (raw: string) => {
+    const clean = sanitizeRoomIdClient(raw);
+    setRoomInput(clean);
+    try {
+      window.localStorage.setItem(MATCH_ID_STORAGE_KEY, clean);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGenerateNewMatchId = () => {
+    handleSetMatchId(createUniqueMatchIdClient());
+  };
+
   const {
     state,
     updateState,
     sendAction,
     connected,
+    connectionStatus,
+    transport,
     connectedDisplays,
     connectedControllers,
     controllerNames,
@@ -274,98 +317,27 @@ export function LiveStudioPreview({
   };
 
   const handleToggleMatchTimer = () => {
-    if (state.matchRunning) {
-      updateState({
-        matchRunning: false,
-        matchSeconds: displayMatchSeconds,
-        matchUpdatedAt: Date.now(),
-      });
-    } else {
-      const startFrom =
-        displayMatchSeconds === 0 ? state.kabaddiMatchDuration || 1200 : displayMatchSeconds;
-      updateState({
-        matchRunning: true,
-        matchSeconds: startFrom,
-        matchUpdatedAt: Date.now(),
-      });
-    }
+    sendAction('timer_toggle');
   };
 
   const handleSetMatchPreset = (seconds: number, autoStart = true) => {
-    updateState({
-      matchRunning: autoStart,
-      matchSeconds: Math.max(0, seconds),
-      matchUpdatedAt: Date.now(),
-    });
+    sendAction('timer_set', { seconds: Math.max(0, seconds), autoStart });
   };
 
   const handleSwapTeams = () => {
-    updateState({
-      teamAName: state.teamBName,
-      teamACode: state.teamBCode,
-      teamAColor: state.teamBColor,
-      teamAScore: state.teamBScore,
-      teamALogoUrl: state.teamBLogoUrl,
-      teamAYellowCards: state.teamBYellowCards,
-      teamARedCards: state.teamBRedCards,
-      teamABinEndAt: state.teamBBinEndAt,
-      teamBName: state.teamAName,
-      teamBCode: state.teamACode,
-      teamBColor: state.teamAColor,
-      teamBScore: state.teamAScore,
-      teamBLogoUrl: state.teamALogoUrl,
-      teamBYellowCards: state.teamAYellowCards,
-      teamBRedCards: state.teamARedCards,
-      teamBBinEndAt: state.teamABinEndAt,
-    });
+    sendAction('swap');
   };
 
   const handleToggleRaidTimer = () => {
-    if (state.raidRunning) {
-      updateState({
-        raidRunning: false,
-        raidSeconds: displayRaidSeconds,
-        raidUpdatedAt: Date.now(),
-      });
-    } else {
-      const startFrom = displayRaidSeconds === 0 ? 30 : displayRaidSeconds;
-      updateState({
-        raidRunning: true,
-        raidSeconds: startFrom,
-        raidUpdatedAt: Date.now(),
-      });
-    }
+    sendAction('raid_toggle');
   };
 
   const handleResetRaidTimer = () => {
-    updateState({
-      raidRunning: false,
-      raidSeconds: 30,
-      raidUpdatedAt: Date.now(),
-    });
+    sendAction('raid_reset', { seconds: state.kabaddiRaidDuration || 30 });
   };
 
   const handleResetKabaddi = () => {
-    const now = Date.now();
-    updateState({
-      teamAScore: 0,
-      teamBScore: 0,
-      teamAYellowCards: 0,
-      teamARedCards: 0,
-      teamBYellowCards: 0,
-      teamBRedCards: 0,
-      teamABinEndAt: null,
-      teamBBinEndAt: null,
-      matchSeconds: 30,
-      matchRunning: true,
-      matchUpdatedAt: now,
-      raidSeconds: 30,
-      raidRunning: false,
-      raidUpdatedAt: now,
-      kabaddiHalf: '1ST HALF',
-      doOrDie: false,
-      kabaddiAlert: null,
-    });
+    sendAction('reset');
   };
 
   // Build real OBS & vMix Browser Source URLs (auto-converts private ais-dev preview host notice)
@@ -901,10 +873,13 @@ export function LiveStudioPreview({
               teamABinRemaining={teamABinRemaining}
               teamBBinRemaining={teamBBinRemaining}
               connected={connected}
+              connectionStatus={connectionStatus}
+              transport={transport}
               connectedDisplays={connectedDisplays}
               connectedControllers={connectedControllers}
               roomInput={roomInput}
-              onChangeRoomInput={(val) => setRoomInput(sanitizeRoomIdClient(val))}
+              onChangeRoomInput={handleSetMatchId}
+              onGenerateMatchId={handleGenerateNewMatchId}
               outputBg={outputBg}
               onChangeOutputBg={setOutputBg}
               transparentBg={transparentBg}
@@ -924,6 +899,7 @@ export function LiveStudioPreview({
               onUndo={() => sendAction('undo')}
               onRedo={() => sendAction('redo')}
               onUpdateState={updateState}
+              onSendAction={sendAction}
               onTriggerAlert={triggerKabaddiAlert}
               onTimeout={handleKabaddiTimeout}
               onToggleMatchTimer={handleToggleMatchTimer}

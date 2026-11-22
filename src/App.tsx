@@ -119,7 +119,7 @@ function parseOverlayRoute() {
   const background: OverlayBackground =
     bgParam === 'green' ? 'green' : bgParam === 'blue' ? 'blue' : 'transparent';
 
-  const roomId = sanitizeRoomIdClient(params.get('room') || 'star-live-1');
+  const roomId = sanitizeRoomIdClient(params.get('match') || params.get('room') || 'star-live-1');
   const token = params.get('token')?.trim().toUpperCase() || undefined;
   const lockMode = params.get('lock') === '1' || Boolean(pathOverlay);
   const lockStyle = params.get('lock') === '1';
@@ -431,7 +431,6 @@ export default function App() {
         {currentPage === 'overlays' ? (
           <OverlaysPage
             lang={lang}
-            onChangeLang={setLang}
             activeMode={previewMode}
             onChangeMode={setPreviewMode}
             activeStyle={activeStyle}
@@ -447,7 +446,6 @@ export default function App() {
         ) : currentPage === 'packages' ? (
           <PackagesPage
             lang={lang}
-            onChangeLang={setLang}
             selectedPackageId={selectedPackageId}
             selectedAddOns={selectedAddOns}
             onToggleAddOn={handleToggleAddOn}
@@ -459,7 +457,6 @@ export default function App() {
           <>
             <HeroSection
               lang={lang}
-              onChangeLang={setLang}
               onOpenOverlays={() => navigateToOverlays()}
             />
 

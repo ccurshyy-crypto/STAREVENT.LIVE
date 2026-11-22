@@ -13,7 +13,6 @@ import {
 import { OverlayMode, OverlayStyle } from '../types/overlay';
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { LiveStudioPreview } from './LiveStudioPreview';
 import { OverlayCheckoutModal } from './OverlayCheckoutModal';
 import { ScrollReveal } from './ScrollReveal';
@@ -21,7 +20,6 @@ import { WeddingFrameOverlay } from './WeddingFrameOverlay';
 
 interface OverlaysPageProps {
   lang: Language;
-  onChangeLang: (lang: Language) => void;
   activeMode: OverlayMode;
   onChangeMode: (mode: OverlayMode) => void;
   activeStyle: OverlayStyle;
@@ -198,7 +196,6 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
 
 export function OverlaysPage({
   lang,
-  onChangeLang,
   activeMode,
   onChangeMode,
   activeStyle,
@@ -297,7 +294,7 @@ export function OverlaysPage({
       {/* Dedicated Overlays Store Hero & Catalog */}
       <section className="pt-8 pb-16 sm:pt-12 sm:pb-20 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Breadcrumb + Language Switcher */}
+          {/* Top Breadcrumb */}
           <div className="relative overflow-hidden rounded-xl border border-[#FACC15]/25 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-5 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
             <div
               aria-hidden="true"
@@ -329,8 +326,6 @@ export function OverlaysPage({
                   )}
                 </span>
               </button>
-
-              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
             </div>
           </div>
 

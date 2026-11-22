@@ -18,7 +18,11 @@ import {
 } from 'lucide-react';
 import { Language } from '../data/content';
 import { formatRemainingTime, OverlaySku, VerifiedOverlayToken } from '../data/overlayCatalog';
-import { sanitizeRoomIdClient } from '../hooks/useOverlaySync';
+import {
+  ConnectionStatus,
+  sanitizeRoomIdClient,
+  SyncTransport,
+} from '../hooks/useOverlaySync';
 import {
   KabaddiGraphicPanel,
   KabaddiHalf,
@@ -53,10 +57,13 @@ interface VmixKabaddiControllerProps {
   teamABinRemaining: number;
   teamBBinRemaining: number;
   connected: boolean;
+  connectionStatus: ConnectionStatus;
+  transport: SyncTransport;
   connectedDisplays: number;
   connectedControllers: number;
   roomInput: string;
   onChangeRoomInput: (val: string) => void;
+  onGenerateMatchId: () => void;
   outputBg: OverlayBackground;
   onChangeOutputBg: (bg: OverlayBackground) => void;
   transparentBg: boolean;
@@ -76,6 +83,7 @@ interface VmixKabaddiControllerProps {
   onUndo: () => void;
   onRedo: () => void;
   onUpdateState: (patch: Partial<LiveOverlayState>) => void;
+  onSendAction: (action: string, payload?: Record<string, unknown>) => void;
   onTriggerAlert: (label: string) => void;
   onTimeout: (target: KabaddiTimeoutTeam) => void;
   onToggleMatchTimer: () => void;
@@ -99,10 +107,13 @@ export function VmixKabaddiController({
   teamABinRemaining,
   teamBBinRemaining,
   connected,
+  connectionStatus,
+  transport,
   connectedDisplays,
   connectedControllers,
   roomInput,
   onChangeRoomInput,
+  onGenerateMatchId,
   outputBg,
   onChangeOutputBg,
   transparentBg,
@@ -122,7 +133,7 @@ export function VmixKabaddiController({
   onUndo,
   onRedo,
   onUpdateState,
-  onTriggerAlert,
+  onSendAction,
   onTimeout,
   onToggleMatchTimer,
   onSetMatchPreset,
@@ -160,93 +171,24 @@ export function VmixKabaddiController({
     }
   };
 
-  // Point modifiers matching exact vMix buttons (+1/-1 Raid, +2/-2 Bonus, +3/-3 Lona)
+  // Server-authoritative atomic point modifiers (+1/-1 Raid, +2/-2 Bonus, +3/-3 Lona)
+  // Prevents duplicate updates or conflicting states when controlling from multiple devices!
   const applyTeamPoints = (
     team: 'A' | 'B',
     kind: 'raid' | 'bonus' | 'lona',
     delta: number
   ) => {
-    const isA = team === 'A';
-    const currScore = isA ? state.teamAScore : state.teamBScore;
-    const nextScore = Math.max(0, currScore + delta);
-    const labelName = (isA ? state.teamAName : state.teamBName) || (isA ? 'TEAM A' : 'TEAM B');
-
-    if (kind === 'raid') {
-      const nextRaid = Math.max(0, (isA ? state.teamARaidPoints ?? 0 : state.teamBRaidPoints ?? 0) + delta);
-      onUpdateState(
-        isA
-          ? { mode: 'kabaddi', teamAScore: nextScore, teamARaidPoints: nextRaid }
-          : { mode: 'kabaddi', teamBScore: nextScore, teamBRaidPoints: nextRaid }
-      );
-      if (delta >= 3) onTriggerAlert(`SUPER RAID · ${labelName}`);
-    } else if (kind === 'bonus') {
-      const nextBonus = Math.max(0, (isA ? state.teamABonusPoints ?? 0 : state.teamBBonusPoints ?? 0) + delta);
-      onUpdateState(
-        isA
-          ? { mode: 'kabaddi', teamAScore: nextScore, teamABonusPoints: nextBonus }
-          : { mode: 'kabaddi', teamBScore: nextScore, teamBBonusPoints: nextBonus }
-      );
-      if (delta > 0) onTriggerAlert(`BONUS +${delta} · ${labelName}`);
-    } else {
-      const nextLona = Math.max(0, (isA ? state.teamALonaPoints ?? 0 : state.teamBLonaPoints ?? 0) + delta);
-      onUpdateState(
-        isA
-          ? {
-              mode: 'kabaddi',
-              teamAScore: nextScore,
-              teamALonaPoints: nextLona,
-              ...(delta > 0 ? { teamBPlayersOnMat: 7 } : {}),
-            }
-          : {
-              mode: 'kabaddi',
-              teamBScore: nextScore,
-              teamBLonaPoints: nextLona,
-              ...(delta > 0 ? { teamAPlayersOnMat: 7 } : {}),
-            }
-      );
-      if (delta > 0) onTriggerAlert(`ALL OUT / LONA +${delta} · ${labelName}`);
-    }
+    onSendAction(kind, { team, points: delta });
   };
 
   const handleToggleGraphic = (panel: KabaddiGraphicPanel) => {
-    onUpdateState({
-      mode: 'kabaddi',
-      visible: true,
-      kabaddiGraphicPanel: activeGraphic === panel ? 'none' : panel,
+    onSendAction('graphic_panel', {
+      panel: activeGraphic === panel ? 'none' : panel,
     });
   };
 
   const handleIssueCard = (card: 'yellow' | 'red' | 'green') => {
-    const isA = selectedTeam === 'A';
-    const teamName = (isA ? state.teamAName : state.teamBName) || (isA ? 'TEAM A' : 'TEAM B');
-    if (card === 'yellow') {
-      onUpdateState(
-        isA
-          ? {
-              teamAYellowCards: (state.teamAYellowCards ?? 0) + 1,
-              teamABinEndAt: Date.now() + 2 * 60 * 1000,
-            }
-          : {
-              teamBYellowCards: (state.teamBYellowCards ?? 0) + 1,
-              teamBBinEndAt: Date.now() + 2 * 60 * 1000,
-            }
-      );
-      onTriggerAlert(`YELLOW CARD · ${teamName} (2 MIN BIN)`);
-    } else if (card === 'red') {
-      onUpdateState(
-        isA
-          ? { teamARedCards: (state.teamARedCards ?? 0) + 1 }
-          : { teamBRedCards: (state.teamBRedCards ?? 0) + 1 }
-      );
-      onTriggerAlert(`RED CARD · ${teamName}`);
-    } else {
-      onUpdateState(
-        isA
-          ? { teamAGreenCards: (state.teamAGreenCards ?? 0) + 1 }
-          : { teamBGreenCards: (state.teamBGreenCards ?? 0) + 1 }
-      );
-      onTriggerAlert(`GREEN CARD WARNING · ${teamName}`);
-    }
+    onSendAction('card', { team: selectedTeam, card });
   };
 
   const handleUpdateStarting7 = (team: 'A' | 'B', index: number, value: string) => {
@@ -307,9 +249,7 @@ export function VmixKabaddiController({
             <button
               key={`${team}-p-${num}`}
               type="button"
-              onClick={() =>
-                onUpdateState(isA ? { teamAPlayersOnMat: num } : { teamBPlayersOnMat: num })
-              }
+              onClick={() => onSendAction('players_on_mat', { team, count: num })}
               title={`Set ${teamLabel} Players on Mat: ${num}`}
               className={`h-6 sm:h-7 rounded text-[11px] font-mono font-extrabold border transition-all tabular-nums ${
                 active
@@ -487,15 +427,45 @@ export function VmixKabaddiController({
 
   return (
     <div className="bg-[#12161E] border border-[#2C3546] rounded-2xl overflow-hidden shadow-[0_24px_60px_rgba(0,0,0,0.65)]">
-      {/* Top vMix / OBS Kabaddi Controller Title & Menu Strip */}
+      {/* Top vMix / OBS Kabaddi Controller Title, Unique Match ID & Live Sync Strip */}
       <div className="bg-[#0C0F16] border-b border-[#262F40] px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-mono text-xs font-extrabold text-white tracking-wide">
             vMix &amp; OBS Kabaddi Controller
           </span>
           <span aria-hidden="true" className="text-zinc-600">·</span>
-          <span className="font-mono text-[11px] text-[#4ADE80] font-semibold tabular-nums">
-            {connected ? `Live Sync (${connectedDisplays} OBS/vMix)` : 'Local Sync Ready'}
+          <div className="inline-flex items-center gap-1 bg-[#141A24] border border-white/15 rounded px-1.5 py-0.5">
+            <span className="font-mono text-[10px] font-bold text-zinc-400">MATCH ID:</span>
+            <input
+              type="text"
+              aria-label="Unique Match ID"
+              value={roomInput}
+              onChange={(e) => onChangeRoomInput(e.target.value)}
+              className="w-24 bg-transparent font-mono text-[11px] font-extrabold text-[#FACC15] uppercase focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={onGenerateMatchId}
+              title="Generate fresh unique Match ID"
+              className="px-1.5 py-0.5 text-[9px] font-mono font-bold bg-[#1F2937] hover:bg-[#374151] text-zinc-200 rounded"
+            >
+              NEW
+            </button>
+          </div>
+          <span
+            className={`font-mono text-[11px] font-bold tabular-nums ${
+              connectionStatus === 'live' && connected
+                ? 'text-[#4ADE80]'
+                : connectionStatus === 'reconnecting'
+                  ? 'text-[#FACC15]'
+                  : 'text-[#F87171]'
+            }`}
+          >
+            {connectionStatus === 'live' && connected
+              ? `${transport === 'ws' ? 'WS LIVE' : transport === 'firebase' ? 'CLOUD LIVE' : transport === 'sse' ? 'SSE LIVE' : 'SYNC LIVE'} (${connectedDisplays} vMix/OBS)`
+              : connectionStatus === 'reconnecting'
+                ? 'RECONNECTING...'
+                : 'OFFLINE (QUEUING)'}
           </span>
         </div>
 
@@ -825,6 +795,31 @@ export function VmixKabaddiController({
 
                 {/* CENTER-BOTTOM CRIMSON MATCH ACTION TRIGGERS */}
                 <div className="md:col-span-5 flex flex-col gap-1.5 justify-between">
+                  {/* Quick Half Switcher (Syncs live to vMix top cap) */}
+                  <div className="grid grid-cols-4 gap-1">
+                    {(
+                      [
+                        { id: '1ST HALF', label: '1ST' },
+                        { id: '2ND HALF', label: '2ND' },
+                        { id: 'HALF TIME', label: 'HT' },
+                        { id: 'FULL TIME', label: 'FT' },
+                      ] as const
+                    ).map((h) => (
+                      <button
+                        key={h.id}
+                        type="button"
+                        onClick={() => onSendAction('half', { half: h.id })}
+                        className={`py-1 rounded font-mono text-[10px] font-extrabold border transition-colors ${
+                          state.kabaddiHalf === h.id
+                            ? 'bg-[#2563EB] border-[#93C5FD] text-white'
+                            : 'bg-[#19202D] border-white/15 text-zinc-300 hover:border-[#FACC15]'
+                        }`}
+                      >
+                        {h.label}
+                      </button>
+                    ))}
+                  </div>
+
                   <button
                     type="button"
                     onClick={() => onTimeout(state.timeoutTeam ? null : 'OFFICIAL')}
@@ -838,7 +833,7 @@ export function VmixKabaddiController({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onUpdateState({ doOrDie: !state.doOrDie })}
+                    onClick={() => onSendAction('do_or_die', { active: !state.doOrDie })}
                     className={`w-full py-2 px-2 rounded font-display text-xs font-extrabold tracking-wide border transition-all active:scale-98 ${
                       state.doOrDie
                         ? 'bg-[#DC2626] border-[#FACC15] text-[#FEF08A] shadow-[0_0_12px_rgba(250,204,21,0.45)]'
@@ -856,29 +851,14 @@ export function VmixKabaddiController({
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      const isA = selectedTeam === 'A';
-                      const labelName = isA ? state.teamAName : state.teamBName;
-                      onUpdateState(
-                        isA
-                          ? {
-                              teamAScore: state.teamAScore + 2,
-                              teamATacklePoints: (state.teamATacklePoints ?? 0) + 2,
-                            }
-                          : {
-                              teamBScore: state.teamBScore + 2,
-                              teamBTacklePoints: (state.teamBTacklePoints ?? 0) + 2,
-                            }
-                      );
-                      onTriggerAlert(`SUPER TACKLE +2 · ${labelName}`);
-                    }}
+                    onClick={() => onSendAction('tackle', { team: selectedTeam, points: 2 })}
                     className="w-full py-2 px-2 rounded font-display text-xs font-extrabold tracking-wide bg-gradient-to-b from-[#991B1B] to-[#741115] hover:from-[#B91C1C] hover:to-[#8B151A] border border-[#F87171]/35 text-white transition-transform active:scale-98"
                   >
                     SUPER TACKLE (+2 {selectedTeam})
                   </button>
                   <button
                     type="button"
-                    onClick={() => applyTeamPoints(selectedTeam, 'lona', 2)}
+                    onClick={() => onSendAction('all_out', { team: selectedTeam, points: 2 })}
                     className="w-full py-2 px-2 rounded font-display text-xs font-extrabold tracking-wide bg-gradient-to-b from-[#991B1B] to-[#741115] hover:from-[#B91C1C] hover:to-[#8B151A] border border-[#F87171]/35 text-white transition-transform active:scale-98"
                   >
                     ALL OUT (+2 {selectedTeam})
@@ -1010,7 +990,11 @@ export function VmixKabaddiController({
                       teamACode={state.teamACode}
                       teamAColor={state.teamAColor}
                       teamAScore={state.teamAScore}
+                      teamABonusPoints={state.teamABonusPoints}
+                      teamALonaPoints={state.teamALonaPoints}
+                      teamAPlayersOnMat={state.teamAPlayersOnMat}
                       teamALogoUrl={state.teamALogoUrl}
+                      teamAGreenCards={state.teamAGreenCards}
                       teamAYellowCards={state.teamAYellowCards}
                       teamARedCards={state.teamARedCards}
                       teamABinRemaining={teamABinRemaining}
@@ -1018,12 +1002,17 @@ export function VmixKabaddiController({
                       teamBCode={state.teamBCode}
                       teamBColor={state.teamBColor}
                       teamBScore={state.teamBScore}
+                      teamBBonusPoints={state.teamBBonusPoints}
+                      teamBLonaPoints={state.teamBLonaPoints}
+                      teamBPlayersOnMat={state.teamBPlayersOnMat}
                       teamBLogoUrl={state.teamBLogoUrl}
+                      teamBGreenCards={state.teamBGreenCards}
                       teamBYellowCards={state.teamBYellowCards}
                       teamBRedCards={state.teamBRedCards}
                       teamBBinRemaining={teamBBinRemaining}
                       matchSeconds={displayMatchSeconds}
                       raidSeconds={displayRaidSeconds}
+                      raidDuration={state.kabaddiRaidDuration}
                       raidRunning={state.raidRunning}
                       halfLabel={state.kabaddiHalf}
                       matchStatus={state.matchStatus}
@@ -1315,18 +1304,7 @@ export function VmixKabaddiController({
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    onResetMatch();
-                    onUpdateState({
-                      teamAPlayersOnMat: 7,
-                      teamBPlayersOnMat: 7,
-                      teamALonaPoints: 0,
-                      teamBLonaPoints: 0,
-                      teamAGreenCards: 0,
-                      teamBGreenCards: 0,
-                      kabaddiGraphicPanel: 'none',
-                    });
-                  }}
+                  onClick={onResetMatch}
                   className="inline-flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-lg bg-[#991B1B] hover:bg-[#B91C1C] text-white transition-colors"
                 >
                   <RotateCcw className="w-4 h-4" aria-hidden="true" />

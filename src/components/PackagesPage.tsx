@@ -1,12 +1,10 @@
 import { ArrowLeft, ArrowRight, MessageCircle, Phone } from 'lucide-react';
 import { Language, STUDIO_CONTACT, tLang } from '../data/content';
-import { LanguageSwitcher } from './LanguageSwitcher';
 import { PackagesSection } from './PackagesSection';
 import { ScrollReveal } from './ScrollReveal';
 
 interface PackagesPageProps {
   lang: Language;
-  onChangeLang: (lang: Language) => void;
   selectedPackageId: string;
   selectedAddOns: string[];
   onToggleAddOn: (addonId: string) => void;
@@ -17,7 +15,6 @@ interface PackagesPageProps {
 
 export function PackagesPage({
   lang,
-  onChangeLang,
   selectedPackageId,
   selectedAddOns,
   onToggleAddOn,
@@ -27,7 +24,7 @@ export function PackagesPage({
 }: PackagesPageProps) {
   return (
     <div className="text-[#F4F4F5]">
-      {/* Top Breadcrumb + Language Switcher */}
+      {/* Top Breadcrumb */}
       <div className="pt-8 sm:pt-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="relative overflow-hidden rounded-xl border border-[#FACC15]/25 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-5 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
@@ -61,8 +58,6 @@ export function PackagesPage({
                   )}
                 </span>
               </button>
-
-              <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="inline" />
             </div>
           </div>
         </div>
