@@ -18,6 +18,15 @@ export type KabaddiMatchStatus = 'LIVE' | 'PAUSED' | 'TIMEOUT' | 'HALF TIME' | '
 
 export type KabaddiTimeoutTeam = 'A' | 'B' | 'OFFICIAL' | null;
 
+export type KabaddiGraphicPanel =
+  | 'none'
+  | 'starting7'
+  | 'player_stats'
+  | 'match_stats'
+  | 'knockout'
+  | 'substitutions'
+  | 'winners';
+
 export interface RemotePresenceInfo {
   displays: number;
   controllers: number;
@@ -49,10 +58,14 @@ export interface LiveOverlayState {
   logoCorner: LogoCorner;
   customLogoUrl: string;
   updatedAt: number;
-  // Kabaddi Scoreboard state (Curved Dual-Logo Pro Scoreboard)
+  // Kabaddi Scoreboard & vMix/OBS Broadcast Controller state
   kabaddiTitle: string;
   kabaddiSubtitle: string;
   kabaddiTag: string;
+  kabaddiVenue?: string;
+  kabaddiLeague?: string;
+  kabaddiEvent?: string;
+  kabaddiMatchType?: string;
   teamAName: string;
   teamACode: string;
   teamAColor: string;
@@ -60,10 +73,14 @@ export interface LiveOverlayState {
   teamARaidPoints?: number;
   teamABonusPoints?: number;
   teamATacklePoints?: number;
+  teamALonaPoints?: number;
+  teamAPlayersOnMat?: number;
   teamALogoUrl: string;
+  teamAGreenCards?: number;
   teamAYellowCards: number;
   teamARedCards: number;
   teamABinEndAt: number | null;
+  teamAStarting7?: string[];
   teamBName: string;
   teamBCode: string;
   teamBColor: string;
@@ -71,21 +88,32 @@ export interface LiveOverlayState {
   teamBRaidPoints?: number;
   teamBBonusPoints?: number;
   teamBTacklePoints?: number;
+  teamBLonaPoints?: number;
+  teamBPlayersOnMat?: number;
   teamBLogoUrl: string;
+  teamBGreenCards?: number;
   teamBYellowCards: number;
   teamBRedCards: number;
   teamBBinEndAt: number | null;
+  teamBStarting7?: string[];
   matchSeconds: number;
   matchRunning: boolean;
   matchUpdatedAt: number;
+  kabaddiMatchDuration?: number;
   raidSeconds: number;
   raidRunning: boolean;
   raidUpdatedAt: number;
+  kabaddiRaidDuration?: number;
   kabaddiHalf: KabaddiHalf;
   matchStatus?: KabaddiMatchStatus;
   timeoutTeam?: KabaddiTimeoutTeam;
   doOrDie: boolean;
   kabaddiAlert: string | null;
+  kabaddiGraphicPanel?: KabaddiGraphicPanel;
+  championTeam?: string;
+  runnerUpTeam?: string;
+  thirdPlaceTeam?: string;
+  fourthPlaceTeam?: string;
   // Haldi & Wedding Ceremony Overlay state (3 Styles including Royal Animated Festive Bar)
   haldiTag: string;
   haldiHeader: string;
@@ -114,42 +142,61 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     logoCorner: 'top-right',
     customLogoUrl: '',
     updatedAt: now,
-    kabaddiTitle: 'भव्य कबड्डी महासंग्राम २०२६',
-    kabaddiSubtitle: 'थेट प्रक्षेपण • Neral & Karjat Live',
+    kabaddiTitle: 'STAR EVENT KABADDI CHAMPIONSHIP 2026',
+    kabaddiSubtitle: 'Live Broadcast · Neral & Karjat Arena',
     kabaddiTag: 'LIVE KABADDI',
+    kabaddiVenue: 'NERAL GROUND',
+    kabaddiLeague: 'PRO KABADDI',
+    kabaddiEvent: 'SEASON 2026',
+    kabaddiMatchType: 'LEAGUE MATCH',
     teamAName: 'NERAL LIONS',
     teamACode: 'NER',
     teamAColor: '#C8102E',
     teamAScore: 24,
     teamARaidPoints: 14,
     teamABonusPoints: 4,
-    teamATacklePoints: 6,
+    teamATacklePoints: 4,
+    teamALonaPoints: 2,
+    teamAPlayersOnMat: 6,
     teamALogoUrl: '',
+    teamAGreenCards: 0,
     teamAYellowCards: 0,
     teamARedCards: 0,
     teamABinEndAt: null,
+    teamAStarting7: ['ROHIT P.', 'SANKET M.', 'VIKAS K.', 'OMKAR D.', 'PRATIK S.', 'AKASH J.', 'SWAPNIL R.'],
     teamBName: 'KARJAT WARRIORS',
     teamBCode: 'KAR',
     teamBColor: '#131D8A',
     teamBScore: 21,
     teamBRaidPoints: 12,
     teamBBonusPoints: 3,
-    teamBTacklePoints: 6,
+    teamBTacklePoints: 4,
+    teamBLonaPoints: 2,
+    teamBPlayersOnMat: 5,
     teamBLogoUrl: '',
+    teamBGreenCards: 0,
     teamBYellowCards: 0,
     teamBRedCards: 0,
     teamBBinEndAt: null,
-    matchSeconds: 30,
-    matchRunning: true,
+    teamBStarting7: ['SAHIL G.', 'YASH T.', 'ADITYA B.', 'MAYUR N.', 'TEJAS P.', 'KUNAL V.', 'SHUBHAM D.'],
+    matchSeconds: 1200,
+    matchRunning: false,
     matchUpdatedAt: now,
+    kabaddiMatchDuration: 1200,
     raidSeconds: 30,
     raidRunning: false,
     raidUpdatedAt: now,
+    kabaddiRaidDuration: 30,
     kabaddiHalf: '1ST HALF',
     matchStatus: 'LIVE',
     timeoutTeam: null,
     doOrDie: false,
     kabaddiAlert: null,
+    kabaddiGraphicPanel: 'none',
+    championTeam: 'NERAL LIONS',
+    runnerUpTeam: 'KARJAT WARRIORS',
+    thirdPlaceTeam: 'BADLAPUR TIGERS',
+    fourthPlaceTeam: 'PANVEL KINGS',
     haldiTag: 'HALDI & WEDDING',
     haldiHeader: '|| श्री गणेशाय नमः || शुभ हळदी व लग्न समारंभ',
     haldiTitle: 'देशमुख कुटुंब — शुभ हळदी व लग्न समारंभ',
