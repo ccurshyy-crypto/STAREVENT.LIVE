@@ -11,6 +11,7 @@ import { Navbar } from './components/Navbar';
 import { OverlayOutputView } from './components/OverlayOutputView';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
+import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesSection } from './components/ServicesSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { EventCategoryId, Language, UI_COPY } from './data/content';
@@ -129,6 +130,10 @@ function parseOverlayRoute() {
   const subtitle = params.get('subtitle');
   const haldi = params.get('haldi');
   const haldiSub = params.get('haldiSub');
+  const leftText = params.get('leftText');
+  const centerMain = params.get('centerMain');
+  const centerSub = params.get('centerSub');
+  const rightText = params.get('rightText');
 
   if (teamA) urlOverrides.teamAName = teamA;
   if (teamB) urlOverrides.teamBName = teamB;
@@ -136,6 +141,10 @@ function parseOverlayRoute() {
   if (subtitle) urlOverrides.kabaddiSubtitle = subtitle;
   if (haldi) urlOverrides.haldiTitle = haldi;
   if (haldiSub) urlOverrides.haldiSubtitle = haldiSub;
+  if (leftText) urlOverrides.haldiLeftText = leftText;
+  if (centerMain) urlOverrides.haldiCenterMain = centerMain;
+  if (centerSub) urlOverrides.haldiCenterSub = centerSub;
+  if (rightText) urlOverrides.haldiRightText = rightText;
 
   return { mode, style, roomId, background, token, lockMode, lockStyle, urlOverrides };
 }
@@ -377,7 +386,7 @@ export default function App() {
   };
 
   const handlePreviewEvent = (mode: PreviewMode) => {
-    navigateToOverlays(mode);
+    navigateToOverlays(mode, mode === 'haldi' ? 'festive' : undefined);
   };
 
   const handleBookEvent = (category: EventCategoryId) => {
@@ -458,6 +467,12 @@ export default function App() {
               onBookEvent={handleBookEvent}
             />
 
+            <PartnerAdSection
+              lang={lang}
+              onBookNow={() => navigateHome('book')}
+              onOpenHaldiOverlay={() => navigateToOverlays('haldi', 'festive')}
+            />
+
             <StudioSpotlightSection
               lang={lang}
               onBookNow={() => navigateHome('book')}
@@ -503,7 +518,7 @@ export default function App() {
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {OVERLAY_PRODUCTS.map((product) => {
                     const isUnlocked = Boolean(product.isFreeDemo) || unlockedSkus.includes(product.sku);
                     const styleBadge =
@@ -511,9 +526,11 @@ export default function App() {
                         ? product.isFreeDemo
                           ? 'FREE DEMO'
                           : 'PRO SCOREBOARD'
-                        : product.style === 'classic'
-                          ? 'STYLE 1'
-                          : 'STYLE 2';
+                        : product.style === 'festive'
+                          ? 'ANIMATED ROYAL'
+                          : product.style === 'classic'
+                            ? 'STYLE 1'
+                            : 'STYLE 2';
                     return (
                       <button
                         key={product.sku}

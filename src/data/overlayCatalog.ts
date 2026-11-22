@@ -1,7 +1,12 @@
 import { Language } from './content';
 import { normalizeStyleForMode, OverlayMode, OverlayStyle } from '../types/overlay';
 
-export type OverlaySku = 'kabaddi-demo' | 'kabaddi-classic' | 'haldi-classic' | 'haldi-modern';
+export type OverlaySku =
+  | 'kabaddi-demo'
+  | 'kabaddi-classic'
+  | 'haldi-festive'
+  | 'haldi-classic'
+  | 'haldi-modern';
 
 export type OverlayPlanId = '1day' | '1week' | '1month';
 
@@ -247,6 +252,53 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
         'બંને બાજુ કસ્ટમ ટીમ લોગો અપલોડ કરો અને લાઇવ ટીમ કલર બદલો',
         'લાઇવ 30s ટાઈમર, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red કાર્ડ અને Sin Bin',
         'આજની ઓફર: ₹1 પેમેન્ટ કરો — 1 દિવસ (24 કલાક) માટે ઓટો અનલોક, પછી ઓટો એક્સપાયર',
+      ],
+    },
+  },
+  {
+    sku: 'haldi-festive',
+    mode: 'haldi',
+    style: 'festive',
+    originalPrice: 99,
+    salePrice: 1,
+    title: {
+      en: 'Haldi Ceremony · Royal Animated Overlay (Full Custom Text & Motion)',
+      mr: 'हळदी समारंभ · रॉयल अ‍ॅनिमेटेड ओव्हरले (फुल कस्टम टेक्स्ट व अ‍ॅनिमेशन)',
+      hi: 'हल्दी समारोह · रॉयल एनिमेटेड ओवरले (फुल कस्टम टेक्स्ट व एनिमेशन)',
+      gu: 'હળદી સમારંભ · રોયલ એનિમેટેડ ઓવરલે (ફુલ કસ્ટમ ટેક્સ્ટ અને એનિમેશન)',
+    },
+    subtitle: {
+      en: 'Maroon & Gold royal lower-third with Dholak, Marigolds, Haldi Bowl, Om Kalash & live animations',
+      mr: 'ढोलक, झेंडूची फुले, हळदीची वाटी, ॐ कलश व लाईव्ह अ‍ॅनिमेशनसह फुल कस्टम हळदी ओव्हरले',
+      hi: 'ढोलक, गेंदे के फूल, हल्दी की कटोरी, ॐ कलश और लाइव एनिमेशन के साथ फुल कस्टम हल्दी ओवरले',
+      gu: 'ઢોલક, ગલગોટાના ફૂલ, હળદીની વાટકી, ॐ કળશ અને લાઇવ એનિમેશન સાથે ફુલ કસ્ટમ હળદી ઓવરલે',
+    },
+    meta: {
+      en: ['Full Custom Text', '5 Animations', '4 Color Themes'],
+      mr: ['फुल कस्टम टेक्स्ट', '5 अ‍ॅनिमेशन्स', '4 कलर थीम'],
+      hi: ['फुल कस्टम टेक्स्ट', '5 एनिमेशन', '4 कलर थीम'],
+      gu: ['ફુલ કસ્ટમ ટેક્સ્ટ', '5 એનિમેશન', '4 કલર થીમ'],
+    },
+    features: {
+      en: [
+        'Edit Left, Center Main, Center Sub & Right text live in Marathi, Hindi, Gujarati, or English',
+        '5 smooth broadcast animations: Gold Shimmer, Drifting Marigold Petals, Dholak Beat & Glow',
+        '4 rich royal color themes + instant 1-click Haldi / Wedding / Mehendi presets synced to OBS & vMix',
+      ],
+      mr: [
+        'डावा, मधला मुख्य, उपशीर्षक व उजवा टेक्स्ट मराठी, हिंदी, गुजराती किंवा इंग्रजीत लाईव्ह बदला',
+        '5 स्मूथ ब्रॉडकास्ट अ‍ॅनिमेशन्स: गोल्ड शिमर, झेंडूच्या पाकळ्या, ढोलक बीट व ग्लो इफेक्ट',
+        '4 शाही कलर थीम + 1-क्लिक हळदी / लग्न / मेहंदी प्रीसेट थेट OBS आणि vMix मध्ये सिंक',
+      ],
+      hi: [
+        'बायां, मध्य मुख्य, उपशीर्षक और दायां टेक्स्ट मराठी, हिंदी, गुजराती या इंग्लिश में लाइव एडिट करें',
+        '5 स्मूथ ब्रॉडकास्ट एनिमेशन: गोल्ड शिमर, उड़ती फूल की पंखुड़ियां, ढोलक बीट और ग्लो इफेक्ट',
+        '4 रॉयल कलर थीम + 1-क्लिक हल्दी / शादी / मेहंदी प्रीसेट सीधे OBS और vMix में सिंक',
+      ],
+      gu: [
+        'ડાબું, મધ્ય મુખ્ય, સબ-ટાઇટલ અને જમણું ટેક્સ્ટ મરાઠી, હિન્દી, ગુજરાતી કે ઇંગ્લિશમાં લાઇવ બદલો',
+        '5 સ્મૂથ બ્રોડકાસ્ટ એનિમેશન: ગોલ્ડ શિમર, ઉડતી ફૂલની પાંખડીઓ, ઢોલક બીટ અને ગ્લો ઇફેક્ટ',
+        '4 રોયલ કલર થીમ + 1-ક્લિક હળદી / લગ્ન / મહેંદી પ્રીસેટ સીધા OBS અને vMix માં સિંક',
       ],
     },
   },

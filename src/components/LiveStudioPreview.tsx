@@ -27,11 +27,21 @@ import {
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
 import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
-import { KabaddiTimeoutTeam, normalizeStyleForMode, OverlayBackground, OverlayMode, OverlayStyle } from '../types/overlay';
+import {
+  HaldiAnimationMode,
+  HaldiAnimSpeed,
+  HaldiColorTheme,
+  KabaddiTimeoutTeam,
+  normalizeStyleForMode,
+  OverlayBackground,
+  OverlayMode,
+  OverlayStyle,
+} from '../types/overlay';
 import {
   downloadHaldiOverlayPng,
   downloadKabaddiOverlayPng,
 } from '../utils/exportOverlayPng';
+import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiControlDesk } from './KabaddiControlDesk';
 import { KabaddiRemoteModal } from './KabaddiRemoteModal';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
@@ -133,6 +143,7 @@ export function LiveStudioPreview({
 
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
   const isClassic = resolvedStyle === 'classic';
+  const isFestive = resolvedStyle === 'festive';
   const isFreeDemo = activeMode === 'kabaddi' && resolvedStyle === 'demo';
   const currentSku = getOverlaySku(activeMode, resolvedStyle);
   const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
@@ -145,7 +156,10 @@ export function LiveStudioPreview({
   }, [activeToken]);
 
   const handleSelectMode = (mode: PreviewMode) => {
-    const nextStyle = normalizeStyleForMode(mode, activeStyle);
+    const nextStyle =
+      mode === 'haldi' && activeMode !== 'haldi'
+        ? 'festive'
+        : normalizeStyleForMode(mode, activeStyle);
     onChangeMode(mode);
     onChangeStyle(nextStyle);
     updateState({ mode, style: nextStyle });
@@ -488,6 +502,13 @@ export function LiveStudioPreview({
         header: state.haldiHeader,
         title: state.haldiTitle,
         subtitle: state.haldiSubtitle,
+        leftText: state.haldiLeftText,
+        centerMain: state.haldiCenterMain,
+        centerSub: state.haldiCenterSub,
+        rightText: state.haldiRightText,
+        theme: state.haldiTheme,
+        showTopHeader: state.haldiShowTopHeader,
+        showDecor: state.haldiShowDecor,
         customLogoUrl: state.showLogo ? state.customLogoUrl : '',
         logoCorner: state.logoCorner,
       });
@@ -558,13 +579,39 @@ export function LiveStudioPreview({
     }
   };
 
-  const applyCeremonyPreset = (preset: 'haldi' | 'wedding') => {
+  const applyCeremonyPreset = (preset: 'haldi' | 'wedding' | 'haldi-hi' | 'haldi-gu') => {
     if (preset === 'haldi') {
       updateState({
         haldiTag: 'HALDI LIVE',
         haldiHeader: '|| श्री गणेशाय नमः || शुभ हळदी समारंभ',
         haldiTitle: 'देशमुख कुटुंब — शुभ हळदी समारंभ',
         haldiSubtitle: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
+        haldiLeftText: 'शुभ विवाह...',
+        haldiCenterMain: 'हळदी',
+        haldiCenterSub: 'समारंभ',
+        haldiRightText: 'Haldi Ceremony',
+      });
+    } else if (preset === 'haldi-hi') {
+      updateState({
+        haldiTag: 'HALDI LIVE',
+        haldiHeader: '|| श्री गणेशाय नमः || शुभ हल्दी समारोह',
+        haldiTitle: 'शर्मा परिवार — शुभ हल्दी समारोह',
+        haldiSubtitle: 'लाइव प्रसारण • दिनांक व स्थान',
+        haldiLeftText: 'शुभ विवाह...',
+        haldiCenterMain: 'हल्दी',
+        haldiCenterSub: 'समारोह',
+        haldiRightText: 'Haldi Ceremony',
+      });
+    } else if (preset === 'haldi-gu') {
+      updateState({
+        haldiTag: 'HALDI LIVE',
+        haldiHeader: '|| શ્રી ગણેશાય નમઃ || શુભ હળદી સમારંભ',
+        haldiTitle: 'પટેલ પરિવાર — શુભ હળદી સમારંભ',
+        haldiSubtitle: 'લાઇવ પ્રસારણ • તારીખ અને સ્થળ',
+        haldiLeftText: 'શુભ લગ્ન...',
+        haldiCenterMain: 'હળદી',
+        haldiCenterSub: 'સમારંભ',
+        haldiRightText: 'Haldi Ceremony',
       });
     } else {
       updateState({
@@ -572,6 +619,10 @@ export function LiveStudioPreview({
         haldiHeader: '|| श्री गणेशाय नमः || शुभ मंगल सावधान',
         haldiTitle: 'चि. रोहित व चि. सौ. कां. प्रिया — शुभ विवाह',
         haldiSubtitle: 'लग्न समारंभ थेट प्रक्षेपण • सस्नेह निमंत्रण',
+        haldiLeftText: 'शुभ मंगल...',
+        haldiCenterMain: 'विवाह',
+        haldiCenterSub: 'सोहळा',
+        haldiRightText: 'Wedding Live',
       });
     }
   };
@@ -589,10 +640,10 @@ export function LiveStudioPreview({
     {
       id: 'haldi',
       label: {
-        en: 'Haldi & Wedding (2)',
-        mr: 'हळदी व लग्न ओव्हरले (2)',
-        hi: 'हल्दी व शादी ओवरले (2)',
-        gu: 'હળદી અને લગ્ન ઓવરલે (2)',
+        en: 'Haldi & Wedding (3)',
+        mr: 'हळदी व लग्न ओव्हरले (3)',
+        hi: 'हल्दी व शादी ओवरले (3)',
+        gu: 'હળદી અને લગ્ન ઓવરલે (3)',
       },
     },
   ];
@@ -640,6 +691,22 @@ export function LiveStudioPreview({
         ]
       : [
           {
+            id: 'festive',
+            label: {
+              en: 'Royal Animated · Dhol & Kalash',
+              mr: 'रॉयल अ‍ॅनिमेटेड · ढोलक व ॐ कलश',
+              hi: 'रॉयल एनिमेटेड · ढोलक व ॐ कलश',
+              gu: 'રોયલ એનિમેટેડ · ઢોલક અને ॐ કળશ',
+            },
+            desc: {
+              en: 'Full custom text + 5 live animations + 4 themes (₹1 / 1 Day)',
+              mr: 'फुल कस्टम टेक्स्ट + 5 अ‍ॅनिमेशन्स + 4 थीम (फक्त ₹1 / 1 दिवस)',
+              hi: 'फुल कस्टम टेक्स्ट + 5 एनिमेशन + 4 थीम (सिर्फ ₹1 / 1 दिन)',
+              gu: 'ફુલ કસ્ટમ ટેક્સ્ટ + 5 એનિમેશન + 4 થીમ (માત્ર ₹1 / 1 દિવસ)',
+            },
+            badge: 'ANIMATED',
+          },
+          {
             id: 'classic',
             label: {
               en: 'Style 1 · Shahi Haldi & Wedding',
@@ -676,9 +743,11 @@ export function LiveStudioPreview({
       ? isFreeDemo
         ? 'FREE DEMO'
         : 'PRO SCOREBOARD'
-      : resolvedStyle === 'classic'
-        ? 'STYLE 1'
-        : 'STYLE 2';
+      : resolvedStyle === 'festive'
+        ? 'ROYAL ANIMATED'
+        : resolvedStyle === 'classic'
+          ? 'STYLE 1'
+          : 'STYLE 2';
 
   const activePlatformObj = PLATFORMS.find((p) => p.id === platform) ?? PLATFORMS[0];
 
@@ -745,8 +814,12 @@ export function LiveStudioPreview({
           </div>
         </div>
 
-        {/* Style / Tier Visual Picker Bar (Kabaddi Free Demo vs Pro, or Haldi Style 1 vs Style 2) */}
-        <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Style / Tier Visual Picker Bar */}
+        <div
+          className={`mb-6 grid grid-cols-1 gap-3 ${
+            styleOptions.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+          }`}
+        >
           {styleOptions.map((opt) => {
             const selected = resolvedStyle === opt.id;
             const isFreeOption = opt.id === 'demo';
@@ -962,7 +1035,15 @@ export function LiveStudioPreview({
               {/* Top Layer */}
               {activeMode === 'haldi' ? (
                 <div className="relative z-10 flex flex-wrap items-center justify-between gap-2">
-                  {isClassic ? (
+                  {isFestive ? (
+                    state.haldiShowTopHeader && state.haldiHeader.trim() ? (
+                      <div className="mx-auto bg-gradient-to-r from-[#4D0414]/95 via-[#8F0C26]/95 to-[#4D0414]/95 border border-[#FACC15] px-4 py-1 rounded-full text-[11px] sm:text-xs font-display font-bold text-[#FEF08A]">
+                        {state.haldiHeader}
+                      </div>
+                    ) : (
+                      <div className="h-2" aria-hidden="true" />
+                    )
+                  ) : isClassic ? (
                     <>
                       <div className="inline-flex items-center gap-1.5 bg-[#B45309]/95 border border-[#FACC15] text-[#FEF08A] px-2.5 py-1 rounded text-[11px] font-mono font-bold tracking-wide">
                         <span>{state.haldiTag}</span>
@@ -1043,6 +1124,19 @@ export function LiveStudioPreview({
                     doOrDie={state.doOrDie}
                     subtitle={state.kabaddiSubtitle}
                     showDemoWatermark={isFreeDemo}
+                  />
+                ) : isFestive ? (
+                  <HaldiFestiveOverlayBar
+                    variant="studio"
+                    leftText={state.haldiLeftText}
+                    centerMain={state.haldiCenterMain}
+                    centerSub={state.haldiCenterSub}
+                    rightText={state.haldiRightText}
+                    animation={state.haldiAnimation}
+                    theme={state.haldiTheme}
+                    speed={state.haldiAnimSpeed}
+                    showDecor={state.haldiShowDecor}
+                    showPetals={state.haldiShowPetals}
                   />
                 ) : isClassic ? (
                   <div className="bg-gradient-to-r from-[#78350F]/95 via-[#B45309]/95 to-[#78350F]/95 border-2 border-[#FACC15] rounded-xl px-4 py-2.5 text-center shadow-lg">
@@ -1384,6 +1478,253 @@ export function LiveStudioPreview({
                   onSwapTeams={handleSwapTeams}
                   onResetMatch={handleResetKabaddi}
                 />
+              ) : isFestive ? (
+                <div className="space-y-4 pt-4 border-t border-white/10">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-zinc-200">
+                      {lang === 'mr'
+                        ? 'हळदी अ‍ॅनिमेटेड ओव्हरले कस्टमाईज (OBS/vMix सिंक)'
+                        : lang === 'hi'
+                          ? 'हल्दी एनिमेटेड ओवरले कस्टमाइज़ (OBS/vMix सिंक)'
+                          : lang === 'gu'
+                            ? 'હળદી એનિમેટેડ ઓવરલે કસ્ટમાઇઝ (OBS/vMix સિંક)'
+                            : 'Royal Haldi Text & Animation Customizer'}
+                    </p>
+                    <span className="font-mono text-[10px] text-[#FACC15]">LIVE SYNC</span>
+                  </div>
+
+                  {/* 1-Click Language & Ceremony Presets */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('haldi')}
+                      className="py-1.5 px-2.5 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FACC15] border-[#FACC15]/45 transition-colors whitespace-nowrap"
+                    >
+                      मराठी हळदी
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('haldi-hi')}
+                      className="py-1.5 px-2.5 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FEF08A] border-[#FACC15]/35 transition-colors whitespace-nowrap"
+                    >
+                      हिंदी हल्दी
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('haldi-gu')}
+                      className="py-1.5 px-2.5 text-[11px] font-semibold rounded-lg border bg-[#260912] hover:bg-[#3A0D1C] text-[#FEF08A] border-[#FACC15]/35 transition-colors whitespace-nowrap"
+                    >
+                      ગુજરાતી હળદી
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyCeremonyPreset('wedding')}
+                      className="py-1.5 px-2.5 text-[11px] font-semibold rounded-lg border bg-[#1F120A] hover:bg-[#2F1B0E] text-white border-white/15 transition-colors whitespace-nowrap"
+                    >
+                      शुभ विवाह (Wedding)
+                    </button>
+                  </div>
+
+                  {/* 4 Full Customizable Text Zones */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="space-y-1">
+                      <label htmlFor="haldi-left-text" className="block text-[11px] text-zinc-400">
+                        Left Text (डावा टेक्स्ट)
+                      </label>
+                      <input
+                        id="haldi-left-text"
+                        type="text"
+                        value={state.haldiLeftText}
+                        onChange={(e) => updateState({ haldiLeftText: e.target.value })}
+                        placeholder="शुभ विवाह..."
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="haldi-right-text" className="block text-[11px] text-zinc-400">
+                        Right Text (उजवा टेक्स्ट)
+                      </label>
+                      <input
+                        id="haldi-right-text"
+                        type="text"
+                        value={state.haldiRightText}
+                        onChange={(e) => updateState({ haldiRightText: e.target.value })}
+                        placeholder="Haldi Ceremony"
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="haldi-center-main" className="block text-[11px] text-zinc-400">
+                        Center Main (मधला मुख्य)
+                      </label>
+                      <input
+                        id="haldi-center-main"
+                        type="text"
+                        value={state.haldiCenterMain}
+                        onChange={(e) => updateState({ haldiCenterMain: e.target.value })}
+                        placeholder="हळदी"
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm font-bold bg-[#18181D] border border-[#FACC15]/40 rounded-lg text-[#FACC15] focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="haldi-center-sub" className="block text-[11px] text-zinc-400">
+                        Center Sub (उपशीर्षक)
+                      </label>
+                      <input
+                        id="haldi-center-sub"
+                        type="text"
+                        value={state.haldiCenterSub}
+                        onChange={(e) => updateState({ haldiCenterSub: e.target.value })}
+                        placeholder="समारंभ"
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Animation Style Picker */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-zinc-400">
+                      Animation Effect (अ‍ॅनिमेशन निवडा)
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(
+                        [
+                          { id: 'festive', label: 'Festive All' },
+                          { id: 'shimmer', label: 'Gold Shimmer' },
+                          { id: 'petals', label: 'Petals Float' },
+                          { id: 'beat', label: 'Dhol Beat' },
+                          { id: 'static', label: 'Static Clean' },
+                        ] as { id: HaldiAnimationMode; label: string }[]
+                      ).map((anim) => (
+                        <button
+                          key={anim.id}
+                          type="button"
+                          onClick={() => updateState({ haldiAnimation: anim.id })}
+                          className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                            state.haldiAnimation === anim.id
+                              ? 'bg-[#FACC15] text-black border-[#FACC15]'
+                              : 'bg-[#18181D] text-zinc-300 border-white/12 hover:border-white/30'
+                          }`}
+                        >
+                          {anim.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Animation Speed */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-zinc-400">
+                      Animation Speed
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['slow', 'normal', 'fast'] as HaldiAnimSpeed[]).map((spd) => (
+                        <button
+                          key={spd}
+                          type="button"
+                          onClick={() => updateState({ haldiAnimSpeed: spd })}
+                          className={`py-1.5 text-[11px] font-semibold rounded-lg border capitalize transition-colors ${
+                            state.haldiAnimSpeed === spd
+                              ? 'bg-white text-black border-white'
+                              : 'bg-[#18181D] text-zinc-300 border-white/12 hover:border-white/30'
+                          }`}
+                        >
+                          {spd}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Royal Color Theme Picker */}
+                  <div className="space-y-1.5">
+                    <span className="block text-[11px] font-medium text-zinc-400">
+                      Banner Color Theme
+                    </span>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          { id: 'royal-maroon', label: 'Royal Maroon', dot: '#8F0C26' },
+                          { id: 'turmeric-gold', label: 'Haldi Gold', dot: '#B45309' },
+                          { id: 'saffron-red', label: 'Saffron Red', dot: '#B91C1C' },
+                          { id: 'emerald-gold', label: 'Royal Emerald', dot: '#065F46' },
+                        ] as { id: HaldiColorTheme; label: string; dot: string }[]
+                      ).map((th) => (
+                        <button
+                          key={th.id}
+                          type="button"
+                          onClick={() => updateState({ haldiTheme: th.id })}
+                          className={`flex items-center gap-2 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                            state.haldiTheme === th.id
+                              ? 'bg-[#211A0E] text-[#FACC15] border-[#FACC15]'
+                              : 'bg-[#18181D] text-zinc-300 border-white/12 hover:border-white/30'
+                          }`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="w-3 h-3 rounded-sm border border-[#FACC15]/70 shrink-0"
+                            style={{ backgroundColor: th.dot }}
+                          />
+                          <span className="truncate">{th.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Decor & Top Header Toggles */}
+                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => updateState({ haldiShowDecor: !state.haldiShowDecor })}
+                      aria-pressed={state.haldiShowDecor}
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.haldiShowDecor
+                          ? 'bg-[#1D160A] text-[#FACC15] border-[#FACC15]/60'
+                          : 'bg-[#18181D] text-zinc-400 border-white/12'
+                      }`}
+                    >
+                      Dhol/Kalash: {state.haldiShowDecor ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateState({ haldiShowPetals: !state.haldiShowPetals })}
+                      aria-pressed={state.haldiShowPetals}
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.haldiShowPetals
+                          ? 'bg-[#1D160A] text-[#FACC15] border-[#FACC15]/60'
+                          : 'bg-[#18181D] text-zinc-400 border-white/12'
+                      }`}
+                    >
+                      Petals: {state.haldiShowPetals ? 'ON' : 'OFF'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateState({ haldiShowTopHeader: !state.haldiShowTopHeader })}
+                      aria-pressed={state.haldiShowTopHeader}
+                      className={`py-1.5 px-2 text-[11px] font-semibold rounded-lg border transition-colors whitespace-nowrap ${
+                        state.haldiShowTopHeader
+                          ? 'bg-[#1D160A] text-[#FACC15] border-[#FACC15]/60'
+                          : 'bg-[#18181D] text-zinc-400 border-white/12'
+                      }`}
+                    >
+                      Top Bar: {state.haldiShowTopHeader ? 'ON' : 'OFF'}
+                    </button>
+                  </div>
+
+                  {state.haldiShowTopHeader && (
+                    <div className="space-y-1">
+                      <label htmlFor="preview-festive-top-header" className="block text-[11px] text-zinc-400">
+                        Top Invocation Strip
+                      </label>
+                      <input
+                        id="preview-festive-top-header"
+                        type="text"
+                        value={state.haldiHeader}
+                        onChange={(e) => updateState({ haldiHeader: e.target.value })}
+                        className="w-full px-3 py-2 text-xs sm:text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      />
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-4 pt-4 border-t border-white/10">
                   <p className="text-xs font-semibold text-zinc-200">

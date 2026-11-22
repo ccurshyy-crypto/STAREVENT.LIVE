@@ -11,6 +11,7 @@ import {
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
 import { OverlayMode, OverlayStyle } from '../types/overlay';
+import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { LiveStudioPreview } from './LiveStudioPreview';
@@ -65,6 +66,38 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           matchSeconds={30}
           halfLabel="1ST HALF"
           showDemoWatermark={style === 'demo'}
+        />
+      </div>
+    );
+  }
+
+  if (style === 'festive') {
+    return (
+      <div
+        className="relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between p-2.5 border border-[#FACC15]/45"
+        style={{
+          backgroundColor: '#18181B',
+          backgroundImage:
+            'linear-gradient(45deg, #27272A 25%, transparent 25%), linear-gradient(-45deg, #27272A 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272A 75%), linear-gradient(-45deg, transparent 75%, #27272A 75%)',
+          backgroundSize: '18px 18px',
+          backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
+        }}
+      >
+        <div className="my-auto text-center">
+          <span className="font-mono text-[9px] text-[#FEF08A] bg-black/70 px-2.5 py-0.5 rounded border border-[#FACC15]/35">
+            ANIMATED · FULL CUSTOM TEXT &amp; MOTION
+          </span>
+        </div>
+        <HaldiFestiveOverlayBar
+          variant="mini"
+          leftText="शुभ विवाह..."
+          centerMain="हळदी"
+          centerSub="समारंभ"
+          rightText="Haldi Ceremony"
+          animation="festive"
+          theme="royal-maroon"
+          showDecor
+          showPetals={false}
         />
       </div>
     );
@@ -320,9 +353,9 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { en: 'All (4)', mr: 'सर्व (4)', hi: 'सभी (4)', gu: 'બધા (4)' } },
+                  { id: 'all', label: { en: 'All (5)', mr: 'सर्व (5)', hi: 'सभी (5)', gu: 'બધા (5)' } },
                   { id: 'kabaddi', label: { en: 'Kabaddi (2)', mr: 'कबड्डी (2)', hi: 'कबड्डी (2)', gu: 'કબડ્ડી (2)' } },
-                  { id: 'haldi', label: { en: 'Haldi & Wedding (2)', mr: 'हळदी व लग्न (2)', hi: 'हल्दी और शादी (2)', gu: 'હળદી અને લગ્ન (2)' } },
+                  { id: 'haldi', label: { en: 'Haldi & Wedding (3)', mr: 'हळदी व लग्न (3)', hi: 'हल्दी और शादी (3)', gu: 'હળદી અને લગ્ન (3)' } },
                 ] as const
               ).map((tab) => (
                 <button

@@ -1,6 +1,12 @@
 export type OverlayMode = 'kabaddi' | 'haldi';
 
-export type OverlayStyle = 'classic' | 'modern' | 'demo';
+export type OverlayStyle = 'classic' | 'modern' | 'demo' | 'festive';
+
+export type HaldiAnimationMode = 'festive' | 'shimmer' | 'petals' | 'beat' | 'static';
+
+export type HaldiColorTheme = 'royal-maroon' | 'turmeric-gold' | 'saffron-red' | 'emerald-gold';
+
+export type HaldiAnimSpeed = 'slow' | 'normal' | 'fast';
 
 export type OverlayBackground = 'transparent' | 'green' | 'blue';
 
@@ -29,7 +35,9 @@ export function normalizeStyleForMode(mode: OverlayMode, style?: string): Overla
   if (mode === 'kabaddi') {
     return style === 'demo' ? 'demo' : 'classic';
   }
-  return style === 'modern' ? 'modern' : 'classic';
+  if (style === 'festive') return 'festive';
+  if (style === 'modern') return 'modern';
+  return 'classic';
 }
 
 export interface LiveOverlayState {
@@ -78,11 +86,21 @@ export interface LiveOverlayState {
   timeoutTeam?: KabaddiTimeoutTeam;
   doOrDie: boolean;
   kabaddiAlert: string | null;
-  // Haldi & Wedding Ceremony Overlay state (2 Styles)
+  // Haldi & Wedding Ceremony Overlay state (3 Styles including Royal Animated Festive Bar)
   haldiTag: string;
   haldiHeader: string;
   haldiTitle: string;
   haldiSubtitle: string;
+  haldiLeftText: string;
+  haldiCenterMain: string;
+  haldiCenterSub: string;
+  haldiRightText: string;
+  haldiAnimation: HaldiAnimationMode;
+  haldiTheme: HaldiColorTheme;
+  haldiAnimSpeed: HaldiAnimSpeed;
+  haldiShowTopHeader: boolean;
+  haldiShowDecor: boolean;
+  haldiShowPetals: boolean;
 }
 
 export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlayState {
@@ -136,5 +154,15 @@ export function createDefaultOverlayState(roomId = 'star-live-1'): LiveOverlaySt
     haldiHeader: '|| श्री गणेशाय नमः || शुभ हळदी व लग्न समारंभ',
     haldiTitle: 'देशमुख कुटुंब — शुभ हळदी व लग्न समारंभ',
     haldiSubtitle: 'थेट प्रक्षेपण • दिनांक व ठिकाण',
+    haldiLeftText: 'शुभ विवाह...',
+    haldiCenterMain: 'हळदी',
+    haldiCenterSub: 'समारंभ',
+    haldiRightText: 'Haldi Ceremony',
+    haldiAnimation: 'festive',
+    haldiTheme: 'royal-maroon',
+    haldiAnimSpeed: 'normal',
+    haldiShowTopHeader: false,
+    haldiShowDecor: true,
+    haldiShowPetals: true,
   };
 }

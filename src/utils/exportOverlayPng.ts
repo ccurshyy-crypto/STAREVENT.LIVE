@@ -1,5 +1,6 @@
+import { HALDI_THEME_PALETTES } from '../components/HaldiFestiveOverlayBar';
 import { formatClockMMSS, shadeHexColor } from '../components/KabaddiScoreboardBar';
-import { OverlayStyle } from '../types/overlay';
+import { HaldiColorTheme, OverlayStyle } from '../types/overlay';
 
 export interface KabaddiOverlayExportOptions {
   style: OverlayStyle;
@@ -36,6 +37,13 @@ export interface HaldiOverlayExportOptions {
   header: string;
   title: string;
   subtitle: string;
+  leftText?: string;
+  centerMain?: string;
+  centerSub?: string;
+  rightText?: string;
+  theme?: HaldiColorTheme;
+  showTopHeader?: boolean;
+  showDecor?: boolean;
   customLogoUrl?: string;
   logoCorner?: 'top-right' | 'top-left';
 }
@@ -386,6 +394,222 @@ export async function downloadHaldiOverlayPng(opts: HaldiOverlayExportOptions) {
   if (!ctx) return;
 
   ctx.clearRect(0, 0, 1920, 1080);
+
+  if (opts.style === 'festive') {
+    const palette = HALDI_THEME_PALETTES[opts.theme || 'royal-maroon'] ?? HALDI_THEME_PALETTES['royal-maroon'];
+    const showDecor = opts.showDecor !== false;
+
+    // Optional top auspicious header bar
+    if (opts.showTopHeader && opts.header.trim()) {
+      drawRoundedRect(ctx, 560, 42, 800, 62, 31);
+      const topGrad = ctx.createLinearGradient(560, 42, 1360, 104);
+      topGrad.addColorStop(0, palette.ribbonDark);
+      topGrad.addColorStop(0.5, palette.ribbonBright);
+      topGrad.addColorStop(1, palette.ribbonDark);
+      ctx.fillStyle = topGrad;
+      ctx.fill();
+      ctx.strokeStyle = palette.goldMid;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.fillStyle = '#FEF08A';
+      ctx.font = '700 26px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(opts.header, 960, 74, 740);
+      ctx.textAlign = 'left';
+    }
+
+    // Bottom Royal Maroon & Gold Haldi Lower-Third Ribbon
+    const barX = 48;
+    const barY = 858;
+    const barW = 1824;
+    const barH = 184;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 24;
+    ctx.shadowOffsetY = 10;
+
+    drawRoundedRect(ctx, barX, barY, barW, barH, 22);
+    const ribGrad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+    ribGrad.addColorStop(0, palette.ribbonDark);
+    ribGrad.addColorStop(0.24, palette.ribbonMid);
+    ribGrad.addColorStop(0.5, palette.ribbonBright);
+    ribGrad.addColorStop(0.76, palette.ribbonMid);
+    ribGrad.addColorStop(1, palette.ribbonDark);
+    ctx.fillStyle = ribGrad;
+    ctx.fill();
+
+    const borderGold = ctx.createLinearGradient(barX, barY, barX + barW, barY);
+    borderGold.addColorStop(0, palette.goldDark);
+    borderGold.addColorStop(0.25, palette.goldLight);
+    borderGold.addColorStop(0.5, palette.goldMid);
+    borderGold.addColorStop(0.75, palette.goldLight);
+    borderGold.addColorStop(1, palette.goldDark);
+    ctx.strokeStyle = borderGold;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.restore();
+
+    // Inner hairline gold frame
+    drawRoundedRect(ctx, barX + 16, barY + 14, barW - 32, barH - 28, 14);
+    ctx.strokeStyle = 'rgba(254, 240, 138, 0.5)';
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Center Royal Ornate Medallion
+    const medW = 496;
+    const medH = 228;
+    const medX = 960 - medW / 2;
+    const medY = 830;
+
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.55)';
+    ctx.shadowBlur = 20;
+    drawRoundedRect(ctx, medX, medY, medW, medH, 52);
+    const medGrad = ctx.createLinearGradient(960, medY, 960, medY + medH);
+    medGrad.addColorStop(0, palette.medallionLight);
+    medGrad.addColorStop(1, palette.ribbonDark);
+    ctx.fillStyle = medGrad;
+    ctx.fill();
+    ctx.strokeStyle = borderGold;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    ctx.restore();
+
+    // Top Haldi Bowl & Turmeric Mound above Center Medallion
+    if (showDecor) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(868, 826);
+      ctx.quadraticCurveTo(960, 738, 1052, 826);
+      ctx.closePath();
+      const haldiGrad = ctx.createRadialGradient(960, 790, 10, 960, 815, 90);
+      haldiGrad.addColorStop(0, '#FEF08A');
+      haldiGrad.addColorStop(0.55, '#FACC15');
+      haldiGrad.addColorStop(1, '#D97706');
+      ctx.fillStyle = haldiGrad;
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(850, 822);
+      ctx.bezierCurveTo(854, 870, 896, 882, 960, 882);
+      ctx.bezierCurveTo(1024, 882, 1066, 870, 1070, 822);
+      ctx.closePath();
+      const bowlGrad = ctx.createLinearGradient(850, 822, 1070, 882);
+      bowlGrad.addColorStop(0, '#FEF08A');
+      bowlGrad.addColorStop(0.5, '#D97706');
+      bowlGrad.addColorStop(1, '#78350F');
+      ctx.fillStyle = bowlGrad;
+      ctx.strokeStyle = '#FEF08A';
+      ctx.lineWidth = 3;
+      ctx.fill();
+      ctx.stroke();
+
+      // Marigold dots left & right accents
+      const drawBloom = (bx: number, by: number, br: number) => {
+        ctx.beginPath();
+        ctx.arc(bx, by, br, 0, Math.PI * 2);
+        ctx.fillStyle = '#F97316';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(bx, by, br * 0.62, 0, Math.PI * 2);
+        ctx.fillStyle = '#FACC15';
+        ctx.fill();
+      };
+      drawBloom(712, 986, 30);
+      drawBloom(746, 1018, 26);
+      drawBloom(1208, 986, 30);
+      drawBloom(1174, 1018, 26);
+      drawBloom(98, 1016, 32);
+      drawBloom(1822, 1016, 32);
+
+      // Left Dholak emblem
+      ctx.save();
+      ctx.translate(154, 948);
+      ctx.rotate(-0.48);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 74, 48, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#9A3412';
+      ctx.strokeStyle = '#FACC15';
+      ctx.lineWidth = 4;
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(52, 0, 20, 44, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFBEB';
+      ctx.fill();
+      ctx.restore();
+
+      // Right Copper Om Kalash emblem
+      ctx.beginPath();
+      ctx.arc(1764, 956, 56, 0, Math.PI * 2);
+      ctx.fillStyle = '#D97706';
+      ctx.strokeStyle = '#FEF08A';
+      ctx.lineWidth = 4;
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#7F1D1D';
+      ctx.font = '800 50px "Noto Sans Devanagari", serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('ॐ', 1764, 962);
+      ctx.restore();
+    }
+
+    // Golden curved brush swooshes under Left & Right texts
+    ctx.fillStyle = '#FACC15';
+    ctx.beginPath();
+    ctx.moveTo(320, 996);
+    ctx.quadraticCurveTo(468, 974, 626, 984);
+    ctx.quadraticCurveTo(470, 989, 326, 1006);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(1294, 996);
+    ctx.quadraticCurveTo(1448, 974, 1600, 984);
+    ctx.quadraticCurveTo(1450, 989, 1300, 1006);
+    ctx.closePath();
+    ctx.fill();
+
+    // Left Custom Text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '800 46px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(opts.leftText || 'शुभ विवाह...', showDecor ? 470 : 390, 944, 420);
+
+    // Center Main + Sub Text
+    const mainTextGrad = ctx.createLinearGradient(960, 885, 960, 975);
+    mainTextGrad.addColorStop(0, '#FFFBEB');
+    mainTextGrad.addColorStop(0.5, '#FACC15');
+    mainTextGrad.addColorStop(1, '#F59E0B');
+    ctx.fillStyle = mainTextGrad;
+    ctx.font = '900 72px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(opts.centerMain || 'हळदी', 960, 932, 430);
+
+    if (opts.centerSub?.trim()) {
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '800 40px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+      ctx.fillText(opts.centerSub, 960, 1002, 420);
+    }
+
+    // Right Custom Text
+    ctx.fillStyle = '#FEF08A';
+    ctx.font = 'italic 800 44px "Noto Sans Devanagari", "Noto Sans Gujarati", "Plus Jakarta Sans", sans-serif';
+    ctx.fillText(opts.rightText || 'Haldi Ceremony', showDecor ? 1450 : 1530, 944, 420);
+    ctx.textAlign = 'left';
+
+    if (opts.customLogoUrl) {
+      const logoCx = opts.logoCorner === 'top-left' ? 114 : 1806;
+      await drawCircularCustomLogo(ctx, opts.customLogoUrl, logoCx, 182, 58);
+    }
+
+    triggerCanvasDownload(canvas, 'haldi-ceremony-royal-animated-1920x1080.png');
+    return;
+  }
 
   if (opts.style === 'modern') {
     // STYLE 2: Minimal Floral Ribbon — Clean open viewport + floating amber/cream lower-third ribbon

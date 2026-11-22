@@ -8,6 +8,7 @@ import {
   OverlayMode,
   OverlayStyle,
 } from '../types/overlay';
+import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 
 interface OverlayOutputViewProps {
@@ -178,6 +179,10 @@ export function OverlayOutputView({
     ...(urlOverrides?.kabaddiSubtitle ? { kabaddiSubtitle: urlOverrides.kabaddiSubtitle } : {}),
     ...(urlOverrides?.haldiTitle ? { haldiTitle: urlOverrides.haldiTitle } : {}),
     ...(urlOverrides?.haldiSubtitle ? { haldiSubtitle: urlOverrides.haldiSubtitle } : {}),
+    ...(urlOverrides?.haldiLeftText ? { haldiLeftText: urlOverrides.haldiLeftText } : {}),
+    ...(urlOverrides?.haldiCenterMain ? { haldiCenterMain: urlOverrides.haldiCenterMain } : {}),
+    ...(urlOverrides?.haldiCenterSub ? { haldiCenterSub: urlOverrides.haldiCenterSub } : {}),
+    ...(urlOverrides?.haldiRightText ? { haldiRightText: urlOverrides.haldiRightText } : {}),
   };
 
   const teamABinRemaining = merged.teamABinEndAt
@@ -188,6 +193,7 @@ export function OverlayOutputView({
     : 0;
 
   const isClassic = activeStyle === 'classic';
+  const isFestive = activeStyle === 'festive';
 
   if (accessState !== 'active') {
     return (
@@ -264,6 +270,63 @@ export function OverlayOutputView({
   }
 
   // HALDI & WEDDING MODE
+  if (isFestive) {
+    return (
+      <div
+        className={`fixed inset-0 w-screen h-screen overflow-hidden select-none flex flex-col justify-between p-[1.4vw] pb-[0.9vw] transition-opacity duration-300 ${
+          merged.visible ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {/* Optional Top Invocation Strip (Off by default for pure open-top look) */}
+        <div className="relative z-10 flex items-center justify-center">
+          {merged.haldiShowTopHeader && merged.haldiHeader?.trim() ? (
+            <div className="bg-gradient-to-r from-[#4D0414]/95 via-[#8F0C26]/95 to-[#4D0414]/95 border-2 border-[#FACC15] px-8 py-2 rounded-full font-display font-bold text-[clamp(14px,1.4vw,28px)] text-[#FEF08A] shadow-xl">
+              {merged.haldiHeader}
+            </div>
+          ) : (
+            <div className="h-2" aria-hidden="true" />
+          )}
+        </div>
+
+        {/* Optional User-Uploaded Custom Logo Watermark */}
+        {merged.showLogo && merged.customLogoUrl && (
+          <div
+            className={`pointer-events-none absolute top-[5vh] z-20 ${
+              merged.logoCorner === 'top-left' ? 'left-[2.4vw]' : 'right-[2.4vw]'
+            }`}
+          >
+            <div className="w-[clamp(74px,7.2vw,136px)] h-[clamp(74px,7.2vw,136px)] rounded-full border-2 border-[#FACC15] bg-black/75 p-2 overflow-hidden flex items-center justify-center drop-shadow-[0_10px_24px_rgba(0,0,0,0.65)]">
+              <img
+                src={merged.customLogoUrl}
+                alt="Custom overlay logo"
+                className="w-full h-full object-contain rounded-full"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Clear transparent center */}
+        <div className="relative z-10 my-auto" aria-hidden="true" />
+
+        {/* Royal Animated Haldi Ceremony Lower-Third Overlay */}
+        <div className="relative z-10 w-full">
+          <HaldiFestiveOverlayBar
+            variant="output"
+            leftText={merged.haldiLeftText}
+            centerMain={merged.haldiCenterMain}
+            centerSub={merged.haldiCenterSub}
+            rightText={merged.haldiRightText}
+            animation={merged.haldiAnimation}
+            theme={merged.haldiTheme}
+            speed={merged.haldiAnimSpeed}
+            showDecor={merged.haldiShowDecor}
+            showPetals={merged.haldiShowPetals}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`fixed inset-0 w-screen h-screen overflow-hidden select-none flex flex-col justify-between p-[2.2vw] transition-opacity duration-300 ${
