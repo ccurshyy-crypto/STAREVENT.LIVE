@@ -15,7 +15,6 @@ import {
   Tv,
 } from 'lucide-react';
 import {
-  CUSTOM_OVERLAY_PROMPTS,
   EventCategoryId,
   Language,
   PlatformId,
@@ -1024,8 +1023,8 @@ export function LiveStudioPreview({
                     <Radio className="w-4 h-4 text-[#EF4444]" aria-hidden="true" />
                     <span>
                       {lang === 'mr'
-                        ? 'OBS Studio व vMix थेट Browser Source URL (1920×1080 ट्रान्सपरंट)'
-                        : 'OBS Studio & vMix Live Browser Source URLs (1920×1080 Transparent)'}
+                        ? 'OBS Studio व vMix थेट Browser Source URL'
+                        : 'OBS Studio & vMix Live Browser Source URLs'}
                     </span>
                   </p>
                   <p className="text-xs text-zinc-400">
@@ -1264,27 +1263,6 @@ export function LiveStudioPreview({
                   >
                     <span className="font-mono font-extrabold">₹1 · 1 DAY</span>
                     <span>{lang === 'mr' ? 'पेमेंट करून अनलॉक करा' : 'Pay & Unlock'}</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Kabaddi Custom Overlay Prompt Spec */}
-              {activeMode === 'kabaddi' && (
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-[#0D0D11] border border-white/8 rounded-lg px-3 py-2">
-                  <p className="text-[11px] font-mono text-zinc-400 flex-1 min-w-0 truncate">
-                    {CUSTOM_OVERLAY_PROMPTS.kabaddi.imagePrompt}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => copyText('prompt', CUSTOM_OVERLAY_PROMPTS.kabaddi.imagePrompt)}
-                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#FACC15] hover:text-white whitespace-nowrap shrink-0"
-                  >
-                    {copiedKey === 'prompt' ? (
-                      <Check className="w-3 h-3" aria-hidden="true" />
-                    ) : (
-                      <Copy className="w-3 h-3" aria-hidden="true" />
-                    )}
-                    <span>{copiedKey === 'prompt' ? 'Prompt Copied' : 'Copy Prompt'}</span>
                   </button>
                 </div>
               )}

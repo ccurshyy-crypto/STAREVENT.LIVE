@@ -104,11 +104,7 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
       </div>
 
       {/* Clear center indicator */}
-      <div className="my-auto text-center">
-        <span className="font-mono text-[9px] text-zinc-200 bg-black/60 px-2 py-0.5 rounded border border-white/10">
-          1920×1080 TRANSPARENT
-        </span>
-      </div>
+      <div className="my-auto text-center" />
 
       {/* Mini bottom bar */}
       {isClassic ? (
@@ -160,13 +156,6 @@ export function OverlaysPage({
     const id = window.setInterval(() => setNowTs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [verifiedTokens.length, hasPendingOrders]);
-
-  const formatQrCountdown = (expiresAt: number, now: number) => {
-    const remainingSec = Math.max(0, Math.floor((expiresAt - now) / 1000));
-    const mins = Math.floor(remainingSec / 60);
-    const secs = remainingSec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
 
   // Auto-verify Cashfree return redirect (?cf_order_id=OVL-...) via backend PG API
   useEffect(() => {
@@ -309,8 +298,8 @@ export function OverlaysPage({
                 }`}
               >
                 {lang === 'mr'
-                  ? 'OBS आणि vMix साठी 1920×1080 ट्रान्सपरंट ओव्हरले'
-                  : '1920×1080 Transparent Overlays for OBS & vMix'}
+                  ? 'OBS आणि vMix साठी लाईव्ह ओव्हरले'
+                  : 'Live Overlays for OBS & vMix'}
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
                 {lang === 'mr'
@@ -464,66 +453,6 @@ export function OverlaysPage({
                         </li>
                       ))}
                     </ul>
-
-                    {/* Active Pending QR Preview with Real-Time Expiry Countdown Directly Below QR */}
-                    {isPending && pendingOrder?.gatewayQrImageUrl && (() => {
-                      const qrExpiresAt =
-                        pendingOrder.qrCloseBy || pendingOrder.createdAt + 30 * 60 * 1000;
-                      const remainingMs = Math.max(0, qrExpiresAt - nowTs);
-                      const isQrExpired = remainingMs <= 0;
-                      const isQrLow = remainingMs > 0 && remainingMs < 120_000;
-
-                      return (
-                        <div className="bg-[#0D0D11] border border-[#FACC15]/30 rounded-xl p-3.5 flex flex-col items-center gap-2.5">
-                          <div className="relative bg-white rounded-lg p-2 w-32 aspect-square flex items-center justify-center shadow overflow-hidden">
-                            <img
-                              src={pendingOrder.gatewayQrImageUrl}
-                              alt={`Active Cashfree QR for ${product.title[lang]}`}
-                              className={`w-full h-full object-contain block ${
-                                isQrExpired ? 'opacity-20 blur-[1px]' : 'opacity-100'
-                              }`}
-                            />
-                            {isQrExpired && (
-                              <span className="absolute inset-0 flex items-center justify-center bg-black/55 font-mono text-[10px] font-extrabold text-[#FCA5A5] uppercase">
-                                EXPIRED
-                              </span>
-                            )}
-                          </div>
-
-                          <div
-                            role="timer"
-                            aria-live="polite"
-                            className={`w-full rounded-lg border px-3 py-2 text-center space-y-1 ${
-                              isQrExpired
-                                ? 'bg-[#230B0D] border-[#EF4444]/40 text-[#FCA5A5]'
-                                : isQrLow
-                                  ? 'bg-[#1E130A] border-[#FB923C]/40 text-[#FDBA74]'
-                                  : 'bg-[#14141A] border-white/12 text-zinc-200'
-                            }`}
-                          >
-                            <div className="flex items-center justify-center gap-1.5 font-mono text-xs font-bold tabular-nums">
-                              <Clock className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-                              <span>
-                                {isQrExpired
-                                  ? lang === 'mr'
-                                    ? 'QR एक्सपायर: 00:00'
-                                    : 'QR Expired: 00:00'
-                                  : `${lang === 'mr' ? 'QR एक्सपायर वेळ' : 'QR Expires in'}: ${formatQrCountdown(qrExpiresAt, nowTs)}`}
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-zinc-400">
-                              {isQrExpired
-                                ? lang === 'mr'
-                                  ? 'नवीन QR मिळवण्यासाठी खाली क्लिक करून Refresh करा.'
-                                  : 'Needs refresh — click below to generate a fresh QR code.'
-                                : lang === 'mr'
-                                  ? 'वेळ संपल्यास नवीन QR साठी Refresh करा.'
-                                  : 'Scan to pay ₹1 or refresh once the timer expires.'}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
 
                   {/* Card Actions */}
