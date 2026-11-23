@@ -546,6 +546,7 @@ export interface UserCricketScoreboardDoc {
   bowlerRuns: number;
   bowlerBalls: number;
   currentOverBalls: string[];
+  matchJson?: string;
   version: number;
   updatedAt: number;
 }

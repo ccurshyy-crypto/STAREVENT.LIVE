@@ -288,6 +288,7 @@
         "bowlerRuns": { "type": "integer" },
         "bowlerBalls": { "type": "integer" },
         "currentOverBalls": { "type": "array" },
+        "matchJson": { "type": "string", "maxLength": 260000 },
         "version": { "type": "integer" },
         "updatedAt": { "type": "integer" }
       },

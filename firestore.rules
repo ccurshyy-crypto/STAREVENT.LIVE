@@ -484,6 +484,7 @@ service cloud.firestore {
           'bowlerRuns',
           'bowlerBalls',
           'currentOverBalls',
+          'matchJson',
           'version',
           'updatedAt'
         ]) &&
@@ -515,6 +516,7 @@ service cloud.firestore {
         data.bowlerBalls is int && data.bowlerBalls >= 0 && data.bowlerBalls <= 600 &&
         data.currentOverBalls is list && data.currentOverBalls.size() <= 16 &&
         (data.currentOverBalls.size() == 0 || (data.currentOverBalls[0] is string && data.currentOverBalls[0].size() <= 8)) &&
+        isOptionalBoundedString(data, 'matchJson', 260000) &&
         data.version is int && data.version >= 0 && data.version <= 100000000 &&
         data.updatedAt is int && data.updatedAt >= 0;
     }
