@@ -255,6 +255,67 @@
         "createdAt": { "type": "integer" }
       },
       "required": ["ownerUid", "action", "teamAScore", "teamBScore", "teamAPlayersOnMat", "teamBPlayersOnMat", "createdAt"]
+    },
+    "UserCricketScoreboard": {
+      "title": "Per-User Live Cricket Scoreboard State",
+      "description": "Real-time ICC-style single broadcast Cricket scoreboard state isolated under /users/{userId}/cricket/current. Contains ZERO PII so vMix/OBS can read directly via exact UID.",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "visible": { "type": "boolean" },
+        "battingTeamName": { "type": "string", "maxLength": 50 },
+        "battingTeamCode": { "type": "string", "maxLength": 8 },
+        "battingFlagId": { "type": "string", "maxLength": 20 },
+        "battingLogoUrl": { "type": "string", "maxLength": 180000 },
+        "bowlingTeamName": { "type": "string", "maxLength": 50 },
+        "bowlingTeamCode": { "type": "string", "maxLength": 8 },
+        "bowlingFlagId": { "type": "string", "maxLength": 20 },
+        "bowlingLogoUrl": { "type": "string", "maxLength": 180000 },
+        "runs": { "type": "integer" },
+        "wickets": { "type": "integer" },
+        "totalBalls": { "type": "integer" },
+        "maxOvers": { "type": "integer" },
+        "tournamentText": { "type": "string", "maxLength": 80 },
+        "batter1Name": { "type": "string", "maxLength": 40 },
+        "batter1Runs": { "type": "integer" },
+        "batter1Balls": { "type": "integer" },
+        "batter2Name": { "type": "string", "maxLength": 40 },
+        "batter2Runs": { "type": "integer" },
+        "batter2Balls": { "type": "integer" },
+        "striker": { "type": "integer" },
+        "bowlerName": { "type": "string", "maxLength": 40 },
+        "bowlerWickets": { "type": "integer" },
+        "bowlerRuns": { "type": "integer" },
+        "bowlerBalls": { "type": "integer" },
+        "currentOverBalls": { "type": "array" },
+        "version": { "type": "integer" },
+        "updatedAt": { "type": "integer" }
+      },
+      "required": [
+        "ownerUid",
+        "visible",
+        "battingTeamCode",
+        "bowlingTeamCode",
+        "runs",
+        "wickets",
+        "totalBalls",
+        "maxOvers",
+        "tournamentText",
+        "batter1Name",
+        "batter1Runs",
+        "batter1Balls",
+        "batter2Name",
+        "batter2Runs",
+        "batter2Balls",
+        "striker",
+        "bowlerName",
+        "bowlerWickets",
+        "bowlerRuns",
+        "bowlerBalls",
+        "currentOverBalls",
+        "version",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -293,6 +354,10 @@
     "/users/{userId}/scoreHistory/{eventId}": {
       "schema": { "$ref": "#/entities/UserScoreHistoryEvent" },
       "description": "Per-user append-only score change history"
+    },
+    "/users/{userId}/cricket/{docId}": {
+      "schema": { "$ref": "#/entities/UserCricketScoreboard" },
+      "description": "Per-user live single Cricket scoreboard state for vMix/OBS (docId: current)"
     }
   }
 }

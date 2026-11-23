@@ -430,6 +430,95 @@ service cloud.firestore {
         data.createdAt is int && data.createdAt >= 0;
     }
 
+    function isValidUserCricketScoreboard(data, userId) {
+      return data.keys().hasAll([
+          'ownerUid',
+          'visible',
+          'battingTeamCode',
+          'bowlingTeamCode',
+          'runs',
+          'wickets',
+          'totalBalls',
+          'maxOvers',
+          'tournamentText',
+          'batter1Name',
+          'batter1Runs',
+          'batter1Balls',
+          'batter2Name',
+          'batter2Runs',
+          'batter2Balls',
+          'striker',
+          'bowlerName',
+          'bowlerWickets',
+          'bowlerRuns',
+          'bowlerBalls',
+          'currentOverBalls',
+          'version',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'ownerUid',
+          'visible',
+          'battingTeamName',
+          'battingTeamCode',
+          'battingFlagId',
+          'battingLogoUrl',
+          'bowlingTeamName',
+          'bowlingTeamCode',
+          'bowlingFlagId',
+          'bowlingLogoUrl',
+          'runs',
+          'wickets',
+          'totalBalls',
+          'maxOvers',
+          'tournamentText',
+          'batter1Name',
+          'batter1Runs',
+          'batter1Balls',
+          'batter2Name',
+          'batter2Runs',
+          'batter2Balls',
+          'striker',
+          'bowlerName',
+          'bowlerWickets',
+          'bowlerRuns',
+          'bowlerBalls',
+          'currentOverBalls',
+          'version',
+          'updatedAt'
+        ]) &&
+        data.ownerUid is string && data.ownerUid == userId && data.ownerUid.size() >= 1 && data.ownerUid.size() <= 128 &&
+        data.visible is bool &&
+        isOptionalBoundedString(data, 'battingTeamName', 50) &&
+        data.battingTeamCode is string && data.battingTeamCode.size() >= 1 && data.battingTeamCode.size() <= 8 &&
+        isOptionalBoundedString(data, 'battingFlagId', 20) &&
+        isOptionalBoundedString(data, 'battingLogoUrl', 180000) &&
+        isOptionalBoundedString(data, 'bowlingTeamName', 50) &&
+        data.bowlingTeamCode is string && data.bowlingTeamCode.size() >= 1 && data.bowlingTeamCode.size() <= 8 &&
+        isOptionalBoundedString(data, 'bowlingFlagId', 20) &&
+        isOptionalBoundedString(data, 'bowlingLogoUrl', 180000) &&
+        data.runs is int && data.runs >= 0 && data.runs <= 9999 &&
+        data.wickets is int && data.wickets >= 0 && data.wickets <= 10 &&
+        data.totalBalls is int && data.totalBalls >= 0 && data.totalBalls <= 6000 &&
+        data.maxOvers is int && data.maxOvers >= 1 && data.maxOvers <= 500 &&
+        data.tournamentText is string && data.tournamentText.size() <= 80 &&
+        data.batter1Name is string && data.batter1Name.size() <= 40 &&
+        data.batter1Runs is int && data.batter1Runs >= 0 && data.batter1Runs <= 999 &&
+        data.batter1Balls is int && data.batter1Balls >= 0 && data.batter1Balls <= 999 &&
+        data.batter2Name is string && data.batter2Name.size() <= 40 &&
+        data.batter2Runs is int && data.batter2Runs >= 0 && data.batter2Runs <= 999 &&
+        data.batter2Balls is int && data.batter2Balls >= 0 && data.batter2Balls <= 999 &&
+        data.striker in [1, 2] &&
+        data.bowlerName is string && data.bowlerName.size() <= 40 &&
+        data.bowlerWickets is int && data.bowlerWickets >= 0 && data.bowlerWickets <= 10 &&
+        data.bowlerRuns is int && data.bowlerRuns >= 0 && data.bowlerRuns <= 999 &&
+        data.bowlerBalls is int && data.bowlerBalls >= 0 && data.bowlerBalls <= 600 &&
+        data.currentOverBalls is list && data.currentOverBalls.size() <= 16 &&
+        (data.currentOverBalls.size() == 0 || (data.currentOverBalls[0] is string && data.currentOverBalls[0].size() <= 8)) &&
+        data.version is int && data.version >= 0 && data.version <= 100000000 &&
+        data.updatedAt is int && data.updatedAt >= 0;
+    }
+
     // 1. Super Admin Registry
     match /admins/{adminUid} {
       allow get: if isValidId(adminUid) && (isSuperAdmin() || isOwner(adminUid));
@@ -570,6 +659,20 @@ service cloud.firestore {
           isValidUserScoreHistoryEvent(request.resource.data, userId);
         allow update: if false;
         allow delete: if isValidId(userId) && isValidId(eventId) && (isSuperAdmin() || isOwner(userId));
+      }
+
+      // 5f. Live Single Cricket Scoreboard State (Non-PII: exact-key get allowed for vMix/OBS /cricket-overlay/{userId}; writes strictly owner or Super Admin)
+      match /cricket/{docId} {
+        allow get: if isValidId(userId) && docId == 'current';
+        allow list: if isSuperAdmin() || isOwner(userId);
+        allow create: if isValidId(userId) && docId == 'current' &&
+          (isSuperAdmin() || isOwner(userId)) &&
+          isValidUserCricketScoreboard(request.resource.data, userId);
+        allow update: if isValidId(userId) && docId == 'current' &&
+          (isSuperAdmin() || isOwner(userId)) &&
+          isValidUserCricketScoreboard(request.resource.data, userId) &&
+          request.resource.data.ownerUid == resource.data.ownerUid;
+        allow delete: if isValidId(userId) && isValidId(docId) && isSuperAdmin();
       }
     }
   }

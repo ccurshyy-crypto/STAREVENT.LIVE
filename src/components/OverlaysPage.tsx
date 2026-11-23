@@ -23,7 +23,8 @@ import {
   PendingOverlayOrder,
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
-import { OverlayMode, OverlayStyle } from '../types/overlay';
+import { createInitialCricketScoreboardDoc, OverlayMode, OverlayStyle } from '../types/overlay';
+import { CricketScoreboardBar } from './CricketScoreboardBar';
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 import { LiveStudioPreview } from './LiveStudioPreview';
@@ -82,6 +83,29 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           halfLabel="1ST HALF"
           showDemoWatermark={style === 'demo'}
         />
+      </div>
+    );
+  }
+
+  if (mode === 'cricket') {
+    const sampleCricket = createInitialCricketScoreboardDoc('preview');
+    return (
+      <div
+        className="relative aspect-video w-full rounded-xl overflow-hidden flex flex-col justify-between p-2.5 border border-[#E5007D]/45"
+        style={{
+          backgroundColor: '#18181B',
+          backgroundImage:
+            'linear-gradient(45deg, #27272A 25%, transparent 25%), linear-gradient(-45deg, #27272A 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #27272A 75%), linear-gradient(-45deg, transparent 75%, #27272A 75%)',
+          backgroundSize: '18px 18px',
+          backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
+        }}
+      >
+        <div className="my-auto text-center">
+          <span className="font-mono text-[9px] text-white bg-[#230A6B]/90 px-2.5 py-0.5 rounded border border-[#FFEC00]/45">
+            SINGLE VMIX CRICKET SCOREBOARD · 1920×1080
+          </span>
+        </div>
+        <CricketScoreboardBar data={sampleCricket} variant="mini" />
       </div>
     );
   }
@@ -678,7 +702,8 @@ export function OverlaysPage({
             >
               {(
                 [
-                  { id: 'all', label: { en: 'All (6)', mr: 'सर्व (6)', hi: 'सभी (6)', gu: 'બધા (6)' } },
+                  { id: 'all', label: { en: 'All (7)', mr: 'सर्व (7)', hi: 'सभी (7)', gu: 'બધા (7)' } },
+                  { id: 'cricket', label: { en: 'Cricket (1)', mr: 'क्रिकेट (1)', hi: 'क्रिकेट (1)', gu: 'ક્રિકેટ (1)' } },
                   { id: 'kabaddi', label: { en: 'Kabaddi (2)', mr: 'कबड्डी (2)', hi: 'कबड्डी (2)', gu: 'કબડ્ડી (2)' } },
                   { id: 'haldi', label: { en: 'Wedding & Haldi (4)', mr: 'लग्न व हळदी (4)', hi: 'शादी और हल्दी (4)', gu: 'લગ્ન અને હળદી (4)' } },
                 ] as const

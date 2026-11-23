@@ -1,4 +1,4 @@
-export type OverlayMode = 'kabaddi' | 'haldi';
+export type OverlayMode = 'kabaddi' | 'cricket' | 'haldi';
 
 export type OverlayStyle = 'classic' | 'modern' | 'demo' | 'festive' | 'wedding';
 
@@ -45,6 +45,9 @@ export interface RemoteHistoryInfo {
 export function normalizeStyleForMode(mode: OverlayMode, style?: string): OverlayStyle {
   if (mode === 'kabaddi') {
     return style === 'demo' ? 'demo' : 'classic';
+  }
+  if (mode === 'cricket') {
+    return 'classic';
   }
   if (style === 'wedding') return 'wedding';
   if (style === 'festive') return 'festive';
@@ -497,4 +500,96 @@ export function mergeUserDocsToOverlayState(
     kabaddiGraphicPanel: scoreDoc.kabaddiGraphicPanel ?? 'none',
   };
 }
+
+// ===============================================================
+// Per-User Isolated Cricket Scoreboard Document (/users/{uid}/cricket/current)
+// ===============================================================
+
+export type CricketFlagId =
+  | 'SL'
+  | 'AFG'
+  | 'IND'
+  | 'AUS'
+  | 'ENG'
+  | 'PAK'
+  | 'NZ'
+  | 'SA'
+  | 'WI'
+  | 'BAN'
+  | 'CUSTOM';
+
+export interface UserCricketScoreboardDoc {
+  ownerUid: string;
+  visible: boolean;
+  battingTeamName: string;
+  battingTeamCode: string;
+  battingFlagId: CricketFlagId;
+  battingLogoUrl: string;
+  bowlingTeamName: string;
+  bowlingTeamCode: string;
+  bowlingFlagId: CricketFlagId;
+  bowlingLogoUrl: string;
+  runs: number;
+  wickets: number;
+  totalBalls: number;
+  maxOvers: number;
+  tournamentText: string;
+  batter1Name: string;
+  batter1Runs: number;
+  batter1Balls: number;
+  batter2Name: string;
+  batter2Runs: number;
+  batter2Balls: number;
+  striker: 1 | 2;
+  bowlerName: string;
+  bowlerWickets: number;
+  bowlerRuns: number;
+  bowlerBalls: number;
+  currentOverBalls: string[];
+  version: number;
+  updatedAt: number;
+}
+
+export function formatCricketOvers(totalBalls: number): string {
+  const safeBalls = Math.max(0, Math.floor(totalBalls));
+  const overs = Math.floor(safeBalls / 6);
+  const rem = safeBalls % 6;
+  return `${overs}.${rem}`;
+}
+
+export function createInitialCricketScoreboardDoc(ownerUid: string): UserCricketScoreboardDoc {
+  const now = Date.now();
+  return {
+    ownerUid,
+    visible: true,
+    battingTeamName: 'SRI LANKA',
+    battingTeamCode: 'SL',
+    battingFlagId: 'SL',
+    battingLogoUrl: '',
+    bowlingTeamName: 'AFGHANISTAN',
+    bowlingTeamCode: 'AFG',
+    bowlingFlagId: 'AFG',
+    bowlingLogoUrl: '',
+    runs: 244,
+    wickets: 7,
+    totalBalls: 47 * 6 + 4, // 47.4 overs
+    maxOvers: 50,
+    tournamentText: 'CPL SEASON 01 - 2023',
+    batter1Name: 'CHAMIKA',
+    batter1Runs: 19,
+    batter1Balls: 5,
+    batter2Name: 'MAHESH',
+    batter2Runs: 3,
+    batter2Balls: 14,
+    striker: 1,
+    bowlerName: 'RASHID',
+    bowlerWickets: 0,
+    bowlerRuns: 9,
+    bowlerBalls: 4, // 0.4 overs
+    currentOverBalls: ['•', '1', '2', '6'],
+    version: 1,
+    updatedAt: now,
+  };
+}
+
 

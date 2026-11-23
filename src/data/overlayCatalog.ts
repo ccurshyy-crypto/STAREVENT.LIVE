@@ -4,6 +4,7 @@ import { normalizeStyleForMode, OverlayMode, OverlayStyle } from '../types/overl
 export type OverlaySku =
   | 'kabaddi-demo'
   | 'kabaddi-classic'
+  | 'cricket-classic'
   | 'haldi-wedding'
   | 'haldi-festive'
   | 'haldi-classic'
@@ -252,7 +253,55 @@ export const OVERLAY_PRODUCTS: OverlayProduct[] = [
       gu: [
         'બંને બાજુ કસ્ટમ ટીમ લોગો અપલોડ કરો અને લાઇવ ટીમ કલર બદલો',
         'લાઇવ 30s ટાઈમર, +1/-1, Bonus, All Out, Super Tackle, Super Raid, Yellow/Red કાર્ડ અને Sin Bin',
-        'આજની ઓફર: ₹1 પેમેન્ટ કરો — 1 દિવસ (24 કલાક) માટે ઓટો અનલોક, પછી ઓટો એક્સપાયર',
+        'આજની ઓફર: ₹1 પેમેન્ટ કરો — 1 દિવસ (24 કલાક) માટે ઓટો અનલોક, પછી ઓટો એક્સपायर',
+      ],
+    },
+  },
+  {
+    sku: 'cricket-classic',
+    mode: 'cricket',
+    style: 'classic',
+    isFreeDemo: true,
+    originalPrice: 0,
+    salePrice: 0,
+    title: {
+      en: 'Cricket Live Scoreboard (Single vMix Control · WC Broadcast Bar)',
+      mr: 'क्रिकेट लाईव्ह स्कोअरबोर्ड (सिंगल vMix कंट्रोल · ब्रॉडकास्ट बार)',
+      hi: 'क्रिकेट लाइव स्कोरबोर्ड (सिंगल vMix कंट्रोल · ब्रॉडकास्ट बार)',
+      gu: 'ક્રિકેટ લાઇવ સ્કોરબોર્ડ (સિંગલ vMix કંટ્રોલ · બ્રોડકાસ્ટ બાર)',
+    },
+    subtitle: {
+      en: 'WC-style purple/magenta/yellow broadcast lower-third with live batters, bowler, over tracker, team flags & vMix URL',
+      mr: 'WC स्टाईल पर्पल-मॅजेंटा-यलो स्कोअरबोर्ड — बॅटर्स, बॉलर, ओव्हर ट्रॅकर, टीम फ्लॅग/लोगो व थेट vMix URL',
+      hi: 'WC स्टाइल पर्पल-मैजेंटा-येलो स्कोरबोर्ड — बैटर्स, बॉलर, ओवर ट्रैकर, टीम फ्लैग/लोगो और सीधा vMix URL',
+      gu: 'WC સ્ટાઇલ પર્પલ-મેજેન્ટા-યલો સ્કોરબોર્ડ — બેટર્સ, બોલર, ઓવર ટ્રેકર, ટીમ ફ્લેગ/લોગો અને સીધું vMix URL',
+    },
+    meta: {
+      en: ['Single Scoreboard', 'vMix & OBS URL', 'Real-Time Sync'],
+      mr: ['सिंगल स्कोअरबोर्ड', 'vMix व OBS URL', 'रिअल-टाईम सिंक'],
+      hi: ['सिंगल स्कोरबोर्ड', 'vMix और OBS URL', 'रियल-टाइम सिंक'],
+      gu: ['સિંગલ સ્કોરબોર્ડ', 'vMix અને OBS URL', 'રિયલ-ટાઇમ સિંક'],
+    },
+    features: {
+      en: [
+        'Broadcast-accurate lower-third bar: Batting/Bowling flags or custom logos, striker arrow, magenta score & yellow overs chevron',
+        'Dedicated single vMix/OBS transparent Browser Source URL synced live via Firebase Firestore (zero auto-score drift)',
+        'Instant ball-by-ball controls: 0/1/2/3/4/6, Wicket, Wide, No Ball, Swap Strike, Next Over, Undo & Reset',
+      ],
+      mr: [
+        'प्रो ब्रॉडकास्ट लोअर-थर्ड डिझाइन: टीम फ्लॅग/लोगो, स्ट्रायकर अ‍ॅरो, मॅजेंटा स्कोअर, यलो ओव्हर्स व बॉल-बाय-बॉल ट्रॅकर',
+        'तुमच्या अकाउंटसाठी सिंगल vMix / OBS ट्रान्सपरंट Browser Source URL — Firebase रिअल-टाईम सिंकसह',
+        'फास्ट कंट्रोल: 0/1/2/3/4/6, Wicket, Wide, No Ball, Swap Strike, Next Over, Undo व Reset',
+      ],
+      hi: [
+        'प्रो ब्रॉडकास्ट लोअर-थर्ड डिज़ाइन: टीम फ्लैग/लोगो, स्ट्राइकर एरो, मैजेंटा स्कोर, येलो ओवर्स और बॉल-बाय-बॉल ट्रैकर',
+        'आपके अकाउंट के लिए सिंगल vMix / OBS ट्रांसपेरेंट Browser Source URL — Firebase रियल-टाइम सिंक के साथ',
+        'फास्ट कंट्रोल: 0/1/2/3/4/6, Wicket, Wide, No Ball, Swap Strike, Next Over, Undo और Reset',
+      ],
+      gu: [
+        'પ્રો બ્રોડકાસ્ટ લોઅર-થર્ડ ડિઝાઇન: ટીમ ફ્લેગ/લોગો, સ્ટ્રાઇકર એરો, મેજેન્ટા સ્કોર, યલો ઓવર્સ અને બોલ-બાય-બોલ ટ્રેકર',
+        'તમારા એકાઉન્ટ માટે સિંગલ vMix / OBS ટ્રાન્સપરન્ટ Browser Source URL — Firebase રિયલ-ટાઇમ સિંક સાથે',
+        'ફાસ્ટ કંટ્રોલ: 0/1/2/3/4/6, Wicket, Wide, No Ball, Swap Strike, Next Over, Undo અને Reset',
       ],
     },
   },

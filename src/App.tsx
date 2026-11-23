@@ -15,6 +15,7 @@ import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { UserControlPanelView } from './components/UserControlPanelView';
+import { UserCricketOverlayView } from './components/UserCricketOverlayView';
 import { UserScoreboardOverlayView } from './components/UserScoreboardOverlayView';
 import { EventCategoryId, Language } from './data/content';
 import {
@@ -32,7 +33,7 @@ import {
   OverlayStyle,
 } from './types/overlay';
 
-const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'haldi'];
+const VALID_OVERLAY_MODES: OverlayMode[] = ['kabaddi', 'cricket', 'haldi'];
 const VERIFIED_TOKENS_KEY = 'star_event_verified_tokens_v2';
 const PENDING_ORDERS_KEY = 'star_event_pending_orders_v2';
 
@@ -115,6 +116,17 @@ function parseUserControlRoute(): { targetUid: string } | null {
   return { targetUid: decodeURIComponent(match[1]) };
 }
 
+function parseUserCricketOverlayRoute(): { targetUid: string; background: OverlayBackground } | null {
+  if (typeof window === 'undefined') return null;
+  const match = window.location.pathname.match(/^\/cricket-overlay\/([A-Za-z0-9_-]{3,128})\/?$/);
+  if (!match) return null;
+  const params = new URLSearchParams(window.location.search);
+  const bgParam = params.get('bg')?.toLowerCase();
+  const background: OverlayBackground =
+    bgParam === 'green' ? 'green' : bgParam === 'blue' ? 'blue' : 'transparent';
+  return { targetUid: decodeURIComponent(match[1]), background };
+}
+
 function parseOverlayRoute() {
   if (typeof window === 'undefined') return null;
 
@@ -186,6 +198,7 @@ function parseRemoteRoute() {
 
 export default function App() {
   const userScoreboardRoute = useMemo(() => parseUserScoreboardRoute(), []);
+  const userCricketOverlayRoute = useMemo(() => parseUserCricketOverlayRoute(), []);
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
   const remoteRoute = useMemo(() => parseRemoteRoute(), []);
 
@@ -248,7 +261,7 @@ export default function App() {
 
   // On mount: strictly verify stored tokens & check pending orders against the server!
   useEffect(() => {
-    if (userScoreboardRoute || overlayRoute || remoteRoute) return;
+    if (userScoreboardRoute || userCricketOverlayRoute || overlayRoute || remoteRoute) return;
     let active = true;
 
     const validateOnServer = async () => {
@@ -304,7 +317,7 @@ export default function App() {
       active = false;
       window.clearInterval(recheckTimer);
     };
-  }, [userScoreboardRoute, overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
+  }, [userScoreboardRoute, userCricketOverlayRoute, overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
 
   // Automatic 24-hour expiry watcher: re-locks overlays the exact second expiresAt passes
   useEffect(() => {
@@ -336,12 +349,22 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // 1. Per-user pure transparent vMix / OBS Scoreboard Overlay (`/scoreboard/{USER_UID}`)
+  // 1. Per-user pure transparent vMix / OBS Kabaddi Scoreboard Overlay (`/scoreboard/{USER_UID}`)
   if (userScoreboardRoute) {
     return (
       <UserScoreboardOverlayView
         targetUid={userScoreboardRoute.targetUid}
         background={userScoreboardRoute.background}
+      />
+    );
+  }
+
+  // 1b. Per-user pure transparent vMix / OBS Single Cricket Scoreboard Overlay (`/cricket-overlay/{USER_UID}`)
+  if (userCricketOverlayRoute) {
+    return (
+      <UserCricketOverlayView
+        targetUid={userCricketOverlayRoute.targetUid}
+        background={userCricketOverlayRoute.background}
       />
     );
   }

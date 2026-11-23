@@ -51,6 +51,7 @@ import {
 } from '../utils/exportOverlayPng';
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiRemoteModal } from './KabaddiRemoteModal';
+import { VmixCricketController } from './VmixCricketController';
 import { VmixKabaddiController } from './VmixKabaddiController';
 import { WEDDING_COLOR_PRESETS, WeddingFrameOverlay } from './WeddingFrameOverlay';
 
@@ -271,7 +272,8 @@ export function LiveStudioPreview({
   const isClassic = resolvedStyle === 'classic';
   const isFestive = resolvedStyle === 'festive';
   const isWeddingFrame = resolvedStyle === 'wedding';
-  const isFreeDemo = activeMode === 'kabaddi' && resolvedStyle === 'demo';
+  const isFreeDemo =
+    (activeMode === 'kabaddi' && resolvedStyle === 'demo') || activeMode === 'cricket';
   const currentSku = getOverlaySku(activeMode, resolvedStyle);
   const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
   const isCurrentUnlocked = isFreeDemo || Boolean(activeToken && unlockedSkus.includes(currentSku));
@@ -289,7 +291,7 @@ export function LiveStudioPreview({
         : normalizeStyleForMode(mode, activeStyle);
     onChangeMode(mode);
     onChangeStyle(nextStyle);
-    if (mode !== 'kabaddi' || !useFirestoreKabaddi) {
+    if (mode === 'haldi') {
       updateSyncState({ mode, style: nextStyle });
     }
   };
@@ -297,7 +299,7 @@ export function LiveStudioPreview({
   const handleSelectStyle = (style: OverlayStyle) => {
     const nextStyle = normalizeStyleForMode(activeMode, style);
     onChangeStyle(nextStyle);
-    if (activeMode !== 'kabaddi' || !useFirestoreKabaddi) {
+    if (activeMode === 'haldi') {
       updateSyncState({ style: nextStyle });
     }
   };
@@ -854,6 +856,15 @@ export function LiveStudioPreview({
       },
     },
     {
+      id: 'cricket',
+      label: {
+        en: 'Cricket Scoreboard',
+        mr: 'क्रिकेट स्कोअरबोर्ड',
+        hi: 'क्रिकेट स्कोरबोर्ड',
+        gu: 'ક્રિકેટ સ્કોરબોર્ડ',
+      },
+    },
+    {
       id: 'haldi',
       label: {
         en: 'Wedding & Haldi (4)',
@@ -870,7 +881,26 @@ export function LiveStudioPreview({
     desc: Record<Language, string>;
     badge?: string;
   }[] =
-    activeMode === 'kabaddi'
+    activeMode === 'cricket'
+      ? [
+          {
+            id: 'classic',
+            label: {
+              en: 'Single Cricket Broadcast Bar · vMix Control',
+              mr: 'सिंगल क्रिकेट ब्रॉडकास्ट बार · vMix कंट्रोल',
+              hi: 'सिंगल क्रिकेट ब्रॉडकास्ट बार · vMix कंट्रोल',
+              gu: 'સિંગલ ક્રિકેટ બ્રોડકાસ્ટ બાર · vMix કંટ્રોલ',
+            },
+            desc: {
+              en: 'WC-style purple/magenta/yellow lower-third with live vMix transparent URL & ball-by-ball controls',
+              mr: 'WC स्टाईल पर्पल-मॅजेंटा-यलो लोअर-थर्ड + सिंगल vMix ट्रान्सपरंट URL व बॉल-बाय-बॉल कंट्रोल',
+              hi: 'WC स्टाइल पर्पल-मैजेंटा-येलो लोअर-थर्ड + सिंगल vMix ट्रांसपेरेंट URL और बॉल-बाय-बॉल कंट्रोल',
+              gu: 'WC સ્ટાઇલ પર્પલ-મેજેન્ટા-યલો લોઅર-थર્ડ + સિંગલ vMix ટ્રાન્સપરન્ટ URL અને બોલ-બાય-બોલ કંટ્રોલ',
+            },
+            badge: 'NEW · VMIX LIVE',
+          },
+        ]
+      : activeMode === 'kabaddi'
       ? [
           {
             id: 'demo',
@@ -1055,7 +1085,9 @@ export function LiveStudioPreview({
               ? 'sm:grid-cols-2 lg:grid-cols-4'
               : styleOptions.length === 3
                 ? 'sm:grid-cols-3'
-                : 'sm:grid-cols-2'
+                : styleOptions.length === 1
+                  ? 'grid-cols-1'
+                  : 'sm:grid-cols-2'
           }`}
         >
           {styleOptions.map((opt) => {
@@ -1105,8 +1137,20 @@ export function LiveStudioPreview({
           })}
         </div>
 
-        {/* Main Studio Area: Full-Width vMix Kabaddi Controller OR Haldi/Wedding Broadcast Monitor + Customizer */}
-        {activeMode === 'kabaddi' ? (
+        {/* Main Studio Area: Cricket Controller OR Kabaddi Controller OR Haldi/Wedding Monitor */}
+        {activeMode === 'cricket' ? (
+          <VmixCricketController
+            targetUid={kabaddiTargetUid || roomId}
+            accountLabel={
+              userAccount?.loginId || (isSuperAdmin ? 'SUPER ADMIN' : (kabaddiTargetUid || roomId).slice(0, 8))
+            }
+            lang={lang}
+            outputBg={outputBg}
+            onChangeOutputBg={setOutputBg}
+            transparentBg={transparentBg}
+            onToggleTransparentBg={() => setTransparentBg((v) => !v)}
+          />
+        ) : activeMode === 'kabaddi' ? (
           <div className="space-y-4">
             {/* Authenticated Operator / Super Admin Isolation Strip */}
             {onOpenAccountPortal && (
