@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowRight, Layers, LockOpen } from 'lucide-react';
 import { AccountPortalModal } from './components/AccountPortalModal';
 import { BookingSection } from './components/BookingSection';
 import { BroadcastStingerSection } from './components/BroadcastStingerSection';
@@ -13,12 +12,11 @@ import { OverlayOutputView } from './components/OverlayOutputView';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
 import { PartnerAdSection } from './components/PartnerAdSection';
-import { ScrollReveal } from './components/ScrollReveal';
 import { ServicesPage } from './components/ServicesPage';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { UserControlPanelView } from './components/UserControlPanelView';
 import { UserScoreboardOverlayView } from './components/UserScoreboardOverlayView';
-import { EventCategoryId, Language, UI_COPY } from './data/content';
+import { EventCategoryId, Language } from './data/content';
 import {
   OVERLAY_PRODUCTS,
   OverlaySku,
@@ -600,139 +598,6 @@ export default function App() {
               lang={lang}
               onBookNow={() => navigateHome('book')}
             />
-
-            {/* Paid Transparent Overlays Store Callout Section — clicking opens /overlays page */}
-            <section
-              id="studio"
-              className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
-            >
-              <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-                <ScrollReveal>
-                <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5 sm:gap-6 mb-8 sm:mb-10">
-                  <div className="max-w-3xl space-y-3.5">
-                    <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
-                      {UI_COPY.studioSection.kicker[lang]}
-                    </p>
-                    <h2
-                      className={`font-display text-2xl sm:text-4xl font-bold text-white ${
-                        lang === 'mr' ? 'leading-[1.38] tracking-normal' : 'leading-[1.2] tracking-tight'
-                      }`}
-                    >
-                      {UI_COPY.studioSection.heading[lang]}
-                    </h2>
-                    <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
-                      {lang === 'mr'
-                        ? 'OBS Studio आणि vMix साठी मोफत कबड्डी डेमो, प्रो कबड्डी कंट्रोलर, कस्टम रॉयल वेडिंग फ्रेम आणि हळदी अ‍ॅनिमेटेड ओव्हरले — आजची ऑफर: फक्त ₹1 पेमेंट करा, 1 दिवसासाठी (24 तास) आपोआप अनलॉक होईल.'
-                        : "FREE Kabaddi Demo, Pro vMix/OBS Kabaddi Controller, Customizable Royal Wedding Frame, and Animated Haldi Overlays for OBS & vMix — Today's Offer: Pay ₹1 for instant 1-Day (24h) auto-unlock."}
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => navigateToOverlays()}
-                    className="btn-primary-pro w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3.5 text-sm font-bold rounded-xl text-center sm:whitespace-nowrap shrink-0 self-stretch sm:self-start lg:self-auto tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
-                  >
-                    <Layers className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                    <span>
-                      {lang === 'mr'
-                        ? 'सर्व ओव्हरले पहा (आजची ऑफर ₹1)'
-                        : "Open Overlays Store (Today's Offer ₹1)"}
-                    </span>
-                    <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  </button>
-                </div>
-                </ScrollReveal>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-                  {OVERLAY_PRODUCTS.map((product, idx) => {
-                    const isUnlocked = Boolean(product.isFreeDemo) || unlockedSkus.includes(product.sku);
-                    const styleBadge =
-                      product.mode === 'kabaddi'
-                        ? product.isFreeDemo
-                          ? 'FREE DEMO'
-                          : 'PRO SCOREBOARD'
-                        : product.style === 'wedding'
-                          ? 'WEDDING FRAME'
-                          : product.style === 'festive'
-                            ? 'ANIMATED ROYAL'
-                            : product.style === 'classic'
-                              ? 'STYLE 1'
-                              : 'STYLE 2';
-                    return (
-                      <ScrollReveal key={product.sku} delay={(idx % 3) * 80} className="h-full">
-                      <button
-                        type="button"
-                        onClick={() => navigateToOverlays(product.mode, product.style)}
-                        className={`studio-card-animate w-full h-full group text-left bg-[#121216] border rounded-2xl p-5 flex flex-col justify-between gap-5 transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
-                          product.isFreeDemo
-                            ? 'border-[#4ADE80]/40 hover:border-[#4ADE80]'
-                            : 'border-white/10 hover:border-[#FACC15]/70'
-                        }`}
-                      >
-                        <div className="space-y-2.5">
-                          <div className="flex items-center justify-between gap-2 text-xs font-mono">
-                            <span className="text-zinc-400">
-                              {product.mode === 'kabaddi'
-                                ? lang === 'mr'
-                                  ? 'कबड्डी'
-                                  : 'KABADDI'
-                                : lang === 'mr'
-                                  ? 'हळदी व लग्न'
-                                  : 'HALDI & WEDDING'}{' '}
-                              · {styleBadge}
-                            </span>
-                            {product.isFreeDemo ? (
-                              <span className="text-[#4ADE80] font-bold">FREE</span>
-                            ) : isUnlocked ? (
-                              <span className="inline-flex items-center gap-1 text-[#4ADE80] font-bold">
-                                <LockOpen className="w-3.5 h-3.5" aria-hidden="true" />
-                                {lang === 'mr' ? 'अनलॉक' : 'OWNED'}
-                              </span>
-                            ) : (
-                              <span className="text-[#4ADE80] font-semibold">
-                                {lang === 'mr' ? 'आजची ऑफर ₹1' : "TODAY'S OFFER ₹1"}
-                              </span>
-                            )}
-                          </div>
-
-                          <h3 className="font-display text-base sm:text-lg font-bold text-white leading-[1.42] group-hover:text-[#FACC15] transition-colors">
-                            {product.title[lang]}
-                          </h3>
-                          <p className="text-xs sm:text-[13px] text-zinc-400 leading-relaxed">
-                            {product.subtitle[lang]}
-                          </p>
-                        </div>
-
-                        <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
-                          {product.isFreeDemo ? (
-                            <span className="font-mono text-xl font-extrabold text-[#4ADE80]">
-                              {lang === 'mr' ? 'मोफत (FREE)' : 'FREE'}
-                            </span>
-                          ) : (
-                            <div className="flex items-baseline gap-1.5">
-                              <span className="font-mono text-xl font-extrabold text-[#FACC15] tabular-nums">
-                                ₹{product.salePrice}
-                              </span>
-                              <span className="font-mono text-xs text-zinc-500 line-through tabular-nums">
-                                ₹{product.originalPrice}
-                              </span>
-                              <span className="text-[11px] text-zinc-400">
-                                {lang === 'mr' ? '/ 1 दिवस (24 तास)' : '/ 1 Day (24h)'}
-                              </span>
-                            </div>
-                          )}
-                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-200 group-hover:text-white whitespace-nowrap">
-                            <span>{product.isFreeDemo ? (lang === 'mr' ? 'वापरा' : 'Use Free') : (lang === 'mr' ? 'उघडा' : 'Open')}</span>
-                            <ArrowRight className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                          </span>
-                        </div>
-                      </button>
-                      </ScrollReveal>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
 
             <BroadcastStingerSection
               lang={lang}

@@ -1,5 +1,18 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, Clock, Eye, Lock, LockOpen, RefreshCw } from 'lucide-react';
+import { FormEvent, useEffect, useState } from 'react';
+import {
+  ArrowLeft,
+  Check,
+  Clock,
+  Eye,
+  EyeOff,
+  Lock,
+  LockOpen,
+  LogIn,
+  RefreshCw,
+  ShieldCheck,
+  UserPlus,
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import { EventCategoryId, Language, STUDIO_CONTACT, tLang } from '../data/content';
 import {
   formatRemainingTime,
@@ -212,10 +225,55 @@ export function OverlaysPage({
   forcedMatchRoomId,
   onOpenAccountPortal,
 }: OverlaysPageProps) {
+  const { authReady, firebaseUser, userAccount, isSuperAdmin, signInOperatorWithLoginId } =
+    useAuth();
   const [filterMode, setFilterMode] = useState<'all' | OverlayMode>('all');
   const [checkoutProduct, setCheckoutProduct] = useState<OverlayProduct | null>(null);
   const [checkoutPlanId, setCheckoutPlanId] = useState<OverlayPlanId>('1day');
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [loginIdInput, setLoginIdInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+
+  const hasOverlayAccess = Boolean(
+    firebaseUser && (isSuperAdmin || (userAccount ? userAccount.status !== 'disabled' : true))
+  );
+
+  const handleInlineLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+    if (!loginIdInput.trim() || !passwordInput) {
+      setLoginError(
+        tLang(
+          {
+            en: 'Please enter both your Login ID and Password.',
+            mr: 'कृपया तुमचा Login ID आणि Password दोन्ही टाका.',
+            hi: 'कृपया अपना Login ID और Password दोनों डालें।',
+            gu: 'કૃપા કરીને તમારું Login ID અને Password બંને દાખલ કરો.',
+          },
+          lang
+        )
+      );
+      return;
+    }
+
+    setLoginBusy(true);
+    try {
+      await signInOperatorWithLoginId(loginIdInput.trim(), passwordInput);
+      setLoginIdInput('');
+      setPasswordInput('');
+    } catch (err) {
+      setLoginError(
+        err instanceof Error
+          ? err.message
+          : 'Invalid Login ID or Password. Please try again.'
+      );
+    } finally {
+      setLoginBusy(false);
+    }
+  };
 
   const hasPendingOrders = Object.values(pendingOrders).some((ord) => ord?.status === 'pending');
 
@@ -292,6 +350,241 @@ export function OverlaysPage({
     const prod = OVERLAY_PRODUCTS.find((p) => p.sku === sku) ?? OVERLAY_PRODUCTS[0];
     handleOpenCheckout(prod, '1day');
   };
+
+  // Loading auth state check before rendering gate or studio
+  if (!authReady) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center px-4 py-16 text-[#F4F4F5]">
+        <div className="bg-[#121622]/90 border border-white/15 rounded-2xl px-8 py-6 text-center space-y-2 shadow-2xl">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FACC15]">
+            Star Event Live · Overlays Access
+          </p>
+          <p className="text-sm text-zinc-300">
+            {tLang(
+              {
+                en: 'Checking your login session...',
+                mr: 'तुमचे लॉगिन सेशन तपासत आहे...',
+                hi: 'आपका लॉगिन सेशन जांचा जा रहा है...',
+                gu: 'તમારું લોગિન સેશન તપાસી રહ્યા છીએ...',
+              },
+              lang
+            )}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Strict ID & Password Login Gate for Overlays Page
+  if (!hasOverlayAccess) {
+    return (
+      <div className="min-h-[75vh] text-[#F4F4F5] py-8 sm:py-14 px-3 sm:px-6 lg:px-8">
+        <div className="max-w-xl mx-auto space-y-6">
+          {/* Top Back Button */}
+          <div>
+            <button
+              type="button"
+              onClick={onBackHome}
+              className="btn-glass-pro inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-100 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+            >
+              <ArrowLeft className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
+              <span>
+                {tLang(
+                  {
+                    en: 'Back to Home',
+                    mr: 'मुख्य पृष्ठावर परत जा',
+                    hi: 'होम पेज पर वापस जाएं',
+                    gu: 'હોમ પેજ પર પાછા જાઓ',
+                  },
+                  lang
+                )}
+              </span>
+            </button>
+          </div>
+
+          {/* Login Required Card */}
+          <div className="bg-[#111521]/95 border border-[#FACC15]/35 rounded-2xl p-5 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.75)] space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-[#EF4444]/15 border border-[#EF4444]/40 flex items-center justify-center">
+                <Lock className="w-7 h-7 text-[#FACC15]" aria-hidden="true" />
+              </div>
+              <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FACC15]">
+                {tLang(
+                  {
+                    en: 'Protected Overlays Studio · Login Required',
+                    mr: 'प्रोटेक्टेड ओव्हरले स्टुडिओ · लॉगिन आवश्यक',
+                    hi: 'प्रोटेक्टेड ओवरले स्टूडियो · लॉगिन आवश्यक',
+                    gu: 'પ્રોટેક્ટેડ ઓવરલે સ્ટુડિયો · લોગિન જરૂરી',
+                  },
+                  lang
+                )}
+              </p>
+              <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white leading-tight">
+                {tLang(
+                  {
+                    en: 'Login with ID & Password to Access Overlays',
+                    mr: 'ओव्हरले वापरण्यासाठी ID व Password टाकून लॉगिन करा',
+                    hi: 'ओवरले एक्सेस करने के लिए ID और Password से लॉगिन करें',
+                    gu: 'ઓવરલે એક્સેસ કરવા માટે ID અને Password થી લોગિન કરો',
+                  },
+                  lang
+                )}
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                {tLang(
+                  {
+                    en: 'Sign in using your registered Login ID and Password to open Kabaddi Scoreboards, Haldi & Wedding Overlays, and vMix/OBS Live Studio.',
+                    mr: 'कबड्डी स्कोअरबोर्ड, हळदी व लग्न ओव्हरले आणि vMix/OBS लाईव्ह स्टुडिओ उघडण्यासाठी तुमचा Login ID आणि Password टाका.',
+                    hi: 'कबड्डी स्कोरबोर्ड, हल्दी व शादी ओवरले और vMix/OBS लाइव स्टूडियो खोलने के लिए अपना Login ID और Password डालें।',
+                    gu: 'કબડ્ડી સ્કોરબોર્ડ, હળદી-લગ્ન ઓવરલે અને vMix/OBS લાઇવ સ્ટુડિયો ખોલવા માટે તમારું Login ID અને Password દાખલ કરો.',
+                  },
+                  lang
+                )}
+              </p>
+            </div>
+
+            {loginError && (
+              <div
+                role="alert"
+                className="bg-red-950/75 border border-red-500/50 rounded-xl px-4 py-3 text-xs sm:text-sm font-medium text-red-100"
+              >
+                {loginError}
+              </div>
+            )}
+
+            <form onSubmit={handleInlineLogin} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="overlays-login-id"
+                  className="block text-xs font-semibold text-zinc-300"
+                >
+                  {tLang(
+                    {
+                      en: 'Login ID',
+                      mr: 'लॉगिन आयडी (Login ID)',
+                      hi: 'लॉगिन आईडी (Login ID)',
+                      gu: 'લોગિન આઈડી (Login ID)',
+                    },
+                    lang
+                  )}
+                </label>
+                <input
+                  id="overlays-login-id"
+                  type="text"
+                  autoComplete="username"
+                  value={loginIdInput}
+                  onChange={(e) => setLoginIdInput(e.target.value)}
+                  placeholder="e.g. RAHULPATIL or STAREVENT01"
+                  className="w-full px-4 py-3 rounded-xl bg-[#090C14] border border-white/15 focus:border-[#FACC15] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="overlays-login-password"
+                  className="block text-xs font-semibold text-zinc-300"
+                >
+                  {tLang(
+                    {
+                      en: 'Password',
+                      mr: 'पासवर्ड (Password)',
+                      hi: 'पासवर्ड (Password)',
+                      gu: 'પાસવર્ડ (Password)',
+                    },
+                    lang
+                  )}
+                </label>
+                <div className="relative">
+                  <input
+                    id="overlays-login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#090C14] border border-white/15 focus:border-[#FACC15] focus:outline-none text-sm text-white placeholder:text-zinc-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white rounded-lg"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="w-4 h-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="w-4 h-4" aria-hidden="true" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loginBusy}
+                className="btn-gold-pro w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 text-sm sm:text-base font-extrabold text-black rounded-xl disabled:opacity-60"
+              >
+                <LogIn className="w-4 h-4 shrink-0" aria-hidden="true" />
+                <span>
+                  {loginBusy
+                    ? tLang(
+                        {
+                          en: 'Logging in...',
+                          mr: 'लॉगिन होत आहे...',
+                          hi: 'लॉगिन हो रहा है...',
+                          gu: 'લોગિન થઈ રહ્યું છે...',
+                        },
+                        lang
+                      )
+                    : tLang(
+                        {
+                          en: 'Login & Open Overlays',
+                          mr: 'लॉगिन करा आणि ओव्हरले उघडा',
+                          hi: 'लॉगिन करें और ओवरले खोलें',
+                          gu: 'લોગિન કરો અને ઓવરલે ખોલો',
+                        },
+                        lang
+                      )}
+                </span>
+              </button>
+            </form>
+
+            {onOpenAccountPortal && (
+              <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onOpenAccountPortal('operator')}
+                  className="btn-primary-pro flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold text-white rounded-xl"
+                >
+                  <UserPlus className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
+                  <span>
+                    {tLang(
+                      {
+                        en: 'New User? Sign Up Account',
+                        mr: 'नवीन युजर? साइन अप करा',
+                        hi: 'नए यूजर? नया अकाउंट बनाएं',
+                        gu: 'નવા યુઝર? નવું એકાઉન્ટ બનાવો',
+                      },
+                      lang
+                    )}
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onOpenAccountPortal('admin')}
+                  className="btn-glass-pro inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 rounded-xl"
+                >
+                  <ShieldCheck className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
+                  <span>Admin Login</span>
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="text-[#F4F4F5]">
