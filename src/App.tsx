@@ -382,6 +382,7 @@ export default function App() {
   };
 
   const navigateToOverlays = (mode?: PreviewMode, style?: OverlayStyle) => {
+    const isPageChange = currentPage !== 'overlays';
     const nextMode = mode ?? previewMode;
     if (mode) setPreviewMode(mode);
     if (style) {
@@ -393,46 +394,53 @@ export default function App() {
       window.history.pushState({}, '', '/overlays');
     }
     setCurrentPage('overlays');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
   };
 
   const navigateToServices = () => {
+    const isPageChange = currentPage !== 'services' || Boolean(controlTargetUid);
     setControlTargetUid(null);
     if (window.location.pathname !== '/services') {
       window.history.pushState({}, '', '/services');
     }
     setCurrentPage('services');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
   };
 
   const navigateToPackages = () => {
+    const isPageChange = currentPage !== 'packages' || Boolean(controlTargetUid);
     setControlTargetUid(null);
     if (window.location.pathname !== '/packages') {
       window.history.pushState({}, '', '/packages');
     }
     setCurrentPage('packages');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
   };
 
   const navigateHome = (sectionId?: string) => {
+    const wasOnHome = currentPage === 'home' && !controlTargetUid;
     setControlTargetUid(null);
     const targetUrl = sectionId && sectionId !== 'top' ? `/#${sectionId}` : '/';
     if (window.location.pathname !== '/' || (sectionId && window.location.hash !== `#${sectionId}`)) {
       window.history.pushState({}, '', targetUrl);
     }
 
-    if (currentPage !== 'home') {
+    if (!wasOnHome) {
       setCurrentPage('home');
       window.setTimeout(() => {
         if (!sectionId || sectionId === 'top') {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: 'auto' });
         } else {
           scrollToSection(sectionId);
         }
       }, 60);
-    } else if (!sectionId || sectionId === 'top') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
+    } else if (sectionId && sectionId !== 'top') {
       scrollToSection(sectionId);
     }
   };
@@ -440,12 +448,15 @@ export default function App() {
   const navigateToUserControl = (uid: string) => {
     const cleanUid = uid.trim();
     if (!cleanUid) return;
+    const isPageChange = controlTargetUid !== cleanUid;
     const targetPath = `/control/${encodeURIComponent(cleanUid)}`;
     if (window.location.pathname !== targetPath) {
       window.history.pushState({}, '', targetPath);
     }
     setControlTargetUid(cleanUid);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
   };
 
   const handlePreviewEvent = (mode: PreviewMode) => {

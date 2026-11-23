@@ -16,7 +16,7 @@ interface PartnerAdSectionProps {
 }
 
 interface AdBannerSlide {
-  id: 'sahyadri' | 'ravi-mobile';
+  id: 'sahyadri' | 'ravi-mobile' | 'pavan-events';
   imagePath: string;
   imageAlt: string;
   phones: Array<{ display: string; href: string }>;
@@ -47,6 +47,16 @@ const AD_BANNERS: AdBannerSlide[] = [
       url: 'https://www.instagram.com/ravi.mobile_repairing/',
     },
   },
+  {
+    id: 'pavan-events',
+    imagePath: '/assets/aistudio/WhatsApp_Image_2026-11-23_at_9.00.33_AM_7efa46fa.jpeg',
+    imageAlt: 'Pavan Events Advertisement Banner',
+    phones: [{ display: '9028975078', href: 'tel:+919028975078' }],
+    instagram: {
+      handle: '@pavan.event.management',
+      url: 'https://www.instagram.com/pavan.event.management/',
+    },
+  },
 ];
 
 export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
@@ -56,12 +66,12 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
 
   const activeSlide = AD_BANNERS[activeIndex] ?? AD_BANNERS[0];
 
-  // Auto-rotate seamlessly inside the single showcase frame every 4.5 seconds
+  // Auto-rotate seamlessly inside the single showcase frame every 3 seconds
   useEffect(() => {
     if (isPaused || lightboxOpen) return;
     const timer = window.setInterval(() => {
       setActiveIndex((prev) => (prev + 1) % AD_BANNERS.length);
-    }, 4500);
+    }, 3000);
     return () => window.clearInterval(timer);
   }, [isPaused, lightboxOpen]);
 
@@ -88,12 +98,22 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
     setActiveIndex((prev) => (prev + 1) % AD_BANNERS.length);
   };
 
+  const handleDesktopMouseEnter = () => {
+    if (
+      typeof window !== 'undefined' &&
+      window.matchMedia &&
+      window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    ) {
+      setIsPaused(true);
+    }
+  };
+
   return (
     <section
       id="featured-advertisement"
       aria-label="Advertise"
       className="py-10 sm:py-16 lg:py-20 border-b border-white/10"
-      onMouseEnter={() => setIsPaused(true)}
+      onMouseEnter={handleDesktopMouseEnter}
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-8">
@@ -174,18 +194,28 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
             </div>
           </div>
 
-          {/* ONLY PHONE NUMBER & INSTAGRAM ID — BIG, BOLD, CRYSTAL CLEAR */}
-          <div className="pt-1 pb-1.5 px-1 sm:px-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-5">
-            {activeSlide.phones.map((phone) => (
-              <a
-                key={phone.display}
-                href={phone.href}
-                className="btn-primary-pro w-full sm:w-auto min-h-[50px] sm:min-h-[54px] inline-flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl font-mono text-lg sm:text-2xl font-black text-white tracking-wide tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
-              >
-                <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#FACC15] shrink-0" aria-hidden="true" />
-                <span>{phone.display}</span>
-              </a>
-            ))}
+          {/* ONLY PHONE NUMBER & INSTAGRAM ID — FIXED-HEIGHT STABLE ROW (ZERO LAYOUT SHIFT) */}
+          <div className="pt-1 pb-1.5 px-1 sm:px-2 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-center gap-2.5 sm:gap-4 min-h-[116px] sm:min-h-[60px]">
+            <div
+              className={`grid gap-2 sm:gap-3 w-full sm:w-auto ${
+                activeSlide.phones.length > 1 ? 'grid-cols-2 sm:flex sm:flex-row' : 'grid-cols-1'
+              }`}
+            >
+              {activeSlide.phones.map((phone) => (
+                <a
+                  key={phone.display}
+                  href={phone.href}
+                  className={`btn-primary-pro w-full sm:w-auto min-h-[50px] sm:min-h-[54px] inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl font-mono font-black text-white tracking-wide tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                    activeSlide.phones.length > 1
+                      ? 'px-2.5 sm:px-5 py-2.5 sm:py-3 text-sm min-[400px]:text-base sm:text-xl'
+                      : 'px-4 sm:px-6 py-2.5 sm:py-3 text-lg sm:text-2xl'
+                  }`}
+                >
+                  <Phone className="w-4 h-4 sm:w-6 sm:h-6 text-[#FACC15] shrink-0" aria-hidden="true" />
+                  <span className="truncate">{phone.display}</span>
+                </a>
+              ))}
+            </div>
 
             <a
               href={activeSlide.instagram.url}

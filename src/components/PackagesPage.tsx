@@ -25,8 +25,8 @@ export function PackagesPage({
   return (
     <div className="text-[#F4F4F5]">
       {/* Top Breadcrumb */}
-      <div className="pt-8 sm:pt-10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pt-6 sm:pt-10">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 transform-none">
           <div className="relative overflow-hidden rounded-xl border border-[#FACC15]/25 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-5 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
             <div
               aria-hidden="true"
