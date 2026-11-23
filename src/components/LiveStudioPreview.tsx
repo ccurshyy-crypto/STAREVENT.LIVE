@@ -1,4 +1,4 @@
-import { ChangeEvent, useEffect, useState } from 'react';
+import { ChangeEvent, useCallback, useEffect, useState } from 'react';
 import {
   ArrowRight,
   Check,
@@ -29,15 +29,20 @@ import {
   VerifiedOverlayToken,
 } from '../data/overlayCatalog';
 import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
+import { computeLiveClockSeconds, useUserScoreboard } from '../hooks/useUserScoreboard';
 import {
   HaldiAnimationMode,
   HaldiAnimSpeed,
   HaldiColorTheme,
+  KabaddiGraphicPanel,
+  KabaddiHalf,
   KabaddiTimeoutTeam,
+  LiveOverlayState,
   normalizeStyleForMode,
   OverlayBackground,
   OverlayMode,
   OverlayStyle,
+  UserScoreboardSettingsDoc,
   WeddingBottomAnimation,
 } from '../types/overlay';
 import {
@@ -111,6 +116,31 @@ const OBS_CUSTOM_CSS =
 
 const MATCH_ID_STORAGE_KEY = 'star_event_active_match_id_v1';
 
+const KABADDI_SETTINGS_KEYS = new Set<keyof UserScoreboardSettingsDoc>([
+  'teamAName',
+  'teamACode',
+  'teamAColor',
+  'teamALogoUrl',
+  'teamAStarting7',
+  'teamBName',
+  'teamBCode',
+  'teamBColor',
+  'teamBLogoUrl',
+  'teamBStarting7',
+  'kabaddiTitle',
+  'kabaddiSubtitle',
+  'kabaddiTag',
+  'kabaddiVenue',
+  'kabaddiLeague',
+  'kabaddiEvent',
+  'kabaddiMatchType',
+  'sponsorName',
+  'championTeam',
+  'runnerUpTeam',
+  'thirdPlaceTeam',
+  'fourthPlaceTeam',
+]);
+
 function createUniqueMatchIdClient(): string {
   const num = Math.floor(1000 + Math.random() * 9000);
   return `kbd-${num}`;
@@ -150,10 +180,9 @@ export function LiveStudioPreview({
   onOpenAccountPortal,
 }: LiveStudioPreviewProps) {
   const {
+    firebaseUser,
     isSuperAdmin,
     userAccount,
-    loadUserScoreboardSnapshot,
-    saveUserScoreboardSnapshot,
   } = useAuth();
   const [platform, setPlatform] = useState<PlatformId>('youtube-public');
   const [transparentBg, setTransparentBg] = useState(true);
@@ -165,9 +194,7 @@ export function LiveStudioPreview({
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
   const [nowTs, setNowTs] = useState(() => Date.now());
-  const [autoRulesEnabled, setAutoRulesEnabled] = useState(true);
-  const [autoDemoActive, setAutoDemoActive] = useState(false);
-  const [hydratedFirestoreRoom, setHydratedFirestoreRoom] = useState<string | null>(null);
+  const [nowClock, setNowClock] = useState(() => Date.now());
 
   // Sync forcedMatchRoomId (e.g. Super Admin clicking "Open Board" on a user)
   useEffect(() => {
@@ -204,24 +231,41 @@ export function LiveStudioPreview({
     handleSetMatchId(createUniqueMatchIdClient());
   };
 
+  // Single-source-of-truth per-user Firebase Firestore scoreboard when authenticated
+  const kabaddiTargetUid = firebaseUser?.uid ?? '';
+  const useFirestoreKabaddi = Boolean(kabaddiTargetUid);
+
+  const userScoreboard = useUserScoreboard({
+    targetUid: activeMode === 'kabaddi' && useFirestoreKabaddi ? kabaddiTargetUid : '',
+    role: 'controller',
+    canWrite: activeMode === 'kabaddi' && useFirestoreKabaddi,
+  });
+
+  // Node overlay sync (used for Haldi/Wedding modes & guest fallback only)
   const {
-    state,
-    updateState,
-    sendAction,
-    connected,
-    connectionStatus,
-    transport,
+    state: syncState,
+    updateState: updateSyncState,
+    sendAction: sendSyncAction,
+    connected: syncConnected,
+    connectionStatus: syncConnectionStatus,
+    transport: syncTransport,
     connectedDisplays,
     connectedControllers,
     controllerNames,
-    canUndo,
-    canRedo,
+    canUndo: syncCanUndo,
+    canRedo: syncCanRedo,
     roomId,
     getServerNow,
   } = useOverlaySync({
     roomId: roomInput,
     role: 'studio',
+    readOnly: activeMode === 'kabaddi' && useFirestoreKabaddi,
   });
+
+  // Active state: Haldi/Wedding uses syncState; Kabaddi uses isolated Firestore state when logged in
+  const state = syncState;
+  const updateState = updateSyncState;
+  const kabaddiState = useFirestoreKabaddi ? userScoreboard.state : syncState;
 
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
   const isClassic = resolvedStyle === 'classic';
@@ -238,35 +282,6 @@ export function LiveStudioPreview({
     return () => window.clearInterval(id);
   }, [activeToken]);
 
-  // Load isolated Firestore scoreboard snapshot when an Operator User logs into their room
-  useEffect(() => {
-    if (!userAccount || roomId !== userAccount.matchRoomId) return;
-    if (hydratedFirestoreRoom === roomId) return;
-    let cancelled = false;
-    loadUserScoreboardSnapshot(roomId)
-      .then((saved) => {
-        if (!cancelled && saved) {
-          updateState(saved);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setHydratedFirestoreRoom(roomId);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [userAccount, roomId, hydratedFirestoreRoom, loadUserScoreboardSnapshot, updateState]);
-
-  // Debounced auto-save of isolated Operator User scoreboard state to Firestore
-  useEffect(() => {
-    if (!userAccount || roomId !== userAccount.matchRoomId) return;
-    if (hydratedFirestoreRoom !== roomId) return;
-    const timer = window.setTimeout(() => {
-      void saveUserScoreboardSnapshot(roomId, userAccount.uid, userAccount.loginId, state);
-    }, 1500);
-    return () => window.clearTimeout(timer);
-  }, [userAccount, roomId, hydratedFirestoreRoom, state, saveUserScoreboardSnapshot]);
-
   const handleSelectMode = (mode: PreviewMode) => {
     const nextStyle =
       mode === 'haldi' && activeMode !== 'haldi'
@@ -274,210 +289,182 @@ export function LiveStudioPreview({
         : normalizeStyleForMode(mode, activeStyle);
     onChangeMode(mode);
     onChangeStyle(nextStyle);
-    updateState({ mode, style: nextStyle });
+    if (mode !== 'kabaddi' || !useFirestoreKabaddi) {
+      updateSyncState({ mode, style: nextStyle });
+    }
   };
 
   const handleSelectStyle = (style: OverlayStyle) => {
     const nextStyle = normalizeStyleForMode(activeMode, style);
     onChangeStyle(nextStyle);
-    updateState({ style: nextStyle });
+    if (activeMode !== 'kabaddi' || !useFirestoreKabaddi) {
+      updateSyncState({ style: nextStyle });
+    }
   };
 
-  // Real-time ticking 30s Kabaddi timer, 30s raid timer & 2:00 sin-bin timers
-  const [displayRaidSeconds, setDisplayRaidSeconds] = useState(state.raidSeconds);
-  const [displayMatchSeconds, setDisplayMatchSeconds] = useState(state.matchSeconds);
-  const [binTickNow, setBinTickNow] = useState(() => Date.now());
+  // Smooth, read-only local display clock ticker (NEVER auto-modifies scores or spams writes!)
+  const anyKabaddiClockRunning =
+    activeMode === 'kabaddi' &&
+    (kabaddiState.matchRunning ||
+      kabaddiState.raidRunning ||
+      Boolean(kabaddiState.teamABinEndAt) ||
+      Boolean(kabaddiState.teamBBinEndAt));
 
   useEffect(() => {
-    if (!state.raidRunning) {
-      setDisplayRaidSeconds(state.raidSeconds);
-      return;
-    }
-
-    const computeRemaining = () => {
-      const elapsedSec = Math.floor(Math.max(0, getServerNow() - state.raidUpdatedAt) / 1000);
-      return Math.max(0, state.raidSeconds - elapsedSec);
-    };
-
-    setDisplayRaidSeconds(computeRemaining());
-    const interval = window.setInterval(() => {
-      const rem = computeRemaining();
-      setDisplayRaidSeconds(rem);
-      if (rem === 0) {
-        const dur = state.kabaddiRaidDuration ?? 30;
-        if (autoRulesEnabled) {
-          updateState({
-            raidRunning: false,
-            raidSeconds: dur,
-            raidUpdatedAt: getServerNow(),
-            kabaddiAlert: 'RAID TIME OVER · NEXT RAID READY',
-          });
-          window.setTimeout(() => {
-            updateState({ kabaddiAlert: null });
-          }, 2200);
-        } else {
-          updateState({ raidRunning: false, raidSeconds: 0, raidUpdatedAt: getServerNow() });
-        }
-      }
-    }, 250);
-
-    return () => window.clearInterval(interval);
-  }, [
-    state.raidSeconds,
-    state.raidRunning,
-    state.raidUpdatedAt,
-    state.kabaddiRaidDuration,
-    autoRulesEnabled,
-    updateState,
-    getServerNow,
-  ]);
-
-  // Normalize any previously saved >30s match clock to 30s
-  useEffect(() => {
-    if (state.matchSeconds > 30 || (state.kabaddiMatchDuration && state.kabaddiMatchDuration !== 30)) {
-      updateState({
-        matchSeconds: 30,
-        kabaddiMatchDuration: 30,
-        matchRunning: false,
-        matchUpdatedAt: getServerNow(),
-      });
-    }
-  }, [state.matchSeconds, state.kabaddiMatchDuration, updateState, getServerNow]);
-
-  useEffect(() => {
-    if (!state.matchRunning) {
-      setDisplayMatchSeconds(Math.min(30, state.matchSeconds));
-      return;
-    }
-
-    const computeMatch = () => {
-      const elapsedSec = Math.floor(Math.max(0, getServerNow() - state.matchUpdatedAt) / 1000);
-      return Math.max(0, Math.min(30, state.matchSeconds) - elapsedSec);
-    };
-
-    setDisplayMatchSeconds(computeMatch());
-    const interval = window.setInterval(() => {
-      const rem = computeMatch();
-      setDisplayMatchSeconds(rem);
-      if (rem === 0) {
-        if (autoRulesEnabled) {
-          const fullDur = 30;
-          if (state.kabaddiHalf === '1ST HALF') {
-            updateState({
-              matchRunning: false,
-              matchSeconds: fullDur,
-              kabaddiMatchDuration: fullDur,
-              matchUpdatedAt: getServerNow(),
-              raidRunning: false,
-              kabaddiHalf: 'HALF TIME',
-              matchStatus: 'HALF TIME',
-              kabaddiAlert: 'HALF TIME · 2ND HALF READY',
-            });
-          } else {
-            const winnerText =
-              state.teamAScore > state.teamBScore
-                ? `FULL TIME · ${state.teamAName || 'TEAM A'} WINS!`
-                : state.teamBScore > state.teamAScore
-                  ? `FULL TIME · ${state.teamBName || 'TEAM B'} WINS!`
-                  : 'FULL TIME · MATCH TIED!';
-            updateState({
-              matchRunning: false,
-              matchSeconds: 0,
-              kabaddiMatchDuration: fullDur,
-              matchUpdatedAt: getServerNow(),
-              raidRunning: false,
-              kabaddiHalf: 'FULL TIME',
-              matchStatus: 'FULL TIME',
-              kabaddiAlert: winnerText,
-            });
-          }
-          window.setTimeout(() => {
-            updateState({ kabaddiAlert: null });
-          }, 3200);
-        } else {
-          updateState({ matchRunning: false, matchSeconds: 0, matchUpdatedAt: getServerNow() });
-        }
-      }
-    }, 250);
-
-    return () => window.clearInterval(interval);
-  }, [
-    state.matchSeconds,
-    state.matchRunning,
-    state.matchUpdatedAt,
-    state.kabaddiMatchDuration,
-    state.kabaddiHalf,
-    state.teamAScore,
-    state.teamBScore,
-    state.teamAName,
-    state.teamBName,
-    autoRulesEnabled,
-    updateState,
-    getServerNow,
-  ]);
-
-  // Optional 1-click Automatic Live Match Demo (runs scores, raid clock, player OUT dots & inside-scoreboard animations automatically on vMix)
-  useEffect(() => {
-    if (!autoDemoActive || activeMode !== 'kabaddi') return;
-
-    if (!state.matchRunning) {
-      sendAction('timer_toggle');
-    }
-    if (!state.raidRunning) {
-      sendAction('raid_toggle');
-    }
-
-    let step = 0;
-    const sequence: Array<() => void> = [
-      () => {
-        sendAction('raid', { team: 'A', points: 1 });
-        sendAction('players_on_mat', { team: 'B', count: Math.max(1, (state.teamBPlayersOnMat ?? 7) - 1) });
-      },
-      () => sendAction('bonus', { team: 'B', points: 1 }),
-      () => sendAction('do_or_die', { active: true }),
-      () => {
-        sendAction('do_or_die', { active: false });
-        sendAction('raid', { team: 'A', points: 3 });
-      },
-      () => sendAction('tackle', { team: 'B', points: 2 }),
-      () => sendAction('raid', { team: 'B', points: 2 }),
-      () => sendAction('all_out', { team: 'A', points: 2 }),
-    ];
-
-    const id = window.setInterval(() => {
-      const fn = sequence[step % sequence.length];
-      step += 1;
-      fn();
-      sendAction('raid_reset');
-      window.setTimeout(() => sendAction('raid_toggle'), 150);
-    }, 4200);
-
+    const getNow = () => (useFirestoreKabaddi ? Date.now() : getServerNow());
+    setNowClock(getNow());
+    if (!anyKabaddiClockRunning) return;
+    const id = window.setInterval(() => setNowClock(getNow()), 250);
     return () => window.clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoDemoActive, activeMode]);
+  }, [
+    anyKabaddiClockRunning,
+    useFirestoreKabaddi,
+    getServerNow,
+    kabaddiState.matchUpdatedAt,
+    kabaddiState.raidUpdatedAt,
+  ]);
 
-  useEffect(() => {
-    if (!state.teamABinEndAt && !state.teamBBinEndAt) return;
-    setBinTickNow(getServerNow());
-    const interval = window.setInterval(() => {
-      const now = getServerNow();
-      setBinTickNow(now);
-      if (state.teamABinEndAt && state.teamABinEndAt <= now) {
-        updateState({ teamABinEndAt: null });
-      }
-      if (state.teamBBinEndAt && state.teamBBinEndAt <= now) {
-        updateState({ teamBBinEndAt: null });
-      }
-    }, 250);
-    return () => window.clearInterval(interval);
-  }, [state.teamABinEndAt, state.teamBBinEndAt, updateState, getServerNow]);
+  const displayMatchSeconds = computeLiveClockSeconds(
+    kabaddiState.matchSeconds,
+    kabaddiState.matchRunning,
+    kabaddiState.matchUpdatedAt,
+    nowClock
+  );
 
-  const teamABinRemaining = state.teamABinEndAt
-    ? Math.max(0, Math.ceil((state.teamABinEndAt - binTickNow) / 1000))
+  const displayRaidSeconds = computeLiveClockSeconds(
+    kabaddiState.raidSeconds,
+    kabaddiState.raidRunning,
+    kabaddiState.raidUpdatedAt,
+    nowClock
+  );
+
+  const teamABinRemaining = kabaddiState.teamABinEndAt
+    ? Math.max(0, Math.ceil((kabaddiState.teamABinEndAt - nowClock) / 1000))
     : 0;
-  const teamBBinRemaining = state.teamBBinEndAt
-    ? Math.max(0, Math.ceil((state.teamBBinEndAt - binTickNow) / 1000))
+  const teamBBinRemaining = kabaddiState.teamBBinEndAt
+    ? Math.max(0, Math.ceil((kabaddiState.teamBBinEndAt - nowClock) / 1000))
     : 0;
+
+  // Route Kabaddi settings/visibility updates cleanly to Firestore when logged in
+  const handleKabaddiUpdateState = useCallback(
+    (patch: Partial<LiveOverlayState>) => {
+      if (!useFirestoreKabaddi) {
+        updateSyncState(patch);
+        return;
+      }
+      const settingsPatch: Partial<UserScoreboardSettingsDoc> = {};
+      let hasSettings = false;
+      for (const [k, v] of Object.entries(patch)) {
+        if (KABADDI_SETTINGS_KEYS.has(k as keyof UserScoreboardSettingsDoc)) {
+          (settingsPatch as Record<string, unknown>)[k] = v;
+          hasSettings = true;
+        }
+      }
+      if (hasSettings) {
+        userScoreboard.updateSettings(settingsPatch);
+      }
+      if (typeof patch.visible === 'boolean') {
+        void userScoreboard.setVisible(patch.visible);
+      }
+      if (patch.kabaddiGraphicPanel !== undefined) {
+        void userScoreboard.setGraphicPanel(patch.kabaddiGraphicPanel);
+      }
+      if (patch.raidRunning === false && patch.raidSeconds === 30) {
+        void userScoreboard.resetRaidTimer();
+      }
+    },
+    [
+      useFirestoreKabaddi,
+      updateSyncState,
+      userScoreboard.updateSettings,
+      userScoreboard.setVisible,
+      userScoreboard.setGraphicPanel,
+      userScoreboard.resetRaidTimer,
+    ]
+  );
+
+  // Route every manual Kabaddi action strictly 1:1 to atomic Firestore writes when logged in
+  const handleKabaddiSendAction = useCallback(
+    (action: string, payload?: Record<string, unknown>) => {
+      if (!useFirestoreKabaddi) {
+        sendSyncAction(action, payload);
+        return;
+      }
+      const team: 'A' | 'B' = payload?.team === 'B' ? 'B' : 'A';
+      const points = typeof payload?.points === 'number' ? payload.points : 1;
+
+      switch (action) {
+        case 'point':
+        case 'raid':
+          void userScoreboard.applyScoreDelta(team, action === 'point' ? 'point' : 'raid', points);
+          break;
+        case 'bonus':
+          void userScoreboard.applyScoreDelta(team, 'bonus', points);
+          break;
+        case 'tackle':
+          void userScoreboard.applyScoreDelta(team, 'tackle', points);
+          break;
+        case 'lona':
+          void userScoreboard.applyScoreDelta(team, 'lona', points);
+          break;
+        case 'all_out':
+          void userScoreboard.triggerAllOut(team);
+          break;
+        case 'players_on_mat': {
+          const count = typeof payload?.count === 'number' ? payload.count : 7;
+          void userScoreboard.setPlayersOnMat(team, count);
+          break;
+        }
+        case 'player_out':
+          void userScoreboard.playerOut(team);
+          break;
+        case 'half':
+          if (payload?.half) {
+            void userScoreboard.setHalf(payload.half as KabaddiHalf);
+          }
+          break;
+        case 'do_or_die':
+          void userScoreboard.setDoOrDie(Boolean(payload?.active));
+          break;
+        case 'card':
+          if (
+            payload?.card === 'green' ||
+            payload?.card === 'yellow' ||
+            payload?.card === 'red'
+          ) {
+            void userScoreboard.issueCard(team, payload.card);
+          }
+          break;
+        case 'graphic_panel':
+          if (payload?.panel) {
+            void userScoreboard.setGraphicPanel(payload.panel as KabaddiGraphicPanel);
+          }
+          break;
+        case 'raid_reset':
+          void userScoreboard.resetRaidTimer();
+          break;
+        case 'raid_toggle':
+          void userScoreboard.toggleRaidTimer();
+          break;
+        default:
+          break;
+      }
+    },
+    [
+      useFirestoreKabaddi,
+      sendSyncAction,
+      userScoreboard.applyScoreDelta,
+      userScoreboard.triggerAllOut,
+      userScoreboard.setPlayersOnMat,
+      userScoreboard.playerOut,
+      userScoreboard.setHalf,
+      userScoreboard.setDoOrDie,
+      userScoreboard.issueCard,
+      userScoreboard.setGraphicPanel,
+      userScoreboard.resetRaidTimer,
+      userScoreboard.toggleRaidTimer,
+    ]
+  );
 
   const copyText = async (key: string, text: string) => {
     try {
@@ -492,42 +479,74 @@ export function LiveStudioPreview({
   };
 
   const triggerKabaddiAlert = (label: string) => {
-    updateState({ kabaddiAlert: label });
+    if (useFirestoreKabaddi) {
+      void userScoreboard.triggerAlert(label);
+      return;
+    }
+    updateSyncState({ kabaddiAlert: label });
     window.setTimeout(() => {
-      updateState({ kabaddiAlert: null });
+      updateSyncState({ kabaddiAlert: null });
     }, 1800);
   };
 
   const handleKabaddiTimeout = (target: KabaddiTimeoutTeam) => {
+    if (useFirestoreKabaddi) {
+      void userScoreboard.setTimeoutTeam(target);
+      return;
+    }
     if (!target) {
-      sendAction('clear_timeout');
+      sendSyncAction('clear_timeout');
     } else {
-      sendAction('timeout', { target });
+      sendSyncAction('timeout', { target });
     }
   };
 
   const handleToggleMatchTimer = () => {
-    sendAction('timer_toggle');
+    if (useFirestoreKabaddi) {
+      void userScoreboard.toggleMatchTimer();
+      return;
+    }
+    sendSyncAction('timer_toggle');
   };
 
   const handleSetMatchPreset = (seconds: number, autoStart = true) => {
-    sendAction('timer_set', { seconds: Math.max(0, seconds), autoStart });
+    if (useFirestoreKabaddi) {
+      void userScoreboard.resetMatchTimer(Math.max(0, seconds), autoStart);
+      return;
+    }
+    sendSyncAction('timer_set', { seconds: Math.max(0, seconds), autoStart });
   };
 
   const handleSwapTeams = () => {
-    sendAction('swap');
+    if (useFirestoreKabaddi) {
+      void userScoreboard.swapTeams();
+      return;
+    }
+    sendSyncAction('swap');
   };
 
   const handleToggleRaidTimer = () => {
-    sendAction('raid_toggle');
+    if (useFirestoreKabaddi) {
+      void userScoreboard.toggleRaidTimer();
+      return;
+    }
+    sendSyncAction('raid_toggle');
   };
 
   const handleResetRaidTimer = () => {
-    sendAction('raid_reset', { seconds: state.kabaddiRaidDuration || 30 });
+    if (useFirestoreKabaddi) {
+      void userScoreboard.resetRaidTimer();
+      return;
+    }
+    sendSyncAction('raid_reset', { seconds: kabaddiState.kabaddiRaidDuration || 30 });
   };
 
   const handleResetKabaddi = () => {
-    sendAction('reset');
+    if (useFirestoreKabaddi) {
+      void userScoreboard.resetMatchScore();
+      return;
+    }
+    sendSyncAction('reset');
   };
 
   // Build real OBS & vMix Browser Source URLs (auto-converts private ais-dev preview host notice)
@@ -535,6 +554,20 @@ export function LiveStudioPreview({
   const isPrivateDevPreview =
     typeof window !== 'undefined' && window.location.hostname.startsWith('ais-dev-');
   const buildOutputUrl = (extraParams?: Record<string, string>) => {
+    if (activeMode === 'kabaddi' && useFirestoreKabaddi) {
+      const base = `${origin}/scoreboard/${encodeURIComponent(kabaddiTargetUid)}`;
+      const params = new URLSearchParams();
+      if (outputBg !== 'transparent') {
+        params.set('bg', outputBg);
+      }
+      if (extraParams) {
+        for (const [k, v] of Object.entries(extraParams)) {
+          params.set(k, v);
+        }
+      }
+      const qs = params.toString();
+      return qs ? `${base}?${qs}` : base;
+    }
     const params = new URLSearchParams();
     params.set('overlay', activeMode);
     params.set('style', resolvedStyle);
@@ -555,7 +588,13 @@ export function LiveStudioPreview({
   };
 
   const obsBrowserUrl = buildOutputUrl();
-  const vmixBrowserUrl = buildOutputUrl({ client: 'vmix' });
+  const vmixBrowserUrl =
+    activeMode === 'kabaddi' && useFirestoreKabaddi
+      ? obsBrowserUrl
+      : buildOutputUrl({ client: 'vmix' });
+  const kabaddiControlUrl = useFirestoreKabaddi
+    ? `${origin}/control/${encodeURIComponent(kabaddiTargetUid)}`
+    : undefined;
 
   const handleDownloadOverlay = async () => {
     if (!isFreeDemo) {
@@ -583,28 +622,28 @@ export function LiveStudioPreview({
     if (activeMode === 'kabaddi') {
       await downloadKabaddiOverlayPng({
         style: resolvedStyle,
-        title: state.kabaddiTitle,
-        subtitle: state.kabaddiSubtitle,
-        tag: state.kabaddiTag,
-        teamAName: state.teamAName || 'TEAM A',
-        teamACode: state.teamACode,
-        teamAColor: state.teamAColor,
-        teamAScore: state.teamAScore,
-        teamALogoUrl: state.teamALogoUrl,
-        teamAYellowCards: state.teamAYellowCards,
-        teamARedCards: state.teamARedCards,
-        teamBName: state.teamBName || 'TEAM B',
-        teamBCode: state.teamBCode,
-        teamBColor: state.teamBColor,
-        teamBScore: state.teamBScore,
-        teamBLogoUrl: state.teamBLogoUrl,
-        teamBYellowCards: state.teamBYellowCards,
-        teamBRedCards: state.teamBRedCards,
+        title: kabaddiState.kabaddiTitle,
+        subtitle: kabaddiState.kabaddiSubtitle,
+        tag: kabaddiState.kabaddiTag,
+        teamAName: kabaddiState.teamAName || 'TEAM A',
+        teamACode: kabaddiState.teamACode,
+        teamAColor: kabaddiState.teamAColor,
+        teamAScore: kabaddiState.teamAScore,
+        teamALogoUrl: kabaddiState.teamALogoUrl,
+        teamAYellowCards: kabaddiState.teamAYellowCards,
+        teamARedCards: kabaddiState.teamARedCards,
+        teamBName: kabaddiState.teamBName || 'TEAM B',
+        teamBCode: kabaddiState.teamBCode,
+        teamBColor: kabaddiState.teamBColor,
+        teamBScore: kabaddiState.teamBScore,
+        teamBLogoUrl: kabaddiState.teamBLogoUrl,
+        teamBYellowCards: kabaddiState.teamBYellowCards,
+        teamBRedCards: kabaddiState.teamBRedCards,
         matchSeconds: displayMatchSeconds,
         raidSeconds: displayRaidSeconds,
-        raidRunning: state.raidRunning,
-        halfLabel: state.kabaddiHalf,
-        doOrDie: state.doOrDie,
+        raidRunning: kabaddiState.raidRunning,
+        halfLabel: kabaddiState.kabaddiHalf,
+        doOrDie: kabaddiState.doOrDie,
         showDemoWatermark: isFreeDemo,
       });
     } else {
@@ -686,19 +725,33 @@ export function LiveStudioPreview({
     e.target.value = '';
     if (!file) return;
     readCompressedLogoPng(file, (compressedPng) => {
+      if (useFirestoreKabaddi) {
+        userScoreboard.updateSettings(
+          team === 'A' ? { teamALogoUrl: compressedPng } : { teamBLogoUrl: compressedPng },
+          true
+        );
+        return;
+      }
       if (team === 'A') {
-        updateState({ teamALogoUrl: compressedPng });
+        updateSyncState({ teamALogoUrl: compressedPng });
       } else {
-        updateState({ teamBLogoUrl: compressedPng });
+        updateSyncState({ teamBLogoUrl: compressedPng });
       }
     });
   };
 
   const handleRemoveTeamLogo = (team: 'A' | 'B') => {
+    if (useFirestoreKabaddi) {
+      userScoreboard.updateSettings(
+        team === 'A' ? { teamALogoUrl: '' } : { teamBLogoUrl: '' },
+        true
+      );
+      return;
+    }
     if (team === 'A') {
-      updateState({ teamALogoUrl: '' });
+      updateSyncState({ teamALogoUrl: '' });
     } else {
-      updateState({ teamBLogoUrl: '' });
+      updateSyncState({ teamBLogoUrl: '' });
     }
   };
 
@@ -1122,17 +1175,27 @@ export function LiveStudioPreview({
 
             <VmixKabaddiController
               lang={lang}
-              state={state}
+              state={kabaddiState}
               displayMatchSeconds={displayMatchSeconds}
               displayRaidSeconds={displayRaidSeconds}
               teamABinRemaining={teamABinRemaining}
               teamBBinRemaining={teamBBinRemaining}
-              connected={connected}
-              connectionStatus={connectionStatus}
-              transport={transport}
-              connectedDisplays={connectedDisplays}
-              connectedControllers={connectedControllers}
-              roomInput={roomInput}
+              connected={useFirestoreKabaddi ? userScoreboard.connected : syncConnected}
+              connectionStatus={
+                useFirestoreKabaddi
+                  ? userScoreboard.connected
+                    ? 'live'
+                    : 'reconnecting'
+                  : syncConnectionStatus
+              }
+              transport={useFirestoreKabaddi ? 'firebase' : syncTransport}
+              connectedDisplays={useFirestoreKabaddi ? 1 : connectedDisplays}
+              connectedControllers={useFirestoreKabaddi ? 1 : connectedControllers}
+              roomInput={
+                useFirestoreKabaddi
+                  ? userAccount?.loginId || (isSuperAdmin ? 'SUPER ADMIN' : kabaddiTargetUid.slice(0, 8))
+                  : roomInput
+              }
               onChangeRoomInput={handleSetMatchId}
               onGenerateMatchId={handleGenerateNewMatchId}
               outputBg={outputBg}
@@ -1149,16 +1212,22 @@ export function LiveStudioPreview({
               activeToken={activeToken}
               currentSku={currentSku}
               nowTs={nowTs}
-              canUndo={canUndo}
-              canRedo={canRedo}
-              autoRulesEnabled={autoRulesEnabled}
-              onToggleAutoRules={() => setAutoRulesEnabled((v) => !v)}
-              autoDemoActive={autoDemoActive}
-              onToggleAutoDemo={() => setAutoDemoActive((v) => !v)}
-              onUndo={() => sendAction('undo')}
-              onRedo={() => sendAction('redo')}
-              onUpdateState={updateState}
-              onSendAction={sendAction}
+              canUndo={useFirestoreKabaddi ? userScoreboard.canUndo : syncCanUndo}
+              canRedo={useFirestoreKabaddi ? false : syncCanRedo}
+              onUndo={() => {
+                if (useFirestoreKabaddi) {
+                  void userScoreboard.undoLastAction();
+                } else {
+                  sendSyncAction('undo');
+                }
+              }}
+              onRedo={() => {
+                if (!useFirestoreKabaddi) {
+                  sendSyncAction('redo');
+                }
+              }}
+              onUpdateState={handleKabaddiUpdateState}
+              onSendAction={handleKabaddiSendAction}
               onTriggerAlert={triggerKabaddiAlert}
               onTimeout={handleKabaddiTimeout}
               onToggleMatchTimer={handleToggleMatchTimer}
@@ -1172,6 +1241,20 @@ export function LiveStudioPreview({
               onOpenRemoteModal={() => setRemoteModalOpen(true)}
               onDownloadPng={handleDownloadOverlay}
               onRequestPurchase={onRequestPurchase}
+              isolatedUserMode={useFirestoreKabaddi}
+              undoCount={useFirestoreKabaddi ? userScoreboard.undoCount : 0}
+              lastUndoLabel={useFirestoreKabaddi ? userScoreboard.lastUndoLabel : null}
+              savingSettings={useFirestoreKabaddi ? userScoreboard.savingSettings : false}
+              controlUrl={kabaddiControlUrl}
+              onPlayerOut={
+                useFirestoreKabaddi ? (team) => void userScoreboard.playerOut(team) : undefined
+              }
+              onAllOut={
+                useFirestoreKabaddi ? (team) => void userScoreboard.triggerAllOut(team) : undefined
+              }
+              onFlushSettings={
+                useFirestoreKabaddi ? () => void userScoreboard.flushSettingsNow() : undefined
+              }
             />
           </div>
         ) : (
@@ -1186,7 +1269,7 @@ export function LiveStudioPreview({
                 </span>
                 <span aria-hidden="true" className="text-zinc-600">·</span>
                 <span className="font-mono text-zinc-400 tabular-nums">
-                  {connected
+                  {syncConnected
                     ? lang === 'mr'
                       ? `लाईव्ह सिंक चालू (${connectedDisplays} स्क्रीन)`
                       : `Live Sync Connected (${connectedDisplays} screen${connectedDisplays === 1 ? '' : 's'})`

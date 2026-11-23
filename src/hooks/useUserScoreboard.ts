@@ -308,8 +308,11 @@ export function useUserScoreboard({
             targetUid,
             snap.data() as UserLiveScoreboardDoc
           );
-          // Prevent stale snapshots from overwriting newer local writes
-          if (incoming.version >= lastScoreVersionRef.current) {
+          // Strict monotonic version guard: after initial hydration, ignore stale or equal-version
+          // echoes (and never overwrite local state while a manual action write is in flight).
+          const isInitialLoad = lastScoreVersionRef.current === 0;
+          const isNewer = incoming.version > lastScoreVersionRef.current;
+          if (isInitialLoad || (isNewer && !actionInFlightRef.current)) {
             lastScoreVersionRef.current = incoming.version;
             scoreRef.current = incoming;
             setScoreDoc(incoming);
@@ -350,7 +353,8 @@ export function useUserScoreboard({
             targetUid,
             snap.data() as UserScoreboardSettingsDoc
           );
-          if (incoming.version >= lastSettingsVersionRef.current) {
+          const isInitialSettingsLoad = lastSettingsVersionRef.current === 0;
+          if (isInitialSettingsLoad || incoming.version > lastSettingsVersionRef.current) {
             lastSettingsVersionRef.current = incoming.version;
             // Preserve any field the operator is actively typing right now!
             const pending = pendingSettingsPatchRef.current;

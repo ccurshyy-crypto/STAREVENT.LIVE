@@ -148,42 +148,63 @@ export function useOverlaySync({
         setHistory(payload.history);
       }
 
-      // Detect server restart / new instance and reset version cursor cleanly
       const incomingBootId = typeof payload.serverBootId === 'string' ? payload.serverBootId : '';
-      if (incomingBootId && lastBootIdRef.current && incomingBootId !== lastBootIdRef.current) {
-        lastVersionRef.current = 0;
-      }
-      if (incomingBootId) {
-        lastBootIdRef.current = incomingBootId;
-      }
+      const bootChanged = Boolean(
+        incomingBootId && lastBootIdRef.current && incomingBootId !== lastBootIdRef.current
+      );
 
-      if (payload.unchanged || !payload.state) return;
+      if (payload.unchanged || !payload.state) {
+        if (incomingBootId && !lastBootIdRef.current) {
+          lastBootIdRef.current = incomingBootId;
+        }
+        return;
+      }
 
       const incomingVersion = typeof payload.version === 'number' ? payload.version : 0;
       const incomingUpdatedAt =
         typeof payload.state.updatedAt === 'number' ? payload.state.updatedAt : 0;
 
-      // Drop strictly older snapshots from the SAME server boot instance
+      // Never allow an older timestamp (including from another Cloud Run instance or cold restart)
+      // to roll back a newer score or state.
       if (
-        incomingVersion > 0 &&
-        lastVersionRef.current > 0 &&
-        incomingVersion < lastVersionRef.current &&
-        incomingUpdatedAt <= lastUpdatedAtRef.current
+        incomingUpdatedAt > 0 &&
+        lastUpdatedAtRef.current > 0 &&
+        incomingUpdatedAt < lastUpdatedAtRef.current
       ) {
         return;
       }
 
-      // On controllers, avoid overwriting unsent rapid typing in pendingPatchRef from our own earlier echo
-      const isSelfEcho = Boolean(
-        payload.sourceClientId && payload.sourceClientId === clientIdRef.current
-      );
-      if (!readOnly && isSelfEcho && pendingPatchRef.current) {
-        if (incomingVersion > lastVersionRef.current) {
+      // On controllers/studio, never overwrite local state while manual actions or patches are queued/in-flight
+      if (
+        !readOnly &&
+        (pendingActionsRef.current.length > 0 ||
+          pendingPatchRef.current !== null ||
+          inFlightHttpRef.current)
+      ) {
+        if (!bootChanged && incomingVersion > lastVersionRef.current) {
           lastVersionRef.current = incomingVersion;
         }
         return;
       }
 
+      // Drop stale or duplicate versions from the same server instance
+      if (
+        !bootChanged &&
+        incomingVersion > 0 &&
+        lastVersionRef.current > 0 &&
+        incomingVersion <= lastVersionRef.current
+      ) {
+        return;
+      }
+
+      // If another instance booted with a default/older room state (same or lower timestamp), ignore it
+      if (bootChanged && lastUpdatedAtRef.current > 0 && incomingUpdatedAt <= lastUpdatedAtRef.current) {
+        return;
+      }
+
+      if (incomingBootId) {
+        lastBootIdRef.current = incomingBootId;
+      }
       if (incomingVersion > 0) {
         lastVersionRef.current = incomingVersion;
       }
@@ -405,8 +426,15 @@ export function useOverlaySync({
           if (isCancelled) return;
           const incoming = evt.data as LiveOverlayState | undefined;
           if (incoming && incoming.roomId === safeRoom) {
-            if (!readOnly && pendingPatchRef.current) return;
-            if (incoming.updatedAt && incoming.updatedAt < lastUpdatedAtRef.current) return;
+            if (
+              !readOnly &&
+              (pendingPatchRef.current !== null ||
+                pendingActionsRef.current.length > 0 ||
+                inFlightHttpRef.current)
+            ) {
+              return;
+            }
+            if (incoming.updatedAt && incoming.updatedAt <= lastUpdatedAtRef.current) return;
             if (incoming.updatedAt) lastUpdatedAtRef.current = incoming.updatedAt;
             setState((prev) => ({
               ...prev,

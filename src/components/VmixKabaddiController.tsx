@@ -18,13 +18,11 @@ import {
   RotateCcw,
   ShieldAlert,
   Smartphone,
-  Sparkles,
   Timer,
   Trash2,
   Trophy,
   Undo2,
   Users,
-  Zap,
 } from 'lucide-react';
 import { Language } from '../data/content';
 import { formatRemainingTime, OverlaySku, VerifiedOverlayToken } from '../data/overlayCatalog';
@@ -90,10 +88,10 @@ interface VmixKabaddiControllerProps {
   nowTs: number;
   canUndo: boolean;
   canRedo: boolean;
-  autoRulesEnabled: boolean;
-  onToggleAutoRules: () => void;
-  autoDemoActive: boolean;
-  onToggleAutoDemo: () => void;
+  autoRulesEnabled?: boolean;
+  onToggleAutoRules?: () => void;
+  autoDemoActive?: boolean;
+  onToggleAutoDemo?: () => void;
   onUndo: () => void;
   onRedo: () => void;
   onUpdateState: (patch: Partial<LiveOverlayState>) => void;
@@ -153,10 +151,6 @@ export function VmixKabaddiController({
   nowTs,
   canUndo,
   canRedo,
-  autoRulesEnabled,
-  onToggleAutoRules,
-  autoDemoActive,
-  onToggleAutoDemo,
   onUndo,
   onRedo,
   onUpdateState,
@@ -214,7 +208,7 @@ export function VmixKabaddiController({
     }
   };
 
-  // Atomic point modifier: strictly 1 click = exact delta (no duplicate events or auto score drift)
+  // Atomic point modifier: strictly 1 click = exact delta (zero automatic side effects or score drift)
   const applyTeamPoints = (
     team: 'A' | 'B',
     kind: 'raid' | 'bonus' | 'lona',
@@ -222,23 +216,12 @@ export function VmixKabaddiController({
   ) => {
     if (!guardSingleAction()) return;
     onSendAction(kind, { team, points: delta });
-    if (!isolatedUserMode && autoRulesEnabled && delta > 0 && kind === 'raid') {
-      onSendAction('raid_reset');
-      if (state.matchRunning) {
-        window.setTimeout(() => onSendAction('raid_toggle'), 120);
-      }
-    }
   };
 
-  // Player-Out dot setter: in isolated mode, strictly updates dots (1 Out = 1 dot removed, undoable)
+  // Player-Out dot setter: strictly updates players-on-mat dots without auto-adding scores
   const handleSetPlayersOnMat = (team: 'A' | 'B', nextCount: number) => {
     if (!guardSingleAction()) return;
     const clamped = Math.max(0, Math.min(7, nextCount));
-    if (!isolatedUserMode && autoRulesEnabled && clamped === 0) {
-      const winnerTeam = team === 'A' ? 'B' : 'A';
-      onSendAction('all_out', { team: winnerTeam, points: 2 });
-      return;
-    }
     onSendAction('players_on_mat', { team, count: clamped });
   };
 
@@ -547,40 +530,6 @@ export function VmixKabaddiController({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {!isolatedUserMode && (
-            <>
-              {/* Automatic Scoreboard Rules Toggle */}
-              <button
-                type="button"
-                onClick={onToggleAutoRules}
-                aria-pressed={autoRulesEnabled}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
-                  autoRulesEnabled
-                    ? 'bg-[#14532D]/85 border-[#4ADE80]/60 text-[#BBF7D0]'
-                    : 'bg-white/[0.06] border-white/15 text-zinc-300 hover:text-white'
-                }`}
-              >
-                <Zap className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                <span>Auto Mode: {autoRulesEnabled ? 'ON' : 'OFF'}</span>
-              </button>
-
-              {/* 1-Click Auto Demo Play for Instant Hands-Free vMix Testing */}
-              <button
-                type="button"
-                onClick={onToggleAutoDemo}
-                aria-pressed={autoDemoActive}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-xl border transition-all active:scale-95 whitespace-nowrap ${
-                  autoDemoActive
-                    ? 'bg-[#7C3AED] border-[#C4B5FD] text-white shadow-[0_0_16px_rgba(124,58,237,0.55)]'
-                    : 'btn-glass-pro text-zinc-100'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                <span>{autoDemoActive ? 'Stop Auto Play' : 'Auto Play'}</span>
-              </button>
-            </>
-          )}
-
           {/* Dedicated Multi-Step UNDO Button */}
           <button
             type="button"
