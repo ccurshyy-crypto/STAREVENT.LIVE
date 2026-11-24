@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export type MainPageRoute = 'home' | 'services' | 'overlays' | 'packages';
+export type MainPageRoute = 'home' | 'services' | 'overlays' | 'packages' | 'booking';
 
 interface NavbarProps {
   lang: Language;
@@ -14,6 +14,7 @@ interface NavbarProps {
   onNavigateServices: () => void;
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
+  onNavigateBooking: () => void;
   onOpenAccountPortal: (tab?: 'operator' | 'admin') => void;
 }
 
@@ -25,6 +26,7 @@ export function Navbar({
   onNavigateServices,
   onNavigateOverlays,
   onNavigatePackages,
+  onNavigateBooking,
   onOpenAccountPortal,
 }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -40,7 +42,7 @@ export function Navbar({
     { id: 'services', href: '/services', label: UI_COPY.nav.services[lang], page: 'services' },
     { id: 'overlays', href: '/overlays', label: UI_COPY.nav.studio[lang], page: 'overlays' },
     { id: 'packages', href: '/packages', label: UI_COPY.nav.packages[lang], page: 'packages' },
-    { id: 'book', href: '/#book', label: UI_COPY.nav.book[lang] },
+    { id: 'book', href: '/booking', label: UI_COPY.nav.book[lang], page: 'booking' },
   ];
 
   const handleNavClick = (
@@ -57,6 +59,8 @@ export function Navbar({
       onNavigateOverlays();
     } else if (item.page === 'packages') {
       onNavigatePackages();
+    } else if (item.page === 'booking') {
+      onNavigateBooking();
     } else {
       onNavigateHome(item.id);
     }

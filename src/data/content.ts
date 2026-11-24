@@ -131,7 +131,12 @@ export const UI_COPY = {
     services: { en: 'Services', mr: 'सेवा', hi: 'सेवाएं', gu: 'સેવાઓ' },
     studio: { en: 'Overlays', mr: 'ओव्हरले', hi: 'ओवरले', gu: 'ઓવરલે' },
     packages: { en: 'Packages', mr: 'पॅकेजेस', hi: 'पैकेज', gu: 'પેકેજ' },
-    book: { en: 'Book', mr: 'बुकिंग', hi: 'बुकिंग', gu: 'બુકિંગ' },
+    book: {
+      en: 'Booking Ur Order',
+      mr: 'Booking Ur Order',
+      hi: 'Booking Ur Order',
+      gu: 'Booking Ur Order',
+    },
     callCta: {
       en: 'Call 9890175727',
       mr: 'कॉल 9890175727',

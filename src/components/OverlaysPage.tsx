@@ -498,7 +498,7 @@ export function OverlaysPage({
                   autoComplete="username"
                   value={loginIdInput}
                   onChange={(e) => setLoginIdInput(e.target.value)}
-                  placeholder="e.g. RAHULPATIL or STAREVENT01"
+                  placeholder="e.g. BHARATNIRGUDA or STAREVENT01"
                   className="w-full px-4 py-3 rounded-xl bg-[#090C14] border border-white/15 focus:border-[#FACC15] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
                 />
               </div>

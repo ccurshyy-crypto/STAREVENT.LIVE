@@ -9,6 +9,7 @@ interface FooterProps {
   onNavigateServices: () => void;
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
+  onNavigateBooking: () => void;
 }
 
 export function Footer({
@@ -17,6 +18,7 @@ export function Footer({
   onNavigateServices,
   onNavigateOverlays,
   onNavigatePackages,
+  onNavigateBooking,
 }: FooterProps) {
   return (
     <footer className="relative z-10 border-t-2 border-[#FFE600]/45 bg-[#070B28]/96 py-12">
@@ -94,10 +96,10 @@ export function Footer({
               {UI_COPY.nav.packages[lang]}
             </a>
             <a
-              href="/#book"
+              href="/booking"
               onClick={(e) => {
                 e.preventDefault();
-                onNavigateHome('book');
+                onNavigateBooking();
               }}
               className="hover:text-[#FFE600] transition-colors whitespace-nowrap"
             >

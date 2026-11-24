@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AccountPortalModal } from './components/AccountPortalModal';
 import { BookingCalendarSection } from './components/BookingCalendarSection';
+import { BookingPage } from './components/BookingPage';
 import { BookingSection } from './components/BookingSection';
 import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
@@ -97,6 +98,7 @@ function getInitialPage(): PageRoute {
   if (window.location.pathname.startsWith('/services')) return 'services';
   if (window.location.pathname.startsWith('/overlays')) return 'overlays';
   if (window.location.pathname.startsWith('/packages')) return 'packages';
+  if (window.location.pathname.startsWith('/booking')) return 'booking';
   return 'home';
 }
 
@@ -447,6 +449,18 @@ export default function App() {
     }
   };
 
+  const navigateToBooking = () => {
+    const isPageChange = currentPage !== 'booking' || Boolean(controlTargetUid);
+    setControlTargetUid(null);
+    if (window.location.pathname !== '/booking') {
+      window.history.pushState({}, '', '/booking');
+    }
+    setCurrentPage('booking');
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
   const navigateHome = (sectionId?: string) => {
     const wasOnHome = currentPage === 'home' && !controlTargetUid;
     setControlTargetUid(null);
@@ -499,7 +513,7 @@ export default function App() {
     } else {
       setSelectedPackageId('single-cam-live');
     }
-    navigateHome('book');
+    navigateToBooking();
   };
 
   const handleToggleAddOn = (addonId: string) => {
@@ -510,7 +524,7 @@ export default function App() {
 
   const handleSelectPackage = (packageId: string) => {
     setSelectedPackageId(packageId);
-    navigateHome('book');
+    navigateToBooking();
   };
 
   const handleSelectDateForBooking = (isoDate: string) => {
@@ -574,6 +588,7 @@ export default function App() {
         onNavigateServices={navigateToServices}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
+        onNavigateBooking={navigateToBooking}
         onOpenAccountPortal={handleOpenAccountPortal}
       />
 
@@ -611,7 +626,20 @@ export default function App() {
             onToggleAddOn={handleToggleAddOn}
             onSelectPackage={handleSelectPackage}
             onBackHome={() => navigateHome('top')}
-            onGoToBooking={() => navigateHome('book')}
+            onGoToBooking={navigateToBooking}
+          />
+        ) : currentPage === 'booking' ? (
+          <BookingPage
+            lang={lang}
+            selectedEvent={selectedEvent}
+            onChangeEvent={setSelectedEvent}
+            selectedPackageId={selectedPackageId}
+            onChangePackage={setSelectedPackageId}
+            selectedAddOns={selectedAddOns}
+            selectedDate={selectedBookingDate}
+            onChangeDate={setSelectedBookingDate}
+            onOpenPackages={navigateToPackages}
+            onBackHome={() => navigateHome('top')}
           />
         ) : (
           <>
@@ -622,6 +650,7 @@ export default function App() {
 
             <BookingCalendarSection
               lang={lang}
+              heading="BOOKING UR ORDER"
               onSelectDateForBooking={handleSelectDateForBooking}
             />
 
@@ -632,13 +661,13 @@ export default function App() {
 
             <PartnerAdSection
               lang={lang}
-              onBookNow={() => navigateHome('book')}
+              onBookNow={navigateToBooking}
               onOpenHaldiOverlay={() => navigateToOverlays('haldi', 'festive')}
             />
 
             <StudioSpotlightSection
               lang={lang}
-              onBookNow={() => navigateHome('book')}
+              onBookNow={navigateToBooking}
             />
 
             <BroadcastStingerSection
@@ -668,6 +697,7 @@ export default function App() {
         onNavigateServices={navigateToServices}
         onNavigateOverlays={() => navigateToOverlays()}
         onNavigatePackages={navigateToPackages}
+        onNavigateBooking={navigateToBooking}
       />
 
       <AccountPortalModal

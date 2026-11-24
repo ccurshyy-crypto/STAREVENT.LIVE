@@ -108,6 +108,7 @@ type BookingEventType = (typeof EVENT_TYPE_OPTIONS)[number];
 
 interface BookingCalendarSectionProps {
   lang: Language;
+  heading?: string;
   onSelectDateForBooking?: (isoDate: string) => void;
 }
 
@@ -130,6 +131,7 @@ function formatReadableDate(iso: string): string {
 
 export function BookingCalendarSection({
   lang,
+  heading = 'BOOKING UR ORDER',
   onSelectDateForBooking,
 }: BookingCalendarSectionProps) {
   // Always detect the current active system date automatically on load
@@ -296,7 +298,7 @@ export function BookingCalendarSection({
             id="booking-date-heading"
             className="font-display text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FFE600] drop-shadow-[0_4px_20px_rgba(0,0,0,0.65)]"
           >
-            BOOKING DATE
+            {heading}
           </h2>
           <p className="text-xs sm:text-base font-medium text-white/90 max-w-2xl mx-auto">
             {lang === 'mr'
@@ -669,7 +671,7 @@ export function BookingCalendarSection({
                       type="text"
                       value={clientName}
                       onChange={(e) => setClientName(e.target.value)}
-                      placeholder="e.g. Rohit Patil"
+                      placeholder="e.g. Bharat Nirguda"
                       className="w-full min-h-[44px] px-3.5 py-2.5 text-sm bg-[#16141F] border border-white/18 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFE600]"
                     />
                     {formErrors.clientName && (

@@ -602,7 +602,7 @@ export function AdminOrdersModal({ lang, open, onClose }: AdminOrdersModalProps)
                     type="text"
                     value={genName}
                     onChange={(e) => setGenName(e.target.value)}
-                    placeholder={lang === 'mr' ? 'उदा. रोहित पाटील' : 'e.g. Rohit Patil'}
+                    placeholder={lang === 'mr' ? 'उदा. भारत निरगुडा' : 'e.g. Bharat Nirguda'}
                     className="w-full px-3 py-2 text-xs bg-[#161C24] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
                   />
                 </div>
