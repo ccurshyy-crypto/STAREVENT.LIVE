@@ -10,39 +10,28 @@ import {
   ImagePlus,
   Lock,
   Radio,
-  ShieldCheck,
   Trash2,
   Tv,
-  UserCircle2,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useOverlayAccess } from '../context/OverlayAccessContext';
 import {
   EventCategoryId,
   Language,
   PlatformId,
   UI_COPY,
 } from '../data/content';
-import {
-  formatRemainingTime,
-  getOverlaySku,
-  OverlaySku,
-  VerifiedOverlayToken,
-} from '../data/overlayCatalog';
+import { getOverlaySku } from '../data/overlayCatalog';
 import { sanitizeRoomIdClient, useOverlaySync } from '../hooks/useOverlaySync';
-import { computeLiveClockSeconds, useUserScoreboard } from '../hooks/useUserScoreboard';
 import {
   HaldiAnimationMode,
   HaldiAnimSpeed,
   HaldiColorTheme,
-  KabaddiGraphicPanel,
-  KabaddiHalf,
   KabaddiTimeoutTeam,
   LiveOverlayState,
   normalizeStyleForMode,
   OverlayBackground,
   OverlayMode,
   OverlayStyle,
-  UserScoreboardSettingsDoc,
   WeddingBottomAnimation,
 } from '../types/overlay';
 import {
@@ -57,18 +46,25 @@ import { WEDDING_COLOR_PRESETS, WeddingFrameOverlay } from './WeddingFrameOverla
 
 export type PreviewMode = OverlayMode;
 
+function computeLiveClockSeconds(
+  seconds: number,
+  running: boolean,
+  updatedAt: number,
+  nowMs: number
+): number {
+  if (!running) return Math.max(0, Math.round(seconds));
+  const elapsed = Math.max(0, Math.floor((nowMs - updatedAt) / 1000));
+  return Math.max(0, Math.round(seconds) - elapsed);
+}
+
 interface LiveStudioPreviewProps {
   lang: Language;
   activeMode: PreviewMode;
   onChangeMode: (mode: PreviewMode) => void;
   activeStyle: OverlayStyle;
   onChangeStyle: (style: OverlayStyle) => void;
-  unlockedSkus: OverlaySku[];
-  verifiedTokens: VerifiedOverlayToken[];
-  onRequestPurchase: (sku: OverlaySku) => void;
   onBookFromPreview: (category: EventCategoryId) => void;
-  forcedMatchRoomId?: string | null;
-  onOpenAccountPortal?: (tab?: 'operator' | 'admin') => void;
+  onOpenAccessModal?: (view?: 'login' | 'admin') => void;
 }
 
 const PLATFORMS: {
@@ -117,31 +113,6 @@ const OBS_CUSTOM_CSS =
 
 const MATCH_ID_STORAGE_KEY = 'star_event_active_match_id_v1';
 
-const KABADDI_SETTINGS_KEYS = new Set<keyof UserScoreboardSettingsDoc>([
-  'teamAName',
-  'teamACode',
-  'teamAColor',
-  'teamALogoUrl',
-  'teamAStarting7',
-  'teamBName',
-  'teamBCode',
-  'teamBColor',
-  'teamBLogoUrl',
-  'teamBStarting7',
-  'kabaddiTitle',
-  'kabaddiSubtitle',
-  'kabaddiTag',
-  'kabaddiVenue',
-  'kabaddiLeague',
-  'kabaddiEvent',
-  'kabaddiMatchType',
-  'sponsorName',
-  'championTeam',
-  'runnerUpTeam',
-  'thirdPlaceTeam',
-  'fourthPlaceTeam',
-]);
-
 function createUniqueMatchIdClient(): string {
   const num = Math.floor(1000 + Math.random() * 9000);
   return `kbd-${num}`;
@@ -173,51 +144,20 @@ export function LiveStudioPreview({
   onChangeMode,
   activeStyle,
   onChangeStyle,
-  unlockedSkus,
-  verifiedTokens,
-  onRequestPurchase,
   onBookFromPreview,
-  forcedMatchRoomId,
-  onOpenAccountPortal,
+  onOpenAccessModal,
 }: LiveStudioPreviewProps) {
-  const {
-    firebaseUser,
-    isSuperAdmin,
-    userAccount,
-  } = useAuth();
+  const { session, isUnlocked } = useOverlayAccess();
   const [platform, setPlatform] = useState<PlatformId>('youtube-public');
   const [transparentBg, setTransparentBg] = useState(true);
-  const [roomInput, setRoomInput] = useState<string>(() =>
-    forcedMatchRoomId ? sanitizeRoomIdClient(forcedMatchRoomId) : getInitialMatchId()
-  );
+  const [roomInput, setRoomInput] = useState<string>(() => getInitialMatchId());
   const [outputBg, setOutputBg] = useState<OverlayBackground>('transparent');
   const [lockModeInUrl, setLockModeInUrl] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [remoteModalOpen, setRemoteModalOpen] = useState(false);
-  const [nowTs, setNowTs] = useState(() => Date.now());
   const [nowClock, setNowClock] = useState(() => Date.now());
 
-  // Sync forcedMatchRoomId (e.g. Super Admin clicking "Open Board" on a user)
-  useEffect(() => {
-    if (!forcedMatchRoomId) return;
-    if (userAccount && !isSuperAdmin) return; // Operator stays locked to their own isolated room
-    const clean = sanitizeRoomIdClient(forcedMatchRoomId);
-    setRoomInput(clean);
-  }, [forcedMatchRoomId, userAccount, isSuperAdmin]);
-
-  // Automatically isolate authenticated Operator User to their dedicated Match Room ID
-  useEffect(() => {
-    if (!userAccount || isSuperAdmin) return;
-    const clean = sanitizeRoomIdClient(userAccount.matchRoomId);
-    setRoomInput(clean);
-  }, [userAccount, isSuperAdmin]);
-
   const handleSetMatchId = (raw: string) => {
-    // Operators stay on their dedicated isolated Match ID; Super Admin & guests can change rooms freely
-    if (userAccount && !isSuperAdmin) {
-      setRoomInput(sanitizeRoomIdClient(userAccount.matchRoomId));
-      return;
-    }
     const clean = sanitizeRoomIdClient(raw);
     setRoomInput(clean);
     try {
@@ -228,21 +168,10 @@ export function LiveStudioPreview({
   };
 
   const handleGenerateNewMatchId = () => {
-    if (userAccount && !isSuperAdmin) return;
     handleSetMatchId(createUniqueMatchIdClient());
   };
 
-  // Single-source-of-truth per-user Firebase Firestore scoreboard when authenticated
-  const kabaddiTargetUid = firebaseUser?.uid ?? '';
-  const useFirestoreKabaddi = Boolean(kabaddiTargetUid);
-
-  const userScoreboard = useUserScoreboard({
-    targetUid: activeMode === 'kabaddi' && useFirestoreKabaddi ? kabaddiTargetUid : '',
-    role: 'controller',
-    canWrite: activeMode === 'kabaddi' && useFirestoreKabaddi,
-  });
-
-  // Node overlay sync (used for Haldi/Wedding modes & guest fallback only)
+  // Overlay sync for Studio Preview + Haldi/Wedding + Kabaddi desk
   const {
     state: syncState,
     updateState: updateSyncState,
@@ -260,29 +189,19 @@ export function LiveStudioPreview({
   } = useOverlaySync({
     roomId: roomInput,
     role: 'studio',
-    readOnly: activeMode === 'kabaddi' && useFirestoreKabaddi,
   });
 
-  // Active state: Haldi/Wedding uses syncState; Kabaddi uses isolated Firestore state when logged in
   const state = syncState;
   const updateState = updateSyncState;
-  const kabaddiState = useFirestoreKabaddi ? userScoreboard.state : syncState;
+  const kabaddiState = syncState;
 
   const resolvedStyle = normalizeStyleForMode(activeMode, activeStyle);
   const isClassic = resolvedStyle === 'classic';
   const isFestive = resolvedStyle === 'festive';
   const isWeddingFrame = resolvedStyle === 'wedding';
-  const isFreeDemo =
-    (activeMode === 'kabaddi' && resolvedStyle === 'demo') || activeMode === 'cricket';
+  const isFreeDemo = false;
   const currentSku = getOverlaySku(activeMode, resolvedStyle);
-  const activeToken = verifiedTokens.find((t) => t.sku === currentSku && t.expiresAt > nowTs) ?? null;
-  const isCurrentUnlocked = isFreeDemo || Boolean(activeToken && unlockedSkus.includes(currentSku));
-
-  useEffect(() => {
-    if (!activeToken) return;
-    const id = window.setInterval(() => setNowTs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [activeToken]);
+  const isCurrentUnlocked = isUnlocked;
 
   const handleSelectMode = (mode: PreviewMode) => {
     const nextStyle =
@@ -313,14 +232,12 @@ export function LiveStudioPreview({
       Boolean(kabaddiState.teamBBinEndAt));
 
   useEffect(() => {
-    const getNow = () => (useFirestoreKabaddi ? Date.now() : getServerNow());
-    setNowClock(getNow());
+    setNowClock(getServerNow());
     if (!anyKabaddiClockRunning) return;
-    const id = window.setInterval(() => setNowClock(getNow()), 250);
+    const id = window.setInterval(() => setNowClock(getServerNow()), 250);
     return () => window.clearInterval(id);
   }, [
     anyKabaddiClockRunning,
-    useFirestoreKabaddi,
     getServerNow,
     kabaddiState.matchUpdatedAt,
     kabaddiState.raidUpdatedAt,
@@ -347,125 +264,18 @@ export function LiveStudioPreview({
     ? Math.max(0, Math.ceil((kabaddiState.teamBBinEndAt - nowClock) / 1000))
     : 0;
 
-  // Route Kabaddi settings/visibility updates cleanly to Firestore when logged in
   const handleKabaddiUpdateState = useCallback(
     (patch: Partial<LiveOverlayState>) => {
-      if (!useFirestoreKabaddi) {
-        updateSyncState(patch);
-        return;
-      }
-      const settingsPatch: Partial<UserScoreboardSettingsDoc> = {};
-      let hasSettings = false;
-      for (const [k, v] of Object.entries(patch)) {
-        if (KABADDI_SETTINGS_KEYS.has(k as keyof UserScoreboardSettingsDoc)) {
-          (settingsPatch as Record<string, unknown>)[k] = v;
-          hasSettings = true;
-        }
-      }
-      if (hasSettings) {
-        userScoreboard.updateSettings(settingsPatch);
-      }
-      if (typeof patch.visible === 'boolean') {
-        void userScoreboard.setVisible(patch.visible);
-      }
-      if (patch.kabaddiGraphicPanel !== undefined) {
-        void userScoreboard.setGraphicPanel(patch.kabaddiGraphicPanel);
-      }
-      if (patch.raidRunning === false && patch.raidSeconds === 30) {
-        void userScoreboard.resetRaidTimer();
-      }
+      updateSyncState(patch);
     },
-    [
-      useFirestoreKabaddi,
-      updateSyncState,
-      userScoreboard.updateSettings,
-      userScoreboard.setVisible,
-      userScoreboard.setGraphicPanel,
-      userScoreboard.resetRaidTimer,
-    ]
+    [updateSyncState]
   );
 
-  // Route every manual Kabaddi action strictly 1:1 to atomic Firestore writes when logged in
   const handleKabaddiSendAction = useCallback(
     (action: string, payload?: Record<string, unknown>) => {
-      if (!useFirestoreKabaddi) {
-        sendSyncAction(action, payload);
-        return;
-      }
-      const team: 'A' | 'B' = payload?.team === 'B' ? 'B' : 'A';
-      const points = typeof payload?.points === 'number' ? payload.points : 1;
-
-      switch (action) {
-        case 'point':
-        case 'raid':
-          void userScoreboard.applyScoreDelta(team, action === 'point' ? 'point' : 'raid', points);
-          break;
-        case 'bonus':
-          void userScoreboard.applyScoreDelta(team, 'bonus', points);
-          break;
-        case 'tackle':
-          void userScoreboard.applyScoreDelta(team, 'tackle', points);
-          break;
-        case 'lona':
-          void userScoreboard.applyScoreDelta(team, 'lona', points);
-          break;
-        case 'all_out':
-          void userScoreboard.triggerAllOut(team);
-          break;
-        case 'players_on_mat': {
-          const count = typeof payload?.count === 'number' ? payload.count : 7;
-          void userScoreboard.setPlayersOnMat(team, count);
-          break;
-        }
-        case 'player_out':
-          void userScoreboard.playerOut(team);
-          break;
-        case 'half':
-          if (payload?.half) {
-            void userScoreboard.setHalf(payload.half as KabaddiHalf);
-          }
-          break;
-        case 'do_or_die':
-          void userScoreboard.setDoOrDie(Boolean(payload?.active));
-          break;
-        case 'card':
-          if (
-            payload?.card === 'green' ||
-            payload?.card === 'yellow' ||
-            payload?.card === 'red'
-          ) {
-            void userScoreboard.issueCard(team, payload.card);
-          }
-          break;
-        case 'graphic_panel':
-          if (payload?.panel) {
-            void userScoreboard.setGraphicPanel(payload.panel as KabaddiGraphicPanel);
-          }
-          break;
-        case 'raid_reset':
-          void userScoreboard.resetRaidTimer();
-          break;
-        case 'raid_toggle':
-          void userScoreboard.toggleRaidTimer();
-          break;
-        default:
-          break;
-      }
+      sendSyncAction(action, payload);
     },
-    [
-      useFirestoreKabaddi,
-      sendSyncAction,
-      userScoreboard.applyScoreDelta,
-      userScoreboard.triggerAllOut,
-      userScoreboard.setPlayersOnMat,
-      userScoreboard.playerOut,
-      userScoreboard.setHalf,
-      userScoreboard.setDoOrDie,
-      userScoreboard.issueCard,
-      userScoreboard.setGraphicPanel,
-      userScoreboard.resetRaidTimer,
-      userScoreboard.toggleRaidTimer,
-    ]
+    [sendSyncAction]
   );
 
   const copyText = async (key: string, text: string) => {
@@ -481,10 +291,6 @@ export function LiveStudioPreview({
   };
 
   const triggerKabaddiAlert = (label: string) => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.triggerAlert(label);
-      return;
-    }
     updateSyncState({ kabaddiAlert: label });
     window.setTimeout(() => {
       updateSyncState({ kabaddiAlert: null });
@@ -492,10 +298,6 @@ export function LiveStudioPreview({
   };
 
   const handleKabaddiTimeout = (target: KabaddiTimeoutTeam) => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.setTimeoutTeam(target);
-      return;
-    }
     if (!target) {
       sendSyncAction('clear_timeout');
     } else {
@@ -504,81 +306,40 @@ export function LiveStudioPreview({
   };
 
   const handleToggleMatchTimer = () => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.toggleMatchTimer();
-      return;
-    }
     sendSyncAction('timer_toggle');
   };
 
   const handleSetMatchPreset = (seconds: number, autoStart = true) => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.resetMatchTimer(Math.max(0, seconds), autoStart);
-      return;
-    }
     sendSyncAction('timer_set', { seconds: Math.max(0, seconds), autoStart });
   };
 
   const handleSwapTeams = () => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.swapTeams();
-      return;
-    }
     sendSyncAction('swap');
   };
 
   const handleToggleRaidTimer = () => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.toggleRaidTimer();
-      return;
-    }
     sendSyncAction('raid_toggle');
   };
 
   const handleResetRaidTimer = () => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.resetRaidTimer();
-      return;
-    }
     sendSyncAction('raid_reset', { seconds: kabaddiState.kabaddiRaidDuration || 30 });
   };
 
   const handleResetKabaddi = () => {
-    if (useFirestoreKabaddi) {
-      void userScoreboard.resetMatchScore();
-      return;
-    }
     sendSyncAction('reset');
   };
 
-  // Build real OBS & vMix Browser Source URLs (auto-converts private ais-dev preview host notice)
+  // Build real OBS & vMix Browser Source URLs
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://starevent.live';
   const isPrivateDevPreview =
     typeof window !== 'undefined' && window.location.hostname.startsWith('ais-dev-');
   const buildOutputUrl = (extraParams?: Record<string, string>) => {
-    if (activeMode === 'kabaddi' && useFirestoreKabaddi) {
-      const base = `${origin}/scoreboard/${encodeURIComponent(kabaddiTargetUid)}`;
-      const params = new URLSearchParams();
-      if (outputBg !== 'transparent') {
-        params.set('bg', outputBg);
-      }
-      if (extraParams) {
-        for (const [k, v] of Object.entries(extraParams)) {
-          params.set(k, v);
-        }
-      }
-      const qs = params.toString();
-      return qs ? `${base}?${qs}` : base;
-    }
     const params = new URLSearchParams();
     params.set('overlay', activeMode);
     params.set('style', resolvedStyle);
     params.set('room', roomId);
     params.set('bg', outputBg);
-    if (!isFreeDemo && activeToken?.unlockCode) {
-      params.set('token', activeToken.unlockCode);
-    }
-    if (lockModeInUrl || isFreeDemo) {
+    if (lockModeInUrl) {
       params.set('lock', '1');
     }
     if (extraParams) {
@@ -590,35 +351,13 @@ export function LiveStudioPreview({
   };
 
   const obsBrowserUrl = buildOutputUrl();
-  const vmixBrowserUrl =
-    activeMode === 'kabaddi' && useFirestoreKabaddi
-      ? obsBrowserUrl
-      : buildOutputUrl({ client: 'vmix' });
-  const kabaddiControlUrl = useFirestoreKabaddi
-    ? `${origin}/control/${encodeURIComponent(kabaddiTargetUid)}`
-    : undefined;
+  const vmixBrowserUrl = buildOutputUrl({ client: 'vmix' });
+  const kabaddiControlUrl = `${origin}/control?id=${encodeURIComponent(roomId.toUpperCase())}`;
 
   const handleDownloadOverlay = async () => {
-    if (!isFreeDemo) {
-      if (!isCurrentUnlocked || !activeToken) {
-        onRequestPurchase(currentSku);
-        return;
-      }
-
-      // Re-verify live access on the server before PNG export (blocks expired/revoked passes)
-      try {
-        const checkRes = await fetch(
-          `/api/overlay/access?sku=${encodeURIComponent(currentSku)}&token=${encodeURIComponent(activeToken.unlockCode)}`
-        );
-        const checkData = await checkRes.json();
-        if (!checkRes.ok || !checkData?.active) {
-          onRequestPurchase(currentSku);
-          return;
-        }
-      } catch {
-        onRequestPurchase(currentSku);
-        return;
-      }
+    if (!isCurrentUnlocked) {
+      onOpenAccessModal?.('login');
+      return;
     }
 
     if (activeMode === 'kabaddi') {
@@ -727,13 +466,6 @@ export function LiveStudioPreview({
     e.target.value = '';
     if (!file) return;
     readCompressedLogoPng(file, (compressedPng) => {
-      if (useFirestoreKabaddi) {
-        userScoreboard.updateSettings(
-          team === 'A' ? { teamALogoUrl: compressedPng } : { teamBLogoUrl: compressedPng },
-          true
-        );
-        return;
-      }
       if (team === 'A') {
         updateSyncState({ teamALogoUrl: compressedPng });
       } else {
@@ -743,13 +475,6 @@ export function LiveStudioPreview({
   };
 
   const handleRemoveTeamLogo = (team: 'A' | 'B') => {
-    if (useFirestoreKabaddi) {
-      userScoreboard.updateSettings(
-        team === 'A' ? { teamALogoUrl: '' } : { teamBLogoUrl: '' },
-        true
-      );
-      return;
-    }
     if (team === 'A') {
       updateSyncState({ teamALogoUrl: '' });
     } else {
@@ -927,12 +652,12 @@ export function LiveStudioPreview({
               gu: 'પ્રો સ્કોરબોર્ડ · વોટરમાર્ક-ફ્રી',
             },
             desc: {
-              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
-              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
-              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
-              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
+              en: 'Watermark-free Pro scoreboard · Unlock with Access ID & Password',
+              mr: 'वॉटरमार्क-फ्री प्रो स्कोअरबोर्ड · Access ID आणि Password ने अनलॉक करा',
+              hi: 'वॉटरमार्क-फ्री प्रो स्कोरबोर्ड · Access ID व Password से अनलॉक करें',
+              gu: 'વોટરમાર્ક-ફ્રી પ્રો સ્કોરબોર્ડ · Access ID અને Password થી અનલોક કરો',
             },
-            badge: '₹1 OFFER',
+            badge: 'PRO ACCESS',
           },
         ]
       : [
@@ -945,10 +670,10 @@ export function LiveStudioPreview({
               gu: 'રોયલ વેડિંગ ફ્રેમ · નામ અને કલર કસ્ટમાઇઝ',
             },
             desc: {
-              en: 'Custom Groom/Bride names + Color picker + Subtle bottom motion (₹1)',
-              mr: 'वधू-वर नाव + कलर पिकर + हलके बॉटम अ‍ॅनिमेशन (फक्त ₹1)',
-              hi: 'वर-वधू नाम + कलर पिकर + हल्का बॉटम एनिमेशन (सिर्फ ₹1)',
-              gu: 'વર-વધૂ નામ + કલર પિકર + હળવું બોટમ એનિમેશન (માત્ર ₹1)',
+              en: 'Custom Groom/Bride names + Color picker + Subtle bottom motion',
+              mr: 'वधू-वर नाव + कलर पिकर + हलके बॉटम अ‍ॅनिमेशन',
+              hi: 'वर-वधू नाम + कलर पिकर + हल्का बॉटम एनिमेशन',
+              gu: 'વર-વધૂ નામ + કલર પિકર + હળવું બોટમ એનિમેશન',
             },
             badge: 'NEW FRAME',
           },
@@ -961,10 +686,10 @@ export function LiveStudioPreview({
               gu: 'રોયલ હળદી · ઢોલક અને ॐ કળશ',
             },
             desc: {
-              en: 'Full custom text + 5 live animations + 4 themes (₹1 / 1 Day)',
-              mr: 'फुल कस्टम टेक्स्ट + 5 अ‍ॅनिमेशन्स + 4 थीम (फक्त ₹1 / 1 दिवस)',
-              hi: 'फुल कस्टम टेक्स्ट + 5 एनिमेशन + 4 थीम (सिर्फ ₹1 / 1 दिन)',
-              gu: 'ફુલ કસ્ટમ ટેક્સ્ટ + 5 એનિમેશન + 4 થીમ (માત્ર ₹1 / 1 દિવસ)',
+              en: 'Full custom text + 5 live animations + 4 royal color themes',
+              mr: 'फुल कस्टम टेक्स्ट + 5 अ‍ॅनिमेशन्स + 4 शाही थीम',
+              hi: 'फुल कस्टम टेक्स्ट + 5 एनिमेशन + 4 रॉयल थीम',
+              gu: 'ફુલ કસ્ટમ ટેક્સ્ટ + 5 એનિમેશન + 4 રોયલ થીમ',
             },
             badge: 'ANIMATED',
           },
@@ -977,10 +702,10 @@ export function LiveStudioPreview({
               gu: 'સ્ટાઇલ 1 · શાહી હળદી-લગ્ન ફ્રેમ',
             },
             desc: {
-              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
-              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
-              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
-              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
+              en: 'Shahi ornamental gold frame · Full vMix & OBS Browser Source URL',
+              mr: 'शाही गोल्ड फ्रेम · थेट vMix आणि OBS ब्राउझर सोर्स URL',
+              hi: 'शाही गोल्ड फ्रेम · सीधा vMix और OBS ब्राउज़र सोर्स URL',
+              gu: 'શાહી ગોલ્ડ ફ્રેમ · સીધું vMix અને OBS બ્રાઉઝર સોર્સ URL',
             },
           },
           {
@@ -992,10 +717,10 @@ export function LiveStudioPreview({
               gu: 'સ્ટાઇલ 2 · સિનેમેટિક લગ્ન રિબન',
             },
             desc: {
-              en: "Today's Offer: Just ₹1 · 1 Day (24h) Auto-Unlock",
-              mr: 'आजची ऑफर: फक्त ₹1 · 1 दिवस (24 तास) ऑटो अनलॉक',
-              hi: 'आज का ऑफर: सिर्फ ₹1 · 1 दिन (24 घंटे) ऑटो अनलॉक',
-              gu: 'આજની ઓફર: માત્ર ₹1 · 1 દિવસ (24 કલાક) ઓટો અનલોક',
+              en: 'Cinematic lower-third ribbon · Full vMix & OBS Browser Source URL',
+              mr: 'सिनेमॅटिक लोअर-थर्ड रिबन · थेट vMix आणि OBS ब्राउझर सोर्स URL',
+              hi: 'सिनेमैटिक लोअर-थर्ड रिबन · सीधा vMix और OBS ब्राउज़र सोर्स URL',
+              gu: 'સિનેમેટિક લોઅર-થર્ડ રિબન · સીધું vMix અને OBS બ્રાઉઝર સોર્સ URL',
             },
           },
         ];
@@ -1140,10 +865,8 @@ export function LiveStudioPreview({
         {/* Main Studio Area: Cricket Controller OR Kabaddi Controller OR Haldi/Wedding Monitor */}
         {activeMode === 'cricket' ? (
           <VmixCricketController
-            targetUid={kabaddiTargetUid || roomId}
-            accountLabel={
-              userAccount?.loginId || (isSuperAdmin ? 'SUPER ADMIN' : (kabaddiTargetUid || roomId).slice(0, 8))
-            }
+            targetUid={session?.accessId || roomId}
+            accountLabel={session?.accessId || roomId}
             lang={lang}
             outputBg={outputBg}
             onChangeOutputBg={setOutputBg}
@@ -1152,71 +875,6 @@ export function LiveStudioPreview({
           />
         ) : activeMode === 'kabaddi' ? (
           <div className="space-y-4">
-            {/* Authenticated Operator / Super Admin Isolation Strip */}
-            {onOpenAccountPortal && (
-              <div className="rounded-2xl border border-white/12 bg-[#111524]/85 backdrop-blur-md px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                  {isSuperAdmin ? (
-                    <>
-                      <ShieldCheck className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                      <span className="font-bold text-[#FACC15]">SUPER ADMIN MODE</span>
-                      <span className="text-zinc-400">
-                        · Active Room: <span className="font-mono font-bold text-white">{roomId}</span>
-                      </span>
-                    </>
-                  ) : userAccount ? (
-                    <>
-                      <UserCircle2 className="w-4 h-4 text-[#38BDF8] shrink-0" aria-hidden="true" />
-                      <span className="font-bold text-white">{userAccount.fullName}</span>
-                      <span className="font-mono text-[#FACC15] font-bold">
-                        ({userAccount.loginId})
-                      </span>
-                      <span className="text-zinc-400">
-                        · Isolated Scoreboard &amp; vMix Room:{' '}
-                        <span className="font-mono font-bold text-[#4ADE80]">{userAccount.matchRoomId}</span>
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <UserCircle2 className="w-4 h-4 text-zinc-400 shrink-0" aria-hidden="true" />
-                      <span className="text-zinc-300">
-                        Have a personal Login ID? Sign in to load your separate scoreboard &amp; vMix URL.
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onOpenAccountPortal(isSuperAdmin ? 'admin' : 'operator')}
-                    className={
-                      isSuperAdmin
-                        ? 'btn-gold-pro px-3.5 py-2 text-xs font-extrabold rounded-xl inline-flex items-center gap-1.5'
-                        : 'btn-glass-pro px-3.5 py-2 text-xs font-bold rounded-xl inline-flex items-center gap-1.5 text-white'
-                    }
-                  >
-                    {isSuperAdmin ? (
-                      <>
-                        <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
-                        <span>Manage Users / Create Account</span>
-                      </>
-                    ) : userAccount ? (
-                      <>
-                        <UserCircle2 className="w-3.5 h-3.5 text-[#38BDF8]" aria-hidden="true" />
-                        <span>My Account &amp; URLs</span>
-                      </>
-                    ) : (
-                      <>
-                        <UserCircle2 className="w-3.5 h-3.5 text-[#FACC15]" aria-hidden="true" />
-                        <span>User Login / Super Admin</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-
             <VmixKabaddiController
               lang={lang}
               state={kabaddiState}
@@ -1224,22 +882,12 @@ export function LiveStudioPreview({
               displayRaidSeconds={displayRaidSeconds}
               teamABinRemaining={teamABinRemaining}
               teamBBinRemaining={teamBBinRemaining}
-              connected={useFirestoreKabaddi ? userScoreboard.connected : syncConnected}
-              connectionStatus={
-                useFirestoreKabaddi
-                  ? userScoreboard.connected
-                    ? 'live'
-                    : 'reconnecting'
-                  : syncConnectionStatus
-              }
-              transport={useFirestoreKabaddi ? 'firebase' : syncTransport}
-              connectedDisplays={useFirestoreKabaddi ? 1 : connectedDisplays}
-              connectedControllers={useFirestoreKabaddi ? 1 : connectedControllers}
-              roomInput={
-                useFirestoreKabaddi
-                  ? userAccount?.loginId || (isSuperAdmin ? 'SUPER ADMIN' : kabaddiTargetUid.slice(0, 8))
-                  : roomInput
-              }
+              connected={syncConnected}
+              connectionStatus={syncConnectionStatus}
+              transport={syncTransport}
+              connectedDisplays={connectedDisplays}
+              connectedControllers={connectedControllers}
+              roomInput={roomInput}
               onChangeRoomInput={handleSetMatchId}
               onGenerateMatchId={handleGenerateNewMatchId}
               outputBg={outputBg}
@@ -1253,23 +901,13 @@ export function LiveStudioPreview({
               isPrivateDevPreview={isPrivateDevPreview}
               isFreeDemo={isFreeDemo}
               isCurrentUnlocked={isCurrentUnlocked}
-              activeToken={activeToken}
+              activeToken={null}
               currentSku={currentSku}
-              nowTs={nowTs}
-              canUndo={useFirestoreKabaddi ? userScoreboard.canUndo : syncCanUndo}
-              canRedo={useFirestoreKabaddi ? false : syncCanRedo}
-              onUndo={() => {
-                if (useFirestoreKabaddi) {
-                  void userScoreboard.undoLastAction();
-                } else {
-                  sendSyncAction('undo');
-                }
-              }}
-              onRedo={() => {
-                if (!useFirestoreKabaddi) {
-                  sendSyncAction('redo');
-                }
-              }}
+              nowTs={nowClock}
+              canUndo={syncCanUndo}
+              canRedo={syncCanRedo}
+              onUndo={() => sendSyncAction('undo')}
+              onRedo={() => sendSyncAction('redo')}
               onUpdateState={handleKabaddiUpdateState}
               onSendAction={handleKabaddiSendAction}
               onTriggerAlert={triggerKabaddiAlert}
@@ -1284,21 +922,12 @@ export function LiveStudioPreview({
               onResetMatch={handleResetKabaddi}
               onOpenRemoteModal={() => setRemoteModalOpen(true)}
               onDownloadPng={handleDownloadOverlay}
-              onRequestPurchase={onRequestPurchase}
-              isolatedUserMode={useFirestoreKabaddi}
-              undoCount={useFirestoreKabaddi ? userScoreboard.undoCount : 0}
-              lastUndoLabel={useFirestoreKabaddi ? userScoreboard.lastUndoLabel : null}
-              savingSettings={useFirestoreKabaddi ? userScoreboard.savingSettings : false}
+              onRequestPurchase={() => onOpenAccessModal?.('login')}
+              isolatedUserMode={false}
+              undoCount={0}
+              lastUndoLabel={null}
+              savingSettings={false}
               controlUrl={kabaddiControlUrl}
-              onPlayerOut={
-                useFirestoreKabaddi ? (team) => void userScoreboard.playerOut(team) : undefined
-              }
-              onAllOut={
-                useFirestoreKabaddi ? (team) => void userScoreboard.triggerAllOut(team) : undefined
-              }
-              onFlushSettings={
-                useFirestoreKabaddi ? () => void userScoreboard.flushSettingsNow() : undefined
-              }
             />
           </div>
         ) : (
@@ -1612,18 +1241,13 @@ export function LiveStudioPreview({
                     </span>
                   </p>
                   <p className="text-xs text-zinc-400">
-                    {isCurrentUnlocked && activeToken
-                      ? lang === 'mr'
-                        ? `पास सक्रिय · शिल्लक वेळ: ${formatRemainingTime(activeToken.expiresAt, nowTs)} (त्यानंतर आपोआप लॉक होईल)`
-                        : `Pass Active · Auto-locks in ${formatRemainingTime(activeToken.expiresAt, nowTs)} · Paste URL in OBS or vMix.`
-                      : lang === 'mr'
-                        ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — 1 दिवसासाठी (24 तास) OBS/vMix URL आपोआप अनलॉक होईल, त्यानंतर एक्सपायर होईल.'
-                        : "Today's Offer: Pay ₹1 — auto-unlocks OBS/vMix URL & PNG export for 1 Day (24h), then auto-expires."}
+                    {isCurrentUnlocked
+                      ? `Full Overlay Access Unlocked (${session?.accessId || 'Active'}) · Paste URL directly in OBS Studio or vMix.`
+                      : 'Enter your Access ID & Password to unlock OBS/vMix URLs and 1920×1080 PNG export.'}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-
                   {isCurrentUnlocked ? (
                     <>
                       <button
@@ -1648,12 +1272,11 @@ export function LiveStudioPreview({
                   ) : (
                     <button
                       type="button"
-                      onClick={() => onRequestPurchase(currentSku)}
-                      className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
+                      onClick={() => onOpenAccessModal?.('login')}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap shrink-0"
                     >
                       <Lock className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                      <span className="font-mono font-extrabold text-[#FACC15]">₹1 OFFER</span>
-                      <span>{lang === 'mr' ? 'अनलॉक करा' : 'Unlock Overlay'}</span>
+                      <span>Unlock Overlays</span>
                     </button>
                   )}
                 </div>
@@ -1803,29 +1426,22 @@ export function LiveStudioPreview({
                   )}
                 </>
               ) : (
-                <div className="bg-[#0D0D11] border border-[#FACC15]/30 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="bg-[#0D0D11] border border-[#FFE600]/30 rounded-xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-white flex items-center gap-2">
-                      <Lock className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                      <span>
-                        {lang === 'mr'
-                          ? 'OBS / vMix लाईव्ह URL व 1920×1080 PNG लॉक केलेले आहे'
-                          : 'OBS / vMix Live URLs & 1920×1080 PNG Export Locked'}
-                      </span>
+                      <Lock className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+                      <span>OBS / vMix Live URLs &amp; 1920×1080 PNG Export Locked</span>
                     </p>
                     <p className="text-xs text-zinc-400">
-                      {lang === 'mr'
-                        ? 'आजची ऑफर: फक्त ₹1 पेमेंट करा — लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.'
-                        : "Today's Offer: Pay ₹1 — unlocks automatically for 1 Day (24 hours), then auto-expires."}
+                      Enter your Access ID and Password to unlock full access to all overlays.
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => onRequestPurchase(currentSku)}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs sm:text-sm font-semibold text-black bg-[#FACC15] hover:bg-[#EAB308] rounded-lg transition-colors whitespace-nowrap shrink-0 tabular-nums"
+                    onClick={() => onOpenAccessModal?.('login')}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-3 text-xs sm:text-sm font-black text-black bg-[#FFE600] hover:bg-[#FEF08A] rounded-lg transition-colors whitespace-nowrap shrink-0"
                   >
-                    <span className="font-mono font-extrabold">₹1 · 1 DAY</span>
-                    <span>{lang === 'mr' ? 'पेमेंट करून अनलॉक करा' : 'Pay & Unlock'}</span>
+                    <span>Unlock Overlays</span>
                   </button>
                 </div>
               )}

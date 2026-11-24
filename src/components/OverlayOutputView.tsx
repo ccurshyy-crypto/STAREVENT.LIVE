@@ -108,70 +108,7 @@ export function OverlayOutputView({
   );
   const activeSku = getOverlaySku(activeMode, activeStyle);
   const isFreeDemo = activeSku === 'kabaddi-demo';
-
-  const [accessState, setAccessState] = useState<'checking' | 'active' | 'expired' | 'locked'>(
-    isFreeDemo ? 'active' : token ? 'checking' : 'locked'
-  );
-  const [expiresAt, setExpiresAt] = useState<number | null>(null);
-
-  // Verify 1-day paid access token against server (kabaddi-demo is free with small watermark)
-  useEffect(() => {
-    if (isFreeDemo) {
-      setAccessState('active');
-      setExpiresAt(null);
-      return;
-    }
-
-    if (!token) {
-      setAccessState('locked');
-      setExpiresAt(null);
-      return;
-    }
-
-    let cancelled = false;
-    const checkAccess = async () => {
-      try {
-        const res = await fetch(
-          `/api/overlay/access?sku=${encodeURIComponent(activeSku)}&token=${encodeURIComponent(token)}`
-        );
-        const data = await res.json();
-        if (cancelled) return;
-        if (res.ok && data?.active && typeof data.expiresAt === 'number') {
-          setAccessState('active');
-          setExpiresAt(data.expiresAt);
-        } else if (data?.reason === 'expired') {
-          setAccessState('expired');
-          setExpiresAt(null);
-        } else {
-          setAccessState('locked');
-          setExpiresAt(null);
-        }
-      } catch {
-        if (!cancelled) setAccessState('locked');
-      }
-    };
-
-    checkAccess();
-    const recheckInterval = window.setInterval(checkAccess, 20_000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(recheckInterval);
-    };
-  }, [activeSku, isFreeDemo, token]);
-
-  // Auto-lock the exact moment the 24-hour expiry timestamp is reached
-  useEffect(() => {
-    if (accessState !== 'active' || !expiresAt) return;
-    const remaining = expiresAt - Date.now();
-    if (remaining <= 0) {
-      setAccessState('expired');
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setAccessState('expired');
-    }, Math.min(remaining, 2_147_483_647));
-    return () => window.clearTimeout(timer);
-  }, [accessState, expiresAt]);
+  void token;
 
   const merged: LiveOverlayState = {
     ...state,
@@ -197,30 +134,6 @@ export function OverlayOutputView({
   const isClassic = activeStyle === 'classic';
   const isFestive = activeStyle === 'festive';
   const isWeddingFrame = activeStyle === 'wedding';
-
-  if (accessState !== 'active') {
-    return (
-      <div className="fixed inset-0 w-screen h-screen flex items-center justify-center p-6 select-none">
-        {accessState !== 'checking' && (
-          <div className="bg-[#0B0A0E]/92 border-2 border-[#FACC15] rounded-2xl px-8 py-6 text-center max-w-xl shadow-2xl space-y-2">
-            <p className="font-mono text-xs font-bold tracking-wider text-[#FACC15]">
-              STAR EVENT LIVE · TODAY&apos;S OFFER: ₹1 FOR 1 DAY (24 HOURS)
-            </p>
-            <h1 className="font-display text-2xl font-extrabold text-white">
-              {accessState === 'expired'
-                ? '1-Day Overlay Access Expired'
-                : "Paid Overlay Locked — Pay ₹1 (1 Day)"}
-            </h1>
-            <p className="text-sm text-zinc-300">
-              {accessState === 'expired'
-                ? 'Your 1-Day (24h) overlay access has expired and auto-locked. Pay ₹1 at starevent.live/overlays to unlock again for 24 hours.'
-                : 'Pay ₹1 at starevent.live/overlays to automatically unlock this overlay for 1 Day (24 hours) in OBS & vMix.'}
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // KABADDI MODE: Clean Borderless 1920x1080 Curved Dual-Logo Scoreboard (Free Demo includes small watermark)
   if (activeMode === 'kabaddi') {

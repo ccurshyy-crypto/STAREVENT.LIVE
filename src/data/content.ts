@@ -164,10 +164,10 @@ export const UI_COPY = {
       gu: 'કાર્યક્રમ બુક કરો',
     },
     secondaryCta: {
-      en: "Overlays Store (₹1 Today's Offer)",
-      mr: 'ओव्हरले पहा (आजची ऑफर ₹1)',
-      hi: 'ओवरले स्टोर (₹1 आज का ऑफर)',
-      gu: 'ઓવરલે સ્ટોર (₹1 આજની ઓફર)',
+      en: 'Live Overlays Studio',
+      mr: 'लाईव्ह ओव्हरले स्टुडिओ',
+      hi: 'लाइव ओवरले स्टूडियो',
+      gu: 'લાઇવ ઓવરલે સ્ટુડિયો',
     },
     bannerCaption: {
       en: 'Official Studio Banner · 4K LIVE on YouTube (@stareventlive01)',
@@ -258,10 +258,10 @@ export const UI_COPY = {
       gu: 'નાઇટ ક્રિકેટ ટુર્નામેન્ટ હોય કે પારિવારિક લગ્ન પ્રસંગ — અમારી અનુભવી ટીમ દરેક ક્ષણને સ્પષ્ટ વિડિયો અને ઓડિયો સાથે વિશ્વભરમાં લાઇવ પહોંચાડે છે.',
     },
     previewBtn: {
-      en: 'Open Overlay (₹1 Offer)',
-      mr: 'ओव्हरले पहा (₹1 ऑफर)',
-      hi: 'ओवरले देखें (₹1 ऑफर)',
-      gu: 'ઓવરલે જુઓ (₹1 ઓફર)',
+      en: 'Open Live Overlay',
+      mr: 'ओव्हरले पहा',
+      hi: 'ओवरले देखें',
+      gu: 'ઓવરલે જુઓ',
     },
     selectBtn: {
       en: 'Book This Event',

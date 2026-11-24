@@ -1,34 +1,28 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import {
   ArrowLeft,
   Check,
-  Clock,
   Eye,
   EyeOff,
   Lock,
   LockOpen,
-  LogIn,
-  RefreshCw,
+  LogOut,
+  Monitor,
   ShieldCheck,
-  UserPlus,
 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { useOverlayAccess } from '../context/OverlayAccessContext';
 import { EventCategoryId, Language, STUDIO_CONTACT, tLang } from '../data/content';
+import { OVERLAY_PRODUCTS, OverlayProduct } from '../data/overlayCatalog';
 import {
-  formatRemainingTime,
-  OVERLAY_PRODUCTS,
-  OverlayPlanId,
-  OverlayProduct,
-  OverlaySku,
-  PendingOverlayOrder,
-  VerifiedOverlayToken,
-} from '../data/overlayCatalog';
-import { createInitialCricketScoreboardDoc, OverlayMode, OverlayStyle } from '../types/overlay';
+  createInitialCricketScoreboardDoc,
+  OverlayMode,
+  OverlayStyle,
+} from '../types/overlay';
+import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
 import { CricketScoreboardBar } from './CricketScoreboardBar';
 import { HaldiFestiveOverlayBar } from './HaldiFestiveOverlayBar';
 import { KabaddiScoreboardBar } from './KabaddiScoreboardBar';
 import { LiveStudioPreview } from './LiveStudioPreview';
-import { OverlayCheckoutModal } from './OverlayCheckoutModal';
 import { ScrollReveal } from './ScrollReveal';
 import { WeddingFrameOverlay } from './WeddingFrameOverlay';
 
@@ -38,15 +32,10 @@ interface OverlaysPageProps {
   onChangeMode: (mode: OverlayMode) => void;
   activeStyle: OverlayStyle;
   onChangeStyle: (style: OverlayStyle) => void;
-  unlockedSkus: OverlaySku[];
-  verifiedTokens: VerifiedOverlayToken[];
-  pendingOrders: Partial<Record<OverlaySku, PendingOverlayOrder>>;
-  onPendingOrderChange: (sku: OverlaySku, order: PendingOverlayOrder | null) => void;
-  onVerifiedUnlock: (tokens: VerifiedOverlayToken | VerifiedOverlayToken[]) => void;
   onBackHome: () => void;
   onBookFromOverlay: (category: EventCategoryId) => void;
-  forcedMatchRoomId?: string | null;
-  onOpenAccountPortal?: (tab?: 'operator' | 'admin') => void;
+  onOpenKabaddiControl?: () => void;
+  onOpenAccessModal?: (view?: 'login' | 'admin') => void;
 }
 
 function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: OverlayStyle }) {
@@ -64,9 +53,7 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
       >
         <div className="my-auto text-center">
           <span className="font-mono text-[9px] text-zinc-200 bg-black/65 px-2.5 py-0.5 rounded border border-white/10">
-            {style === 'demo'
-              ? 'FREE DEMO · SMALL WATERMARK'
-              : '1920×1080 DUAL-LOGO SCOREBOARD'}
+            1920×1080 DUAL-LOGO SCOREBOARD
           </span>
         </div>
         <KabaddiScoreboardBar
@@ -81,7 +68,7 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
           teamBScore={21}
           matchSeconds={30}
           halfLabel="1ST HALF"
-          showDemoWatermark={style === 'demo'}
+          showDemoWatermark={false}
         />
       </div>
     );
@@ -189,28 +176,25 @@ function OverlayMiniPreview({ mode, style }: { mode: OverlayMode; style: Overlay
         backgroundPosition: '0 0, 0 9px, 9px -9px, -9px 0px',
       }}
     >
-      {/* Mini top bar */}
       <div className="flex items-center justify-between gap-2">
         {isClassic ? (
           <>
             <span className="bg-[#B45309] border border-[#FACC15] text-[#FEF08A] px-1.5 py-0.5 rounded text-[8px] font-mono font-bold">
-              HALDI & WEDDING
+              HALDI &amp; WEDDING
             </span>
             <span className="bg-[#78350F] border border-[#FACC15] text-[#FEF08A] px-2 py-0.5 rounded-full text-[8px] font-bold truncate">
               शुभ हळदी व लग्न समारंभ
             </span>
           </>
         ) : (
-          <span className="ml-auto bg-[#180F06]/90 border border-[#FACC15] text-[#FACC15] px-2 py-0.5 rounded-full text-[8px] font-bold">
+          <span className="ml-auto bg-black/80 border border-[#FACC15]/80 text-[#FACC15] px-2 py-0.5 rounded-full text-[8px] font-bold">
             शुभ हळदी व लग्न समारंभ
           </span>
         )}
       </div>
 
-      {/* Clear center indicator */}
       <div className="my-auto text-center" />
 
-      {/* Mini bottom bar */}
       {isClassic ? (
         <div className="bg-gradient-to-r from-[#78350F] via-[#B45309] to-[#78350F] border border-[#FACC15] rounded-md px-3 py-1.5 text-center">
           <p className="text-[10px] font-bold text-white truncate leading-normal py-0.5">
@@ -239,113 +223,37 @@ export function OverlaysPage({
   onChangeMode,
   activeStyle,
   onChangeStyle,
-  unlockedSkus,
-  verifiedTokens,
-  pendingOrders,
-  onPendingOrderChange,
-  onVerifiedUnlock,
   onBackHome,
   onBookFromOverlay,
-  forcedMatchRoomId,
-  onOpenAccountPortal,
+  onOpenKabaddiControl,
+  onOpenAccessModal,
 }: OverlaysPageProps) {
-  const { authReady, firebaseUser, userAccount, isSuperAdmin, signInOperatorWithLoginId } =
-    useAuth();
+  const { session, isUnlocked, isReady, unlockWithCredentials, lockAndLogout } =
+    useOverlayAccess();
+
   const [filterMode, setFilterMode] = useState<'all' | OverlayMode>('all');
-  const [checkoutProduct, setCheckoutProduct] = useState<OverlayProduct | null>(null);
-  const [checkoutPlanId, setCheckoutPlanId] = useState<OverlayPlanId>('1day');
-  const [nowTs, setNowTs] = useState(() => Date.now());
-  const [loginIdInput, setLoginIdInput] = useState('');
+  const [accessIdInput, setAccessIdInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [showInlineAdmin, setShowInlineAdmin] = useState(false);
 
-  const hasOverlayAccess = Boolean(
-    firebaseUser && (isSuperAdmin || (userAccount ? userAccount.status !== 'disabled' : true))
-  );
-
-  const handleInlineLogin = async (e: FormEvent) => {
+  const handleUnlockSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setLoginError(null);
-    if (!loginIdInput.trim() || !passwordInput) {
-      setLoginError(
-        tLang(
-          {
-            en: 'Please enter both your Login ID and Password.',
-            mr: 'कृपया तुमचा Login ID आणि Password दोन्ही टाका.',
-            hi: 'कृपया अपना Login ID और Password दोनों डालें।',
-            gu: 'કૃપા કરીને તમારું Login ID અને Password બંને દાખલ કરો.',
-          },
-          lang
-        )
-      );
+    setLoginBusy(true);
+    const res = await unlockWithCredentials(accessIdInput, passwordInput);
+    setLoginBusy(false);
+
+    if (!res.ok) {
+      setLoginError(res.error || 'Invalid Access ID or Password.');
       return;
     }
 
-    setLoginBusy(true);
-    try {
-      await signInOperatorWithLoginId(loginIdInput.trim(), passwordInput);
-      setLoginIdInput('');
-      setPasswordInput('');
-    } catch (err) {
-      setLoginError(
-        err instanceof Error
-          ? err.message
-          : 'Invalid Login ID or Password. Please try again.'
-      );
-    } finally {
-      setLoginBusy(false);
-    }
+    setAccessIdInput('');
+    setPasswordInput('');
   };
-
-  const hasPendingOrders = Object.values(pendingOrders).some((ord) => ord?.status === 'pending');
-
-  useEffect(() => {
-    if (verifiedTokens.length === 0 && !hasPendingOrders) return;
-    const id = window.setInterval(() => setNowTs(Date.now()), 1000);
-    return () => window.clearInterval(id);
-  }, [verifiedTokens.length, hasPendingOrders]);
-
-  // Auto-verify Cashfree return redirect (?cf_order_id=OVL-...) via backend PG API
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cfOrderId = params.get('cf_order_id')?.trim();
-    if (!cfOrderId) return;
-
-    let cancelled = false;
-    fetch(`/api/payment/cashfree/verify?orderId=${encodeURIComponent(cfOrderId)}`, {
-      cache: 'no-store',
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        const order = data?.order;
-        if (data?.paid && order?.status === 'approved' && order?.unlockCode && order?.sku) {
-          onVerifiedUnlock({
-            sku: order.sku as OverlaySku,
-            orderId: order.orderId,
-            unlockCode: order.unlockCode,
-            planId: order.planId,
-            expiresAt:
-              order.expiresAt || Date.now() + (order.durationHours || 24) * 60 * 60 * 1000,
-          });
-          onPendingOrderChange(order.sku as OverlaySku, null);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('cf_order_id');
-          window.history.replaceState({}, '', url.toString());
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [onVerifiedUnlock, onPendingOrderChange]);
 
   const visibleProducts =
     filterMode === 'all'
@@ -361,57 +269,31 @@ export function OverlaysPage({
     }
   };
 
-  const handleOpenCheckout = (product: OverlayProduct, planId: OverlayPlanId = '1day') => {
-    if (product.isFreeDemo) {
-      handleOpenPreview(product);
-      return;
-    }
-    setCheckoutPlanId(planId);
-    setCheckoutProduct(product);
-  };
-
-  const handleRequestPurchaseBySku = (sku: OverlaySku) => {
-    const prod = OVERLAY_PRODUCTS.find((p) => p.sku === sku) ?? OVERLAY_PRODUCTS[0];
-    handleOpenCheckout(prod, '1day');
-  };
-
-  // Loading auth state check before rendering gate or studio
-  if (!authReady) {
+  if (!isReady) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center px-4 py-16 text-[#F4F4F5]">
-        <div className="bg-[#121622]/90 border border-white/15 rounded-2xl px-8 py-6 text-center space-y-2 shadow-2xl">
-          <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FACC15]">
-            Star Event Live · Overlays Access
+        <div className="bg-[#111116] border border-white/15 rounded-2xl px-8 py-6 text-center space-y-2 shadow-2xl">
+          <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FFE600]">
+            Star Event Live · Overlay Access
           </p>
-          <p className="text-sm text-zinc-300">
-            {tLang(
-              {
-                en: 'Checking your login session...',
-                mr: 'तुमचे लॉगिन सेशन तपासत आहे...',
-                hi: 'आपका लॉगिन सेशन जांचा जा रहा है...',
-                gu: 'તમારું લોગિન સેશન તપાસી રહ્યા છીએ...',
-              },
-              lang
-            )}
-          </p>
+          <p className="text-sm text-zinc-300">Verifying overlay access...</p>
         </div>
       </div>
     );
   }
 
-  // Strict ID & Password Login Gate for Overlays Page
-  if (!hasOverlayAccess) {
+  // Locked Gate: ONLY Access ID + Password + "Unlock Overlays" button (plus inline Admin Panel toggle)
+  if (!isUnlocked) {
     return (
       <div className="min-h-[75vh] text-[#F4F4F5] py-8 sm:py-14 px-3 sm:px-6 lg:px-8">
-        <div className="max-w-xl mx-auto space-y-6">
-          {/* Top Back Button */}
-          <div>
+        <div className="max-w-lg mx-auto space-y-5">
+          <div className="flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={onBackHome}
-              className="btn-glass-pro inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-100 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+              className="btn-glass-pro inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-100 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
             >
-              <ArrowLeft className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
+              <ArrowLeft className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
               <span>
                 {tLang(
                   {
@@ -424,186 +306,112 @@ export function OverlaysPage({
                 )}
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setShowInlineAdmin((prev) => !prev)}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[#09090D]/90 hover:bg-[#161620] border border-[#FFE600]/40 text-xs font-bold text-[#FFE600] whitespace-nowrap"
+            >
+              <ShieldCheck className="w-4 h-4 shrink-0" aria-hidden="true" />
+              <span>{showInlineAdmin ? 'Back to Unlock' : 'Admin Panel'}</span>
+            </button>
           </div>
 
-          {/* Login Required Card */}
-          <div className="bg-[#111521]/95 border border-[#FACC15]/35 rounded-2xl p-5 sm:p-8 shadow-[0_24px_70px_rgba(0,0,0,0.75)] space-y-6">
-            <div className="text-center space-y-3">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-[#EF4444]/15 border border-[#EF4444]/40 flex items-center justify-center">
-                <Lock className="w-7 h-7 text-[#FACC15]" aria-hidden="true" />
-              </div>
-              <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FACC15]">
-                {tLang(
-                  {
-                    en: 'Protected Overlays Studio · Login Required',
-                    mr: 'प्रोटेक्टेड ओव्हरले स्टुडिओ · लॉगिन आवश्यक',
-                    hi: 'प्रोटेक्टेड ओवरले स्टूडियो · लॉगिन आवश्यक',
-                    gu: 'પ્રોટેક્ટેડ ઓવરલે સ્ટુડિયો · લોગિન જરૂરી',
-                  },
-                  lang
-                )}
-              </p>
-              <h1 className="font-display text-2xl sm:text-3xl font-extrabold text-white leading-tight">
-                {tLang(
-                  {
-                    en: 'Login with ID & Password to Access Overlays',
-                    mr: 'ओव्हरले वापरण्यासाठी ID व Password टाकून लॉगिन करा',
-                    hi: 'ओवरले एक्सेस करने के लिए ID और Password से लॉगिन करें',
-                    gu: 'ઓવરલે એક્સેસ કરવા માટે ID અને Password થી લોગિન કરો',
-                  },
-                  lang
-                )}
-              </h1>
-              <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
-                {tLang(
-                  {
-                    en: 'Sign in using your registered Login ID and Password to open Kabaddi Scoreboards, Haldi & Wedding Overlays, and vMix/OBS Live Studio.',
-                    mr: 'कबड्डी स्कोअरबोर्ड, हळदी व लग्न ओव्हरले आणि vMix/OBS लाईव्ह स्टुडिओ उघडण्यासाठी तुमचा Login ID आणि Password टाका.',
-                    hi: 'कबड्डी स्कोरबोर्ड, हल्दी व शादी ओवरले और vMix/OBS लाइव स्टूडियो खोलने के लिए अपना Login ID और Password डालें।',
-                    gu: 'કબડ્ડી સ્કોરબોર્ડ, હળદી-લગ્ન ઓવરલે અને vMix/OBS લાઇવ સ્ટુડિયો ખોલવા માટે તમારું Login ID અને Password દાખલ કરો.',
-                  },
-                  lang
-                )}
-              </p>
+          <div className="bg-[#111116] border border-[#FFE600]/35 rounded-2xl overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.78)]">
+            <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
+
+            <div className="p-5 sm:p-8 space-y-6">
+              {showInlineAdmin ? (
+                <AdminAccessKeysPanel />
+              ) : (
+                <>
+                  <div className="text-center space-y-2.5">
+                    <div className="w-14 h-14 mx-auto rounded-2xl bg-[#DC2626]/20 border border-[#FFE600]/45 flex items-center justify-center">
+                      <Lock className="w-7 h-7 text-[#FFE600]" aria-hidden="true" />
+                    </div>
+                    <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FFE600]">
+                      STAR EVENT LIVE · OVERLAY ACCESS
+                    </p>
+                    <h1 className="font-display text-2xl sm:text-3xl font-black text-white leading-tight">
+                      Unlock Overlays &amp; Scoreboards
+                    </h1>
+                    <p className="text-xs sm:text-sm text-zinc-400">
+                      Enter your Access ID and Password to unlock all live broadcast overlays.
+                    </p>
+                  </div>
+
+                  {loginError && (
+                    <div
+                      role="alert"
+                      className="bg-red-950/75 border border-red-500/50 rounded-xl px-4 py-3 text-xs sm:text-sm font-medium text-red-100"
+                    >
+                      {loginError}
+                    </div>
+                  )}
+
+                  <form onSubmit={handleUnlockSubmit} className="space-y-4">
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="overlays-access-id"
+                        className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
+                      >
+                        Access ID
+                      </label>
+                      <input
+                        id="overlays-access-id"
+                        type="text"
+                        autoComplete="username"
+                        value={accessIdInput}
+                        onChange={(e) => setAccessIdInput(e.target.value)}
+                        placeholder="e.g. STAR-101"
+                        className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label
+                        htmlFor="overlays-access-password"
+                        className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
+                      >
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="overlays-access-password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          value={passwordInput}
+                          onChange={(e) => setPasswordInput(e.target.value)}
+                          placeholder="Enter password"
+                          className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white rounded-lg"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" aria-hidden="true" />
+                          ) : (
+                            <Eye className="w-4 h-4" aria-hidden="true" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={loginBusy}
+                      className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FFE600] to-[#FACC15] hover:from-[#FEF08A] hover:to-[#FFE600] disabled:opacity-60 text-[#09090D] font-display font-black text-sm sm:text-base uppercase tracking-wide transition-colors"
+                    >
+                      <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
+                      <span>{loginBusy ? 'Verifying...' : 'Unlock Overlays'}</span>
+                    </button>
+                  </form>
+                </>
+              )}
             </div>
-
-            {loginError && (
-              <div
-                role="alert"
-                className="bg-red-950/75 border border-red-500/50 rounded-xl px-4 py-3 text-xs sm:text-sm font-medium text-red-100"
-              >
-                {loginError}
-              </div>
-            )}
-
-            <form onSubmit={handleInlineLogin} className="space-y-4">
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="overlays-login-id"
-                  className="block text-xs font-semibold text-zinc-300"
-                >
-                  {tLang(
-                    {
-                      en: 'Login ID',
-                      mr: 'लॉगिन आयडी (Login ID)',
-                      hi: 'लॉगिन आईडी (Login ID)',
-                      gu: 'લોગિન આઈડી (Login ID)',
-                    },
-                    lang
-                  )}
-                </label>
-                <input
-                  id="overlays-login-id"
-                  type="text"
-                  autoComplete="username"
-                  value={loginIdInput}
-                  onChange={(e) => setLoginIdInput(e.target.value)}
-                  placeholder="e.g. BHARATNIRGUDA or STAREVENT01"
-                  className="w-full px-4 py-3 rounded-xl bg-[#090C14] border border-white/15 focus:border-[#FACC15] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="overlays-login-password"
-                  className="block text-xs font-semibold text-zinc-300"
-                >
-                  {tLang(
-                    {
-                      en: 'Password',
-                      mr: 'पासवर्ड (Password)',
-                      hi: 'पासवर्ड (Password)',
-                      gu: 'પાસવર્ડ (Password)',
-                    },
-                    lang
-                  )}
-                </label>
-                <div className="relative">
-                  <input
-                    id="overlays-login-password"
-                    type={showPassword ? 'text' : 'password'}
-                    autoComplete="current-password"
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Enter your password"
-                    className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#090C14] border border-white/15 focus:border-[#FACC15] focus:outline-none text-sm text-white placeholder:text-zinc-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white rounded-lg"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" aria-hidden="true" />
-                    ) : (
-                      <Eye className="w-4 h-4" aria-hidden="true" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loginBusy}
-                className="btn-gold-pro w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 text-sm sm:text-base font-extrabold text-black rounded-xl disabled:opacity-60"
-              >
-                <LogIn className="w-4 h-4 shrink-0" aria-hidden="true" />
-                <span>
-                  {loginBusy
-                    ? tLang(
-                        {
-                          en: 'Logging in...',
-                          mr: 'लॉगिन होत आहे...',
-                          hi: 'लॉगिन हो रहा है...',
-                          gu: 'લોગિન થઈ રહ્યું છે...',
-                        },
-                        lang
-                      )
-                    : tLang(
-                        {
-                          en: 'Login & Open Overlays',
-                          mr: 'लॉगिन करा आणि ओव्हरले उघडा',
-                          hi: 'लॉगिन करें और ओवरले खोलें',
-                          gu: 'લોગિન કરો અને ઓવરલે ખોલો',
-                        },
-                        lang
-                      )}
-                </span>
-              </button>
-            </form>
-
-            {onOpenAccountPortal && (
-              <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => onOpenAccountPortal('operator')}
-                  className="btn-primary-pro flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-bold text-white rounded-xl"
-                >
-                  <UserPlus className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                  <span>
-                    {tLang(
-                      {
-                        en: 'New User? Sign Up Account',
-                        mr: 'नवीन युजर? साइन अप करा',
-                        hi: 'नए यूजर? नया अकाउंट बनाएं',
-                        gu: 'નવા યુઝર? નવું એકાઉન્ટ બનાવો',
-                      },
-                      lang
-                    )}
-                  </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => onOpenAccountPortal('admin')}
-                  className="btn-glass-pro inline-flex items-center justify-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 rounded-xl"
-                >
-                  <ShieldCheck className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                  <span>Admin Login</span>
-                </button>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -612,57 +420,74 @@ export function OverlaysPage({
 
   return (
     <div className="text-[#F4F4F5]">
-      {/* Dedicated Overlays Store Hero & Catalog */}
       <section className="pt-8 pb-16 sm:pt-12 sm:pb-20 border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Top Breadcrumb */}
-          <div className="relative overflow-hidden rounded-xl border border-[#FACC15]/25 studio-strip-animated-bg backdrop-blur-md px-4 sm:px-5 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.4)]">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-[#FACC15]/14 to-transparent studio-strip-sheen"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[1.5px] overflow-hidden"
-            >
-              <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#EF4444] to-[#FACC15] opacity-75 topbar-beam-sweep" />
-            </div>
+          {/* Top Unlocked Session Bar */}
+          <div className="relative overflow-hidden rounded-xl border border-[#FFE600]/30 bg-[#111116]/95 backdrop-blur-md px-4 sm:px-5 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={onBackHome}
+                  className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-colors whitespace-nowrap"
+                >
+                  <ArrowLeft className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+                  <span>Back to Home</span>
+                </button>
 
-            <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={onBackHome}
-                className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-colors whitespace-nowrap"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#FACC15]" aria-hidden="true" />
-                <span>
-                  {tLang(
-                    {
-                      en: 'Back to Home',
-                      mr: 'मुख्य पृष्ठावर परत जा',
-                      hi: 'होम पेज पर वापस जाएं',
-                      gu: 'હોમ પેજ પર પાછા જાઓ',
-                    },
-                    lang
+                <span aria-hidden="true" className="text-zinc-600 hidden sm:inline">|</span>
+
+                <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-300">
+                  <LockOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Unlocked: {session?.accessId}</span>
+                  {session?.label && (
+                    <span className="text-zinc-400 font-sans font-medium">
+                      ({session.label})
+                    </span>
                   )}
                 </span>
-              </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                {onOpenKabaddiControl && (
+                  <button
+                    type="button"
+                    onClick={onOpenKabaddiControl}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FFE600] hover:bg-[#FEF08A] text-[#09090D] font-display font-black text-xs uppercase tracking-wide whitespace-nowrap"
+                  >
+                    <Monitor className="w-3.5 h-3.5 shrink-0" />
+                    <span>Kabaddi vMix Room</span>
+                  </button>
+                )}
+
+                {onOpenAccessModal && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenAccessModal('admin')}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-[#FFE600]/35 text-xs font-bold text-[#FFE600] whitespace-nowrap"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                    <span>Admin Panel</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={lockAndLogout}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#DC2626] hover:bg-[#EF4444] text-xs font-bold text-white whitespace-nowrap"
+                >
+                  <LogOut className="w-3.5 h-3.5 shrink-0" />
+                  <span>Lock / Logout</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Store Header */}
           <div className="pt-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10 site-hero-enter">
-            <div className="max-w-3xl space-y-3.5">
-              <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
-                {tLang(
-                  {
-                    en: `Today's Special Offer · ${STUDIO_CONTACT.domain} · Just ₹1 (1 Day / 24 Hours)`,
-                    mr: `आजची खास ऑफर · ${STUDIO_CONTACT.domain} · फक्त ₹1 (1 दिवस / 24 तास)`,
-                    hi: `आज का खास ऑफर · ${STUDIO_CONTACT.domain} · सिर्फ ₹1 (1 दिन / 24 घंटे)`,
-                    gu: `આજની ખાસ ઓફર · ${STUDIO_CONTACT.domain} · માત્ર ₹1 (1 દિવસ / 24 કલાક)`,
-                  },
-                  lang
-                )}
+            <div className="max-w-3xl space-y-3">
+              <p className="text-xs sm:text-sm font-mono font-bold uppercase tracking-wider text-[#FFE600]">
+                {STUDIO_CONTACT.domain} · FULL ACCESS UNLOCKED
               </p>
               <h1
                 className={`font-display font-extrabold text-white text-[clamp(1.95rem,3.4vw,3.05rem)] ${
@@ -673,24 +498,16 @@ export function OverlaysPage({
               >
                 {tLang(
                   {
-                    en: 'Live Overlays for OBS & vMix',
-                    mr: 'OBS आणि vMix साठी लाईव्ह ओव्हरले',
-                    hi: 'OBS और vMix के लिए लाइव ओवरले',
-                    gu: 'OBS અને vMix માટે લાઇવ ઓવરલે',
+                    en: 'Live Overlays & Scoreboards for OBS & vMix',
+                    mr: 'OBS आणि vMix साठी लाईव्ह ओव्हरले व स्कोअरबोर्ड',
+                    hi: 'OBS और vMix के लिए लाइव ओवरले और स्कोरबोर्ड',
+                    gu: 'OBS અને vMix માટે લાઇવ ઓવરલે અને સ્કોરબોર્ડ',
                   },
                   lang
                 )}
               </h1>
               <p className="text-sm sm:text-base text-zinc-400 leading-[1.72] max-w-2xl">
-                {tLang(
-                  {
-                    en: "Try the FREE Kabaddi Demo Scoreboard (small STAR EVENT LIVE watermark & 30s timer), or unlock watermark-free Kabaddi Pro & Haldi/Wedding overlays for ₹1 (Today's Offer) — instant automatic unlock for 1 Day (24 hours), then auto-expires.",
-                    mr: 'मोफत कबड्डी डेमो स्कोअरबोर्ड (छोट्या STAR EVENT LIVE वॉटरमार्कसह · 30s टायमर), वॉटरमार्क-फ्री कबड्डी प्रो स्कोअरबोर्ड आणि हळदी व लग्न समारंभ ओव्हरले (2 स्टाईल). आजची ऑफर: फक्त ₹1 पेमेंट करा, लगेच आपोआप अनलॉक होईल आणि 1 दिवसानंतर (24 तास) आपोआप एक्सपायर होईल.',
-                    hi: 'फ्री कबड्डी डेमो स्कोरबोर्ड (छोटे STAR EVENT LIVE वॉटरमार्क और 30s टाइमर के साथ) आज़माएं, या सिर्फ ₹1 (आज का ऑफर) में वॉटरमार्क-फ्री कबड्डी प्रो और हल्दी-शादी ओवरले 1 दिन (24 घंटे) के लिए अनलॉक करें।',
-                    gu: 'ફ્રી કબડ્ડી ડેમો સ્કોરબોર્ડ (નાના STAR EVENT LIVE વોટરમાર્ક અને 30s ટાઈમર સાથે) અજમાવો, અથવા માત્ર ₹1 (આજની ઓફર) માં વોટરમાર્ક-ફ્રી કબડ્ડી પ્રો અને હળદી-લગ્ન ઓવરલે 1 દિવસ (24 કલાક) માટે અનલોક કરો.',
-                  },
-                  lang
-                )}
+                All Kabaddi, Cricket, Haldi, and Wedding broadcast overlays are unlocked for your active Access ID. Choose any overlay below to customize and copy its 1920×1080 transparent OBS/vMix URL.
               </p>
             </div>
 
@@ -724,197 +541,86 @@ export function OverlaysPage({
             </div>
           </div>
 
-          {/* Overlay Product Cards (Free Kabaddi Demo + Paid ₹1 / 1 Day Overlays) */}
+          {/* All Overlay Cards — Fully Unlocked */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {visibleProducts.map((product, idx) => {
-              const isFreeDemo = Boolean(product.isFreeDemo);
-              const token = verifiedTokens.find((t) => t.sku === product.sku && t.expiresAt > nowTs);
-              const isUnlocked = isFreeDemo || Boolean(token && unlockedSkus.includes(product.sku));
-              const pendingOrder = pendingOrders[product.sku];
-              const isPending = !isFreeDemo && !isUnlocked && pendingOrder?.status === 'pending';
               const isActiveInStudio =
                 activeMode === product.mode && activeStyle === product.style;
 
               return (
                 <ScrollReveal key={product.sku} delay={(idx % 2) * 90} className="h-full">
-                <article
-                  className={`studio-card-animate h-full bg-[#121216]/84 backdrop-blur-sm border rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-5 transition-colors ${
-                    isActiveInStudio
-                      ? 'border-[#FACC15]/80'
-                      : isFreeDemo
-                        ? 'border-[#4ADE80]/40 hover:border-[#4ADE80]/70'
-                        : 'border-white/12 hover:border-white/25'
-                  }`}
-                >
-                  <div className="space-y-4">
-                    <OverlayMiniPreview mode={product.mode} style={product.style} />
+                  <article
+                    className={`studio-card-animate h-full bg-[#121216]/90 backdrop-blur-sm border rounded-2xl p-5 sm:p-6 flex flex-col justify-between gap-5 transition-colors ${
+                      isActiveInStudio
+                        ? 'border-[#FFE600]/80'
+                        : 'border-white/12 hover:border-[#FFE600]/45'
+                    }`}
+                  >
+                    <div className="space-y-4">
+                      <OverlayMiniPreview mode={product.mode} style={product.style} />
 
-                    {/* Unboxed inline metadata */}
-                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {product.meta[lang].map((m, idx) => (
-                          <span key={m} className="inline-flex items-center gap-1.5">
-                            {idx > 0 && (
-                              <span aria-hidden="true" className="text-zinc-600">
-                                ·
-                              </span>
-                            )}
-                            <span>{m}</span>
-                          </span>
-                        ))}
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {product.meta[lang].map((m, metaIdx) => (
+                            <span key={m} className="inline-flex items-center gap-1.5">
+                              {metaIdx > 0 && (
+                                <span aria-hidden="true" className="text-zinc-600">
+                                  ·
+                                </span>
+                              )}
+                              <span>{m}</span>
+                            </span>
+                          ))}
+                        </div>
+                        <span className="font-mono font-bold text-emerald-400">
+                          UNLOCKED
+                        </span>
                       </div>
-                      <span
-                        className={`font-mono font-bold tabular-nums ${
-                          isFreeDemo || isUnlocked ? 'text-[#4ADE80]' : 'text-[#FACC15]'
-                        }`}
+
+                      <div>
+                        <h2 className="font-display text-lg sm:text-xl font-bold text-white leading-[1.38]">
+                          {product.title[lang]}
+                        </h2>
+                        <p className="text-xs sm:text-sm text-zinc-400 mt-1.5 leading-relaxed">
+                          {product.subtitle[lang]}
+                        </p>
+                      </div>
+
+                      <ul className="space-y-2.5 text-xs sm:text-sm text-zinc-300 leading-relaxed pt-2 border-t border-white/10">
+                        {product.features[lang].map((feat) => (
+                          <li key={feat} className="flex items-start gap-2.5">
+                            <Check
+                              className="w-4 h-4 shrink-0 mt-1 text-[#FFE600]"
+                              aria-hidden="true"
+                            />
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="pt-4 border-t border-white/10 flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenPreview(product)}
+                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-black text-[#09090D] bg-[#FFE600] hover:bg-[#FEF08A] rounded-lg transition-colors whitespace-nowrap"
                       >
-                        {isFreeDemo
-                          ? lang === 'mr'
-                            ? 'मोफत डेमो'
-                            : 'FREE DEMO'
-                          : isUnlocked && token
-                            ? `${formatRemainingTime(token.expiresAt, nowTs)} LEFT`
-                            : lang === 'mr'
-                              ? 'आजची ऑफर ₹1 · 1 दिवस'
-                              : "TODAY'S OFFER ₹1 · 1 DAY"}
-                      </span>
-                    </div>
+                        <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
+                        <span>Open in Live Studio</span>
+                      </button>
 
-                    <div>
-                      <h2 className="font-display text-lg sm:text-xl font-bold text-white leading-[1.38]">
-                        {product.title[lang]}
-                      </h2>
-                      <p className="text-xs sm:text-sm text-zinc-400 mt-1.5 leading-relaxed">
-                        {product.subtitle[lang]}
-                      </p>
-                    </div>
-
-                    {/* Pricing Row: Free Demo OR Single Clean 1-Day ₹1 Auto-Unlock Offer */}
-                    <div className="pt-3 border-t border-white/10">
-                      {isFreeDemo ? (
-                        <div className="flex flex-wrap items-baseline justify-between gap-3">
-                          <div className="flex items-baseline gap-2.5">
-                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#4ADE80] tabular-nums">
-                              {lang === 'mr' ? 'मोफत (FREE)' : 'FREE · ₹0'}
-                            </span>
-                            <span className="text-xs text-zinc-400">
-                              {lang === 'mr'
-                                ? 'छोटा STAR EVENT LIVE वॉटरमार्क'
-                                : 'Small STAR EVENT LIVE Watermark'}
-                            </span>
-                          </div>
-                          <span className="font-mono text-xs font-semibold text-[#4ADE80]">
-                            DEMO
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap items-baseline justify-between gap-3">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-mono text-2xl sm:text-3xl font-extrabold text-[#FACC15] tabular-nums">
-                              ₹{product.salePrice}
-                            </span>
-                            <span className="font-mono text-sm text-zinc-500 line-through tabular-nums">
-                              ₹{product.originalPrice}
-                            </span>
-                            <span className="text-xs text-zinc-400">
-                              {lang === 'mr' ? '/ 1 दिवस (24 तास)' : '/ 1 Day (24 Hours)'}
-                            </span>
-                          </div>
-                          <span className="font-mono text-[11px] font-semibold text-[#4ADE80]">
-                            {lang === 'mr' ? 'ऑटो अनलॉक · 24h नंतर एक्सपायर' : 'AUTO-UNLOCK · 24H EXPIRY'}
-                          </span>
-                        </div>
+                      {product.mode === 'kabaddi' && onOpenKabaddiControl && (
+                        <button
+                          type="button"
+                          onClick={onOpenKabaddiControl}
+                          className="inline-flex items-center justify-center gap-1.5 px-4 py-3 text-xs sm:text-sm font-bold text-white bg-[#DC2626] hover:bg-[#EF4444] rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          <Monitor className="w-4 h-4 shrink-0" aria-hidden="true" />
+                          <span>vMix Controller</span>
+                        </button>
                       )}
                     </div>
-
-                    <ul className="space-y-2.5 text-xs sm:text-sm text-zinc-300 leading-relaxed">
-                      {product.features[lang].map((feat) => (
-                        <li key={feat} className="flex items-start gap-2.5">
-                          <Check
-                            className={`w-4 h-4 shrink-0 mt-1 ${
-                              isFreeDemo ? 'text-[#4ADE80]' : 'text-[#FACC15]'
-                            }`}
-                            aria-hidden="true"
-                          />
-                          <span>{feat}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  {/* Card Actions */}
-                  <div className="pt-4 border-t border-white/10 flex flex-wrap items-center gap-3">
-                    {isFreeDemo ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPreview(product)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-black bg-[#4ADE80] hover:bg-[#22C55E] rounded-lg transition-colors whitespace-nowrap"
-                      >
-                        <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>
-                          {lang === 'mr' ? 'मोफत वापरा · स्टुडिओत उघडा' : 'Use Free · Open in Studio'}
-                        </span>
-                      </button>
-                    ) : isUnlocked ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenPreview(product)}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-black bg-[#FACC15] hover:bg-[#EAB308] rounded-lg transition-colors whitespace-nowrap"
-                      >
-                        <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>
-                          {lang === 'mr' ? 'अनलॉक · स्टुडिओत उघडा' : 'Unlocked · Open in Studio'}
-                        </span>
-                      </button>
-                    ) : isPending ? (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCheckout(product, pendingOrder?.planId || '1day')}
-                        className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-[#FACC15] bg-[#1D160B] hover:bg-[#291F0F] border border-[#FACC15]/50 rounded-lg transition-colors whitespace-nowrap"
-                      >
-                        {(pendingOrder?.qrCloseBy || (pendingOrder ? pendingOrder.createdAt + 30 * 60 * 1000 : 0)) <= nowTs ? (
-                          <>
-                            <RefreshCw className="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>
-                              {lang === 'mr' ? 'QR एक्सपायर · Refresh QR करा' : 'QR Expired · Refresh QR'}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <Clock className="w-4 h-4 shrink-0" aria-hidden="true" />
-                            <span>
-                              {lang === 'mr'
-                                ? `₹${pendingOrder?.amount || 1} प्रतीक्षेत · Transaction ID टाका`
-                                : `₹${pendingOrder?.amount || 1} Pending · Verify / Refresh QR`}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenCheckout(product, '1day')}
-                        className="cta-btn-animate flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 text-xs sm:text-sm font-semibold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors whitespace-nowrap tabular-nums"
-                      >
-                        <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
-                        <span>
-                          {lang === 'mr'
-                            ? '₹1 भरा आणि अनलॉक करा (1 दिवस)'
-                            : 'Pay ₹1 & Unlock (1 Day)'}
-                        </span>
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenPreview(product)}
-                      className="inline-flex items-center justify-center gap-1.5 px-4 py-3 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-colors whitespace-nowrap"
-                    >
-                      <Eye className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                      <span>{lang === 'mr' ? 'लाईव्ह प्रिव्ह्यू' : 'Live Preview'}</span>
-                    </button>
-                  </div>
-                </article>
+                  </article>
                 </ScrollReveal>
               );
             })}
@@ -922,36 +628,15 @@ export function OverlaysPage({
         </div>
       </section>
 
-      {/* Embedded Live Overlay Control Desk & Paid OBS/vMix URL Studio */}
+      {/* Embedded Live Overlay Control Desk & OBS/vMix Studio */}
       <LiveStudioPreview
         lang={lang}
         activeMode={activeMode}
         onChangeMode={onChangeMode}
         activeStyle={activeStyle}
         onChangeStyle={onChangeStyle}
-        unlockedSkus={unlockedSkus}
-        verifiedTokens={verifiedTokens}
-        onRequestPurchase={handleRequestPurchaseBySku}
         onBookFromPreview={onBookFromOverlay}
-        forcedMatchRoomId={forcedMatchRoomId}
-        onOpenAccountPortal={onOpenAccountPortal}
-      />
-
-      {/* Verified Multi-Plan Auto QR Checkout Modal */}
-      <OverlayCheckoutModal
-        lang={lang}
-        product={checkoutProduct}
-        initialPlanId={checkoutPlanId}
-        existingPendingOrder={
-          checkoutProduct ? pendingOrders[checkoutProduct.sku] ?? null : null
-        }
-        onClose={() => setCheckoutProduct(null)}
-        onPendingOrderChange={(order) => {
-          if (checkoutProduct) {
-            onPendingOrderChange(checkoutProduct.sku, order);
-          }
-        }}
-        onVerifiedUnlock={onVerifiedUnlock}
+        onOpenAccessModal={onOpenAccessModal}
       />
     </div>
   );

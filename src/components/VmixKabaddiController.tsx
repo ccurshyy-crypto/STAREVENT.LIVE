@@ -109,7 +109,7 @@ interface VmixKabaddiControllerProps {
   onOpenRemoteModal: () => void;
   onDownloadPng: () => void;
   onRequestPurchase: (sku: OverlaySku) => void;
-  // Isolated per-user Firebase scoreboard mode props
+  // Isolated per-user Supabase scoreboard mode props
   isolatedUserMode?: boolean;
   undoCount?: number;
   lastUndoLabel?: string | null;
@@ -520,9 +520,9 @@ export function VmixKabaddiController({
             {connectionStatus === 'live' && connected
               ? isolatedUserMode
                 ? savingSettings
-                  ? 'FIREBASE SYNC · SAVING...'
-                  : 'FIREBASE CLOUD LIVE'
-                : `${transport === 'ws' ? 'WS LIVE' : transport === 'firebase' ? 'CLOUD LIVE' : transport === 'sse' ? 'SSE LIVE' : 'SYNC LIVE'} (${connectedDisplays} vMix/OBS)`
+                  ? 'SUPABASE SYNC · SAVING...'
+                  : 'SUPABASE REALTIME LIVE'
+                : `${transport === 'ws' ? 'WS LIVE' : transport === 'sse' ? 'SSE LIVE' : 'SYNC LIVE'} (${connectedDisplays} vMix/OBS)`
               : connectionStatus === 'reconnecting'
                 ? 'Reconnecting...'
                 : 'Offline'}
@@ -660,7 +660,7 @@ export function VmixKabaddiController({
                 className="btn-gold-pro inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-extrabold text-black rounded-lg whitespace-nowrap shrink-0"
               >
                 <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Unlock vMix URL (₹1)</span>
+                <span>Unlock vMix URL</span>
               </button>
             )}
           </div>
@@ -1477,7 +1477,7 @@ export function VmixKabaddiController({
                   <span>OBS &amp; vMix Pro Watermark-Free URLs Locked</span>
                 </p>
                 <p className="text-xs text-zinc-400">
-                  Pay ₹1 for automatic 1-Day (24-hour) unlock — or use FREE Demo above right away.
+                  Enter your Admin-issued Access ID &amp; Password to unlock watermark-free vMix &amp; OBS URLs — or use FREE Demo above.
                 </p>
               </div>
               <button
@@ -1485,7 +1485,7 @@ export function VmixKabaddiController({
                 onClick={() => onRequestPurchase(currentSku)}
                 className="btn-gold-pro inline-flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-black rounded-xl"
               >
-                <span>Pay ₹1 &amp; Unlock (24h)</span>
+                <span>Unlock Overlays</span>
               </button>
             </div>
           )}
@@ -1503,9 +1503,11 @@ export function VmixKabaddiController({
           <span className="text-[#4ADE80] font-semibold">
             {isFreeDemo
               ? 'FREE DEMO ACTIVE'
-              : isCurrentUnlocked && activeToken
-                ? `UNLOCKED · ${formatRemainingTime(activeToken.expiresAt, nowTs)} LEFT`
-                : 'PRO OVERLAY · ₹1 (24H)'}
+              : isCurrentUnlocked
+                ? activeToken
+                  ? `UNLOCKED · ${formatRemainingTime(activeToken.expiresAt, nowTs)} LEFT`
+                  : 'UNLOCKED · FULL PRO ACCESS'
+                : 'PRO OVERLAY · ACCESS ID REQUIRED'}
           </span>
           {isPrivateDevPreview && (
             <>
@@ -1559,7 +1561,6 @@ export function VmixKabaddiController({
               className="btn-primary-pro inline-flex items-center gap-2 px-4 py-2 text-xs font-extrabold text-white rounded-xl whitespace-nowrap"
             >
               <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-              <span className="font-mono text-[#FACC15]">₹1 OFFER</span>
               <span>Unlock OBS &amp; vMix URLs</span>
             </button>
           )}

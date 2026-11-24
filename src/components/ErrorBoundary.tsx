@@ -22,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
       const parsed = JSON.parse(error.message);
       if (parsed && typeof parsed.error === 'string') {
         readable = parsed.error.includes('permission-denied')
-          ? 'Access denied by Firebase Security Rules. Please sign in with an authorized account.'
+          ? 'Access denied. Please unlock overlays with an active Access ID and Password.'
           : parsed.error;
       }
     } catch {

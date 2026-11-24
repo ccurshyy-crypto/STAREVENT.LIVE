@@ -6,7 +6,7 @@ import {
   RemotePresenceInfo,
 } from '../types/overlay';
 
-export type SyncTransport = 'ws' | 'firebase' | 'sse' | 'poll' | 'offline';
+export type SyncTransport = 'ws' | 'sse' | 'poll' | 'offline';
 export type ConnectionStatus = 'live' | 'reconnecting' | 'offline';
 
 interface UseOverlaySyncOptions {
@@ -34,21 +34,6 @@ export function sanitizeRoomIdClient(raw: string): string {
 
 function createUniqueClientId(): string {
   return `cli-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function getClientFirebaseDbUrl(): string | null {
-  try {
-    const raw = String(
-      (import.meta as unknown as { env?: Record<string, string | undefined> }).env
-        ?.VITE_FIREBASE_DATABASE_URL || ''
-    ).trim();
-    if (!raw || !/^https:\/\/.+\.firebaseio\.com|^https:\/\/.+\.firebasedatabase\.app/i.test(raw)) {
-      return null;
-    }
-    return raw.replace(/\/+$/, '');
-  } catch {
-    return null;
-  }
 }
 
 function buildWebSocketUrl(params: URLSearchParams): string | null {
@@ -221,29 +206,6 @@ export function useOverlaySync({
     [readOnly, safeRoom]
   );
 
-  // Mirror state directly to Firebase Realtime Database when VITE_FIREBASE_DATABASE_URL is configured
-  const pushFirebaseFallback = useCallback(
-    async (nextState: LiveOverlayState, version: number) => {
-      const fbUrl = getClientFirebaseDbUrl();
-      if (!fbUrl) return;
-      try {
-        await fetch(`${fbUrl}/kabaddi_matches/${encodeURIComponent(safeRoom)}.json`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            state: nextState,
-            version,
-            serverBootId: lastBootIdRef.current || 'firebase',
-            updatedAt: nextState.updatedAt,
-          }),
-        });
-      } catch {
-        // Non-fatal
-      }
-    },
-    [safeRoom]
-  );
-
   // Flush queued patches & actions via open WebSocket OR authenticated HTTP endpoint
   const flushWriteQueue = useCallback(async () => {
     if (resolvedRole === 'display') return;
@@ -342,26 +304,17 @@ export function useOverlaySync({
         setConnected(true);
         setConnectionStatus('live');
         applyServerPayload(data);
-        if (data?.state) {
-          void pushFirebaseFallback(data.state, Number(data.version || lastVersionRef.current + 1));
-        }
       } else {
-        // If backend HTTP returned an error, still push to Firebase RTDB if configured
-        const fbUrl = getClientFirebaseDbUrl();
-        if (fbUrl && nextPatch) {
-          void pushFirebaseFallback(stateRef.current, lastVersionRef.current + 1);
-        } else {
-          // Re-queue for retry on transient error
-          if (nextAction) {
-            pendingActionsRef.current.unshift(nextAction);
-          } else if (nextPatch) {
-            pendingPatchRef.current = pendingPatchRef.current
-              ? {
-                  patch: { ...nextPatch.patch, ...pendingPatchRef.current.patch },
-                  txId: pendingPatchRef.current.txId,
-                }
-              : nextPatch;
-          }
+        // Re-queue for retry on transient error
+        if (nextAction) {
+          pendingActionsRef.current.unshift(nextAction);
+        } else if (nextPatch) {
+          pendingPatchRef.current = pendingPatchRef.current
+            ? {
+                patch: { ...nextPatch.patch, ...pendingPatchRef.current.patch },
+                txId: pendingPatchRef.current.txId,
+              }
+            : nextPatch;
         }
       }
     } catch {
@@ -386,9 +339,9 @@ export function useOverlaySync({
         }, 250);
       }
     }
-  }, [resolvedRole, safeRoom, remoteToken, applyServerPayload, pushFirebaseFallback]);
+  }, [resolvedRole, safeRoom, remoteToken, applyServerPayload]);
 
-  // Primary WebSocket (/ws/kabaddi) + Optional Firebase RTDB SSE + Server SSE + Resilient Safety Polling
+  // Primary WebSocket (/ws/kabaddi) + Server SSE + Resilient Safety Polling
   useEffect(() => {
     if (resolvedRole === 'controller' && !remoteToken) {
       setConnected(false);
@@ -405,13 +358,10 @@ export function useOverlaySync({
     let wsBackoffMs = 1000;
     let eventSource: EventSource | null = null;
     let sseReconnectTimer: number | null = null;
-    let fbSource: EventSource | null = null;
-    let fbReconnectTimer: number | null = null;
     let pollTimer: number | null = null;
     let safetyPollTimer: number | null = null;
     let channel: BroadcastChannel | null = null;
     let wsOpen = false;
-    let fbOpen = false;
 
     lastVersionRef.current = 0;
     lastBootIdRef.current = '';
@@ -473,10 +423,10 @@ export function useOverlaySync({
         if (isCancelled) return;
         setConnected(true);
         setConnectionStatus('live');
-        if (!wsOpen && !fbOpen) setTransport((curr) => (curr === 'sse' ? 'sse' : 'poll'));
+        if (!wsOpen) setTransport((curr) => (curr === 'sse' ? 'sse' : 'poll'));
         applyServerPayload(payload);
       } catch {
-        if (!wsOpen && !fbOpen && !isCancelled) {
+        if (!wsOpen && !isCancelled) {
           setConnectionStatus('reconnecting');
           setTransport('offline');
         }
@@ -616,8 +566,8 @@ export function useOverlaySync({
             setTransport('offline');
             return;
           }
-          setConnectionStatus(fbOpen ? 'live' : 'reconnecting');
-          setTransport((curr) => (curr === 'ws' ? (fbOpen ? 'firebase' : 'poll') : curr));
+          setConnectionStatus('reconnecting');
+          setTransport((curr) => (curr === 'ws' ? 'poll' : curr));
           // Immediately fall back to HTTP snapshot while WS reconnects
           void pollOnce(true);
           scheduleWsReconnect();
@@ -635,54 +585,6 @@ export function useOverlaySync({
       }
     };
 
-    // Optional native Firebase Realtime Database real-time SSE listener (ideal for Vercel serverless!)
-    const connectFirebaseStream = () => {
-      const fbUrl = getClientFirebaseDbUrl();
-      if (!fbUrl || isCancelled || typeof EventSource === 'undefined') return;
-      try {
-        fbSource = new EventSource(`${fbUrl}/kabaddi_matches/${encodeURIComponent(safeRoom)}.json`);
-        const handleFbEvent = (evt: MessageEvent) => {
-          if (isCancelled) return;
-          try {
-            const parsed = JSON.parse(evt.data);
-            const record = parsed?.data;
-            if (record && record.state && typeof record.state === 'object') {
-              fbOpen = true;
-              setConnected(true);
-              setConnectionStatus('live');
-              if (!wsOpen) setTransport('firebase');
-              applyServerPayload({
-                state: record.state,
-                version: typeof record.version === 'number' ? record.version : undefined,
-                serverBootId: typeof record.serverBootId === 'string' ? record.serverBootId : 'firebase',
-              });
-            }
-          } catch {
-            // ignore keep-alive
-          }
-        };
-        fbSource.addEventListener('put', handleFbEvent as EventListener);
-        fbSource.addEventListener('patch', handleFbEvent as EventListener);
-        fbSource.onopen = () => {
-          if (!isCancelled) {
-            fbOpen = true;
-            setConnected(true);
-            setConnectionStatus('live');
-            if (!wsOpen) setTransport('firebase');
-          }
-        };
-        fbSource.onerror = () => {
-          fbOpen = false;
-          if (isCancelled) return;
-          fbSource?.close();
-          fbSource = null;
-          fbReconnectTimer = window.setTimeout(connectFirebaseStream, 3000);
-        };
-      } catch {
-        // non-fatal
-      }
-    };
-
     const connectSSE = () => {
       if (isCancelled || typeof EventSource === 'undefined') return;
       try {
@@ -694,7 +596,7 @@ export function useOverlaySync({
           if (!isCancelled) {
             setConnected(true);
             setConnectionStatus('live');
-            if (!wsOpen && !fbOpen) setTransport('sse');
+            if (!wsOpen) setTransport('sse');
           }
         };
 
@@ -750,15 +652,13 @@ export function useOverlaySync({
     void pollOnce(true);
     // 2. Real-time WebSocket connection (primary)
     connectWebSocket();
-    // 3. Optional Firebase RTDB cloud stream (if VITE_FIREBASE_DATABASE_URL is set)
-    connectFirebaseStream();
-    // 4. Resilient SSE stream backup
+    // 3. Resilient SSE stream backup
     connectSSE();
-    // 5. Fast polling fallback when WebSocket isn't OPEN (650ms for vMix/OBS displays!)
+    // 4. Fast polling fallback when WebSocket isn't OPEN (650ms for vMix/OBS displays!)
     pollTimer = window.setInterval(() => {
       void pollOnce(false);
     }, readOnly ? 650 : 2000);
-    // 6. Low-overhead safety reconcile every 5s on displays even when WS is open (guarantees zero drift)
+    // 5. Low-overhead safety reconcile every 5s on displays even when WS is open (guarantees zero drift)
     if (readOnly) {
       safetyPollTimer = window.setInterval(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -785,13 +685,11 @@ export function useOverlaySync({
       }
       wsRef.current = null;
       eventSource?.close();
-      fbSource?.close();
       channel?.close();
       if (wsReconnectTimer !== null) window.clearTimeout(wsReconnectTimer);
       if (wsPingTimer !== null) window.clearInterval(wsPingTimer);
       if (wsPongTimeout !== null) window.clearTimeout(wsPongTimeout);
       if (sseReconnectTimer !== null) window.clearTimeout(sseReconnectTimer);
-      if (fbReconnectTimer !== null) window.clearTimeout(fbReconnectTimer);
       if (pollTimer !== null) window.clearInterval(pollTimer);
       if (safetyPollTimer !== null) window.clearInterval(safetyPollTimer);
     };

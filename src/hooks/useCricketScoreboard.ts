@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { doc, onSnapshot, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import {
+  getSupabaseClient,
+  SUPABASE_CRICKET_SPORT,
+  SUPABASE_SCOREBOARD_TABLE,
+} from '../lib/supabaseClient';
 import {
   CricketFlagId,
   createInitialCricketScoreboardDoc,
@@ -39,6 +42,19 @@ function clampStr(value: unknown, maxLen: number, fallback: string): string {
   return value.slice(0, maxLen);
 }
 
+function sanitizeRoomKey(raw: string): string {
+  const cleaned = String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_-]+/g, '-')
+    .slice(0, 40);
+  return cleaned || 'CRK-101';
+}
+
+function storageKey(roomKey: string): string {
+  return `starevent_sb_cricket_v1_${roomKey}`;
+}
+
 function sanitizeCricketDoc(
   ownerUid: string,
   raw?: Partial<UserCricketScoreboardDoc> | null
@@ -61,8 +77,10 @@ function sanitizeCricketDoc(
         .slice(0, 16)
     : base.currentOverBalls;
 
-  const battingCode = clampStr(src.battingTeamCode, 8, base.battingTeamCode).trim() || base.battingTeamCode;
-  const bowlingCode = clampStr(src.bowlingTeamCode, 8, base.bowlingTeamCode).trim() || base.bowlingTeamCode;
+  const battingCode =
+    clampStr(src.battingTeamCode, 8, base.battingTeamCode).trim() || base.battingTeamCode;
+  const bowlingCode =
+    clampStr(src.bowlingTeamCode, 8, base.bowlingTeamCode).trim() || base.bowlingTeamCode;
 
   return {
     ownerUid,
@@ -97,22 +115,40 @@ function sanitizeCricketDoc(
   };
 }
 
+function loadLocalCricketDoc(roomKey: string): UserCricketScoreboardDoc | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(storageKey(roomKey));
+    if (!raw) return null;
+    return sanitizeCricketDoc(roomKey, JSON.parse(raw) as Partial<UserCricketScoreboardDoc>);
+  } catch {
+    return null;
+  }
+}
+
+function saveLocalCricketDoc(roomKey: string, doc: UserCricketScoreboardDoc) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(storageKey(roomKey), JSON.stringify(doc));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
 /**
- * Single-Source-of-Truth Firebase Firestore Cricket Scoreboard Hook.
- *
- * Isolation & Stability guarantees:
- * - Reads/writes strictly inside `/users/{targetUid}/cricket/current`.
- * - Strict monotonic version guard prevents stale snapshots or echoes from rolling back scores.
- * - Single-action mutex (`actionInFlightRef`) ensures 1 click = strictly 1 manual change.
- * - Zero automatic scoring loops or timers.
+ * Supabase Realtime Cricket Scoreboard Hook (`live_scoreboards`, `sport = 'cricket'`).
+ * Includes instant local BroadcastChannel sync for same-origin preview windows.
  */
 export function useCricketScoreboard({
   targetUid,
   role,
   canWrite = false,
 }: UseCricketScoreboardOptions) {
-  const [cricketDoc, setCricketDoc] = useState<UserCricketScoreboardDoc>(() =>
-    createInitialCricketScoreboardDoc(targetUid || 'local')
+  const roomKey = sanitizeRoomKey(targetUid);
+  const matchRowId = `CRK-${roomKey}`;
+
+  const [cricketDoc, setCricketDoc] = useState<UserCricketScoreboardDoc>(
+    () => loadLocalCricketDoc(roomKey) ?? createInitialCricketScoreboardDoc(roomKey)
   );
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
@@ -121,26 +157,61 @@ export function useCricketScoreboard({
   const [undoStack, setUndoStack] = useState<UserCricketScoreboardDoc[]>([]);
 
   const docRefState = useRef<UserCricketScoreboardDoc>(cricketDoc);
-  const lastVersionRef = useRef<number>(0);
-  const actionInFlightRef = useRef<boolean>(false);
+  const lastVersionRef = useRef<number>(cricketDoc.version);
   const pendingPatchRef = useRef<Partial<UserCricketScoreboardDoc>>({});
   const patchDebounceRef = useRef<number | null>(null);
+  const bcRef = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => {
     docRefState.current = cricketDoc;
   }, [cricketDoc]);
 
   useEffect(() => {
-    lastVersionRef.current = 0;
+    const cached = loadLocalCricketDoc(roomKey) ?? createInitialCricketScoreboardDoc(roomKey);
+    docRefState.current = cached;
+    lastVersionRef.current = cached.version;
     pendingPatchRef.current = {};
+    setCricketDoc(cached);
     setUndoStack([]);
-    setLoading(Boolean(targetUid));
+    setLoading(false);
     setErrorMessage(null);
-  }, [targetUid]);
+  }, [roomKey]);
+
+  const applyIncoming = useCallback(
+    (incoming: UserCricketScoreboardDoc) => {
+      if (incoming.version < lastVersionRef.current) return;
+      lastVersionRef.current = incoming.version;
+      const pending = pendingPatchRef.current;
+      const merged =
+        Object.keys(pending).length > 0
+          ? sanitizeCricketDoc(roomKey, { ...incoming, ...pending })
+          : incoming;
+      docRefState.current = merged;
+      setCricketDoc(merged);
+      saveLocalCricketDoc(roomKey, merged);
+    },
+    [roomKey]
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel(`star_cricket_room_${roomKey}`);
+    bcRef.current = ch;
+    ch.onmessage = (event) => {
+      const payload = event.data as { doc?: UserCricketScoreboardDoc } | null;
+      if (payload?.doc) {
+        applyIncoming(sanitizeCricketDoc(roomKey, payload.doc));
+      }
+    };
+    return () => {
+      ch.close();
+      bcRef.current = null;
+    };
+  }, [roomKey, applyIncoming]);
 
   const commitDoc = useCallback(
     async (next: UserCricketScoreboardDoc, pushUndo = true) => {
-      if (!targetUid || !canWrite || role !== 'controller') return;
+      if (!canWrite || role !== 'controller') return;
       const prev = docRefState.current;
       if (pushUndo) {
         setUndoStack((curr) => [...curr.slice(-(MAX_UNDO_STEPS - 1)), prev]);
@@ -148,39 +219,50 @@ export function useCricketScoreboard({
 
       const now = Date.now();
       const nextVersion = Math.max(lastVersionRef.current, prev.version) + 1;
-      const sanitized = sanitizeCricketDoc(targetUid, {
+      const sanitized = sanitizeCricketDoc(roomKey, {
         ...next,
-        ownerUid: targetUid,
+        ownerUid: roomKey,
         version: nextVersion,
         updatedAt: now,
       });
 
-      actionInFlightRef.current = true;
       lastVersionRef.current = nextVersion;
       docRefState.current = sanitized;
       setCricketDoc(sanitized);
-      setSaving(true);
-
+      saveLocalCricketDoc(roomKey, sanitized);
       try {
-        await setDoc(doc(db, 'users', targetUid, 'cricket', 'current'), sanitized);
-        setErrorMessage(null);
-      } catch (err) {
-        setErrorMessage('Could not sync Cricket scoreboard. Retrying...');
-        try {
-          handleFirestoreError(err, OperationType.WRITE, `users/${targetUid}/cricket/current`);
-        } catch {
-          // Surfaced via errorMessage
+        bcRef.current?.postMessage({ doc: sanitized });
+      } catch {
+        // Ignore broadcast error
+      }
+
+      setSaving(true);
+      try {
+        const supabase = getSupabaseClient();
+        const { error } = await supabase.from(SUPABASE_SCOREBOARD_TABLE).upsert(
+          {
+            match_id: matchRowId,
+            sport: SUPABASE_CRICKET_SPORT,
+            data: sanitized,
+            updated_at: new Date(now).toISOString(),
+          },
+          { onConflict: 'match_id' }
+        );
+        if (!error) {
+          setConnected(true);
+          setErrorMessage(null);
         }
+      } catch {
+        // Keep local sync working seamlessly
       } finally {
-        actionInFlightRef.current = false;
         setSaving(false);
       }
     },
-    [targetUid, canWrite, role]
+    [roomKey, matchRowId, canWrite, role]
   );
 
   const flushPendingPatch = useCallback(async () => {
-    if (!targetUid || !canWrite || role !== 'controller') return;
+    if (!canWrite || role !== 'controller') return;
     if (patchDebounceRef.current !== null) {
       window.clearTimeout(patchDebounceRef.current);
       patchDebounceRef.current = null;
@@ -189,18 +271,19 @@ export function useCricketScoreboard({
     if (Object.keys(pending).length === 0) return;
     pendingPatchRef.current = {};
     await commitDoc({ ...docRefState.current, ...pending }, false);
-  }, [targetUid, canWrite, role, commitDoc]);
+  }, [canWrite, role, commitDoc]);
 
   const updateFields = useCallback(
     (patch: Partial<UserCricketScoreboardDoc>, immediate = false) => {
-      if (!targetUid || !canWrite || role !== 'controller') return;
+      if (!canWrite || role !== 'controller') return;
       pendingPatchRef.current = { ...pendingPatchRef.current, ...patch };
-      const preview = sanitizeCricketDoc(targetUid, {
+      const preview = sanitizeCricketDoc(roomKey, {
         ...docRefState.current,
         ...pendingPatchRef.current,
       });
       docRefState.current = preview;
       setCricketDoc(preview);
+      saveLocalCricketDoc(roomKey, preview);
 
       if (immediate) {
         void flushPendingPatch();
@@ -214,75 +297,82 @@ export function useCricketScoreboard({
         void flushPendingPatch();
       }, 320);
     },
-    [targetUid, canWrite, role, flushPendingPatch]
+    [roomKey, canWrite, role, flushPendingPatch]
   );
 
-  // Real-time Firestore listener (strictly ONE listener per targetUid)
+  // Supabase initial fetch + Realtime postgres_changes listener
   useEffect(() => {
-    if (!targetUid) {
-      setLoading(false);
-      return;
-    }
-    let unmounted = false;
-    const firestoreDocRef = doc(db, 'users', targetUid, 'cricket', 'current');
+    let active = true;
+    const supabase = getSupabaseClient();
 
-    const unsub = onSnapshot(
-      firestoreDocRef,
-      (snap) => {
-        if (unmounted) return;
-        setConnected(true);
+    const fetchInitial = async () => {
+      try {
+        const { data, error } = await supabase
+          .from(SUPABASE_SCOREBOARD_TABLE)
+          .select('*')
+          .eq('match_id', matchRowId)
+          .eq('sport', SUPABASE_CRICKET_SPORT)
+          .maybeSingle();
+
+        if (!active) return;
         setLoading(false);
-        setErrorMessage(null);
-
-        if (snap.exists()) {
-          const incoming = sanitizeCricketDoc(
-            targetUid,
-            snap.data() as Partial<UserCricketScoreboardDoc>
-          );
-          const isInitial = lastVersionRef.current === 0;
-          const isNewer = incoming.version > lastVersionRef.current;
-          if (isInitial || (isNewer && !actionInFlightRef.current)) {
-            lastVersionRef.current = incoming.version;
-            const pending = pendingPatchRef.current;
-            const merged =
-              Object.keys(pending).length > 0
-                ? sanitizeCricketDoc(targetUid, { ...incoming, ...pending })
-                : incoming;
-            docRefState.current = merged;
-            setCricketDoc(merged);
+        if (!error) {
+          setConnected(true);
+          const payload =
+            data && typeof data === 'object'
+              ? ((data as Record<string, unknown>).data ??
+                  (data as Record<string, unknown>).state)
+              : null;
+          if (payload && typeof payload === 'object') {
+            applyIncoming(
+              sanitizeCricketDoc(roomKey, payload as Partial<UserCricketScoreboardDoc>)
+            );
           }
-        } else if (role === 'controller' && canWrite) {
-          const initial = createInitialCricketScoreboardDoc(targetUid);
-          lastVersionRef.current = initial.version;
-          docRefState.current = initial;
-          setCricketDoc(initial);
-          setDoc(firestoreDocRef, initial).catch(() => {});
         }
-      },
-      (err) => {
-        if (unmounted) return;
-        setConnected(false);
-        setLoading(false);
-        setErrorMessage('Cricket overlay connection interrupted. Reconnecting...');
-        try {
-          handleFirestoreError(err, OperationType.GET, `users/${targetUid}/cricket/current`);
-        } catch {
-          // Non-fatal in listener callback
-        }
+      } catch {
+        if (active) setLoading(false);
       }
-    );
+    };
+
+    void fetchInitial();
+
+    const channel = supabase
+      .channel(`live_scoreboards:cricket:${matchRowId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: SUPABASE_SCOREBOARD_TABLE,
+          filter: `match_id=eq.${matchRowId}`,
+        },
+        (payload) => {
+          if (!active) return;
+          const row = payload.new as Record<string, unknown> | undefined;
+          const rawData = row?.data ?? row?.state;
+          if (rawData && typeof rawData === 'object') {
+            applyIncoming(
+              sanitizeCricketDoc(roomKey, rawData as Partial<UserCricketScoreboardDoc>)
+            );
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (active && status === 'SUBSCRIBED') {
+          setConnected(true);
+        }
+      });
 
     return () => {
-      unmounted = true;
-      unsub();
+      active = false;
+      void supabase.removeChannel(channel);
       if (patchDebounceRef.current !== null) {
         window.clearTimeout(patchDebounceRef.current);
         patchDebounceRef.current = null;
       }
     };
-  }, [targetUid, role, canWrite]);
+  }, [roomKey, matchRowId, applyIncoming]);
 
-  // Atomic live cricket scoring actions (strictly manual, 1 click = 1 action)
   const recordRuns = useCallback(
     async (runsScored: number) => {
       await flushPendingPatch();
@@ -296,7 +386,6 @@ export function useCricketScoreboard({
           ? [label]
           : [...cur.currentOverBalls, label].slice(-12);
 
-      // Rotate strike on odd runs (1, 3, 5) and at the end of an over
       let nextStriker: 1 | 2 = cur.striker;
       if (runsScored % 2 === 1) {
         nextStriker = nextStriker === 1 ? 2 : 1;
@@ -448,7 +537,6 @@ export function useCricketScoreboard({
   const resetScore = useCallback(async () => {
     await flushPendingPatch();
     const cur = docRefState.current;
-    // Reset ONLY match score & over counters — preserve team names, flags, logos, and tournament text!
     await commitDoc({
       ...cur,
       runs: 0,

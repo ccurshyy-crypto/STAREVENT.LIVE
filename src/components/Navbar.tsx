@@ -1,6 +1,6 @@
 import { type MouseEvent, useState } from 'react';
-import { Menu, Phone, ShieldCheck, UserCircle2, X } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { KeyRound, LockOpen, Menu, Phone, ShieldCheck, X } from 'lucide-react';
+import { useOverlayAccess } from '../context/OverlayAccessContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -15,7 +15,7 @@ interface NavbarProps {
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
   onNavigateBooking: () => void;
-  onOpenAccountPortal: (tab?: 'operator' | 'admin') => void;
+  onOpenAccessModal: (view?: 'login' | 'admin') => void;
 }
 
 export function Navbar({
@@ -27,10 +27,10 @@ export function Navbar({
   onNavigateOverlays,
   onNavigatePackages,
   onNavigateBooking,
-  onOpenAccountPortal,
+  onOpenAccessModal,
 }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { isSuperAdmin, userAccount } = useAuth();
+  const { session, isUnlocked } = useOverlayAccess();
 
   const navItems: Array<{
     id: string;
@@ -77,7 +77,7 @@ export function Navbar({
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto min-h-[64px] sm:min-h-[72px] py-2 px-2.5 sm:px-6 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
-        {/* Zone 1: Prominent Star Event Live Emblem + Bold Name matching the official banner */}
+        {/* Zone 1: Star Event Live Brand */}
         <a
           href="/"
           onClick={(e) => {
@@ -111,7 +111,7 @@ export function Navbar({
           </span>
         </a>
 
-        {/* Zone 2: Desktop & Tablet Navigation */}
+        {/* Zone 2: Desktop Navigation */}
         <nav
           aria-label="Primary navigation"
           className="hidden lg:flex items-center gap-6 text-sm font-semibold text-white"
@@ -136,40 +136,44 @@ export function Navbar({
           })}
         </nav>
 
-        {/* Zone 3: Language + Login/Admin + Call + Mobile/Tablet Menu */}
-        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+        {/* Zone 3: Language + Overlay Access + Admin + Call + Mobile Menu */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
 
           <button
             type="button"
-            onClick={() => onOpenAccountPortal(isSuperAdmin ? 'admin' : 'operator')}
-            className={`min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
-              isSuperAdmin
-                ? 'btn-gold-pro text-black'
-                : userAccount
-                  ? 'bg-[#172554] hover:bg-[#1E3A8A] text-[#93C5FD] border border-[#38BDF8]/45'
-                  : 'btn-glass-pro text-zinc-100'
+            onClick={() => onOpenAccessModal('login')}
+            className={`min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+              isUnlocked
+                ? 'bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-400/45'
+                : 'btn-glass-pro text-zinc-100'
             }`}
           >
-            {isSuperAdmin ? (
+            {isUnlocked && session ? (
               <>
-                <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
-                <span>Admin</span>
-              </>
-            ) : userAccount ? (
-              <>
-                <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
-                <span className="max-w-[60px] sm:max-w-[100px] truncate font-mono text-[11px] sm:text-xs">
-                  {userAccount.loginId}
+                <LockOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span className="max-w-[70px] sm:max-w-[110px] truncate font-mono text-[11px] sm:text-xs">
+                  {session.accessId}
                 </span>
               </>
             ) : (
               <>
-                <UserCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                <span className="hidden sm:inline">Login / Sign Up</span>
-                <span className="sm:hidden">Login</span>
+                <KeyRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+                <span className="hidden sm:inline">Unlock Overlays</span>
+                <span className="sm:hidden">Unlock</span>
               </>
             )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onOpenAccessModal('admin')}
+            aria-label="Admin Panel"
+            title="Admin ID Generator"
+            className="min-h-[38px] sm:min-h-[40px] inline-flex items-center justify-center gap-1 px-2.5 py-1.5 sm:py-2 text-xs font-bold rounded-xl bg-[#09090D]/80 hover:bg-[#181822] text-[#FFE600] border border-[#FFE600]/40 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
+            <span className="hidden xl:inline">Admin</span>
           </button>
 
           <a
