@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Check, Copy, ExternalLink, Instagram, MessageCircle, Phone, Youtube } from 'lucide-react';
 import {
   ADDON_OPTIONS,
@@ -19,6 +19,8 @@ interface BookingSectionProps {
   selectedPackageId: string;
   onChangePackage: (packageId: string) => void;
   selectedAddOns: string[];
+  selectedDate?: string;
+  onChangeDate?: (isoDate: string) => void;
   onOpenPackages?: () => void;
 }
 
@@ -44,14 +46,22 @@ export function BookingSection({
   selectedPackageId,
   onChangePackage,
   selectedAddOns,
+  selectedDate,
+  onChangeDate,
   onOpenPackages,
 }: BookingSectionProps) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [eventDate, setEventDate] = useState('');
+  const [eventDate, setEventDate] = useState(selectedDate ?? '');
   const [venue, setVenue] = useState('');
   const [platforms, setPlatforms] = useState<PlatformId[]>(['youtube-public']);
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    if (selectedDate) {
+      setEventDate(selectedDate);
+    }
+  }, [selectedDate]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState<SubmittedInquiry | null>(null);
   const [copied, setCopied] = useState(false);
@@ -460,7 +470,10 @@ export function BookingSection({
                       id="booking-date"
                       type="date"
                       value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
+                      onChange={(e) => {
+                        setEventDate(e.target.value);
+                        onChangeDate?.(e.target.value);
+                      }}
                       className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
                     />
                     {errors.date && <p className="text-xs text-[#F87171]">{errors.date}</p>}

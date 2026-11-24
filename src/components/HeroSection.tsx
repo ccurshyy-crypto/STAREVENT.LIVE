@@ -12,7 +12,7 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
   const [bannerError, setBannerError] = useState(false);
 
   return (
-    <section id="top" className="relative pt-4 pb-10 sm:pt-8 sm:pb-16 lg:pb-20 border-b border-white/10">
+    <section id="hero" className="relative pt-4 pb-10 sm:pt-8 sm:pb-16 lg:pb-20 border-b border-white/10">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-6 sm:space-y-9">
         {/* Top Auspicious Studio Ribbon */}
         <div className="relative overflow-hidden rounded-2xl border border-[#FACC15]/30 studio-strip-animated-bg px-3 sm:px-6 py-3 sm:py-4 shadow-[0_12px_32px_rgba(0,0,0,0.48)]">
