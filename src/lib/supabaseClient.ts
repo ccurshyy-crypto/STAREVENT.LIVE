@@ -27,6 +27,7 @@ const rawEnvAnonKey =
 export const SUPABASE_URL = normalizeSupabaseUrl(rawEnvUrl || DEFAULT_SUPABASE_URL);
 export const SUPABASE_ANON_KEY = (rawEnvAnonKey || DEFAULT_SUPABASE_ANON_KEY).trim();
 export const SUPABASE_ACCESS_KEYS_TABLE = 'overlay_access_keys';
+export const SUPABASE_SCOREBOARD_TABLE = 'live_scoreboards';
 
 let cachedClient: SupabaseClient | null = null;
 

@@ -14,9 +14,21 @@ import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
 import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
+import { StandaloneOverlayPage } from './components/cricket/StandaloneOverlayPage';
 import { EventCategoryId, Language } from './data/content';
 
 type PageRoute = MainPageRoute;
+
+function isStandaloneOverlayRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /^\/overlay\/?$/i.test(window.location.pathname);
+}
+
+function getOverlayUidFromUrl(): string {
+  if (typeof window === 'undefined') return 'STAR-101';
+  const params = new URLSearchParams(window.location.search);
+  return params.get('uid') || params.get('id') || 'STAR-101';
+}
 
 function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
@@ -28,6 +40,10 @@ function getInitialPage(): PageRoute {
 }
 
 export default function App() {
+  const [standaloneOverlay, setStandaloneOverlay] = useState<boolean>(() =>
+    isStandaloneOverlayRoute()
+  );
+  const [overlayUid, setOverlayUid] = useState<string>(() => getOverlayUidFromUrl());
   const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [selectedEvent, setSelectedEvent] = useState<EventCategoryId>('kabaddi');
@@ -43,6 +59,8 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      setStandaloneOverlay(isStandaloneOverlayRoute());
+      setOverlayUid(getOverlayUidFromUrl());
       setCurrentPage(getInitialPage());
     };
     window.addEventListener('popstate', handlePopState);
@@ -157,6 +175,10 @@ export default function App() {
     setAccessModalView(view);
     setAccessModalOpen(true);
   };
+
+  if (standaloneOverlay) {
+    return <StandaloneOverlayPage uid={overlayUid} />;
+  }
 
   return (
     <div className="relative min-h-screen bg-[#3B0207] text-white flex flex-col overflow-x-clip">

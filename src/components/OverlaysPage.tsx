@@ -3,15 +3,14 @@ import {
   ArrowLeft,
   Eye,
   EyeOff,
-  Layers,
   Lock,
   LockOpen,
-  LogOut,
   ShieldCheck,
 } from 'lucide-react';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
-import { Language, STUDIO_CONTACT, tLang } from '../data/content';
+import { Language, tLang } from '../data/content';
 import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
+import { CricketSuiteApp } from './cricket/CricketSuiteApp';
 
 interface OverlaysPageProps {
   lang: Language;
@@ -60,7 +59,7 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
   }
 
   // Locked Gate: ONLY Access ID + Password + Unlock Overlays (plus discreet Admin Panel toggle)
-  if (!isUnlocked) {
+  if (!isUnlocked || !session) {
     return (
       <div className="min-h-[75vh] text-[#F4F4F5] py-8 sm:py-14 px-3 sm:px-6 lg:px-8">
         <div className="max-w-lg mx-auto space-y-5">
@@ -116,7 +115,7 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
                       Unlock Overlays
                     </h1>
                     <p className="text-xs sm:text-sm text-zinc-400">
-                      Enter your Access ID and Password to open your overlays workspace.
+                      Enter your Access ID and Password to open your Cricket Tournament, Live Scoring & TV Overlay Suite.
                     </p>
                   </div>
 
@@ -198,101 +197,12 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
     );
   }
 
-  // Unlocked State: Clean Blank Overlays Workspace (0 Overlays Added Yet)
+  // Unlocked State: Complete Cricket Tournament, Live Scoring & TV/vMix Scorecard Suite
   return (
-    <div className="min-h-[75vh] text-[#F4F4F5] py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Unlocked Session Control Bar */}
-        <div className="relative overflow-hidden rounded-xl border border-[#FFE600]/30 bg-[#111116]/95 backdrop-blur-md px-4 sm:px-5 py-3.5 shadow-[0_8px_28px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={onBackHome}
-                className="inline-flex items-center gap-2 text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-colors whitespace-nowrap"
-              >
-                <ArrowLeft className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
-                <span>Back to Home</span>
-              </button>
-
-              <span aria-hidden="true" className="text-zinc-600 hidden sm:inline">
-                |
-              </span>
-
-              <span className="inline-flex items-center gap-1.5 text-xs font-mono font-bold text-emerald-300">
-                <LockOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
-                <span>Unlocked: {session?.accessId}</span>
-                {session?.label && (
-                  <span className="text-zinc-400 font-sans font-medium">
-                    ({session.label})
-                  </span>
-                )}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowAdminPanel((prev) => !prev)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 hover:border-[#FFE600]/45 text-xs font-semibold text-zinc-300 hover:text-[#FFE600] transition-colors whitespace-nowrap"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
-                <span>{showAdminPanel ? 'Back to Workspace' : 'Admin'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={lockAndLogout}
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#DC2626] hover:bg-[#EF4444] text-xs font-bold text-white transition-colors whitespace-nowrap"
-              >
-                <LogOut className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>Lock / Logout</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {showAdminPanel ? (
-          <div className="max-w-2xl mx-auto bg-[#111116] border border-[#FFE600]/35 rounded-2xl overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.75)]">
-            <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
-            <div className="p-5 sm:p-8">
-              <AdminAccessKeysPanel />
-            </div>
-          </div>
-        ) : (
-          <section className="bg-[#111116]/95 border border-[#FFE600]/30 rounded-2xl overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.68)]">
-            <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
-            <div className="px-6 py-16 sm:px-10 sm:py-24 text-center space-y-5">
-              <div className="w-16 h-16 mx-auto rounded-2xl bg-[#09090D] border border-[#FFE600]/35 flex items-center justify-center">
-                <Layers className="w-8 h-8 text-[#FFE600]" aria-hidden="true" />
-              </div>
-
-              <div className="space-y-2 max-w-xl mx-auto">
-                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FFE600]">
-                  {STUDIO_CONTACT.domain} · FRESH WORKSPACE
-                </p>
-                <h1 className="font-display text-2xl sm:text-4xl font-black text-white tracking-tight">
-                  Overlays Workspace (0 Overlays Added Yet)
-                </h1>
-                <p className="text-sm sm:text-base text-zinc-400 leading-relaxed">
-                  Your workspace is unlocked and completely clean. New broadcast overlays will appear here as you add them from scratch.
-                </p>
-              </div>
-
-              <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={lockAndLogout}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#EF4444] text-xs sm:text-sm font-bold text-white transition-colors whitespace-nowrap"
-                >
-                  <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
-                  <span>Lock / Logout</span>
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-      </div>
-    </div>
+    <CricketSuiteApp
+      session={session}
+      onLogout={lockAndLogout}
+      onBackHome={onBackHome}
+    />
   );
 }
