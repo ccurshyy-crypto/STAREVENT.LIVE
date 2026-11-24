@@ -91,13 +91,13 @@ export function BroadcastStingerSection({
   return (
     <section
       id="youtube-channel"
-      className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/36 backdrop-blur-[2px]"
+      className="py-12 sm:py-20 lg:py-24 border-b border-[#FFE600]/20 bg-[#070B28]/42 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
           {/* Left: 16:9 Broadcast Stinger Motion Showcase */}
           <ScrollReveal direction="left" className="lg:col-span-7">
-            <div className="studio-card-animate bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            <div className="studio-card-animate bg-[#0A1033]/92 border border-[#FFE600]/40 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
               <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
                 {!videoError ? (
                   <video
@@ -201,7 +201,7 @@ export function BroadcastStingerSection({
           {/* Right: YouTube Channel Subscribe & Broadcast Transition Context */}
           <ScrollReveal direction="right" delay={100} className="lg:col-span-5 space-y-6">
             <div className="space-y-3.5">
-              <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
+              <p className="text-xs sm:text-sm font-bold text-[#FFE600]">
                 {lang === 'mr'
                   ? 'अधिकृत YouTube चॅनेल · ब्रॉडकास्ट ट्रान्झिशन'
                   : 'Official YouTube Channel · Broadcast Stinger'}
@@ -215,28 +215,28 @@ export function BroadcastStingerSection({
                   ? 'STAREVENT.LIVE चॅनेलला Subscribe करा'
                   : 'Subscribe to STAREVENT.LIVE on YouTube'}
               </h2>
-              <p className="text-sm sm:text-base text-zinc-300 leading-[1.75]">
+              <p className="text-sm sm:text-base text-[#FFF3EC]/92 leading-[1.75]">
                 {lang === 'mr'
                   ? 'क्रिकेट महासंग्राम, कबड्डी स्पर्धा, लग्न-हळदी सोहळे आणि सर्व स्थानिक कार्यक्रमांचे 4K व Full HD थेट प्रक्षेपण पाहण्यासाठी आमच्या अधिकृत YouTube चॅनेलशी जोडले जा. प्रत्येक लाईव्ह ब्रॉडकास्टमध्ये कस्टम स्टिंगर ट्रान्झिशन व स्कोअरबोर्ड ग्राफिक्स वापरले जातात.'
                   : 'Watch live 4K & Full HD broadcasts of Cricket championships, Kabaddi leagues, weddings, and community festivals directly on our official YouTube channel — complete with custom stinger transitions, replays, and live graphics.'}
               </p>
             </div>
 
-            <div className="pt-4 border-t border-white/10 space-y-2.5 text-xs sm:text-sm text-zinc-400 leading-relaxed">
+            <div className="pt-4 border-t border-[#FFE600]/20 space-y-2.5 text-xs sm:text-sm text-[#FDE8E8]/88 leading-relaxed">
               <p>
-                <span className="font-mono text-[#FACC15] font-semibold mr-2">01.</span>
+                <span className="font-mono text-[#FFE600] font-bold mr-2">01.</span>
                 {lang === 'mr'
                   ? 'चॅनेल हँडल: YouTube (@stareventlive01)'
                   : 'Official Handle: YouTube (@stareventlive01)'}
               </p>
               <p>
-                <span className="font-mono text-[#FACC15] font-semibold mr-2">02.</span>
+                <span className="font-mono text-[#FFE600] font-bold mr-2">02.</span>
                 {lang === 'mr'
                   ? 'OBS Studio व vMix साठी कस्टम ब्रॉडकास्ट ट्रान्झिशन व ओव्हरले'
                   : 'Custom broadcast stinger transitions & live overlays for OBS & vMix'}
               </p>
               <p>
-                <span className="font-mono text-[#FACC15] font-semibold mr-2">03.</span>
+                <span className="font-mono text-[#FFE600] font-bold mr-2">03.</span>
                 {lang === 'mr'
                   ? 'वेबसाईट: starevent.live · थेट संपर्क: 9890175727'
                   : 'Portal: starevent.live · Direct Desk: 9890175727'}

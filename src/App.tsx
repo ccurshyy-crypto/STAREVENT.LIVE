@@ -563,7 +563,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#07080F] text-[#F4F4F5] flex flex-col overflow-x-clip">
+    <div className="relative min-h-screen bg-[#3B0207] text-white flex flex-col overflow-x-clip">
       <HomeAnimatedBackground />
 
       <Navbar

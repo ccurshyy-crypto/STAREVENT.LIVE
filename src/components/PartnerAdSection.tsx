@@ -118,19 +118,19 @@ export function PartnerAdSection({ lang: _lang }: PartnerAdSectionProps) {
     >
       <div className="max-w-4xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-8">
         {/* BIG BOLD ADVERTISE HEADING */}
-        <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-black text-center tracking-[0.08em] uppercase text-[#FACC15] drop-shadow-[0_4px_24px_rgba(250,204,21,0.35)]">
+        <h2 className="font-display text-3xl sm:text-5xl md:text-6xl font-black text-center tracking-[0.08em] uppercase text-[#FFE600] drop-shadow-[0_4px_20px_rgba(0,0,0,0.65)]">
           ADVERTISE
         </h2>
 
         {/* SINGLE BIG AUTO-CHANGING BANNER SHOWCASE */}
-        <div className="bg-[#120A10]/90 border border-[#FACC15]/35 rounded-2xl p-2.5 sm:p-5 shadow-[0_24px_60px_rgba(0,0,0,0.65)] space-y-4 sm:space-y-5">
+        <div className="bg-[#0A1033]/92 border border-[#FFE600]/40 rounded-2xl p-2.5 sm:p-5 shadow-[0_24px_60px_rgba(0,0,0,0.65)] space-y-4 sm:space-y-5">
           {/* Rotating Single Image Stage */}
-          <div className="relative group rounded-xl overflow-hidden bg-[#08060A] border border-white/10">
+          <div className="relative group rounded-xl overflow-hidden bg-[#070B28] border border-white/15">
             <button
               type="button"
               onClick={() => setLightboxOpen(true)}
               aria-label="View full advertisement banner"
-              className="relative block w-full aspect-[4/5] sm:aspect-[4/4] md:aspect-[16/13] max-h-[680px] mx-auto bg-[#08060A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+              className="relative block w-full aspect-[4/5] sm:aspect-[4/4] md:aspect-[16/13] max-h-[680px] mx-auto bg-[#070B28] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
             >
               {AD_BANNERS.map((slide, idx) => {
                 const isCurrent = idx === activeIndex;

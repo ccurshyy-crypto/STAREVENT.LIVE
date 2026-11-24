@@ -176,13 +176,13 @@ export function BookingSection({
   };
 
   return (
-    <section id="book" className="py-12 sm:py-20 lg:py-24 bg-[#090B12]/36 backdrop-blur-[2px]">
+    <section id="book" className="py-12 sm:py-20 lg:py-24 bg-[#070B28]/48 backdrop-blur-[2px]">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
           {/* Left column: Direct Studio Hotline & Promise */}
           <ScrollReveal direction="left" className="lg:col-span-5 space-y-8">
             <div className="space-y-3.5">
-              <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
+              <p className="text-xs sm:text-sm font-bold text-[#FFE600]">
                 {UI_COPY.bookingSection.kicker[lang]}
               </p>
               <h2
@@ -192,20 +192,20 @@ export function BookingSection({
               >
                 {UI_COPY.bookingSection.heading[lang]}
               </h2>
-              <p className="text-sm sm:text-base text-zinc-400 leading-[1.72]">
+              <p className="text-sm sm:text-base text-[#FFF3EC]/90 leading-[1.72]">
                 {UI_COPY.bookingSection.intro[lang]}
               </p>
             </div>
 
-            {/* Direct Phone Callout */}
-            <div className="bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-6 space-y-5">
+            {/* Direct Phone Callout matching Banner Red/Yellow Phone Box */}
+            <div className="bg-[#0A1033]/94 border border-[#FFE600]/40 rounded-2xl p-4 sm:p-6 space-y-5 shadow-[0_18px_48px_rgba(0,0,0,0.5)]">
               <div className="space-y-1">
-                <p className="text-xs text-zinc-400">
+                <p className="text-xs text-white/80">
                   {lang === 'mr' ? 'थेट बुकिंग व चौकशीसाठी संपर्क करा' : 'Direct Booking & Dispatch Hotline'}
                 </p>
                 <a
                   href={STUDIO_CONTACT.phoneHref}
-                  className="inline-block font-mono text-2xl sm:text-4xl font-extrabold text-[#FACC15] hover:text-white transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded"
+                  className="inline-block font-mono text-2xl sm:text-4xl font-extrabold text-[#FFE600] hover:text-white transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] rounded"
                 >
                   {STUDIO_CONTACT.phoneDisplay}
                 </a>
@@ -225,24 +225,24 @@ export function BookingSection({
                   )}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-white/30 rounded-lg transition-colors whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white hover:text-[#FFE600] border border-white/20 hover:border-[#FFE600]/60 rounded-lg transition-colors whitespace-nowrap"
                 >
-                  <MessageCircle className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
+                  <MessageCircle className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
                   <span>{lang === 'mr' ? 'WhatsApp संदेश पाठवा' : 'Message on WhatsApp'}</span>
                 </a>
                 <a
                   href={STUDIO_CONTACT.youtubeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#EF4444]/60 rounded-lg transition-colors whitespace-nowrap"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white hover:text-[#FFE600] border border-white/20 hover:border-[#E11D1D]/70 rounded-lg transition-colors whitespace-nowrap"
                 >
-                  <Youtube className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
+                  <Youtube className="w-4 h-4 text-[#FF2E2E] shrink-0" aria-hidden="true" />
                   <span>
                     {lang === 'mr'
                       ? `YouTube चॅनेल (${STUDIO_CONTACT.youtubeHandle})`
                       : `YouTube (${STUDIO_CONTACT.youtubeHandle})`}
                   </span>
-                  <ExternalLink className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                  <ExternalLink className="w-3.5 h-3.5 text-white/60 shrink-0" aria-hidden="true" />
                 </a>
                 {STUDIO_CONTACT.instagramAccounts.map((ig) => (
                   <a
@@ -250,17 +250,17 @@ export function BookingSection({
                     href={ig.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-200 hover:text-white border border-white/15 hover:border-[#F472B6]/60 rounded-lg transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white hover:text-[#FFE600] border border-white/20 hover:border-[#F472B6]/60 rounded-lg transition-colors whitespace-nowrap"
                   >
                     <Instagram className="w-4 h-4 text-[#F472B6] shrink-0" aria-hidden="true" />
                     <span>{ig.handle}</span>
-                    <ExternalLink className="w-3.5 h-3.5 text-zinc-400 shrink-0" aria-hidden="true" />
+                    <ExternalLink className="w-3.5 h-3.5 text-white/60 shrink-0" aria-hidden="true" />
                   </a>
                 ))}
               </div>
 
-              <div className="pt-4 border-t border-white/10 space-y-2 text-xs text-zinc-400">
-                <p className="font-semibold text-zinc-200">
+              <div className="pt-4 border-t border-white/15 space-y-2 text-xs text-[#E2E8F8]/85">
+                <p className="font-bold text-[#FFE600]">
                   {STUDIO_CONTACT.promiseMr}
                 </p>
                 <p>{STUDIO_CONTACT.promiseEn}</p>
@@ -268,8 +268,8 @@ export function BookingSection({
             </div>
 
             {/* Service checklist */}
-            <div className="space-y-3 text-xs sm:text-sm text-zinc-400 leading-relaxed">
-              <p className="font-semibold text-zinc-200">
+            <div className="space-y-3 text-xs sm:text-sm text-[#FFF3EC]/90 leading-relaxed">
+              <p className="font-bold text-[#FFE600]">
                 {lang === 'mr' ? 'बुकिंगमध्ये समाविष्ट असलेली खात्री:' : 'Included with every booking:'}
               </p>
               <p>— {lang === 'mr' ? 'कार्यक्रमापूर्वी नेटवर्क व ऑडिओ तपासणी' : 'Pre-event internet speed & soundboard check'}</p>
@@ -279,7 +279,7 @@ export function BookingSection({
           </ScrollReveal>
 
           {/* Right column: Validated Booking Inquiry Form / Confirmation */}
-          <ScrollReveal direction="right" delay={100} className="lg:col-span-7 bg-[#121216] border border-white/12 rounded-2xl p-4 sm:p-8">
+          <ScrollReveal direction="right" delay={100} className="lg:col-span-7 bg-[#0A1033]/94 border border-[#FFE600]/40 rounded-2xl p-4 sm:p-8 shadow-[0_18px_48px_rgba(0,0,0,0.5)]">
             {submitted ? (
               <div className="space-y-6">
                 <div className="space-y-2">
@@ -391,7 +391,7 @@ export function BookingSection({
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       placeholder={lang === 'mr' ? 'उदा. रोहित पाटील' : 'e.g. Rohit Patil'}
-                      className="w-full px-3.5 py-2.5 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#060A24] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
                     />
                     {errors.name && <p className="text-xs text-[#F87171]">{errors.name}</p>}
                   </div>
@@ -406,7 +406,7 @@ export function BookingSection({
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
                       placeholder="9890XXXXXX"
-                      className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#18181D] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15] tabular-nums"
+                      className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#060A24] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15] tabular-nums"
                     />
                     {errors.phone && <p className="text-xs text-[#F87171]">{errors.phone}</p>}
                   </div>
@@ -421,10 +421,10 @@ export function BookingSection({
                       id="booking-event"
                       value={selectedEvent}
                       onChange={(e) => onChangeEvent(e.target.value as EventCategoryId)}
-                      className="w-full px-3.5 py-2.5 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#060A24] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
                     >
                       {EVENT_SERVICES.map((ev) => (
-                        <option key={ev.id} value={ev.id} className="bg-[#18181D] text-white">
+                        <option key={ev.id} value={ev.id} className="bg-[#060A24] text-white">
                           {ev.title[lang]}
                         </option>
                       ))}
@@ -450,10 +450,10 @@ export function BookingSection({
                       id="booking-package"
                       value={selectedPackageId}
                       onChange={(e) => onChangePackage(e.target.value)}
-                      className="w-full px-3.5 py-2.5 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#060A24] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
                     >
                       {PRODUCTION_PACKAGES.map((pkg) => (
-                        <option key={pkg.id} value={pkg.id} className="bg-[#18181D] text-white">
+                        <option key={pkg.id} value={pkg.id} className="bg-[#060A24] text-white">
                           {pkg.name[lang]} ({pkg.priceRange[lang]})
                         </option>
                       ))}
@@ -474,7 +474,7 @@ export function BookingSection({
                         setEventDate(e.target.value);
                         onChangeDate?.(e.target.value);
                       }}
-                      className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
+                      className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#060A24] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
                     />
                     {errors.date && <p className="text-xs text-[#F87171]">{errors.date}</p>}
                   </div>
@@ -489,7 +489,7 @@ export function BookingSection({
                       value={venue}
                       onChange={(e) => setVenue(e.target.value)}
                       placeholder={lang === 'mr' ? 'उदा. नेरळ / कर्जत / बदलापूर / पुणे' : 'e.g. Neral / Karjat / Badlapur / Pune'}
-                      className="w-full px-3.5 py-2.5 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
+                      className="w-full px-3.5 py-2.5 text-sm bg-[#060A24] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15]"
                     />
                     {errors.venue && <p className="text-xs text-[#F87171]">{errors.venue}</p>}
                   </div>
@@ -524,7 +524,7 @@ export function BookingSection({
                           className={`px-3.5 py-2 text-xs font-semibold rounded-lg border transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
                             active
                               ? 'bg-[#DC2626] border-[#DC2626] text-white'
-                              : 'bg-[#18181D] border-white/15 text-zinc-300 hover:border-white/30'
+                              : 'bg-[#060A24] border-white/15 text-zinc-300 hover:border-white/30'
                           }`}
                         >
                           {label}
@@ -552,7 +552,7 @@ export function BookingSection({
                         ? 'उदा. सकाळी 9 ते सायंकाळी 6, 2 कॅमेरे आणि LED आउटपुट हवे आहे...'
                         : 'e.g. 9 AM to 6 PM coverage, 2 cameras, custom scoreboard or LED screen feed...'
                     }
-                    className="w-full px-3.5 py-2.5 text-sm bg-[#18181D] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15] resize-none"
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#060A24] border border-white/15 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-[#FACC15] resize-none"
                   />
                 </div>
 

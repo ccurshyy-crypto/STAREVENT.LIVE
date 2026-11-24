@@ -63,17 +63,17 @@ export function Navbar({
   };
 
   return (
-    <header className="sticky top-0 z-40 topbar-animated-bg backdrop-blur-md border-b border-[#FACC15]/25">
+    <header className="sticky top-0 z-40 topbar-animated-bg backdrop-blur-md border-b border-[#FFE600]/35">
       {/* Subtle animated crimson-gold bottom accent beam */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
       >
-        <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FACC15] via-50% to-[#EF4444] opacity-85 topbar-beam-sweep" />
+        <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FFE600] via-50% to-[#E11D1D] opacity-90 topbar-beam-sweep" />
       </div>
 
       <div className="relative z-10 max-w-7xl mx-auto min-h-[64px] sm:min-h-[72px] py-2 px-2.5 sm:px-6 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
-        {/* Zone 1: Prominent Star Event Live Emblem + Bold Name (Clean Mobile Fit + Big Tablet/Desktop) */}
+        {/* Zone 1: Prominent Star Event Live Emblem + Bold Name matching the official banner */}
         <a
           href="/"
           onClick={(e) => {
@@ -81,25 +81,27 @@ export function Navbar({
             setMobileOpen(false);
             onNavigateHome('top');
           }}
-          className="inline-flex items-center gap-2 sm:gap-3 min-w-0 shrink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] rounded-xl"
+          className="inline-flex items-center gap-2 sm:gap-3 min-w-0 shrink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] rounded-xl"
         >
           <span
             aria-hidden="true"
-            className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#FACC15] via-[#DC2626] to-[#7F1D1D] p-[2px] shadow-[0_0_18px_rgba(250,204,21,0.45)] flex items-center justify-center shrink-0"
+            className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#FFE600] via-[#E11D1D] to-[#7F040A] p-[2px] shadow-[0_0_18px_rgba(255,230,0,0.45)] flex items-center justify-center shrink-0"
           >
-            <span className="w-full h-full rounded-full bg-[#13060A] flex flex-col items-center justify-center leading-none">
-              <span className="text-[#FACC15] text-sm sm:text-lg leading-none">★</span>
+            <span className="w-full h-full rounded-full bg-[#3A0208] flex flex-col items-center justify-center leading-none">
+              <span className="text-[#FFE600] text-sm sm:text-lg leading-none">★</span>
               <span className="font-display text-[6.5px] sm:text-[8px] font-black tracking-wider text-white">
                 LIVE
               </span>
             </span>
           </span>
           <span className="flex flex-col leading-none min-w-0">
-            <span className="font-display text-[15px] min-[380px]:text-base sm:text-2xl font-black tracking-tight truncate">
-              <span className="text-[#FACC15]">STAR EVENT</span>{' '}
-              <span className="text-[#EF4444]">LIVE</span>
+            <span className="font-display text-[15px] min-[380px]:text-base sm:text-2xl font-black tracking-tight flex items-center gap-1.5 truncate">
+              <span className="text-[#FFE600] drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">STAR EVENT</span>
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#E11D1D] text-white text-[11px] sm:text-sm font-black tracking-wide border border-white/25 shadow-sm">
+                LIVE
+              </span>
             </span>
-            <span className="hidden sm:block font-mono text-[10px] text-zinc-400 tracking-wider mt-0.5">
+            <span className="hidden sm:block font-mono text-[10px] text-[#FFE8D6]/80 tracking-wider mt-0.5">
               starevent.live
             </span>
           </span>
@@ -108,7 +110,7 @@ export function Navbar({
         {/* Zone 2: Desktop & Tablet Navigation */}
         <nav
           aria-label="Primary navigation"
-          className="hidden lg:flex items-center gap-6 text-sm font-semibold text-zinc-200"
+          className="hidden lg:flex items-center gap-6 text-sm font-semibold text-white"
         >
           {navItems.map((item) => {
             const isActive = Boolean(item.page && currentPage === item.page);
@@ -118,10 +120,10 @@ export function Navbar({
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
                 onClick={(e) => handleNavClick(e, item)}
-                className={`py-1.5 transition-colors duration-150 whitespace-nowrap shrink-0 border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                className={`py-1.5 transition-colors duration-150 whitespace-nowrap shrink-0 border-b-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] ${
                   isActive
-                    ? 'text-[#FACC15] border-[#FACC15]'
-                    : 'text-zinc-200 hover:text-white border-transparent hover:border-[#FACC15]/70'
+                    ? 'text-[#FFE600] border-[#FFE600]'
+                    : 'text-white/95 hover:text-[#FFE600] border-transparent hover:border-[#FFE600]/80'
                 }`}
               >
                 {item.label}
@@ -191,7 +193,7 @@ export function Navbar({
       {mobileOpen && (
         <nav
           aria-label="Mobile navigation"
-          className="lg:hidden bg-[#120A10]/98 backdrop-blur-md border-t border-white/10 px-4 py-4 space-y-1.5 shadow-2xl"
+          className="lg:hidden bg-[#070B28]/98 backdrop-blur-md border-t border-[#FFE600]/25 px-4 py-4 space-y-1.5 shadow-2xl"
         >
           {navItems.map((item) => {
             const isActive = Boolean(item.page && currentPage === item.page);
@@ -203,8 +205,8 @@ export function Navbar({
                 onClick={(e) => handleNavClick(e, item)}
                 className={`block min-h-[44px] px-4 py-2.5 text-base font-semibold rounded-xl transition-colors ${
                   isActive
-                    ? 'text-[#FACC15] bg-[#FACC15]/12 border border-[#FACC15]/30'
-                    : 'text-zinc-100 hover:text-white hover:bg-white/6'
+                    ? 'text-[#FFE600] bg-[#FFE600]/12 border border-[#FFE600]/40'
+                    : 'text-white hover:text-[#FFE600] hover:bg-white/8'
                 }`}
               >
                 {item.label}

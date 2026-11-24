@@ -171,18 +171,18 @@ export function BookingCalendarSection({
     <section
       id="top"
       aria-labelledby="booking-date-heading"
-      className="relative pt-5 pb-8 sm:pt-9 sm:pb-12 border-b border-white/10"
+      className="relative pt-5 pb-8 sm:pt-9 sm:pb-12 border-b border-[#FFE600]/20"
     >
       <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-6">
         {/* Big Prominent Top Heading */}
         <div className="text-center space-y-2">
           <h2
             id="booking-date-heading"
-            className="font-display text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FACC15] drop-shadow-[0_4px_24px_rgba(250,204,21,0.34)]"
+            className="font-display text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FFE600] drop-shadow-[0_4px_20px_rgba(0,0,0,0.65)]"
           >
             BOOKING DATE
           </h2>
-          <p className="text-xs sm:text-base font-medium text-zinc-300 max-w-2xl mx-auto">
+          <p className="text-xs sm:text-base font-semibold text-white/95 max-w-2xl mx-auto drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
             {lang === 'mr'
               ? `${STUDIO_CONTACT.brand} — ${MONTH_NAMES.mr[BOOKED_MONTH_INDEX]} ${bookedYear} मधील बुक तारखा लाल रंगात हायलाइट आहेत. उपलब्ध तारखेवर क्लिक करून बुकिंग करा.`
               : lang === 'hi'
@@ -193,12 +193,12 @@ export function BookingCalendarSection({
           </p>
         </div>
 
-        {/* Clean Single Calendar Card */}
-        <div className="bg-[#120D12]/95 border border-[#FACC15]/35 rounded-2xl p-3.5 sm:p-6 shadow-[0_20px_54px_rgba(0,0,0,0.6)] space-y-4">
+        {/* Clean Single Calendar Card matching the Banner's Royal Navy + Yellow + Red Accent System */}
+        <div className="bg-[#0A1033]/94 border border-[#FFE600]/45 rounded-2xl p-3.5 sm:p-6 shadow-[0_22px_56px_rgba(0,0,0,0.62)] space-y-4">
           {/* Month Navigation Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-white/15">
             <div className="flex items-center gap-2.5 min-w-0">
-              <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-[#FACC15] shrink-0" aria-hidden="true" />
+              <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-[#FFE600] shrink-0" aria-hidden="true" />
               <h3 className="font-display text-xl sm:text-2xl font-extrabold text-white tracking-tight tabular-nums">
                 {monthLabel} {viewYear}
               </h3>
@@ -209,7 +209,7 @@ export function BookingCalendarSection({
                 <button
                   type="button"
                   onClick={handleJumpDecember}
-                  className="min-h-[40px] px-3 py-1.5 text-xs font-bold text-black bg-[#FACC15] hover:bg-[#FDE047] rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  className="min-h-[40px] px-3 py-1.5 text-xs font-extrabold text-[#070B28] bg-[#FFE600] hover:bg-[#FFF04D] rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
                   {MONTH_NAMES[lang][BOOKED_MONTH_INDEX]} {bookedYear}
                 </button>
@@ -218,7 +218,7 @@ export function BookingCalendarSection({
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label="Previous month"
-                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-zinc-200 hover:text-white hover:border-[#FACC15]/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/[0.06] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -226,7 +226,7 @@ export function BookingCalendarSection({
                 type="button"
                 onClick={handleNextMonth}
                 aria-label="Next month"
-                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/15 bg-white/[0.04] text-zinc-200 hover:text-white hover:border-[#FACC15]/60 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
+                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/[0.06] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -298,7 +298,7 @@ export function BookingCalendarSection({
               <div
                 key={dayName}
                 className={`text-center text-[11px] sm:text-xs font-bold py-1 ${
-                  idx === 0 ? 'text-[#F87171]' : 'text-zinc-400'
+                  idx === 0 ? 'text-[#FFE600]' : 'text-white/80'
                 }`}
               >
                 {dayName}
@@ -314,7 +314,7 @@ export function BookingCalendarSection({
                   <div
                     key={cell.key}
                     aria-hidden="true"
-                    className="min-h-[52px] sm:min-h-[70px] rounded-xl bg-white/[0.015] border border-white/[0.04]"
+                    className="min-h-[52px] sm:min-h-[70px] rounded-xl bg-white/[0.02] border border-white/[0.05]"
                   />
                 );
               }
@@ -334,14 +334,14 @@ export function BookingCalendarSection({
                   aria-label={`${day} ${monthLabel} ${viewYear} - ${
                     isBooked ? 'Booked' : 'Available'
                   }`}
-                  className={`relative min-h-[52px] sm:min-h-[70px] rounded-xl border px-1 py-1.5 sm:p-2 flex flex-col items-center justify-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+                  className={`relative min-h-[52px] sm:min-h-[70px] rounded-xl border px-1 py-1.5 sm:p-2 flex flex-col items-center justify-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] ${
                     isBooked
                       ? isSelected
-                        ? 'bg-[#B91C1C] border-2 border-[#FACC15] text-white shadow-[0_0_24px_rgba(250,204,21,0.5)]'
-                        : 'bg-gradient-to-b from-[#EF4444] to-[#B91C1C] border-[#FACC15]/90 text-white shadow-[0_6px_18px_rgba(220,38,38,0.48)] hover:brightness-110'
+                        ? 'bg-[#B8060D] border-2 border-[#FFE600] text-white shadow-[0_0_24px_rgba(255,230,0,0.55)]'
+                        : 'bg-gradient-to-b from-[#E6141B] to-[#AE060D] border-[#FFE600]/95 text-white shadow-[0_6px_18px_rgba(225,29,29,0.52)] hover:brightness-110'
                       : isSelected
-                        ? 'bg-[#FACC15]/20 border-2 border-[#FACC15] text-white shadow-[0_0_20px_rgba(250,204,21,0.3)]'
-                        : 'bg-white/[0.035] border-white/10 text-zinc-100 hover:border-[#FACC15]/60 hover:bg-white/[0.08]'
+                        ? 'bg-[#FFE600]/20 border-2 border-[#FFE600] text-white shadow-[0_0_20px_rgba(255,230,0,0.34)]'
+                        : 'bg-white/[0.05] border-white/15 text-white hover:border-[#FFE600]/70 hover:bg-white/[0.1]'
                   }`}
                 >
                   <span
@@ -349,19 +349,19 @@ export function BookingCalendarSection({
                       isBooked
                         ? 'text-white'
                         : isSelected
-                          ? 'text-[#FACC15]'
-                          : 'text-zinc-100'
+                          ? 'text-[#FFE600]'
+                          : 'text-white'
                     }`}
                   >
                     {day}
                   </span>
 
                   {isBooked ? (
-                    <span className="mt-1 text-[9px] sm:text-[10px] font-black tracking-wide text-[#FEF08A] leading-none">
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-black tracking-wide text-[#FFE600] leading-none">
                       {bookedLabel}
                     </span>
                   ) : isToday ? (
-                    <span className="mt-1 text-[9px] sm:text-[10px] font-bold text-[#FACC15] leading-none">
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-bold text-[#FFE600] leading-none">
                       {lang === 'mr'
                         ? 'आज'
                         : lang === 'hi'
@@ -371,7 +371,7 @@ export function BookingCalendarSection({
                             : 'Today'}
                     </span>
                   ) : (
-                    <span className="mt-1 hidden sm:block text-[10px] font-medium text-zinc-400 leading-none">
+                    <span className="mt-1 hidden sm:block text-[10px] font-medium text-white/70 leading-none">
                       {openLabel}
                     </span>
                   )}

@@ -91,13 +91,13 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
   return (
     <section
       id="spotlight"
-      className="py-12 sm:py-20 lg:py-24 border-b border-white/10 bg-[#090B12]/34 backdrop-blur-[2px]"
+      className="py-12 sm:py-20 lg:py-24 border-b border-[#FFE600]/20 bg-[#070B28]/38 backdrop-blur-[2px]"
     >
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-14 items-center">
           {/* Left: Official Promotional Poster */}
           <ScrollReveal direction="left" className="lg:col-span-5">
-            <figure className="studio-card-animate group bg-[#121216] border border-[#FACC15]/25 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
+            <figure className="studio-card-animate group bg-[#0A1033]/92 border border-[#FFE600]/40 rounded-2xl p-3 sm:p-4 shadow-[0_24px_60px_rgba(0,0,0,0.55)]">
               {!posterError ? (
                 <button
                   type="button"
@@ -152,7 +152,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
           {/* Right: Editorial Brand Story & Capabilities */}
           <ScrollReveal direction="right" delay={100} className="lg:col-span-7 space-y-8">
             <div className="space-y-3.5">
-              <p className="text-xs sm:text-sm font-medium text-[#FACC15]">
+              <p className="text-xs sm:text-sm font-bold text-[#FFE600]">
                 {lang === 'mr'
                   ? 'कॅप्चर · स्ट्रीम · शेअर · अधिकृत स्टुडिओ प्रोफाइल'
                   : 'Capture · Stream · Share · Official Studio Spotlight'}
@@ -166,7 +166,7 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
                   ? 'तुमचा कार्यक्रम, आमचे विश्वासार्ह थेट कव्हरेज'
                   : 'Your Event, Our Broadcast Coverage'}
               </h2>
-              <p className="text-sm sm:text-base text-zinc-300 leading-[1.75] max-w-2xl">
+              <p className="text-sm sm:text-base text-[#FFF3EC]/92 leading-[1.75] max-w-2xl">
                 {lang === 'mr'
                   ? 'भारत निरगुडा यांच्या नेतृत्वाखाली Star Event Live तुमचे प्रत्येक क्रीडा सामने, लग्न-हळदी सोहळे आणि सांस्कृतिक कार्यक्रम प्रोफेशनल कॅमेरा टीम, स्वच्छ ऑडिओ आणि अखंड YouTube लाईव्हसह जगासमोर सादर करते.'
                   : 'Led by Bharat Nirguda, Star Event Live brings broadcast-grade multi-camera rigs, clean mixer audio, and custom live graphics to every sports tournament, wedding ceremony, and community stage across Maharashtra.'}
@@ -174,16 +174,16 @@ export function StudioSpotlightSection({ lang, onBookNow }: StudioSpotlightSecti
             </div>
 
             {/* 4 Broadcast Pillars matching the poster */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-6 border-t border-white/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6 pt-6 border-t border-[#FFE600]/20">
               {SPOTLIGHT_PILLARS.map((pillar) => (
                 <div key={pillar.index} className="space-y-2">
                   <h3 className="font-display text-base font-bold text-white leading-snug">
-                    <span className="font-mono text-sm text-[#FACC15] mr-2 tabular-nums">
+                    <span className="font-mono text-sm text-[#FFE600] mr-2 tabular-nums">
                       {pillar.index}
                     </span>
                     {pillar.title[lang]}
                   </h3>
-                  <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed">
+                  <p className="text-xs sm:text-sm text-[#FDE8E8]/85 leading-relaxed">
                     {pillar.detail[lang]}
                   </p>
                 </div>
