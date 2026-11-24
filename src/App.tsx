@@ -14,6 +14,7 @@ import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
 import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
+import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { UserControlPanelView } from './components/UserControlPanelView';
 import { UserCricketOverlayView } from './components/UserCricketOverlayView';
@@ -514,7 +515,6 @@ export default function App() {
 
   const handleSelectDateForBooking = (isoDate: string) => {
     setSelectedBookingDate(isoDate);
-    scrollToSection('book');
   };
 
   const handleOpenAccountPortal = (tab: 'operator' | 'admin' = 'operator') => {
@@ -615,6 +615,11 @@ export default function App() {
           />
         ) : (
           <>
+            <StingerOverlaysOfferSection
+              lang={lang}
+              onOpenOverlays={() => navigateToOverlays()}
+            />
+
             <BookingCalendarSection
               lang={lang}
               onSelectDateForBooking={handleSelectDateForBooking}

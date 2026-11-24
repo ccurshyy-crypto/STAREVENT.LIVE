@@ -1,13 +1,13 @@
-import { useMemo, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   CalendarDays,
-  CheckCircle2,
+  Check,
   ChevronLeft,
   ChevronRight,
-  Lock,
   MessageCircle,
   Phone,
+  X,
 } from 'lucide-react';
 import { Language, STUDIO_CONTACT } from '../data/content';
 
@@ -74,6 +74,21 @@ const MONTH_NAMES: Record<Language, readonly string[]> = {
   ],
 };
 
+const SHORT_MONTHS_EN = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
 const WEEKDAY_LABELS: Record<Language, readonly string[]> = {
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
   mr: ['रवि', 'सोम', 'मंगळ', 'बुध', 'गुरु', 'शुक्र', 'शनि'],
@@ -81,31 +96,73 @@ const WEEKDAY_LABELS: Record<Language, readonly string[]> = {
   gu: ['રવિ', 'સોમ', 'મંગળ', 'બુધ', 'ગુરુ', 'શુક્ર', 'શનિ'],
 };
 
+const EVENT_TYPE_OPTIONS = [
+  'Cricket Tournament',
+  'Kabaddi Match',
+  'Wedding / Haldi',
+  'Birthday',
+  'Other',
+] as const;
+
+type BookingEventType = (typeof EVENT_TYPE_OPTIONS)[number];
+
 interface BookingCalendarSectionProps {
   lang: Language;
-  onSelectDateForBooking: (isoDate: string) => void;
+  onSelectDateForBooking?: (isoDate: string) => void;
 }
 
 function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
+function toIsoDate(year: number, monthIndex: number, day: number): string {
+  return `${year}-${pad2(monthIndex + 1)}-${pad2(day)}`;
+}
+
+function formatReadableDate(iso: string): string {
+  const [yStr, mStr, dStr] = iso.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr) - 1;
+  const d = Number(dStr);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return iso;
+  return `${d} ${SHORT_MONTHS_EN[m] ?? ''} ${y}`;
+}
+
 export function BookingCalendarSection({
   lang,
   onSelectDateForBooking,
 }: BookingCalendarSectionProps) {
+  // Always detect the current active system date automatically on load
   const initialNow = useMemo(() => new Date(), []);
-  const bookedYear = initialNow.getFullYear();
   const todayYear = initialNow.getFullYear();
   const todayMonth = initialNow.getMonth();
   const todayDate = initialNow.getDate();
 
-  // Default directly to December where dates 9, 10, 11, 12, 13, 14, 18, 19, 20 are booked
-  const [viewYear, setViewYear] = useState(bookedYear);
-  const [viewMonth, setViewMonth] = useState(BOOKED_MONTH_INDEX);
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [viewYear, setViewYear] = useState(todayYear);
+  const [viewMonth, setViewMonth] = useState(todayMonth);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
-  const isDecemberBookedMonth = viewYear === bookedYear && viewMonth === BOOKED_MONTH_INDEX;
+  // Booking Modal State
+  const [modalOpen, setModalOpen] = useState(false);
+  const [clientName, setClientName] = useState('');
+  const [clientMobile, setClientMobile] = useState('');
+  const [eventType, setEventType] = useState<BookingEventType>('Cricket Tournament');
+  const [eventLocation, setEventLocation] = useState('');
+  const [packageNotes, setPackageNotes] = useState('');
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [submittedWhatsappUrl, setSubmittedWhatsappUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setModalOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [modalOpen]);
+
+  const isCurrentActiveMonth = viewYear === todayYear && viewMonth === todayMonth;
+  const isBookedDecemberMonth = viewYear === todayYear && viewMonth === BOOKED_MONTH_INDEX;
 
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDayOffset = new Date(viewYear, viewMonth, 1).getDay();
@@ -126,9 +183,9 @@ export function BookingCalendarSection({
 
   const monthLabel = MONTH_NAMES[lang][viewMonth];
   const weekdays = WEEKDAY_LABELS[lang];
+  const selectedSet = useMemo(() => new Set(selectedDates), [selectedDates]);
 
   const handlePrevMonth = () => {
-    setSelectedDay(null);
     if (viewMonth === 0) {
       setViewMonth(11);
       setViewYear((y) => y - 1);
@@ -138,7 +195,6 @@ export function BookingCalendarSection({
   };
 
   const handleNextMonth = () => {
-    setSelectedDay(null);
     if (viewMonth === 11) {
       setViewMonth(0);
       setViewYear((y) => y + 1);
@@ -147,56 +203,116 @@ export function BookingCalendarSection({
     }
   };
 
-  const handleJumpDecember = () => {
-    setViewYear(bookedYear);
-    setViewMonth(BOOKED_MONTH_INDEX);
-    setSelectedDay(null);
+  const handleJumpTodayMonth = () => {
+    setViewYear(todayYear);
+    setViewMonth(todayMonth);
   };
 
-  const selectedIsBooked = Boolean(
-    selectedDay !== null && isDecemberBookedMonth && BOOKED_DAY_SET.has(selectedDay)
-  );
-  const selectedIsoDate =
-    selectedDay !== null
-      ? `${viewYear}-${pad2(viewMonth + 1)}-${pad2(selectedDay)}`
-      : null;
+  const toggleDateSelection = (isoDate: string) => {
+    setSubmittedWhatsappUrl(null);
+    setSelectedDates((prev) => {
+      if (prev.includes(isoDate)) {
+        return prev.filter((d) => d !== isoDate);
+      }
+      const next = [...prev, isoDate].sort();
+      return next;
+    });
+    onSelectDateForBooking?.(isoDate);
+  };
+
+  const removeSelectedDate = (isoDate: string) => {
+    setSelectedDates((prev) => prev.filter((d) => d !== isoDate));
+  };
+
+  const handleOpenBookingModal = () => {
+    if (selectedDates.length === 0) return;
+    setFormErrors({});
+    setSubmittedWhatsappUrl(null);
+    setModalOpen(true);
+  };
+
+  const handleConfirmWhatsapp = (e: FormEvent) => {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    const digitsOnly = clientMobile.replace(/\D/g, '');
+
+    if (clientName.trim().length < 2) {
+      errs.clientName = 'Please enter your full name.';
+    }
+    if (digitsOnly.length < 10) {
+      errs.clientMobile = 'Please enter a valid 10-digit mobile number.';
+    }
+    if (eventLocation.trim().length < 2) {
+      errs.eventLocation = 'Please enter your event location or village.';
+    }
+
+    setFormErrors(errs);
+    if (Object.keys(errs).length > 0) return;
+
+    const formattedDatesList = selectedDates.map((d) => formatReadableDate(d)).join(', ');
+
+    const lines = [
+      'STAR EVENT LIVE — Event Booking Request',
+      '------------------------------------',
+      `Selected Date(s) (${selectedDates.length}): ${formattedDatesList}`,
+      `Client Name: ${clientName.trim()}`,
+      `Mobile Number: ${digitsOnly}`,
+      `Event Type: ${eventType}`,
+      `Location / Village: ${eventLocation.trim()}`,
+      packageNotes.trim() ? `Setup / Package Notes: ${packageNotes.trim()}` : null,
+      '------------------------------------',
+      'Sent via starevent.live',
+    ].filter(Boolean);
+
+    const whatsappUrl = `https://wa.me/919890175727?text=${encodeURIComponent(lines.join('\n'))}`;
+    setSubmittedWhatsappUrl(whatsappUrl);
+
+    // Redirect cleanly without using window.open (safe inside iframes and mobile browsers)
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const bookedLabel =
-    lang === 'mr' ? 'बुक' : lang === 'hi' ? 'बुक' : lang === 'gu' ? 'બુક' : 'BOOKED';
+    lang === 'mr' ? 'बुक' : lang === 'hi' ? 'बुक' : lang === 'gu' ? 'બુક' : 'Booked';
 
   const openLabel =
     lang === 'mr' ? 'उपलब्ध' : lang === 'hi' ? 'खाली' : lang === 'gu' ? 'ખાલી' : 'Available';
 
   return (
     <section
-      id="top"
+      id="booking-calendar"
       aria-labelledby="booking-date-heading"
-      className="relative pt-5 pb-8 sm:pt-9 sm:pb-12 border-b border-[#FFE600]/20"
+      className="relative pt-6 pb-9 sm:pt-10 sm:pb-14 border-b border-[#FFE600]/20"
     >
       <div className="max-w-5xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-6">
-        {/* Big Prominent Top Heading */}
+        {/* Prominent Heading */}
         <div className="text-center space-y-2">
           <h2
             id="booking-date-heading"
-            className="font-display text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FFE600] drop-shadow-[0_4px_20px_rgba(0,0,0,0.65)]"
+            className="font-display text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FFE600] drop-shadow-[0_4px_20px_rgba(0,0,0,0.65)]"
           >
             BOOKING DATE
           </h2>
-          <p className="text-xs sm:text-base font-semibold text-white/95 max-w-2xl mx-auto drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
+          <p className="text-xs sm:text-base font-medium text-white/90 max-w-2xl mx-auto">
             {lang === 'mr'
-              ? `${STUDIO_CONTACT.brand} — ${MONTH_NAMES.mr[BOOKED_MONTH_INDEX]} ${bookedYear} मधील बुक तारखा लाल रंगात हायलाइट आहेत. उपलब्ध तारखेवर क्लिक करून बुकिंग करा.`
+              ? `${STUDIO_CONTACT.brand} — उपलब्ध तारखा (एक किंवा अनेक) निवडा आणि थेट WhatsApp वर बुकिंग पाठवा.`
               : lang === 'hi'
-                ? `${STUDIO_CONTACT.brand} — ${MONTH_NAMES.hi[BOOKED_MONTH_INDEX]} ${bookedYear} की बुक तारीखें लाल रंग में हाइलाइट हैं। उपलब्ध तारीख चुनकर बुकिंग करें।`
+                ? `${STUDIO_CONTACT.brand} — एक या एक से अधिक उपलब्ध तारीखें चुनें और सीधे WhatsApp पर बुकिंग भेजें।`
                 : lang === 'gu'
-                  ? `${STUDIO_CONTACT.brand} — ${MONTH_NAMES.gu[BOOKED_MONTH_INDEX]} ${bookedYear} ની બુક તારીખો લાલ રંગમાં હાઇલાઇટ છે. ઉપલબ્ધ તારીખ પસંદ કરીને બુક કરો.`
-                  : `${STUDIO_CONTACT.brand} — Booked dates in ${MONTH_NAMES.en[BOOKED_MONTH_INDEX]} ${bookedYear} are highlighted in red. Tap any available date to book your live broadcast.`}
+                  ? `${STUDIO_CONTACT.brand} — એક અથવા વધુ ઉપલબ્ધ તારીખો પસંદ કરો અને સીધી WhatsApp પર બુકિંગ મોકલો.`
+                  : `${STUDIO_CONTACT.brand} — Select one or multiple available dates below and send your booking directly on WhatsApp.`}
           </p>
         </div>
 
-        {/* Clean Single Calendar Card matching the Banner's Royal Navy + Yellow + Red Accent System */}
-        <div className="bg-[#0A1033]/94 border border-[#FFE600]/45 rounded-2xl p-3.5 sm:p-6 shadow-[0_22px_56px_rgba(0,0,0,0.62)] space-y-4">
+        {/* Dark Black, Red & Gold Broadcast Calendar Card */}
+        <div className="bg-[#0B0B10]/95 border border-[#FFE600]/40 rounded-2xl p-3.5 sm:p-6 shadow-[0_22px_56px_rgba(0,0,0,0.65)] space-y-4">
           {/* Month Navigation Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-white/15">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-3.5 border-b border-white/12">
             <div className="flex items-center gap-2.5 min-w-0">
               <CalendarDays className="w-5 h-5 sm:w-6 sm:h-6 text-[#FFE600] shrink-0" aria-hidden="true" />
               <h3 className="font-display text-xl sm:text-2xl font-extrabold text-white tracking-tight tabular-nums">
@@ -205,20 +321,26 @@ export function BookingCalendarSection({
             </div>
 
             <div className="flex items-center gap-2">
-              {!isDecemberBookedMonth && (
+              {!isCurrentActiveMonth && (
                 <button
                   type="button"
-                  onClick={handleJumpDecember}
-                  className="min-h-[40px] px-3 py-1.5 text-xs font-extrabold text-[#070B28] bg-[#FFE600] hover:bg-[#FFF04D] rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                  onClick={handleJumpTodayMonth}
+                  className="min-h-[40px] px-3 py-1.5 text-xs font-extrabold text-black bg-[#FFE600] hover:bg-[#FFF04D] rounded-lg transition-colors whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                 >
-                  {MONTH_NAMES[lang][BOOKED_MONTH_INDEX]} {bookedYear}
+                  {lang === 'mr'
+                    ? 'आजचा महिना'
+                    : lang === 'hi'
+                      ? 'मौजूदा महीना'
+                      : lang === 'gu'
+                        ? 'ચાલુ મહિનો'
+                        : 'Today'}
                 </button>
               )}
               <button
                 type="button"
                 onClick={handlePrevMonth}
                 aria-label="Previous month"
-                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/[0.06] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/18 bg-white/[0.05] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
@@ -226,7 +348,7 @@ export function BookingCalendarSection({
                 type="button"
                 onClick={handleNextMonth}
                 aria-label="Next month"
-                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/20 bg-white/[0.06] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+                className="w-10 h-10 inline-flex items-center justify-center rounded-lg border border-white/18 bg-white/[0.05] text-white hover:text-[#FFE600] hover:border-[#FFE600]/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
@@ -234,58 +356,57 @@ export function BookingCalendarSection({
           </div>
 
           {/* Clean Legend Row */}
-          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-zinc-300">
+          <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-white/85">
             <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
               <span className="inline-flex items-center gap-2 font-semibold text-white">
                 <span
                   aria-hidden="true"
-                  className="w-3.5 h-3.5 rounded bg-[#DC2626] border border-[#FACC15] shrink-0"
+                  className="w-3.5 h-3.5 rounded bg-[#DC2626] border border-[#F87171] shrink-0"
                 />
-                <span>
-                  {lang === 'mr'
-                    ? 'बुक तारीख'
-                    : lang === 'hi'
-                      ? 'बुक तारीख'
-                      : lang === 'gu'
-                        ? 'બુક તારીખ'
-                        : 'Booked'}
-                </span>
+                <span>{bookedLabel}</span>
               </span>
-              <span className="inline-flex items-center gap-2 text-zinc-300">
+              <span className="inline-flex items-center gap-2 font-semibold text-[#86EFAC]">
                 <span
                   aria-hidden="true"
-                  className="w-3.5 h-3.5 rounded bg-white/[0.06] border border-white/20 shrink-0"
+                  className="w-3.5 h-3.5 rounded bg-emerald-600 border-2 border-[#FFE600] shrink-0"
                 />
                 <span>
                   {lang === 'mr'
-                    ? 'उपलब्ध तारीख'
+                    ? 'निवडलेल्या तारखा'
                     : lang === 'hi'
-                      ? 'उपलब्ध तारीख'
+                      ? 'चुनी गई तारीखें'
                       : lang === 'gu'
-                        ? 'ઉપલબ્ધ તારીખ'
-                        : 'Available'}
-                </span>
-              </span>
-              <span className="inline-flex items-center gap-2 text-[#FACC15] font-medium">
-                <span
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5 rounded bg-[#FACC15]/20 border border-[#FACC15] shrink-0"
-                />
-                <span>
-                  {lang === 'mr'
-                    ? 'निवडलेली तारीख'
-                    : lang === 'hi'
-                      ? 'चुनी गई तारीख'
-                      : lang === 'gu'
-                        ? 'પસંદ કરેલ તારીખ'
+                        ? 'પસંદ કરેલ તારીખો'
                         : 'Selected'}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-2 text-white/80">
+                <span
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 rounded bg-[#16161F] border border-white/20 shrink-0"
+                />
+                <span>{openLabel}</span>
+              </span>
+              <span className="inline-flex items-center gap-2 text-[#FFE600] font-medium">
+                <span
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 rounded bg-transparent border-2 border-[#FFE600] shrink-0"
+                />
+                <span>
+                  {lang === 'mr'
+                    ? 'आज'
+                    : lang === 'hi'
+                      ? 'आज'
+                      : lang === 'gu'
+                        ? 'આજ'
+                        : 'Today'}
                 </span>
               </span>
             </div>
 
             <a
               href={STUDIO_CONTACT.phoneHref}
-              className="inline-flex items-center gap-1.5 font-mono text-xs sm:text-sm font-bold text-[#FACC15] hover:text-white transition-colors tabular-nums whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 font-mono text-xs sm:text-sm font-bold text-[#FFE600] hover:text-white transition-colors tabular-nums whitespace-nowrap"
             >
               <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span>{STUDIO_CONTACT.phoneDisplay}</span>
@@ -298,7 +419,7 @@ export function BookingCalendarSection({
               <div
                 key={dayName}
                 className={`text-center text-[11px] sm:text-xs font-bold py-1 ${
-                  idx === 0 ? 'text-[#FFE600]' : 'text-white/80'
+                  idx === 0 ? 'text-[#FFE600]' : 'text-white/75'
                 }`}
               >
                 {dayName}
@@ -306,7 +427,7 @@ export function BookingCalendarSection({
             ))}
           </div>
 
-          {/* 7-Column Calendar Days Grid */}
+          {/* 7-Column Days Grid */}
           <div className="grid grid-cols-7 gap-1.5 sm:gap-2.5">
             {calendarCells.map((cell) => {
               if (cell.day === null) {
@@ -314,54 +435,78 @@ export function BookingCalendarSection({
                   <div
                     key={cell.key}
                     aria-hidden="true"
-                    className="min-h-[52px] sm:min-h-[70px] rounded-xl bg-white/[0.02] border border-white/[0.05]"
+                    className="min-h-[54px] sm:min-h-[72px] rounded-xl bg-white/[0.02] border border-white/[0.04]"
                   />
                 );
               }
 
               const day = cell.day;
-              const isBooked = isDecemberBookedMonth && BOOKED_DAY_SET.has(day);
+              const isoDate = toIsoDate(viewYear, viewMonth, day);
+              const isBooked = isBookedDecemberMonth && BOOKED_DAY_SET.has(day);
               const isToday =
                 viewYear === todayYear && viewMonth === todayMonth && day === todayDate;
-              const isSelected = selectedDay === day;
+              const isSelected = !isBooked && selectedSet.has(isoDate);
 
               return (
                 <button
                   key={cell.key}
                   type="button"
-                  onClick={() => setSelectedDay(day)}
+                  disabled={isBooked}
+                  onClick={() => toggleDateSelection(isoDate)}
                   aria-pressed={isSelected}
+                  aria-disabled={isBooked}
                   aria-label={`${day} ${monthLabel} ${viewYear} - ${
-                    isBooked ? 'Booked' : 'Available'
+                    isBooked ? 'Booked' : isSelected ? 'Selected' : 'Available'
                   }`}
-                  className={`relative min-h-[52px] sm:min-h-[70px] rounded-xl border px-1 py-1.5 sm:p-2 flex flex-col items-center justify-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] ${
+                  className={`relative min-h-[54px] sm:min-h-[72px] rounded-xl border px-1 py-1.5 sm:p-2 flex flex-col items-center justify-center transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] ${
                     isBooked
-                      ? isSelected
-                        ? 'bg-[#B8060D] border-2 border-[#FFE600] text-white shadow-[0_0_24px_rgba(255,230,0,0.55)]'
-                        : 'bg-gradient-to-b from-[#E6141B] to-[#AE060D] border-[#FFE600]/95 text-white shadow-[0_6px_18px_rgba(225,29,29,0.52)] hover:brightness-110'
+                      ? 'bg-gradient-to-b from-[#DC2626] to-[#991B1B] border-[#FCA5A5]/60 text-white opacity-95 cursor-not-allowed'
                       : isSelected
-                        ? 'bg-[#FFE600]/20 border-2 border-[#FFE600] text-white shadow-[0_0_20px_rgba(255,230,0,0.34)]'
-                        : 'bg-white/[0.05] border-white/15 text-white hover:border-[#FFE600]/70 hover:bg-white/[0.1]'
+                        ? 'bg-gradient-to-b from-emerald-600 to-emerald-800 border-2 border-[#FFE600] text-white shadow-[0_0_20px_rgba(255,230,0,0.38)]'
+                        : isToday
+                          ? 'bg-[#1A1610] border-2 border-[#FFE600] text-white hover:bg-[#262012] shadow-[0_0_16px_rgba(255,230,0,0.22)]'
+                          : 'bg-[#14141C] border-white/12 text-white hover:border-[#FFE600]/75 hover:bg-[#1E1A22]'
                   }`}
                 >
+                  {isSelected && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-4 h-4 rounded-full bg-[#FFE600] text-black flex items-center justify-center"
+                    >
+                      <Check className="w-2.5 h-2.5 stroke-[3]" />
+                    </span>
+                  )}
+
                   <span
                     className={`font-mono text-sm sm:text-xl font-extrabold leading-none tabular-nums ${
                       isBooked
                         ? 'text-white'
                         : isSelected
-                          ? 'text-[#FFE600]'
-                          : 'text-white'
+                          ? 'text-white'
+                          : isToday
+                            ? 'text-[#FFE600]'
+                            : 'text-white'
                     }`}
                   >
                     {day}
                   </span>
 
                   {isBooked ? (
-                    <span className="mt-1 text-[9px] sm:text-[10px] font-black tracking-wide text-[#FFE600] leading-none">
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-black tracking-wide text-[#FEF08A] leading-none">
                       {bookedLabel}
                     </span>
+                  ) : isSelected ? (
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-black text-[#FFE600] leading-none">
+                      {lang === 'mr'
+                        ? 'निवडले'
+                        : lang === 'hi'
+                          ? 'चुना गया'
+                          : lang === 'gu'
+                            ? 'પસંદ'
+                            : 'Selected'}
+                    </span>
                   ) : isToday ? (
-                    <span className="mt-1 text-[9px] sm:text-[10px] font-bold text-[#FFE600] leading-none">
+                    <span className="mt-1 text-[9px] sm:text-[10px] font-extrabold text-[#FFE600] leading-none">
                       {lang === 'mr'
                         ? 'आज'
                         : lang === 'hi'
@@ -371,7 +516,7 @@ export function BookingCalendarSection({
                             : 'Today'}
                     </span>
                   ) : (
-                    <span className="mt-1 hidden sm:block text-[10px] font-medium text-white/70 leading-none">
+                    <span className="mt-1 hidden sm:block text-[10px] font-medium text-white/55 leading-none">
                       {openLabel}
                     </span>
                   )}
@@ -380,94 +525,251 @@ export function BookingCalendarSection({
             })}
           </div>
 
-          {/* Inline Selected Date Action Strip (only when a date is tapped) */}
-          {selectedDay !== null && (
-            <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              {selectedIsBooked ? (
-                <>
-                  <div className="flex items-center gap-2.5">
-                    <Lock className="w-5 h-5 text-[#F87171] shrink-0" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="font-mono text-sm sm:text-base font-extrabold text-white tabular-nums">
-                        {selectedDay} {monthLabel} {viewYear}
-                      </p>
-                      <p className="text-xs font-semibold text-[#F87171]">
-                        {lang === 'mr'
-                          ? 'ही तारीख आधीच बुक झाली आहे — कृपया दुसरी उपलब्ध तारीख निवडा किंवा कॉल करा.'
-                          : lang === 'hi'
-                            ? 'यह तारीख पहले से बुक है — कृपया कोई दूसरी खाली तारीख चुनें या कॉल करें।'
-                            : lang === 'gu'
-                              ? 'આ તારીખ પહેલેથી બુક છે — કૃપા કરીને અન્ય ઉપલબ્ધ તારીખ પસંદ કરો અથવા કોલ કરો.'
-                              : 'Already Booked — choose another available date or call for backup crew.'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <a
-                    href={STUDIO_CONTACT.phoneHref}
-                    className="btn-primary-pro min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-bold rounded-xl whitespace-nowrap shrink-0 tabular-nums"
-                  >
-                    <Phone className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>{STUDIO_CONTACT.phoneDisplay}</span>
-                  </a>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-center gap-2.5">
-                    <CheckCircle2 className="w-5 h-5 text-[#FACC15] shrink-0" aria-hidden="true" />
-                    <div className="min-w-0">
-                      <p className="font-mono text-sm sm:text-base font-extrabold text-white tabular-nums">
-                        {selectedDay} {monthLabel} {viewYear}
-                      </p>
-                      <p className="text-xs font-semibold text-[#FACC15]">
-                        {lang === 'mr'
-                          ? 'बुकिंगसाठी उपलब्ध'
-                          : lang === 'hi'
-                            ? 'बुकिंग के लिए उपलब्ध'
-                            : lang === 'gu'
-                              ? 'બુકિંગ માટે ઉપલબ્ધ'
-                              : 'Available for Live Booking'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    {selectedIsoDate && (
-                      <button
-                        type="button"
-                        onClick={() => onSelectDateForBooking(selectedIsoDate)}
-                        className="btn-gold-pro min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2 text-xs sm:text-sm font-extrabold text-black rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                      >
-                        <span>
-                          {lang === 'mr'
-                            ? 'ही तारीख बुक करा'
-                            : lang === 'hi'
-                              ? 'यह तारीख बुक करें'
-                              : lang === 'gu'
-                                ? 'આ તારીખ બુક કરો'
-                                : 'Book This Date'}
-                        </span>
-                        <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
-                      </button>
-                    )}
-                    <a
-                      href={`https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-                        `Hello Star Event Live, I want to book live streaming for ${selectedDay} ${monthLabel} ${viewYear}.`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-glass-pro min-h-[42px] inline-flex items-center justify-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-zinc-100 rounded-xl whitespace-nowrap"
+          {/* Multi-Date Selection Summary & Prominent "Book Selected Dates" CTA */}
+          {selectedDates.length > 0 && (
+            <div className="pt-4 border-t border-[#FFE600]/30 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1.5 min-w-0">
+                  <div className="flex items-center gap-3">
+                    <p className="font-display text-sm sm:text-base font-extrabold text-[#FFE600] tabular-nums">
+                      {selectedDates.length}{' '}
+                      {selectedDates.length === 1 ? 'Date Selected' : 'Dates Selected'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDates([])}
+                      className="text-xs font-semibold text-white/70 hover:text-white underline underline-offset-2 transition-colors whitespace-nowrap"
                     >
-                      <MessageCircle className="w-4 h-4 text-[#FACC15] shrink-0" aria-hidden="true" />
-                      <span>WhatsApp</span>
-                    </a>
+                      Clear all
+                    </button>
                   </div>
-                </>
-              )}
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs sm:text-sm text-white">
+                    {selectedDates.map((iso, idx) => (
+                      <span
+                        key={iso}
+                        className="inline-flex items-center gap-1 font-mono font-semibold tabular-nums"
+                      >
+                        {idx > 0 && (
+                          <span aria-hidden="true" className="text-white/40 mr-1.5">
+                            ·
+                          </span>
+                        )}
+                        <span>{formatReadableDate(iso)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedDate(iso)}
+                          aria-label={`Remove ${formatReadableDate(iso)}`}
+                          className="ml-0.5 text-white/60 hover:text-[#FF6B6B] transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleOpenBookingModal}
+                  className="btn-gold-pro min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 text-sm sm:text-base font-black text-black rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+                >
+                  <span>
+                    Book Selected {selectedDates.length === 1 ? 'Date' : 'Dates'} (
+                    {selectedDates.length})
+                  </span>
+                  <ArrowRight className="w-4 h-4 shrink-0" aria-hidden="true" />
+                </button>
+              </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Client Booking Details Modal & Direct WhatsApp Send */}
+      {modalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="calendar-booking-modal-title"
+          onClick={() => setModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/88 backdrop-blur-sm flex items-center justify-center p-3 sm:p-5 overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-lg my-auto bg-[#0D0B12] border border-[#FFE600]/45 rounded-2xl p-4 sm:p-6 shadow-[0_24px_70px_rgba(0,0,0,0.85)] space-y-5"
+          >
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3 pb-3.5 border-b border-white/12">
+              <div className="space-y-1 min-w-0">
+                <h3
+                  id="calendar-booking-modal-title"
+                  className="font-display text-xl sm:text-2xl font-black text-white leading-tight"
+                >
+                  Book Selected Dates
+                </h3>
+                <p className="text-xs sm:text-sm font-mono text-[#FFE600] tabular-nums leading-relaxed">
+                  {selectedDates.map((d) => formatReadableDate(d)).join(' · ')}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                aria-label="Close booking form"
+                className="w-10 h-10 rounded-xl bg-white/8 hover:bg-[#DC2626] text-white flex items-center justify-center transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {submittedWhatsappUrl ? (
+              <div className="space-y-5 py-2">
+                <div className="space-y-2">
+                  <p className="font-display text-lg font-extrabold text-[#FFE600]">
+                    Booking Details Ready for WhatsApp
+                  </p>
+                  <p className="text-sm text-white/85 leading-relaxed">
+                    Your selected dates and event details have been formatted for{' '}
+                    <span className="font-bold text-white">{STUDIO_CONTACT.brand}</span>. If
+                    WhatsApp did not open automatically, click the button below.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+                  <a
+                    href={submittedWhatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-primary-pro flex-1 min-h-[48px] inline-flex items-center justify-center gap-2 px-5 py-3 text-sm font-black text-white rounded-xl whitespace-nowrap"
+                  >
+                    <MessageCircle className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+                    <span>Open WhatsApp Now</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => setSubmittedWhatsappUrl(null)}
+                    className="btn-glass-pro min-h-[48px] px-4 py-3 text-sm font-semibold text-white rounded-xl whitespace-nowrap"
+                  >
+                    Edit Details
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleConfirmWhatsapp} noValidate className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="cal-client-name"
+                      className="block text-xs font-semibold text-white/90"
+                    >
+                      Client Full Name *
+                    </label>
+                    <input
+                      id="cal-client-name"
+                      type="text"
+                      value={clientName}
+                      onChange={(e) => setClientName(e.target.value)}
+                      placeholder="e.g. Rohit Patil"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-sm bg-[#16141F] border border-white/18 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFE600]"
+                    />
+                    {formErrors.clientName && (
+                      <p className="text-xs text-[#FCA5A5]">{formErrors.clientName}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="cal-client-mobile"
+                      className="block text-xs font-semibold text-white/90"
+                    >
+                      Mobile Number *
+                    </label>
+                    <input
+                      id="cal-client-mobile"
+                      type="tel"
+                      value={clientMobile}
+                      onChange={(e) => setClientMobile(e.target.value)}
+                      placeholder="9890XXXXXX"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-sm font-mono tabular-nums bg-[#16141F] border border-white/18 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFE600]"
+                    />
+                    {formErrors.clientMobile && (
+                      <p className="text-xs text-[#FCA5A5]">{formErrors.clientMobile}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="cal-event-type"
+                      className="block text-xs font-semibold text-white/90"
+                    >
+                      Event Type *
+                    </label>
+                    <select
+                      id="cal-event-type"
+                      value={eventType}
+                      onChange={(e) => setEventType(e.target.value as BookingEventType)}
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-sm bg-[#16141F] border border-white/18 rounded-xl text-white focus:outline-none focus:border-[#FFE600]"
+                    >
+                      {EVENT_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt} className="bg-[#16141F] text-white">
+                          {opt}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="cal-event-location"
+                      className="block text-xs font-semibold text-white/90"
+                    >
+                      Event Location / Village *
+                    </label>
+                    <input
+                      id="cal-event-location"
+                      type="text"
+                      value={eventLocation}
+                      onChange={(e) => setEventLocation(e.target.value)}
+                      placeholder="e.g. Neral / Karjat / Badlapur"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 text-sm bg-[#16141F] border border-white/18 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFE600]"
+                    />
+                    {formErrors.eventLocation && (
+                      <p className="text-xs text-[#FCA5A5]">{formErrors.eventLocation}</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="cal-package-notes"
+                    className="block text-xs font-semibold text-white/90"
+                  >
+                    Setup / Package Preference (Optional)
+                  </label>
+                  <textarea
+                    id="cal-package-notes"
+                    rows={3}
+                    value={packageNotes}
+                    onChange={(e) => setPackageNotes(e.target.value)}
+                    placeholder="e.g. 2 cameras, live scoreboard, LED wall feed, timings..."
+                    className="w-full px-3.5 py-2.5 text-sm bg-[#16141F] border border-white/18 rounded-xl text-white placeholder:text-white/40 focus:outline-none focus:border-[#FFE600] resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn-primary-pro w-full min-h-[50px] inline-flex items-center justify-center gap-2 px-5 py-3 text-sm sm:text-base font-black text-white rounded-xl whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+                >
+                  <MessageCircle className="w-5 h-5 text-[#FFE600] shrink-0" aria-hidden="true" />
+                  <span>Confirm &amp; Send on WhatsApp</span>
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }
