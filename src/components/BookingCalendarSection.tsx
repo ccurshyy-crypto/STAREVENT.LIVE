@@ -173,12 +173,12 @@ export function BookingCalendarSection({
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 space-y-5 sm:space-y-7">
         {/* Big Prominent Top Heading */}
         <div className="text-center space-y-2">
-          <h2
+          <h1
             id="booking-date-heading"
             className="font-display text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none text-[#FACC15] drop-shadow-[0_4px_24px_rgba(250,204,21,0.3)]"
           >
             BOOKING DATE
-          </h2>
+          </h1>
           <p className="text-xs sm:text-base font-medium text-zinc-300 max-w-2xl mx-auto">
             {lang === 'mr'
               ? `${STUDIO_CONTACT.brand} — ${monthLabel} ${viewYear} मधील बुक झालेल्या तारखा लाल रंगात हायलाइट केल्या आहेत. उपलब्ध तारखेवर क्लिक करून त्वरित बुकिंग करा.`

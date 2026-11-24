@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AccountPortalModal } from './components/AccountPortalModal';
-import { BookingCalendarSection } from './components/BookingCalendarSection';
 import { BookingSection } from './components/BookingSection';
 import { BroadcastStingerSection } from './components/BroadcastStingerSection';
 import { Footer } from './components/Footer';
@@ -217,7 +216,6 @@ export default function App() {
   const [selectedEvent, setSelectedEvent] = useState<EventCategoryId>('kabaddi');
   const [selectedPackageId, setSelectedPackageId] = useState<string>('multi-cam-pro');
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
-  const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
   const [accountModalOpen, setAccountModalOpen] = useState(false);
   const [accountModalTab, setAccountModalTab] = useState<'operator' | 'admin'>('operator');
   const [forcedMatchRoomId, setForcedMatchRoomId] = useState<string | null>(null);
@@ -463,9 +461,7 @@ export default function App() {
           scrollToSection(sectionId);
         }
       }, 60);
-    } else if (!sectionId || sectionId === 'top') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
+    } else if (sectionId && sectionId !== 'top') {
       scrollToSection(sectionId);
     }
   };
@@ -510,11 +506,6 @@ export default function App() {
   const handleSelectPackage = (packageId: string) => {
     setSelectedPackageId(packageId);
     navigateHome('book');
-  };
-
-  const handleSelectDateForBooking = (isoDate: string) => {
-    setSelectedBookingDate(isoDate);
-    scrollToSection('book');
   };
 
   const handleOpenAccountPortal = (tab: 'operator' | 'admin' = 'operator') => {
@@ -615,11 +606,6 @@ export default function App() {
           />
         ) : (
           <>
-            <BookingCalendarSection
-              lang={lang}
-              onSelectDateForBooking={handleSelectDateForBooking}
-            />
-
             <HeroSection
               lang={lang}
               onOpenOverlays={() => navigateToOverlays()}
@@ -648,8 +634,6 @@ export default function App() {
               selectedPackageId={selectedPackageId}
               onChangePackage={setSelectedPackageId}
               selectedAddOns={selectedAddOns}
-              selectedDate={selectedBookingDate}
-              onChangeDate={setSelectedBookingDate}
               onOpenPackages={navigateToPackages}
             />
           </>
