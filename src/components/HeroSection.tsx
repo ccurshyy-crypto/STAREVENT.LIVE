@@ -6,9 +6,10 @@ import { SpinningLogoVideo } from './SpinningLogoVideo';
 interface HeroSectionProps {
   lang: Language;
   onOpenOverlays: () => void;
+  onOpenKabaddiControl?: () => void;
 }
 
-export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
+export function HeroSection({ lang, onOpenOverlays, onOpenKabaddiControl }: HeroSectionProps) {
   const [bannerError, setBannerError] = useState(false);
 
   return (
@@ -130,6 +131,20 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
               <Play className="w-4 h-4 text-[#991B1B] shrink-0" aria-hidden="true" />
               <span>{UI_COPY.hero.secondaryCta[lang]}</span>
             </a>
+
+            {onOpenKabaddiControl && (
+              <a
+                href="/control?id=KBD-101"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onOpenKabaddiControl();
+                }}
+                className="w-full sm:w-auto min-h-[48px] inline-flex items-center justify-center gap-2 px-5 sm:px-6 py-3 text-sm sm:text-base font-extrabold text-[#FFE600] bg-[#09090D]/90 hover:bg-[#14141D] border-2 border-[#FFE600]/65 rounded-xl text-center sm:whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] transition-colors"
+              >
+                <Video className="w-4 h-4 text-[#EF4444] shrink-0" aria-hidden="true" />
+                <span>Kabaddi Live Controller</span>
+              </a>
+            )}
           </div>
         </div>
 

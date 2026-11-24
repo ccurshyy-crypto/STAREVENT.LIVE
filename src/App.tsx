@@ -17,10 +17,13 @@ import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
 import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
+import { SupabaseKabaddiControllerView } from './components/SupabaseKabaddiControllerView';
+import { SupabaseKabaddiOverlayView } from './components/SupabaseKabaddiOverlayView';
 import { UserControlPanelView } from './components/UserControlPanelView';
 import { UserCricketOverlayView } from './components/UserCricketOverlayView';
 import { UserScoreboardOverlayView } from './components/UserScoreboardOverlayView';
 import { EventCategoryId, Language } from './data/content';
+import { sanitizeKabaddiMatchId } from './types/supabaseKabaddi';
 import {
   OVERLAY_PRODUCTS,
   OverlaySku,
@@ -120,6 +123,24 @@ function parseUserControlRoute(): { targetUid: string } | null {
   return { targetUid: decodeURIComponent(match[1]) };
 }
 
+function parseSupabaseControlRoute(): { matchId: string } | null {
+  if (typeof window === 'undefined') return null;
+  if (!/^\/control\/?$/i.test(window.location.pathname)) return null;
+  const params = new URLSearchParams(window.location.search);
+  const rawId = params.get('id') || params.get('match') || params.get('room');
+  return { matchId: sanitizeKabaddiMatchId(rawId, 'KBD-101') };
+}
+
+function parseSupabaseOverlayRoute(): { matchId: string } | null {
+  if (typeof window === 'undefined') return null;
+  if (!/^\/overlay\/?$/i.test(window.location.pathname)) return null;
+  const params = new URLSearchParams(window.location.search);
+  // Keep legacy ?overlay=kabaddi|haldi working untouched
+  if (params.get('overlay')) return null;
+  const rawId = params.get('id') || params.get('match') || params.get('room');
+  return { matchId: sanitizeKabaddiMatchId(rawId, 'KBD-101') };
+}
+
 function parseUserCricketOverlayRoute(): { targetUid: string; background: OverlayBackground } | null {
   if (typeof window === 'undefined') return null;
   const match = window.location.pathname.match(/^\/cricket-overlay\/([A-Za-z0-9_-]{3,128})\/?$/);
@@ -203,11 +224,15 @@ function parseRemoteRoute() {
 export default function App() {
   const userScoreboardRoute = useMemo(() => parseUserScoreboardRoute(), []);
   const userCricketOverlayRoute = useMemo(() => parseUserCricketOverlayRoute(), []);
+  const supabaseOverlayRoute = useMemo(() => parseSupabaseOverlayRoute(), []);
   const overlayRoute = useMemo(() => parseOverlayRoute(), []);
   const remoteRoute = useMemo(() => parseRemoteRoute(), []);
 
   const [controlTargetUid, setControlTargetUid] = useState<string | null>(
     () => parseUserControlRoute()?.targetUid ?? null
+  );
+  const [supabaseControlMatchId, setSupabaseControlMatchId] = useState<string | null>(
+    () => parseSupabaseControlRoute()?.matchId ?? null
   );
   const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
@@ -266,7 +291,15 @@ export default function App() {
 
   // On mount: strictly verify stored tokens & check pending orders against the server!
   useEffect(() => {
-    if (userScoreboardRoute || userCricketOverlayRoute || overlayRoute || remoteRoute) return;
+    if (
+      userScoreboardRoute ||
+      userCricketOverlayRoute ||
+      supabaseOverlayRoute ||
+      overlayRoute ||
+      remoteRoute
+    ) {
+      return;
+    }
     let active = true;
 
     const validateOnServer = async () => {
@@ -322,7 +355,15 @@ export default function App() {
       active = false;
       window.clearInterval(recheckTimer);
     };
-  }, [userScoreboardRoute, userCricketOverlayRoute, overlayRoute, remoteRoute, handlePendingOrderChange, handleVerifiedUnlock]);
+  }, [
+    userScoreboardRoute,
+    userCricketOverlayRoute,
+    supabaseOverlayRoute,
+    overlayRoute,
+    remoteRoute,
+    handlePendingOrderChange,
+    handleVerifiedUnlock,
+  ]);
 
   // Automatic 24-hour expiry watcher: re-locks overlays the exact second expiresAt passes
   useEffect(() => {
@@ -348,6 +389,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       setControlTargetUid(parseUserControlRoute()?.targetUid ?? null);
+      setSupabaseControlMatchId(parseSupabaseControlRoute()?.matchId ?? null);
       setCurrentPage(getInitialPage());
     };
     window.addEventListener('popstate', handlePopState);
@@ -372,6 +414,11 @@ export default function App() {
         background={userCricketOverlayRoute.background}
       />
     );
+  }
+
+  // 1c. Supabase Realtime 1920x1080 transparent Kabaddi vMix Overlay (`/overlay?id=MATCH_ID`)
+  if (supabaseOverlayRoute) {
+    return <SupabaseKabaddiOverlayView matchId={supabaseOverlayRoute.matchId} />;
   }
 
   // 2. Legacy OBS/vMix transparent overlay routes (`/overlay/kabaddi`, `/overlay/haldi`)
@@ -462,8 +509,9 @@ export default function App() {
   };
 
   const navigateHome = (sectionId?: string) => {
-    const wasOnHome = currentPage === 'home' && !controlTargetUid;
+    const wasOnHome = currentPage === 'home' && !controlTargetUid && !supabaseControlMatchId;
     setControlTargetUid(null);
+    setSupabaseControlMatchId(null);
     const targetUrl = sectionId && sectionId !== 'top' ? `/#${sectionId}` : '/';
     if (window.location.pathname !== '/' || (sectionId && window.location.hash !== `#${sectionId}`)) {
       window.history.pushState({}, '', targetUrl);
@@ -493,10 +541,23 @@ export default function App() {
     if (window.location.pathname !== targetPath) {
       window.history.pushState({}, '', targetPath);
     }
+    setSupabaseControlMatchId(null);
     setControlTargetUid(cleanUid);
     if (isPageChange) {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
+  };
+
+  const navigateToSupabaseKabaddiControl = (rawMatchId = 'KBD-101') => {
+    const cleanId = sanitizeKabaddiMatchId(rawMatchId, 'KBD-101');
+    const targetUrl = `/control?id=${encodeURIComponent(cleanId)}`;
+    const currentFull = `${window.location.pathname}${window.location.search}`;
+    if (currentFull !== targetUrl) {
+      window.history.pushState({}, '', targetUrl);
+    }
+    setControlTargetUid(null);
+    setSupabaseControlMatchId(cleanId);
+    window.scrollTo({ top: 0, behavior: 'auto' });
   };
 
   const handlePreviewEvent = (mode: PreviewMode) => {
@@ -554,7 +615,18 @@ export default function App() {
     }, 90);
   };
 
-  // 4. Protected per-user Admin Control Panel (`/control/{USER_UID}`)
+  // 4. Supabase Realtime Isolated Kabaddi Controller (`/control?id=MATCH_ID`)
+  if (supabaseControlMatchId) {
+    return (
+      <SupabaseKabaddiControllerView
+        matchId={supabaseControlMatchId}
+        onChangeMatchId={navigateToSupabaseKabaddiControl}
+        onNavigateHome={() => navigateHome('top')}
+      />
+    );
+  }
+
+  // 4b. Protected per-user Admin Control Panel (`/control/{USER_UID}`)
   if (controlTargetUid) {
     return (
       <>
@@ -657,6 +729,7 @@ export default function App() {
             <HeroSection
               lang={lang}
               onOpenOverlays={() => navigateToOverlays()}
+              onOpenKabaddiControl={() => navigateToSupabaseKabaddiControl('KBD-101')}
             />
 
             <PartnerAdSection
