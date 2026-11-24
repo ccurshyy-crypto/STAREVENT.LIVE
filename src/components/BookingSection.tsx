@@ -470,7 +470,10 @@ export function BookingSection({
                       id="booking-date"
                       type="date"
                       value={eventDate}
-                      onChange={(e) => setEventDate(e.target.value)}
+                      onChange={(e) => {
+                        setEventDate(e.target.value);
+                        onChangeDate?.(e.target.value);
+                      }}
                       className="w-full px-3.5 py-2.5 text-sm font-mono bg-[#18181D] border border-white/15 rounded-lg text-white focus:outline-none focus:border-[#FACC15]"
                     />
                     {errors.date && <p className="text-xs text-[#F87171]">{errors.date}</p>}

@@ -1098,6 +1098,7 @@ export function selectNextBatter(
   const innings = getActiveInnings(next);
   const battingTeam = next.teams[innings.battingTeamIndex];
   const pending = next.pendingAction;
+  if (pending?.type !== 'select_next_batter') return state;
 
   let chosen: CricketSquadPlayer | undefined;
   if (playerIdOrNewName.playerId) {
@@ -1115,9 +1116,9 @@ export function selectNextBatter(
   ensureBatterStat(innings, chosen);
 
   if (pending.vacatedSlot === 'striker') {
-    innings.strikerId = chosen.playerId;
+    innings.strikerId = chosen.id;
   } else {
-    innings.nonStrikerId = chosen.playerId;
+    innings.nonStrikerId = chosen.id;
   }
 
   // If the wicket happened on the 6th ball of the over, now rotate strike and open next-bowler prompt!
@@ -1152,7 +1153,9 @@ export function selectNextBowler(
   const next = cloneState(state);
   const innings = getActiveInnings(next);
   const bowlingTeam = next.teams[innings.bowlingTeamIndex];
-  const blockedId = next.pendingAction.blockedBowlerId;
+  const pending = next.pendingAction;
+  if (pending?.type !== 'select_next_bowler') return state;
+  const blockedId = pending.blockedBowlerId;
 
   let chosen: CricketSquadPlayer | undefined;
   if (playerIdOrNewName.playerId) {
@@ -1172,7 +1175,7 @@ export function selectNextBowler(
   if (!chosen) return state;
 
   ensureBowlerStat(innings, chosen);
-  innings.currentBowlerId = chosen.playerId;
+  innings.currentBowlerId = chosen.id;
   innings.currentOverBalls = [];
   innings.currentOverBowlerRuns = 0;
   innings.currentOverLegalBalls = 0;
