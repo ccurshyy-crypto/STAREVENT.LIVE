@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, Maximize2, MonitorPlay, Video, X } from 'lucide-react';
+import { ArrowUpRight, Maximize2, Video, X } from 'lucide-react';
 import {
   EVENT_SERVICES,
   EventCategoryId,
@@ -11,13 +11,11 @@ import { ScrollReveal } from './ScrollReveal';
 
 interface ServicesSectionProps {
   lang: Language;
-  onPreviewEvent: (mode: 'kabaddi' | 'haldi') => void;
   onBookEvent: (category: EventCategoryId) => void;
 }
 
 export function ServicesSection({
   lang,
-  onPreviewEvent,
   onBookEvent,
 }: ServicesSectionProps) {
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
@@ -92,17 +90,6 @@ export function ServicesSection({
           <span>{UI_COPY.servicesSection.selectBtn[lang]}</span>
           <ArrowUpRight className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         </button>
-
-        {service.previewMode && (
-          <button
-            type="button"
-            onClick={() => onPreviewEvent(service.previewMode!)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:text-white border border-white/12 hover:border-white/30 rounded-lg transition-colors duration-150 whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15]"
-          >
-            <MonitorPlay className="w-3.5 h-3.5 text-[#FACC15] shrink-0" aria-hidden="true" />
-            <span>{UI_COPY.servicesSection.previewBtn[lang]}</span>
-          </button>
-        )}
       </div>
     </>
   );

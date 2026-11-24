@@ -136,7 +136,7 @@ export function OverlayAccessModal({
                     }}
                     className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#FFE600] hover:bg-[#FEF08A] text-[#09090D] font-display font-black text-sm uppercase tracking-wide"
                   >
-                    Open Overlays Studio
+                    Open Overlays Workspace
                   </button>
                 )}
                 <button
@@ -156,7 +156,7 @@ export function OverlayAccessModal({
                   <Lock className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
                 </div>
                 <h2 className="font-display text-xl sm:text-2xl font-black text-white">
-                  Unlock Overlays &amp; Scoreboards
+                  Unlock Overlays
                 </h2>
                 <p className="text-xs sm:text-sm text-zinc-400">
                   Enter your Star Event Live Access ID and Password.

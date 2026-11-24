@@ -1,11 +1,9 @@
 import { ArrowLeft } from 'lucide-react';
 import { EventCategoryId, Language, UI_COPY } from '../data/content';
-import { PreviewMode } from './LiveStudioPreview';
 import { ServicesSection } from './ServicesSection';
 
 interface ServicesPageProps {
   lang: Language;
-  onPreviewEvent: (mode: PreviewMode) => void;
   onBookEvent: (category: EventCategoryId) => void;
   onBackHome: () => void;
 }
@@ -16,7 +14,6 @@ interface ServicesPageProps {
  */
 export function ServicesPage({
   lang,
-  onPreviewEvent,
   onBookEvent,
   onBackHome,
 }: ServicesPageProps) {
@@ -33,11 +30,7 @@ export function ServicesPage({
         </button>
       </div>
 
-      <ServicesSection
-        lang={lang}
-        onPreviewEvent={onPreviewEvent}
-        onBookEvent={onBookEvent}
-      />
+      <ServicesSection lang={lang} onBookEvent={onBookEvent} />
     </div>
   );
 }

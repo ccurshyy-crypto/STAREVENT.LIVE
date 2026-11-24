@@ -99,9 +99,6 @@ export const STUDIO_CONTACT = {
   promoPosterPath: '/assets/optimized/promo-poster.webp',
   logoVideoPath: '/assets/optimized/logo-rotation.mp4',
   stingerVideoPath: '/assets/optimized/stinger-web.mp4',
-  upiQrPath: '/assets/aistudio/WhatsApp_Image_2026-11-19_at_2.32.59_AM_c3b23480.jpeg',
-  upiId: 'crushyyphotography@oksbi',
-  upiPayeeName: 'Crushyyphotography',
   youtubeUrl: 'https://youtube.com/@stareventlive01?si=-IocoxT5fJemBNPu',
   youtubeHandle: '@stareventlive01',
   instagramAccounts: [

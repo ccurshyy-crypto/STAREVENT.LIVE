@@ -12,7 +12,6 @@ import { Language } from '../data/content';
 interface PartnerAdSectionProps {
   lang: Language;
   onBookNow?: () => void;
-  onOpenHaldiOverlay?: () => void;
 }
 
 interface AdBannerSlide {
