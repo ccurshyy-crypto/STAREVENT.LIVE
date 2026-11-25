@@ -118,6 +118,13 @@ export function ScoringDashboardView({
   const lastPromptedOverKeyRef = useRef<string>('');
   const confirmTimerRef = useRef<number | null>(null);
 
+  // 1st Innings End & Switch to 2nd Innings popup state
+  const [inningsSwitchModalOpen, setInningsSwitchModalOpen] = useState(false);
+  const [inn2StrikerId, setInn2StrikerId] = useState('');
+  const [inn2NonStrikerId, setInn2NonStrikerId] = useState('');
+  const [inn2BowlerId, setInn2BowlerId] = useState('');
+  const lastPromptedInningsBreakKeyRef = useRef<string>('');
+
   const match: CricketMatch | undefined = useMemo(() => {
     return (
       state.matches.find((m) => m.id === state.activeMatchId) ?? state.matches[0]
@@ -150,6 +157,16 @@ export function ScoringDashboardView({
       ? `${match.id}:${match.currentInningsIndex}:${completedOverNumSafe}`
       : '';
 
+  const isFirstInningsEndedSafe = Boolean(
+    match &&
+      match.currentInningsIndex === 0 &&
+      (match.status === 'innings_break' || match.innings[0].completed)
+  );
+  const inningsBreakPromptKey =
+    isFirstInningsEndedSafe && match
+      ? `${match.id}:innings_break:${match.innings[0].runs}:${match.innings[0].legalBalls}`
+      : '';
+
   useEffect(() => {
     if (match) {
       setScorecardInningsTab(match.currentInningsIndex);
@@ -169,6 +186,26 @@ export function ScoringDashboardView({
       setSelectedNextBowlerId('');
     }
   }, [overPromptKey]);
+
+  useEffect(() => {
+    if (inningsBreakPromptKey && match) {
+      if (lastPromptedInningsBreakKeyRef.current !== inningsBreakPromptKey) {
+        lastPromptedInningsBreakKeyRef.current = inningsBreakPromptKey;
+        const secondInn = match.innings[1];
+        const secondBatTeam = teamMap.get(secondInn.battingTeamId);
+        const secondBowlTeam = teamMap.get(secondInn.bowlingTeamId);
+        setInn2StrikerId(secondInn.strikerId || secondBatTeam?.players[0]?.id || '');
+        setInn2NonStrikerId(secondInn.nonStrikerId || secondBatTeam?.players[1]?.id || '');
+        setInn2BowlerId(secondInn.bowlerId || secondBowlTeam?.players[0]?.id || '');
+        setInningsSwitchModalOpen(true);
+      }
+    } else {
+      lastPromptedInningsBreakKeyRef.current = '';
+      if (match?.currentInningsIndex === 1) {
+        setInningsSwitchModalOpen(false);
+      }
+    }
+  }, [inningsBreakPromptKey, match, teamMap]);
 
   useEffect(() => {
     return () => {
@@ -410,7 +447,24 @@ export function ScoringDashboardView({
     onToast('Last ball undone.');
   };
 
-  const handleStartSecondInnings = () => {
+  const isFirstInningsEnded =
+    innIdx === 0 && (match.status === 'innings_break' || activeInn.completed);
+
+  const openInningsSwitchModal = () => {
+    const secondBatTeam = teamMap.get(inn2.battingTeamId);
+    const secondBowlTeam = teamMap.get(inn2.bowlingTeamId);
+    setInn2StrikerId(inn2.strikerId || secondBatTeam?.players[0]?.id || '');
+    setInn2NonStrikerId(inn2.nonStrikerId || secondBatTeam?.players[1]?.id || '');
+    setInn2BowlerId(inn2.bowlerId || secondBowlTeam?.players[0]?.id || '');
+    setOverCompleteModalOpen(false);
+    setInningsSwitchModalOpen(true);
+  };
+
+  const handleStartSecondInnings = (openers?: {
+    strikerId?: string;
+    nonStrikerId?: string;
+    bowlerId?: string;
+  }) => {
     updateCurrentMatch((m) => {
       const nextInnings = [
         structuredClone(m.innings[0]),
@@ -426,15 +480,31 @@ export function ScoringDashboardView({
       nextInnings[1].lastCompletedOverNumber = undefined;
       const secondBatTeam = teamMap.get(nextInnings[1].battingTeamId);
       const secondBowlTeam = teamMap.get(nextInnings[1].bowlingTeamId);
-      if (!nextInnings[1].strikerId && secondBatTeam?.players[0]) {
-        nextInnings[1].strikerId = secondBatTeam.players[0].id;
+
+      const chosenStriker =
+        openers?.strikerId ||
+        nextInnings[1].strikerId ||
+        secondBatTeam?.players[0]?.id ||
+        '';
+      let chosenNonStriker =
+        openers?.nonStrikerId ||
+        nextInnings[1].nonStrikerId ||
+        secondBatTeam?.players[1]?.id ||
+        '';
+      if (chosenNonStriker && chosenNonStriker === chosenStriker) {
+        chosenNonStriker =
+          secondBatTeam?.players.find((p) => p.id !== chosenStriker)?.id || '';
       }
-      if (!nextInnings[1].nonStrikerId && secondBatTeam?.players[1]) {
-        nextInnings[1].nonStrikerId = secondBatTeam.players[1].id;
-      }
-      if (!nextInnings[1].bowlerId && secondBowlTeam?.players[0]) {
-        nextInnings[1].bowlerId = secondBowlTeam.players[0].id;
-      }
+      const chosenBowler =
+        openers?.bowlerId ||
+        nextInnings[1].bowlerId ||
+        secondBowlTeam?.players[0]?.id ||
+        '';
+
+      nextInnings[1].strikerId = chosenStriker;
+      nextInnings[1].nonStrikerId = chosenNonStriker;
+      nextInnings[1].bowlerId = chosenBowler;
+
       if (
         nextInnings[1].strikerId &&
         !nextInnings[1].battingOrder.includes(nextInnings[1].strikerId)
@@ -456,7 +526,9 @@ export function ScoringDashboardView({
         innings: nextInnings,
       };
     });
-    onToast('2nd Innings started!');
+    setInningsSwitchModalOpen(false);
+    setOverCompleteModalOpen(false);
+    onToast('1st Innings ended — Switched to 2nd Innings!');
   };
 
   const handleCompleteInningsOrMatch = () => {
@@ -1109,15 +1181,25 @@ export function ScoringDashboardView({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              {(match.status === 'innings_break' ||
-                (innIdx === 0 && activeInn.completed)) && (
+              {isFirstInningsEnded && (
                 <button
                   type="button"
-                  onClick={handleStartSecondInnings}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs"
+                  onClick={openInningsSwitchModal}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold shadow-xs animate-pulse"
                 >
                   <Play className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>START 2ND INNINGS</span>
+                  <span>END INNINGS &amp; SWITCH TO 2ND INNINGS</span>
+                </button>
+              )}
+
+              {innIdx === 0 && !isFirstInningsEnded && match.status !== 'completed' && (
+                <button
+                  type="button"
+                  onClick={openInningsSwitchModal}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 border border-[#FF8C00]/35 text-[#E87500] text-xs font-bold transition-colors"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>End Innings / Switch 2nd</span>
                 </button>
               )}
 
@@ -1397,9 +1479,55 @@ export function ScoringDashboardView({
             </div>
           </div>
 
-          {/* Animated Over Completion Pause Banner & New Bowler Confirmed Banner */}
+          {/* Animated Innings End / Over Completion Pause Banner & New Bowler Confirmed Banner */}
           <AnimatePresence mode="wait">
-            {isPendingBowlerChange && (
+            {isFirstInningsEnded && (
+              <motion.div
+                key={`innings-ended-${inn1.runs}-${inn1.legalBalls}`}
+                initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+                className="rounded-xl bg-gradient-to-r from-[#16A34A] via-[#15803D] to-[#16A34A] text-white p-4 shadow-md border border-emerald-700 flex flex-wrap items-center justify-between gap-3"
+                role="alert"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <motion.div
+                    animate={{ scale: [1, 1.1, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                    className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/30"
+                  >
+                    <Play className="w-6 h-6 text-white" aria-hidden="true" />
+                  </motion.div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
+                        1ST INNINGS COMPLETED!
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
+                        TARGET {inn1.runs + 1} RUNS
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-emerald-50">
+                      {inn1Team?.name || 'Team 1'} finished at {inn1.runs}/{inn1.wickets} ({formatOvers(inn1.legalBalls)} / {inn1.maxOvers} ov).
+                    </p>
+                    <p className="text-[11px] text-emerald-100 mt-0.5">
+                      Click the button to end 1st innings and switch to 2nd innings ({inn2Team?.name || 'Team 2'} batting).
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={openInningsSwitchModal}
+                  className="px-4 py-2.5 rounded-lg bg-white hover:bg-emerald-50 text-emerald-800 font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors shrink-0 inline-flex items-center gap-1.5"
+                >
+                  <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
+                  <span>END INNINGS &amp; SWITCH 2ND</span>
+                </button>
+              </motion.div>
+            )}
+
+            {!isFirstInningsEnded && isPendingBowlerChange && (
               <motion.div
                 key={`over-paused-${completedOverNum}`}
                 initial={{ opacity: 0, y: -12, scale: 0.98 }}
@@ -1437,13 +1565,24 @@ export function ScoringDashboardView({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOverCompleteModalOpen(true)}
-                  className="px-4 py-2.5 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors shrink-0"
-                >
-                  SELECT BOWLER
-                </button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {innIdx === 0 && (
+                    <button
+                      type="button"
+                      onClick={openInningsSwitchModal}
+                      className="px-3.5 py-2.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-white font-bold text-xs tracking-wide transition-colors"
+                    >
+                      END INNINGS → 2ND
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setOverCompleteModalOpen(true)}
+                    className="px-4 py-2.5 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
+                  >
+                    SELECT BOWLER
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -2919,25 +3058,259 @@ export function ScoringDashboardView({
                 )}
               </div>
 
-              {/* Footer Actions: CANCEL & SELECT BOWLER */}
-              <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+              {/* Footer Actions: CANCEL, END INNINGS (1st inn), & SELECT BOWLER */}
+              <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
                 <button
                   type="button"
                   onClick={() => setOverCompleteModalOpen(false)}
-                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs sm:text-sm font-bold text-slate-700 transition-colors"
+                  className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs sm:text-sm font-bold text-slate-700 transition-colors"
                 >
                   CANCEL
                 </button>
+                <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+                  {innIdx === 0 && (
+                    <button
+                      type="button"
+                      onClick={openInningsSwitchModal}
+                      className="px-3.5 py-2.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold transition-colors whitespace-nowrap"
+                    >
+                      End Innings → 2nd
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    disabled={
+                      !selectedNextBowlerId || selectedNextBowlerId === previousOverBowlerId
+                    }
+                    onClick={() => handleConfirmNextBowler(selectedNextBowlerId)}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors whitespace-nowrap"
+                  >
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                    <span>SELECT BOWLER</span>
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: END 1ST INNINGS & SWITCH TO 2ND INNINGS ================= */}
+      <AnimatePresence>
+        {inningsSwitchModalOpen && innIdx === 0 && (
+          <motion.div
+            key="innings-switch-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="innings-switch-title"
+          >
+            <motion.div
+              key="innings-switch-card"
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 14 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+              className="w-full max-w-lg rounded-2xl bg-white border border-emerald-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#FF8C00] text-white px-5 py-4 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
+                    <ArrowLeftRight className="w-6 h-6 text-white" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3
+                      id="innings-switch-title"
+                      className="font-display font-black text-base sm:text-lg tracking-wide uppercase"
+                    >
+                      {isFirstInningsEnded
+                        ? '1ST INNINGS COMPLETED!'
+                        : 'END 1ST INNINGS & SWITCH'}
+                    </h3>
+                    <p className="text-xs font-bold text-[#FFF3E0] mt-0.5">
+                      End 1st innings and switch live scoring to 2nd innings
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  disabled={
-                    !selectedNextBowlerId || selectedNextBowlerId === previousOverBowlerId
-                  }
-                  onClick={() => handleConfirmNextBowler(selectedNextBowlerId)}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
+                  onClick={() => setInningsSwitchModalOpen(false)}
+                  aria-label="Close innings switch popup"
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
                 >
-                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                  <span>SELECT BOWLER</span>
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+                {/* Score & Target Summary */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#E87500]">
+                      1st Innings Score
+                    </p>
+                    <p className="font-display font-bold text-sm text-slate-900 truncate mt-0.5">
+                      {inn1Team?.name || 'Team 1'}
+                    </p>
+                    <p className="font-display font-black text-2xl text-[#FF8C00] tabular-nums mt-1">
+                      {inn1.runs}/{inn1.wickets}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-600 tabular-nums">
+                      Overs: {formatOvers(inn1.legalBalls)} / {inn1.maxOvers}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      2nd Innings Target
+                    </p>
+                    <p className="font-display font-bold text-sm text-slate-900 truncate mt-0.5">
+                      {inn2Team?.name || 'Team 2'}
+                    </p>
+                    <p className="font-display font-black text-2xl text-emerald-700 tabular-nums mt-1">
+                      {inn1.runs + 1} Runs
+                    </p>
+                    <p className="text-[11px] font-semibold text-emerald-800 tabular-nums">
+                      In {inn2.maxOvers} Overs ({inn2.maxOvers * 6} balls)
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2nd Innings Opening Players Selection */}
+                {(() => {
+                  const secondBatTeam = teamMap.get(inn2.battingTeamId);
+                  const secondBowlTeam = teamMap.get(inn2.bowlingTeamId);
+                  return (
+                    <div className="space-y-3 pt-1">
+                      <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                        2nd Innings Opening Players (Optional Change)
+                      </p>
+
+                      {/* Opening Striker */}
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-600 mb-1.5">
+                          Opening Striker ({secondBatTeam?.shortName || 'Team 2'})
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                          {(secondBatTeam?.players ?? []).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                if (p.id === inn2NonStrikerId) {
+                                  setInn2NonStrikerId(inn2StrikerId);
+                                }
+                                setInn2StrikerId(p.id);
+                              }}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                inn2StrikerId === p.id
+                                  ? 'bg-[#FF8C00] text-white border-[#E87500]'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-orange-50'
+                              }`}
+                            >
+                              #{p.jerseyNo} {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Opening Non-Striker */}
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-600 mb-1.5">
+                          Opening Non-Striker ({secondBatTeam?.shortName || 'Team 2'})
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                          {(secondBatTeam?.players ?? []).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              disabled={p.id === inn2StrikerId}
+                              onClick={() => setInn2NonStrikerId(p.id)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                p.id === inn2StrikerId
+                                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                                  : inn2NonStrikerId === p.id
+                                    ? 'bg-[#FF8C00] text-white border-[#E87500]'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-orange-50'
+                              }`}
+                            >
+                              #{p.jerseyNo} {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Opening Bowler */}
+                      <div>
+                        <p className="text-[11px] font-bold text-slate-600 mb-1.5">
+                          Opening Bowler ({secondBowlTeam?.shortName || 'Team 1'})
+                        </p>
+                        <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
+                          {(secondBowlTeam?.players ?? []).map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => setInn2BowlerId(p.id)}
+                              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                inn2BowlerId === p.id
+                                  ? 'bg-[#16A34A] text-white border-[#15803D]'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-emerald-50'
+                              }`}
+                            >
+                              #{p.jerseyNo} {p.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setInningsSwitchModalOpen(false)}
+                    className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs font-bold text-slate-700"
+                  >
+                    CANCEL
+                  </button>
+                  {isFirstInningsEnded && match.undoStack.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInningsSwitchModalOpen(false);
+                        handleUndo();
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-2.5 rounded-xl bg-orange-100 hover:bg-orange-200 text-[#E87500] text-xs font-bold"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>UNDO</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleStartSecondInnings({
+                      strikerId: inn2StrikerId,
+                      nonStrikerId: inn2NonStrikerId,
+                      bowlerId: inn2BowlerId,
+                    })
+                  }
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
+                >
+                  <Play className="w-4 h-4" aria-hidden="true" />
+                  <span>END INNINGS &amp; SWITCH TO 2ND</span>
                 </button>
               </div>
             </motion.div>
