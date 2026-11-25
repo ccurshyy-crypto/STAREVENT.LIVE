@@ -1109,8 +1109,14 @@ export function applyDeliveryToMatch(
     extraType,
     extraRuns,
     totalRuns,
-    isBoundary4: Boolean(input.isBoundary4 || (runsOffBat === 4 && extraType === 'none')),
-    isBoundary6: Boolean(input.isBoundary6 || (runsOffBat === 6 && extraType === 'none')),
+    isBoundary4:
+      input.isBoundary4 !== undefined
+        ? input.isBoundary4
+        : runsOffBat === 4 && extraType === 'none',
+    isBoundary6:
+      input.isBoundary6 !== undefined
+        ? input.isBoundary6
+        : runsOffBat === 6 && extraType === 'none',
     isDcl: Boolean(input.isDcl),
     isWicket: Boolean(input.isWicket),
     wicketType: input.wicketType,

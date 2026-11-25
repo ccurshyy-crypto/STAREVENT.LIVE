@@ -9,6 +9,7 @@ import {
   Check,
   CheckCircle2,
   Edit3,
+  Pencil,
   Play,
   Plus,
   Radio,
@@ -16,6 +17,7 @@ import {
   Send,
   Trophy,
   Tv,
+  Undo2,
   UserPen,
   UserPlus,
   Users,
@@ -38,7 +40,6 @@ import {
   BallEvent,
   CricketMatch,
   CricketSuiteState,
-  ExtraType,
   Player,
   PlayerRole,
   TransitionOverlayType,
@@ -95,11 +96,26 @@ export function ScoringDashboardView({
 }: ScoringDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
   const [scorecardInningsTab, setScorecardInningsTab] = useState<0 | 1>(0);
-  const [showMoreDrawer, setShowMoreDrawer] = useState(false);
-
-  // Modals
-  const [extraModalType, setExtraModalType] = useState<ExtraType | 'DCL' | null>(null);
-  const [extraAdditionalRuns, setExtraAdditionalRuns] = useState<number>(0);
+  const [keypadPanel, setKeypadPanel] = useState<
+    | 'main'
+    | 'NB'
+    | 'NB_LB'
+    | 'NB_BYE'
+    | 'WD'
+    | 'LB'
+    | 'BYE'
+    | 'DCL'
+    | 'MORE'
+    | 'PENALTY'
+    | 'MORE_RUNS'
+  >('main');
+  const [changeTargetModalOpen, setChangeTargetModalOpen] = useState(false);
+  const [quickTargetValue, setQuickTargetValue] = useState('');
+  const [changeOverModalOpen, setChangeOverModalOpen] = useState(false);
+  const [quickOverValue, setQuickOverValue] = useState('6');
+  const [walkOverModalOpen, setWalkOverModalOpen] = useState(false);
+  const [walkOverWinnerId, setWalkOverWinnerId] = useState('');
+  const [matchSettingModalOpen, setMatchSettingModalOpen] = useState(false);
 
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
   const [wicketStep, setWicketStep] = useState<'types' | 'runout'>('types');
@@ -136,6 +152,10 @@ export function ScoringDashboardView({
   const [editRuns, setEditRuns] = useState('0');
   const [editWickets, setEditWickets] = useState('0');
   const [editBalls, setEditBalls] = useState('0');
+  const [editWides, setEditWides] = useState('0');
+  const [editNoBalls, setEditNoBalls] = useState('0');
+  const [editByes, setEditByes] = useState('0');
+  const [editLegByes, setEditLegByes] = useState('0');
   const [editMaxOvers, setEditMaxOvers] = useState('6');
   const [editTarget, setEditTarget] = useState('');
 
@@ -574,9 +594,9 @@ export function ScoringDashboardView({
       autoTrans = 'Wide';
     } else if (input.extraType === 'NB') {
       autoTrans = 'Noball';
-    } else if (input.isBoundary6 || input.runsOffBat === 6) {
+    } else if (input.isBoundary6 === true) {
       autoTrans = 'Six';
-    } else if (input.isBoundary4 || input.runsOffBat === 4) {
+    } else if (input.isBoundary4 === true) {
       autoTrans = 'Four';
     }
 
@@ -756,7 +776,7 @@ export function ScoringDashboardView({
         innings: nextInnings,
       };
     });
-    setShowMoreDrawer(false);
+    setKeypadPanel('main');
     onToast(
       innIdx === 0
         ? '1st Innings declared closed.'
@@ -764,62 +784,81 @@ export function ScoringDashboardView({
     );
   };
 
-  const openExtraModal = (type: ExtraType | 'DCL') => {
-    setExtraModalType(type);
-    setExtraAdditionalRuns(type === 'BYE' || type === 'LB' || type === 'DCL' ? 1 : 0);
+  const handleSaveQuickTarget = (e: FormEvent) => {
+    e.preventDefault();
+    const targetVal = Math.max(1, Math.floor(Number(quickTargetValue) || 1));
+    updateCurrentMatch((m) => {
+      const nextInnings = [
+        structuredClone(m.innings[0]),
+        structuredClone(m.innings[1]),
+      ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+      nextInnings[1].target = targetVal;
+      const secondBatTeam = teamMap.get(nextInnings[1].battingTeamId);
+      const remBalls = Math.max(0, nextInnings[1].maxOvers * 6 - nextInnings[1].legalBalls);
+      const need = Math.max(0, targetVal - nextInnings[1].runs);
+      return {
+        ...m,
+        innings: nextInnings,
+        resultText:
+          m.currentInningsIndex === 1 && !nextInnings[1].completed
+            ? `${secondBatTeam?.shortName || 'Team 2'} need ${need} runs in ${remBalls} balls`
+            : m.resultText,
+      };
+    });
+    setChangeTargetModalOpen(false);
+    setKeypadPanel('main');
+    onToast(`Target updated to ${targetVal} runs.`);
   };
 
-  const submitExtraModal = () => {
-    if (!extraModalType) return;
-    if (extraModalType === 'DCL') {
-      recordDelivery(
-        {
-          runsOffBat: extraAdditionalRuns,
-          extraType: 'none',
-          isDcl: true,
-        },
-        `Declared ${extraAdditionalRuns} run(s)`
-      );
-    } else if (extraModalType === 'WD') {
-      recordDelivery(
-        {
-          runsOffBat: 0,
-          extraType: 'WD',
-          extraRuns: 1 + extraAdditionalRuns,
-        },
-        `Wide +${extraAdditionalRuns}`
-      );
-    } else if (extraModalType === 'NB') {
-      recordDelivery(
-        {
-          runsOffBat: extraAdditionalRuns,
-          extraType: 'NB',
-          extraRuns: 1,
-          isBoundary4: extraAdditionalRuns === 4,
-          isBoundary6: extraAdditionalRuns === 6,
-        },
-        `No Ball +${extraAdditionalRuns}`
-      );
-    } else if (extraModalType === 'LB') {
-      recordDelivery(
-        {
-          runsOffBat: 0,
-          extraType: 'LB',
-          extraRuns: Math.max(1, extraAdditionalRuns),
-        },
-        `Leg Bye ${Math.max(1, extraAdditionalRuns)}`
-      );
-    } else if (extraModalType === 'BYE') {
-      recordDelivery(
-        {
-          runsOffBat: 0,
-          extraType: 'BYE',
-          extraRuns: Math.max(1, extraAdditionalRuns),
-        },
-        `Bye ${Math.max(1, extraAdditionalRuns)}`
-      );
+  const handleSaveQuickOver = (e: FormEvent) => {
+    e.preventDefault();
+    const ovVal = Math.max(1, Math.min(50, Math.floor(Number(quickOverValue) || match.oversPerInnings)));
+    updateCurrentMatch((m) => {
+      const nextInnings = [
+        structuredClone(m.innings[0]),
+        structuredClone(m.innings[1]),
+      ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+      nextInnings[0].maxOvers = ovVal;
+      nextInnings[1].maxOvers = ovVal;
+      return {
+        ...m,
+        oversPerInnings: ovVal,
+        innings: nextInnings,
+      };
+    });
+    setChangeOverModalOpen(false);
+    setKeypadPanel('main');
+    onToast(`Match overs updated to ${ovVal} overs.`);
+  };
+
+  const handleConfirmWalkOver = (e: FormEvent) => {
+    e.preventDefault();
+    if (!walkOverWinnerId) {
+      onToast('Please select the winning team for Walk Over.');
+      return;
     }
-    setExtraModalType(null);
+    const winnerTeam = teamMap.get(walkOverWinnerId);
+    updateCurrentMatch((m) => {
+      const nextInnings = [
+        structuredClone(m.innings[0]),
+        structuredClone(m.innings[1]),
+      ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+      nextInnings[0].completed = true;
+      nextInnings[1].completed = true;
+      nextInnings[0].pendingBowlerChange = false;
+      nextInnings[1].pendingBowlerChange = false;
+      nextInnings[0].pendingNewBatter = false;
+      nextInnings[1].pendingNewBatter = false;
+      return {
+        ...m,
+        status: 'completed',
+        resultText: `${winnerTeam?.name || 'Team'} won by Walk Over`,
+        innings: nextInnings,
+      };
+    });
+    setWalkOverModalOpen(false);
+    setKeypadPanel('main');
+    onToast(`${winnerTeam?.name || 'Team'} declared winner by Walk Over.`);
   };
 
   const openWicketModal = () => {
@@ -1331,29 +1370,51 @@ export function ScoringDashboardView({
     setEditRuns(String(targetInn.runs));
     setEditWickets(String(targetInn.wickets));
     setEditBalls(String(targetInn.legalBalls));
+    setEditWides(String(targetInn.extras?.wd ?? 0));
+    setEditNoBalls(String(targetInn.extras?.nb ?? 0));
+    setEditByes(String(targetInn.extras?.bye ?? 0));
+    setEditLegByes(String(targetInn.extras?.lb ?? 0));
     setEditMaxOvers(String(targetInn.maxOvers));
-    setEditTarget(targetInn.target !== null ? String(targetInn.target) : '');
+    setEditTarget(
+      idx === 1
+        ? String(targetInn.target !== null ? targetInn.target : match.innings[0].runs + 1)
+        : ''
+    );
     setEditScoreModalOpen(true);
   };
 
-  const submitEditScoreModal = () => {
-    const runsVal = Math.max(0, Number(editRuns) || 0);
-    const wktsVal = Math.min(10, Math.max(0, Number(editWickets) || 0));
-    const ballsVal = Math.max(0, Number(editBalls) || 0);
-    const maxOvVal = Math.max(1, Number(editMaxOvers) || match.oversPerInnings);
-    const targetVal = editTarget.trim() !== '' ? Math.max(1, Number(editTarget) || 1) : null;
+  const submitEditScoreModal = (e?: FormEvent) => {
+    e?.preventDefault();
+    const runsVal = Math.max(0, Math.floor(Number(editRuns) || 0));
+    const wktsVal = Math.min(10, Math.max(0, Math.floor(Number(editWickets) || 0)));
+    const ballsVal = Math.max(0, Math.floor(Number(editBalls) || 0));
+    const widesVal = Math.max(0, Math.floor(Number(editWides) || 0));
+    const noBallsVal = Math.max(0, Math.floor(Number(editNoBalls) || 0));
+    const byesVal = Math.max(0, Math.floor(Number(editByes) || 0));
+    const legByesVal = Math.max(0, Math.floor(Number(editLegByes) || 0));
+    const maxOvVal = Math.max(1, Math.floor(Number(editMaxOvers) || match.oversPerInnings));
+    const targetVal =
+      editTarget.trim() !== '' ? Math.max(1, Math.floor(Number(editTarget) || 1)) : null;
 
     updateCurrentMatch((m) => {
       const nextInnings = [
         structuredClone(m.innings[0]),
         structuredClone(m.innings[1]),
       ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
-      nextInnings[editInningsIdx].runs = runsVal;
-      nextInnings[editInningsIdx].wickets = wktsVal;
-      nextInnings[editInningsIdx].legalBalls = ballsVal;
-      nextInnings[editInningsIdx].maxOvers = maxOvVal;
+      const target = nextInnings[editInningsIdx];
+      target.runs = runsVal;
+      target.wickets = wktsVal;
+      target.legalBalls = ballsVal;
+      target.maxOvers = maxOvVal;
+      target.extras = {
+        ...target.extras,
+        wd: widesVal,
+        nb: noBallsVal,
+        bye: byesVal,
+        lb: legByesVal,
+      };
       if (ballsVal === 0 || ballsVal % 6 !== 0) {
-        nextInnings[editInningsIdx].pendingBowlerChange = false;
+        target.pendingBowlerChange = false;
       }
       if (editInningsIdx === 1) {
         nextInnings[1].target = targetVal;
@@ -1367,7 +1428,9 @@ export function ScoringDashboardView({
       };
     });
     setEditScoreModalOpen(false);
-    onToast(`Innings ${editInningsIdx + 1} updated.`);
+    onToast(
+      editInningsIdx === 0 ? '1st Innings Score updated.' : '2nd Innings Score updated.'
+    );
   };
 
   const openTossModal = () => {
@@ -2378,201 +2441,854 @@ export function ScoringDashboardView({
             )}
           </AnimatePresence>
 
-          {/* Exact Color-Coded Animated Scoring Keypad */}
-          <div className="rounded-xl bg-white/95 backdrop-blur-sm border border-slate-200 p-4 shadow-md space-y-3">
-            {/* Row 1: Runs (Orange: 0,1,2,3,5; Yellow: 4; Purple: 6) */}
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5">
-              {[0, 1, 2, 3].map((r) => (
-                <motion.button
-                  key={r}
-                  type="button"
-                  disabled={isScoringLocked}
-                  whileHover={isScoringLocked ? undefined : { scale: 1.05, y: -2 }}
-                  whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
-                  transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                  onClick={() => recordDelivery({ runsOffBat: r })}
-                  className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
-                >
-                  {r}
-                </motion.button>
-              ))}
-              <motion.button
-                type="button"
-                disabled={isScoringLocked}
-                whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
-                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={() =>
-                  recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
-                }
-                className="h-14 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] border border-yellow-500 disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-sm"
-              >
-                4
-              </motion.button>
-              <motion.button
-                type="button"
-                disabled={isScoringLocked}
-                whileHover={isScoringLocked ? undefined : { scale: 1.05, y: -2 }}
-                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={() => recordDelivery({ runsOffBat: 5 }, '+5 Runs')}
-                className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
-              >
-                5
-              </motion.button>
-              <motion.button
-                type="button"
-                disabled={isScoringLocked}
-                whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
-                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={() =>
-                  recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
-                }
-                className="h-14 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
-              >
-                6
-              </motion.button>
-            </div>
-
-            {/* Row 2: Extras (Green: DCL, NB, WD, LB, BYE) */}
-            <div className="grid grid-cols-5 gap-2.5">
-              {(['DCL', 'NB', 'WD', 'LB', 'BYE'] as const).map((ex) => (
-                <motion.button
-                  key={ex}
-                  type="button"
-                  disabled={isScoringLocked}
-                  whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -2 }}
-                  whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
-                  transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                  onClick={() => openExtraModal(ex)}
-                  className="h-12 rounded-xl bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-45 text-white font-bold text-xs sm:text-sm tracking-wide shadow-sm"
-                >
-                  {ex}
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Row 3: OUT (Red), MORE (Teal), EDIT & UNDO (Orange) */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <motion.button
-                type="button"
-                disabled={isScoringLocked}
-                whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -2 }}
-                whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={openWicketModal}
-                className="h-12 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-sm"
-              >
-                OUT
-              </motion.button>
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.93 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={() => setShowMoreDrawer((prev) => !prev)}
-                className="h-12 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] text-white font-display font-black text-sm tracking-wider shadow-sm"
-              >
-                MORE {showMoreDrawer ? '▲' : '▼'}
-              </motion.button>
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.93 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={() => openEditScoreModal(innIdx)}
-                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-display font-black text-sm tracking-wider shadow-sm"
-              >
-                EDIT
-              </motion.button>
-              <motion.button
-                type="button"
-                disabled={!match.undoStack.length}
-                whileHover={!match.undoStack.length ? undefined : { scale: 1.04, y: -2 }}
-                whileTap={!match.undoStack.length ? undefined : { scale: 0.93 }}
-                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                onClick={handleUndo}
-                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-sm inline-flex items-center justify-center gap-1.5"
-              >
-                <RotateCcw className="w-4 h-4" aria-hidden="true" />
-                <span>UNDO</span>
-              </motion.button>
-            </div>
-
-            {/* Expandable MORE Actions: 7 8 9 10, Penalty, End Innings, Complete Match, POM */}
-            <AnimatePresence>
-              {showMoreDrawer && (
+          {/* Exact Color-Coded Animated Scoring Keypad + Inline Sub-Panels */}
+          <div className="rounded-md bg-white border border-slate-200 p-4 sm:p-5 shadow-[0_2px_10px_rgba(15,23,42,0.1)]">
+            <AnimatePresence mode="wait">
+              {keypadPanel === 'main' && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0, y: -6 }}
-                  animate={{ opacity: 1, height: 'auto', y: 0 }}
-                  exit={{ opacity: 0, height: 0, y: -6 }}
-                  transition={{ duration: 0.2 }}
-                  className="pt-3 border-t border-slate-200 space-y-3 overflow-hidden"
+                  key="keypad-main"
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-600 mr-1">High Runs:</span>
-                    {[7, 8, 9, 10].map((r) => (
+                  {/* Row 1: 0, DCL, 1, 2, 3, 4 (Boundary), 6 (Boundary), 4 (Run), 5 */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* 0 */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => recordDelivery({ runsOffBat: 0 })}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                    >
+                      0
+                    </motion.button>
+
+                    {/* DCL */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => setKeypadPanel('DCL')}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#FF9800] hover:bg-[#FB8C00] disabled:opacity-45 text-white font-display font-semibold text-sm tracking-wide shadow-[0_3px_8px_rgba(255,152,0,0.4)]"
+                    >
+                      DCL
+                    </motion.button>
+
+                    {/* 1, 2, 3 */}
+                    {[1, 2, 3].map((r) => (
                       <motion.button
-                        key={r}
+                        key={`run-${r}`}
                         type="button"
                         disabled={isScoringLocked}
-                        whileHover={isScoringLocked ? undefined : { scale: 1.06 }}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
                         whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
-                        onClick={() => recordDelivery({ runsOffBat: r }, `+${r} Runs`)}
-                        className="px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white text-xs font-bold"
+                        transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                        onClick={() => recordDelivery({ runsOffBat: r })}
+                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                      >
+                        {r}
+                      </motion.button>
+                    ))}
+
+                    {/* 4 (Boundary - Yellow with Blue text) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      title="Boundary 4"
+                      whileHover={isScoringLocked ? undefined : { scale: 1.07, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() =>
+                        recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
+                      }
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#FFEB3B] hover:bg-[#FDD835] disabled:opacity-45 text-[#1696F3] font-display font-bold text-base shadow-[0_3px_8px_rgba(234,179,8,0.4)]"
+                    >
+                      4
+                    </motion.button>
+
+                    {/* 6 (Boundary - Yellow with Blue text) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      title="Boundary 6"
+                      whileHover={isScoringLocked ? undefined : { scale: 1.07, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() =>
+                        recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
+                      }
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#FFEB3B] hover:bg-[#FDD835] disabled:opacity-45 text-[#1696F3] font-display font-bold text-base shadow-[0_3px_8px_rgba(234,179,8,0.4)]"
+                    >
+                      6
+                    </motion.button>
+
+                    {/* 4 (Running / Non-boundary - Blue) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      title="4 Runs (Running)"
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() =>
+                        recordDelivery({ runsOffBat: 4, isBoundary4: false }, '+4 Runs')
+                      }
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                    >
+                      4
+                    </motion.button>
+
+                    {/* 5 */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => recordDelivery({ runsOffBat: 5 }, '+5 Runs')}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                    >
+                      5
+                    </motion.button>
+                  </div>
+
+                  {/* Row 2: 6 (Run), NB, WD, LB, BYE, OUT, More, 7 8 9 10.. */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* 6 (Running / Non-boundary - Blue) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      title="6 Runs (Running / Overthrow)"
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() =>
+                        recordDelivery({ runsOffBat: 6, isBoundary6: false }, '+6 Runs')
+                      }
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                    >
+                      6
+                    </motion.button>
+
+                    {/* NB, WD, LB, BYE (Green) */}
+                    {(['NB', 'WD', 'LB', 'BYE'] as const).map((ex) => (
+                      <motion.button
+                        key={ex}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                        transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                        onClick={() => setKeypadPanel(ex)}
+                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-sm tracking-wide shadow-[0_3px_8px_rgba(76,175,80,0.38)]"
+                      >
+                        {ex}
+                      </motion.button>
+                    ))}
+
+                    {/* OUT (Coral Red) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={openWicketModal}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#F44336] hover:bg-[#E53935] disabled:opacity-45 text-white font-display font-semibold text-sm tracking-wide shadow-[0_3px_8px_rgba(244,67,54,0.4)]"
+                    >
+                      OUT
+                    </motion.button>
+
+                    {/* More (Teal) */}
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.06, y: -2 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => setKeypadPanel('MORE')}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#1FA195] hover:bg-[#17897E] text-white font-display font-semibold text-sm shadow-[0_3px_8px_rgba(31,161,149,0.38)]"
+                    >
+                      More
+                    </motion.button>
+
+                    {/* 7 8 9 10.. (Wider Blue) */}
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -2 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => setKeypadPanel('MORE_RUNS')}
+                      className="h-[46px] sm:h-[48px] px-4 sm:px-5 rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-sm tracking-wide shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
+                    >
+                      7 8 9 10..
+                    </motion.button>
+                  </div>
+
+                  {/* Row 3: Orange Edit (Pencil) & Orange Undo Icon Buttons */}
+                  <div className="flex flex-wrap items-center gap-3">
+                    <motion.button
+                      type="button"
+                      title="Edit Score"
+                      aria-label="Edit Score"
+                      whileHover={{ scale: 1.06, y: -2 }}
+                      whileTap={{ scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={() => openEditScoreModal(innIdx)}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#FF9800] hover:bg-[#FB8C00] text-white shadow-[0_3px_8px_rgba(255,152,0,0.4)] inline-flex items-center justify-center"
+                    >
+                      <Pencil className="w-5 h-5 fill-current" aria-hidden="true" />
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      title="Undo Last Ball"
+                      aria-label="Undo Last Ball"
+                      disabled={!match.undoStack.length}
+                      whileHover={!match.undoStack.length ? undefined : { scale: 1.06, y: -2 }}
+                      whileTap={!match.undoStack.length ? undefined : { scale: 0.92 }}
+                      transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                      onClick={handleUndo}
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#FF9800] hover:bg-[#FB8C00] disabled:opacity-45 text-white shadow-[0_3px_8px_rgba(255,152,0,0.4)] inline-flex items-center justify-center"
+                    >
+                      <Undo2 className="w-5 h-5 stroke-[2.6]" aria-hidden="true" />
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: NO BALL === */}
+              {keypadPanel === 'NB' && (
+                <motion.div
+                  key="keypad-nb"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close No Ball panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">No Ball</h4>
+                  </div>
+
+                  {/* Row 1: NB, NB +1 .. NB +5 */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                    {[0, 1, 2, 3, 4, 5].map((r) => (
+                      <motion.button
+                        key={`nb-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
+                        onClick={() => {
+                          recordDelivery(
+                            {
+                              runsOffBat: r,
+                              extraType: 'NB',
+                              extraRuns: 1,
+                              isBoundary4: r === 4,
+                              isBoundary6: false,
+                            },
+                            r === 0 ? 'No Ball' : `No Ball +${r}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[10px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {r === 0 ? 'NB' : `NB +${r}`}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Row 2: NB +6 (Green), Leg Byes (Red), Bye (Red) */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -1 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
+                      onClick={() => {
+                        recordDelivery(
+                          {
+                            runsOffBat: 6,
+                            extraType: 'NB',
+                            extraRuns: 1,
+                            isBoundary6: true,
+                          },
+                          'No Ball +6'
+                        );
+                        setKeypadPanel('main');
+                      }}
+                      className="h-12 rounded-[10px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                    >
+                      NB +6
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                      onClick={() => setKeypadPanel('NB_LB')}
+                      className="sm:col-span-2 h-12 rounded-[10px] bg-[#F44336] hover:bg-[#E53935] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(244,67,54,0.38)]"
+                    >
+                      Leg Byes
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                      onClick={() => setKeypadPanel('NB_BYE')}
+                      className="sm:col-span-2 h-12 rounded-[10px] bg-[#F44336] hover:bg-[#E53935] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(244,67,54,0.38)]"
+                    >
+                      Bye
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: NO BALL + LEG BYES / BYES === */}
+              {(keypadPanel === 'NB_LB' || keypadPanel === 'NB_BYE') && (
+                <motion.div
+                  key={`keypad-${keypadPanel}`}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('NB')}
+                      aria-label="Back to No Ball"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">
+                      {keypadPanel === 'NB_LB' ? 'No Ball + Leg Byes' : 'No Ball + Byes'}
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                    {[1, 2, 3, 4, 5, 6].map((r) => (
+                      <motion.button
+                        key={`nb-extra-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
+                        onClick={() => {
+                          const tag = keypadPanel === 'NB_LB' ? 'LB' : 'B';
+                          recordDelivery(
+                            {
+                              runsOffBat: 0,
+                              extraType: 'NB',
+                              extraRuns: 1 + r,
+                            },
+                            `No Ball + ${r} ${tag}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[10px] bg-[#F44336] hover:bg-[#E53935] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(244,67,54,0.38)]"
+                      >
+                        {keypadPanel === 'NB_LB' ? `NB +${r} LB` : `NB +${r} B`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: WIDE === */}
+              {keypadPanel === 'WD' && (
+                <motion.div
+                  key="keypad-wd"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close Wide panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">Wide</h4>
+                  </div>
+
+                  {/* Row 1: Wd, Wd +1, Wd +2, Wd +3 */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[0, 1, 2, 3].map((r) => (
+                      <motion.button
+                        key={`wd-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'WD', extraRuns: 1 + r },
+                            r === 0 ? 'Wide' : `Wide +${r}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {r === 0 ? 'Wd' : `Wd +${r}`}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Row 2 (Centered): Wd +4, Wd +5, Wd +6 */}
+                  <div className="grid grid-cols-3 gap-3 max-w-[76%] mx-auto">
+                    {[4, 5, 6].map((r) => (
+                      <motion.button
+                        key={`wd-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'WD', extraRuns: 1 + r },
+                            `Wide +${r}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {`Wd +${r}`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: BYES === */}
+              {keypadPanel === 'BYE' && (
+                <motion.div
+                  key="keypad-bye"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close Byes panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">Byes</h4>
+                  </div>
+
+                  {/* Row 1: 1 B, 2 B, 3 B, 4 B */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[1, 2, 3, 4].map((r) => (
+                      <motion.button
+                        key={`bye-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'BYE', extraRuns: r },
+                            `${r} Bye${r > 1 ? 's' : ''}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {`${r} B`}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Row 2 (Centered): 5 B, 6 B, 7 B */}
+                  <div className="grid grid-cols-3 gap-3 max-w-[76%] mx-auto">
+                    {[5, 6, 7].map((r) => (
+                      <motion.button
+                        key={`bye-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'BYE', extraRuns: r },
+                            `${r} Byes`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {`${r} B`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: LEG BYES === */}
+              {keypadPanel === 'LB' && (
+                <motion.div
+                  key="keypad-lb"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close Leg Byes panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">Leg Byes</h4>
+                  </div>
+
+                  {/* Row 1: 1 LB, 2 LB, 3 LB, 4 LB */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[1, 2, 3, 4].map((r) => (
+                      <motion.button
+                        key={`lb-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'LB', extraRuns: r },
+                            `${r} Leg Bye${r > 1 ? 's' : ''}`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {`${r} LB`}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  {/* Row 2 (Centered): 5 LB, 6 LB, 7 LB */}
+                  <div className="grid grid-cols-3 gap-3 max-w-[76%] mx-auto">
+                    {[5, 6, 7].map((r) => (
+                      <motion.button
+                        key={`lb-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: 0, extraType: 'LB', extraRuns: r },
+                            `${r} Leg Byes`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#4CAF50] hover:bg-[#43A047] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(76,175,80,0.36)]"
+                      >
+                        {`${r} LB`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: DECLARED RUNS (DCL) === */}
+              {keypadPanel === 'DCL' && (
+                <motion.div
+                  key="keypad-dcl"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close Declared panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">Declared</h4>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    {[0, 1, 2, 3].map((r) => (
+                      <motion.button
+                        key={`dcl-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: r, extraType: 'none', isDcl: true },
+                            `Declared ${r} run(s)`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#FF9800] hover:bg-[#FB8C00] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(255,152,0,0.38)]"
+                      >
+                        {`${r} D`}
+                      </motion.button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 max-w-[76%] mx-auto">
+                    {[4, 5, 6].map((r) => (
+                      <motion.button
+                        key={`dcl-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { runsOffBat: r, extraType: 'none', isDcl: true },
+                            `Declared ${r} runs`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[12px] bg-[#FF9800] hover:bg-[#FB8C00] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(255,152,0,0.38)]"
+                      >
+                        {`${r} D`}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: MORE === */}
+              {keypadPanel === 'MORE' && (
+                <motion.div
+                  key="keypad-more"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close More panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">More</h4>
+                  </div>
+
+                  {/* Row 1: Complete, Change Target, Change Over, Penalty */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={handleCompleteInningsOrMatch}
+                      className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
+                    >
+                      Complete
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setQuickTargetValue(
+                          String(
+                            match.innings[1].target !== null
+                              ? match.innings[1].target
+                              : match.innings[0].runs + 1
+                          )
+                        );
+                        setChangeTargetModalOpen(true);
+                      }}
+                      className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
+                    >
+                      Change Target
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setQuickOverValue(String(activeInn.maxOvers || match.oversPerInnings));
+                        setChangeOverModalOpen(true);
+                      }}
+                      className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
+                    >
+                      Change Over
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      disabled={isScoringLocked}
+                      whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
+                      onClick={() => setKeypadPanel('PENALTY')}
+                      className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
+                    >
+                      Penalty
+                    </motion.button>
+                  </div>
+
+                  {/* Row 2: Setting (Blue), Walk Over (Red) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setMatchSettingModalOpen(true)}
+                      className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
+                    >
+                      Setting
+                    </motion.button>
+
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.03, y: -1 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => {
+                        setWalkOverWinnerId(match.team1Id);
+                        setWalkOverModalOpen(true);
+                      }}
+                      className="h-12 rounded-[10px] bg-[#F44336] hover:bg-[#E53935] text-white font-display font-semibold text-sm sm:text-base shadow-[0_3px_8px_rgba(244,67,54,0.38)]"
+                    >
+                      Walk Over
+                    </motion.button>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: PENALTY RUNS === */}
+              {keypadPanel === 'PENALTY' && (
+                <motion.div
+                  key="keypad-penalty"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setKeypadPanel('MORE')}
+                      aria-label="Back to More"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">
+                      Penalty Runs
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-3">
+                    {[1, 2, 3, 4, 5].map((r) => (
+                      <motion.button
+                        key={`pen-${r}`}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -1 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
+                        onClick={() => {
+                          recordDelivery(
+                            { extraType: 'PENALTY', extraRuns: r },
+                            `Penalty +${r} Runs`
+                          );
+                          setKeypadPanel('main');
+                        }}
+                        className="h-12 rounded-[10px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.36)]"
                       >
                         +{r}
                       </motion.button>
                     ))}
-                    <motion.button
+                  </div>
+                </motion.div>
+              )}
+
+              {/* === INLINE PANEL: MORE RUNS (7, 8, 9, 10, 11, 12, 13) === */}
+              {keypadPanel === 'MORE_RUNS' && (
+                <motion.div
+                  key="keypad-more-runs"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.14 }}
+                  className="space-y-3.5"
+                >
+                  <div className="flex items-center gap-4">
+                    <button
                       type="button"
-                      disabled={isScoringLocked}
-                      whileHover={isScoringLocked ? undefined : { scale: 1.05 }}
-                      whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
-                      onClick={() =>
-                        recordDelivery(
-                          { extraType: 'PENALTY', extraRuns: 5 },
-                          'Penalty +5 Runs'
-                        )
-                      }
-                      className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-45 text-white text-xs font-bold"
+                      onClick={() => setKeypadPanel('main')}
+                      aria-label="Close More Runs panel"
+                      className="p-1 rounded-md text-slate-800 hover:bg-slate-100 transition-colors"
                     >
-                      Penalty +5
-                    </motion.button>
+                      <X className="w-5 h-5" />
+                    </button>
+                    <h4 className="font-display font-bold text-xl text-slate-900">More Runs</h4>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        isPendingBowlerChange
-                          ? setOverCompleteModalOpen(true)
-                          : setPlayerPickerSlot('bowler')
-                      }
-                      className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold"
-                    >
-                      Change Bowler
-                    </button>
-                    {match.status !== 'completed' && !activeInn.completed && (
-                      <button
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    {[7, 8, 9, 10, 11, 12, 13].map((r) => (
+                      <motion.button
+                        key={`more-run-${r}`}
                         type="button"
-                        onClick={handleCompleteInningsOrMatch}
-                        className="px-3.5 py-2 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                        transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                        onClick={() => {
+                          recordDelivery({ runsOffBat: r }, `+${r} Runs`);
+                          setKeypadPanel('main');
+                        }}
+                        className="w-[54px] h-[48px] sm:w-[58px] sm:h-[50px] rounded-[12px] bg-[#1696F3] hover:bg-[#0D83DB] disabled:opacity-45 text-white font-display font-semibold text-base shadow-[0_3px_8px_rgba(22,150,243,0.38)]"
                       >
-                        {innIdx === 0 ? 'End / Declare 1st Innings' : 'End & Complete Match'}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPomId(match.playerOfMatchId || '');
-                        setPomModalOpen(true);
-                      }}
-                      className="px-3.5 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 text-[#FF8C00] text-xs font-bold"
-                    >
-                      Player of the Match
-                    </button>
+                        {r}
+                      </motion.button>
+                    ))}
                   </div>
                 </motion.div>
               )}
@@ -3257,83 +3973,6 @@ export function ScoringDashboardView({
         />
       )}
 
-      {/* ================= MODAL: EXTRA DELIVERY ================= */}
-      {extraModalType && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="bg-[#16A34A] text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-sm">
-                Record {extraModalType} Delivery
-              </h3>
-              <button
-                type="button"
-                onClick={() => setExtraModalType(null)}
-                className="p-1 rounded hover:bg-white/20"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="p-4 space-y-4">
-              <p className="text-xs text-slate-600">
-                {extraModalType === 'WD' &&
-                  'Wide adds 1 extra run automatically (illegal ball). Select any additional runs ran:'}
-                {extraModalType === 'NB' &&
-                  'No Ball adds 1 extra run automatically (illegal ball). Select runs scored off bat:'}
-                {extraModalType === 'LB' &&
-                  'Leg Bye counts as a legal ball. Select total leg-bye runs:'}
-                {extraModalType === 'BYE' &&
-                  'Bye counts as a legal ball. Select total bye runs:'}
-                {extraModalType === 'DCL' &&
-                  'Declared run counts as a legal ball without rotating strike. Select runs:'}
-              </p>
-
-              <div className="grid grid-cols-4 gap-2">
-                {(extraModalType === 'WD' || extraModalType === 'NB'
-                  ? [0, 1, 2, 3, 4, 6]
-                  : [1, 2, 3, 4]
-                ).map((val) => (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => setExtraAdditionalRuns(val)}
-                    className={`py-2.5 rounded-lg text-sm font-bold border transition-colors ${
-                      extraAdditionalRuns === val
-                        ? 'bg-[#16A34A] text-white border-[#15803D] shadow-xs'
-                        : 'bg-emerald-50/50 text-slate-800 border-emerald-200 hover:bg-emerald-100'
-                    }`}
-                  >
-                    {extraModalType === 'WD' || extraModalType === 'NB'
-                      ? `+${val}`
-                      : val}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setExtraModalType(null)}
-                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={submitExtraModal}
-                  className="px-4 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white"
-                >
-                  Confirm {extraModalType}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ================= MODAL: WICKET / OUT (EXACT 4-ROW DIRECT RED BUTTONS) ================= */}
       <AnimatePresence>
         {wicketModalOpen && (
@@ -3696,111 +4335,449 @@ export function ScoringDashboardView({
         </div>
       )}
 
-      {/* ================= MODAL: EDIT INNINGS SCORE ================= */}
-      {editScoreModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="bg-[#FF8C00] text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-sm">
-                Edit Innings {editInningsIdx + 1} Score
-              </h3>
-              <button
-                type="button"
-                onClick={() => setEditScoreModalOpen(false)}
-                className="p-1 rounded hover:bg-white/20"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="p-4 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Runs</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editRuns}
-                    onChange={(e) => setEditRuns(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                  />
+      {/* ================= MODAL: EDIT 1ST / 2ND INN SCORE ================= */}
+      <AnimatePresence>
+        {editScoreModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              onSubmit={submitEditScoreModal}
+              className="w-full max-w-[700px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
+            >
+              {/* Bright Blue Header with Centered Yellow Title */}
+              <div className="relative px-5 py-3.5 bg-[#1696F3] flex items-center justify-center">
+                <h3 className="font-display font-bold text-xl tracking-wide text-[#FFEB3B] uppercase text-center">
+                  {editInningsIdx === 0 ? 'EDIT 1ST INN SCORE' : 'EDIT 2ND INN SCORE'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setEditScoreModalOpen(false)}
+                  aria-label="Close modal"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/95 hover:text-white transition-transform hover:scale-110"
+                >
+                  <X className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              </div>
+
+              {/* 3-Column Material Underline Form */}
+              <div className="px-7 sm:px-9 pt-6 pb-7 space-y-6 bg-white">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-7 gap-y-6">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Score
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editRuns}
+                      onChange={(e) => setEditRuns(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Wickets
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={editWickets}
+                      onChange={(e) => setEditWickets(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Ball Delivered
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editBalls}
+                      onChange={(e) => setEditBalls(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Wides
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editWides}
+                      onChange={(e) => setEditWides(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      No Balls
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editNoBalls}
+                      onChange={(e) => setEditNoBalls(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Match Overs
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={editMaxOvers}
+                      onChange={(e) => setEditMaxOvers(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Byes
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editByes}
+                      onChange={(e) => setEditByes(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Leg Byes
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={editLegByes}
+                      onChange={(e) => setEditLegByes(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  {editInningsIdx === 1 && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Target
+                      </label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={editTarget}
+                        onChange={(e) => setEditTarget(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Wickets (0-10)
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={editWickets}
-                    onChange={(e) => setEditWickets(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Legal Balls
-                  </label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={editBalls}
-                    onChange={(e) => setEditBalls(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Max Overs
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={50}
-                    value={editMaxOvers}
-                    onChange={(e) => setEditMaxOvers(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                  />
+
+                {/* Centered Blue CHANGE Button */}
+                <div className="pt-2 flex justify-center">
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="px-7 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md transition-colors cursor-pointer"
+                  >
+                    CHANGE
+                  </motion.button>
                 </div>
               </div>
-              {editInningsIdx === 1 && (
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: CHANGE TARGET ================= */}
+      <AnimatePresence>
+        {changeTargetModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onSubmit={handleSaveQuickTarget}
+              className="w-full max-w-md rounded-[4px] bg-white overflow-hidden shadow-2xl"
+            >
+              <div className="relative px-5 py-3.5 bg-[#1696F3] flex items-center justify-center">
+                <h3 className="font-display font-bold text-lg tracking-wide text-[#FFEB3B] uppercase">
+                  CHANGE TARGET
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setChangeTargetModalOpen(false)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
                     Target Runs
                   </label>
                   <input
                     type="number"
                     min={1}
-                    value={editTarget}
-                    onChange={(e) => setEditTarget(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    required
+                    autoFocus
+                    value={quickTargetValue}
+                    onChange={(e) => setQuickTargetValue(e.target.value)}
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
                   />
                 </div>
-              )}
-              <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-center">
+                  <button
+                    type="submit"
+                    className="px-7 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md"
+                  >
+                    CHANGE
+                  </button>
+                </div>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: CHANGE OVER ================= */}
+      <AnimatePresence>
+        {changeOverModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onSubmit={handleSaveQuickOver}
+              className="w-full max-w-md rounded-[4px] bg-white overflow-hidden shadow-2xl"
+            >
+              <div className="relative px-5 py-3.5 bg-[#1696F3] flex items-center justify-center">
+                <h3 className="font-display font-bold text-lg tracking-wide text-[#FFEB3B] uppercase">
+                  CHANGE MATCH OVERS
+                </h3>
                 <button
                   type="button"
-                  onClick={() => setEditScoreModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
+                  onClick={() => setChangeOverModalOpen(false)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={submitEditScoreModal}
-                  className="px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-xs font-bold text-white"
-                >
-                  Save Changes
+                  <X className="w-5 h-5" />
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    Total Overs per Innings
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={50}
+                    required
+                    autoFocus
+                    value={quickOverValue}
+                    onChange={(e) => setQuickOverValue(e.target.value)}
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    type="submit"
+                    className="px-7 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md"
+                  >
+                    CHANGE
+                  </button>
+                </div>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: MATCH SETTING ================= */}
+      <AnimatePresence>
+        {matchSettingModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md rounded-[4px] bg-white overflow-hidden shadow-2xl"
+            >
+              <div className="relative px-5 py-3.5 bg-[#1696F3] flex items-center justify-center">
+                <h3 className="font-display font-bold text-lg tracking-wide text-[#FFEB3B] uppercase">
+                  MATCH SETTINGS
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setMatchSettingModalOpen(false)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchSettingModalOpen(false);
+                    setKeypadPanel('main');
+                    openEditScoreModal(0);
+                  }}
+                  className="py-3 px-3 rounded-lg bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-bold shadow-xs"
+                >
+                  Edit 1st Inn Score
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchSettingModalOpen(false);
+                    setKeypadPanel('main');
+                    openEditScoreModal(1);
+                  }}
+                  className="py-3 px-3 rounded-lg bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-bold shadow-xs"
+                >
+                  Edit 2nd Inn Score
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchSettingModalOpen(false);
+                    setKeypadPanel('main');
+                    openTossModal();
+                  }}
+                  className="py-3 px-3 rounded-lg bg-[#FF9800] hover:bg-[#FB8C00] text-white text-xs font-bold shadow-xs"
+                >
+                  Edit Toss
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMatchSettingModalOpen(false);
+                    setKeypadPanel('main');
+                    setSelectedPomId(match.playerOfMatchId || '');
+                    setPomModalOpen(true);
+                  }}
+                  className="py-3 px-3 rounded-lg bg-[#4CAF50] hover:bg-[#43A047] text-white text-xs font-bold shadow-xs"
+                >
+                  Player of the Match
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: WALK OVER ================= */}
+      <AnimatePresence>
+        {walkOverModalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              onSubmit={handleConfirmWalkOver}
+              className="w-full max-w-md rounded-[4px] bg-white overflow-hidden shadow-2xl"
+            >
+              <div className="relative px-5 py-3.5 bg-[#F44336] flex items-center justify-center">
+                <h3 className="font-display font-bold text-lg tracking-wide text-white uppercase">
+                  WALK OVER
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setWalkOverModalOpen(false)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-6 space-y-5">
+                <p className="text-xs font-medium text-slate-600 text-center">
+                  Select the team awarded the match by Walk Over:
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[match.team1Id, match.team2Id].map((tid) => {
+                    const tm = teamMap.get(tid);
+                    const active = walkOverWinnerId === tid;
+                    return (
+                      <button
+                        key={tid}
+                        type="button"
+                        onClick={() => setWalkOverWinnerId(tid)}
+                        className={`p-3 rounded-lg border-2 text-sm font-bold transition-all ${
+                          active
+                            ? 'bg-red-50 border-[#F44336] text-[#D32F2F]'
+                            : 'bg-white border-slate-200 text-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        {tm?.name || 'Team'}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-center">
+                  <button
+                    type="submit"
+                    className="px-7 py-2.5 rounded-[3px] bg-[#F44336] hover:bg-[#E53935] text-white text-xs font-semibold uppercase tracking-wider shadow-md"
+                  >
+                    CONFIRM WALK OVER
+                  </button>
+                </div>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ================= MODAL: TOSS SETUP ================= */}
       {tossModalOpen && (
