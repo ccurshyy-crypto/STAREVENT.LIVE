@@ -6,27 +6,22 @@ import {
   Lock,
   LockOpen,
   LogOut,
-  ShieldCheck,
   X,
 } from 'lucide-react';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
-import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
 
 interface OverlayAccessModalProps {
   open: boolean;
-  initialView?: 'login' | 'admin';
   onClose: () => void;
   onUnlockedSuccess?: () => void;
 }
 
 export function OverlayAccessModal({
   open,
-  initialView = 'login',
   onClose,
   onUnlockedSuccess,
 }: OverlayAccessModalProps) {
   const { session, isUnlocked, unlockWithCredentials, lockAndLogout } = useOverlayAccess();
-  const [view, setView] = useState<'login' | 'admin'>(initialView);
   const [accessId, setAccessId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -35,10 +30,9 @@ export function OverlayAccessModal({
 
   useEffect(() => {
     if (open) {
-      setView(initialView);
       setErrorMsg(null);
     }
-  }, [open, initialView]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -74,42 +68,24 @@ export function OverlayAccessModal({
         {/* Header */}
         <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#15151C]">
           <div className="flex items-center gap-2">
-            {view === 'admin' ? (
-              <ShieldCheck className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            ) : (
-              <KeyRound className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            )}
+            <KeyRound className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
             <span className="font-display font-black text-sm sm:text-base text-white tracking-wide uppercase">
-              {view === 'admin' ? 'Admin Panel' : 'Overlay Access'}
+              Overlay Access
             </span>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setView((prev) => (prev === 'admin' ? 'login' : 'admin'));
-                setErrorMsg(null);
-              }}
-              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-[#FFE600] whitespace-nowrap"
-            >
-              {view === 'admin' ? 'Client Unlock' : 'Admin Panel'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close modal"
-              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close modal"
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         <div className="p-5 sm:p-6">
-          {view === 'admin' ? (
-            <AdminAccessKeysPanel />
-          ) : isUnlocked && session ? (
+          {isUnlocked && session ? (
             <div className="space-y-5 text-center">
               <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 border border-emerald-400/45 flex items-center justify-center">
                 <LockOpen className="w-7 h-7 text-emerald-400" aria-hidden="true" />

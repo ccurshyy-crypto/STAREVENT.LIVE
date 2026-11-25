@@ -13,7 +13,6 @@ import {
   Palette,
   Radio,
   Settings,
-  ShieldCheck,
   Table2,
   Trophy,
   Tv,
@@ -24,7 +23,6 @@ import {
 import { UnlockedOverlaySession } from '../../context/OverlayAccessContext';
 import { useCricketSuiteStore } from '../../hooks/useCricketSuiteStore';
 import { SidebarRoute } from '../../types/cricketSuite';
-import { AdminAccessKeysPanel } from '../AdminAccessKeysPanel';
 import { CricketHomeView } from './CricketHomeView';
 import { MatchListView } from './MatchListView';
 import { ScoringDashboardView } from './ScoringDashboardView';
@@ -54,7 +52,6 @@ export function CricketSuiteApp({
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [tournamentMenuOpen, setTournamentMenuOpen] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
@@ -475,15 +472,6 @@ export function CricketSuiteApp({
 
             <button
               type="button"
-              onClick={() => setShowAdminModal(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 hover:border-[#FFE600]/45 text-xs font-semibold text-zinc-300 hover:text-[#FFE600] transition-colors whitespace-nowrap"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">Admin</span>
-            </button>
-
-            <button
-              type="button"
               onClick={onBackHome}
               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-zinc-300 hover:text-white transition-colors whitespace-nowrap"
             >
@@ -650,36 +638,6 @@ export function CricketSuiteApp({
                   Yes, Logout
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Discreet Admin Access Keys Modal */}
-      {showAdminModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Admin Access Keys Generator"
-        >
-          <div className="w-full max-w-2xl rounded-2xl bg-[#111116] border border-[#FFE600]/35 overflow-hidden shadow-2xl my-auto">
-            <div className="h-1 bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
-            <div className="px-5 py-3.5 border-b border-white/10 flex items-center justify-between">
-              <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#FFE600]">
-                Admin Access Key Manager
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowAdminModal(false)}
-                aria-label="Close admin panel"
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-            <div className="p-5 max-h-[80vh] overflow-y-auto">
-              <AdminAccessKeysPanel />
             </div>
           </div>
         </div>

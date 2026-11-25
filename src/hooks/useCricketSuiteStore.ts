@@ -245,13 +245,13 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
  */
 export function useCricketOverlayListener(rawUid: string) {
   const uid = sanitizeUid(rawUid);
-  const [state, setState] = useState<CricketSuiteState>(() => {
-    return loadFromLocalStorage(uid) ?? createInitialCricketSuiteState(uid);
+  const [state, setState] = useState<CricketSuiteState | null>(() => {
+    return loadFromLocalStorage(uid);
   });
 
   useEffect(() => {
     const stored = loadFromLocalStorage(uid);
-    if (stored) setState(stored);
+    setState(stored);
 
     // 1. BroadcastChannel (instant cross-tab)
     let ch: BroadcastChannel | null = null;
@@ -267,20 +267,23 @@ export function useCricketOverlayListener(rawUid: string) {
 
     // 2. Storage event fallback
     const onStorage = (evt: StorageEvent) => {
-      if (evt.key === getStorageKey(uid) && evt.newValue) {
-        try {
-          const parsed = JSON.parse(evt.newValue) as CricketSuiteState;
-          if (parsed && typeof parsed.updatedAt === 'number') {
-            setState(parsed);
-          }
-        } catch {
-          // ignore
+      if (evt.key !== getStorageKey(uid)) return;
+      if (!evt.newValue) {
+        setState(null);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(evt.newValue) as CricketSuiteState;
+        if (parsed && typeof parsed.updatedAt === 'number') {
+          setState(parsed);
         }
+      } catch {
+        // ignore
       }
     };
     window.addEventListener('storage', onStorage);
 
-    // 3. Supabase Realtime (cross-device / vMix desktop Browser Source)
+    // 3. Supabase Realtime (cross-device / vMix & OBS Browser Source)
     const matchRowId = getSupabaseMatchId(uid);
     const supabase = getSupabaseClient();
 
@@ -291,8 +294,8 @@ export function useCricketOverlayListener(rawUid: string) {
           .select('data')
           .eq('match_id', matchRowId)
           .maybeSingle();
-        if (!error && data?.data) {
-          setState(data.data as CricketSuiteState);
+        if (!error) {
+          setState((data?.data as CricketSuiteState | undefined) ?? null);
         }
       } catch {
         // local state already loaded
@@ -310,10 +313,12 @@ export function useCricketOverlayListener(rawUid: string) {
           filter: `match_id=eq.${matchRowId}`,
         },
         (payload) => {
-          const row = payload.new as { data?: CricketSuiteState } | undefined;
-          if (row?.data) {
-            setState(row.data);
+          if (payload.eventType === 'DELETE') {
+            setState(null);
+            return;
           }
+          const row = payload.new as { data?: CricketSuiteState | null } | undefined;
+          setState(row?.data ?? null);
         }
       )
       .subscribe();

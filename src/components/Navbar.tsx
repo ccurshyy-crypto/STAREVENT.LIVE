@@ -1,5 +1,5 @@
 import { type MouseEvent, useState } from 'react';
-import { KeyRound, LockOpen, Menu, Phone, ShieldCheck, X } from 'lucide-react';
+import { KeyRound, LockOpen, Menu, Phone, X } from 'lucide-react';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -15,7 +15,7 @@ interface NavbarProps {
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
   onNavigateBooking: () => void;
-  onOpenAccessModal: (view?: 'login' | 'admin') => void;
+  onOpenAccessModal: () => void;
 }
 
 export function Navbar({
@@ -136,13 +136,13 @@ export function Navbar({
           })}
         </nav>
 
-        {/* Zone 3: Language + Overlay Access + Admin + Call + Mobile Menu */}
+        {/* Zone 3: Language + Overlay Access + Call + Mobile Menu */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
 
           <button
             type="button"
-            onClick={() => onOpenAccessModal('login')}
+            onClick={onOpenAccessModal}
             className={`min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
               isUnlocked
                 ? 'bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-400/45'
@@ -163,17 +163,6 @@ export function Navbar({
                 <span className="sm:hidden">Unlock</span>
               </>
             )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => onOpenAccessModal('admin')}
-            aria-label="Admin Panel"
-            title="Admin ID Generator"
-            className="min-h-[38px] sm:min-h-[40px] inline-flex items-center justify-center gap-1 px-2.5 py-1.5 sm:py-2 text-xs font-bold rounded-xl bg-[#09090D]/80 hover:bg-[#181822] text-[#FFE600] border border-[#FFE600]/40 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
-          >
-            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" aria-hidden="true" />
-            <span className="hidden xl:inline">Admin</span>
           </button>
 
           <a

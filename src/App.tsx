@@ -14,6 +14,7 @@ import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
 import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
+import { OwnerAdminPage } from './components/OwnerAdminPage';
 import { StandaloneOverlayPage } from './components/cricket/StandaloneOverlayPage';
 import { EventCategoryId, Language } from './data/content';
 
@@ -22,6 +23,11 @@ type PageRoute = MainPageRoute;
 function isStandaloneOverlayRoute(): boolean {
   if (typeof window === 'undefined') return false;
   return /^\/overlay\/?$/i.test(window.location.pathname);
+}
+
+function isOwnerAdminRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /^\/owner-admin\/?$/i.test(window.location.pathname);
 }
 
 function getOverlayUidFromUrl(): string {
@@ -43,6 +49,9 @@ export default function App() {
   const [standaloneOverlay, setStandaloneOverlay] = useState<boolean>(() =>
     isStandaloneOverlayRoute()
   );
+  const [ownerAdminRoute, setOwnerAdminRoute] = useState<boolean>(() =>
+    isOwnerAdminRoute()
+  );
   const [overlayUid, setOverlayUid] = useState<string>(() => getOverlayUidFromUrl());
   const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
@@ -51,7 +60,6 @@ export default function App() {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
   const [accessModalOpen, setAccessModalOpen] = useState(false);
-  const [accessModalView, setAccessModalView] = useState<'login' | 'admin'>('login');
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -60,6 +68,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       setStandaloneOverlay(isStandaloneOverlayRoute());
+      setOwnerAdminRoute(isOwnerAdminRoute());
       setOverlayUid(getOverlayUidFromUrl());
       setCurrentPage(getInitialPage());
     };
@@ -119,7 +128,9 @@ export default function App() {
   };
 
   const navigateHome = (sectionId?: string) => {
-    const wasOnHome = currentPage === 'home';
+    setOwnerAdminRoute(false);
+    setStandaloneOverlay(false);
+    const wasOnHome = currentPage === 'home' && !ownerAdminRoute && !standaloneOverlay;
     const targetUrl = sectionId && sectionId !== 'top' ? `/#${sectionId}` : '/';
     if (
       window.location.pathname !== '/' ||
@@ -171,13 +182,16 @@ export default function App() {
     setSelectedBookingDate(isoDate);
   };
 
-  const handleOpenAccessModal = (view: 'login' | 'admin' = 'login') => {
-    setAccessModalView(view);
+  const handleOpenAccessModal = () => {
     setAccessModalOpen(true);
   };
 
   if (standaloneOverlay) {
     return <StandaloneOverlayPage uid={overlayUid} />;
+  }
+
+  if (ownerAdminRoute) {
+    return <OwnerAdminPage onBackHome={() => navigateHome('top')} />;
   }
 
   return (
@@ -292,7 +306,6 @@ export default function App() {
 
       <OverlayAccessModal
         open={accessModalOpen}
-        initialView={accessModalView}
         onClose={() => setAccessModalOpen(false)}
         onUnlockedSuccess={navigateToOverlays}
       />
