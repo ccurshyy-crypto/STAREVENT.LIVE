@@ -44,14 +44,14 @@ function renderBallCircle(
     : 'w-6 h-6 text-[11px]';
 
   if (mode === 'colored') {
-    let bg = '#9333EA';
+    let bg = '#334155';
     let color = '#FFFFFF';
     if (ball.isWicket) {
       bg = '#DC2626';
     } else if (ball.isBoundary6) {
-      bg = '#0EA5E9';
+      bg = '#7C3AED';
     } else if (ball.isBoundary4) {
-      bg = '#F59E0B';
+      bg = '#FACC15';
       color = '#0F172A';
     } else if (ball.isExtra) {
       bg = '#16A34A';
@@ -78,10 +78,24 @@ function renderBallCircle(
   }
 
   if (mode === 'solid-white') {
+    const fillBg = ball.isWicket
+      ? '#DC2626'
+      : ball.isBoundary6
+        ? '#7C3AED'
+        : ball.isBoundary4
+          ? '#FACC15'
+          : ball.isExtra
+            ? '#16A34A'
+            : '#FFFFFF';
+    const textColor =
+      ball.isWicket || ball.isBoundary6 || ball.isExtra
+        ? '#FFFFFF'
+        : '#0F172A';
     return (
       <span
         key={ball.id}
-        className={`inline-flex items-center justify-center rounded-full font-black leading-none shrink-0 bg-white text-slate-900 border border-slate-800/40 ${sizeCls}`}
+        className={`inline-flex items-center justify-center rounded-full font-black leading-none shrink-0 border border-slate-800/40 ${sizeCls}`}
+        style={{ background: fillBg, color: textColor }}
       >
         {ball.label === '•' ? '0' : ball.label}
       </span>
@@ -98,12 +112,14 @@ function renderBallCircle(
   const fillBg = ball.isWicket
     ? '#DC2626'
     : ball.isBoundary6
-      ? '#0EA5E9'
+      ? '#7C3AED'
       : ball.isBoundary4
-        ? '#F59E0B'
-        : 'transparent';
+        ? '#FACC15'
+        : ball.isExtra
+          ? '#16A34A'
+          : 'transparent';
   const textColor =
-    ball.isWicket || ball.isBoundary6
+    ball.isWicket || ball.isBoundary6 || ball.isExtra
       ? '#FFFFFF'
       : ball.isBoundary4
         ? '#0F172A'

@@ -177,13 +177,14 @@ export function BroadcastOverlayCanvas({
     if (b.isWicket) {
       bg = '#DC2626';
     } else if (b.isBoundary6) {
-      bg = theme.accent;
-      color = '#0F172A';
+      bg = '#7C3AED';
+      color = '#FFFFFF';
     } else if (b.isBoundary4) {
       bg = '#FACC15';
       color = '#0F172A';
     } else if (b.extraType !== 'none') {
       bg = '#16A34A';
+      color = '#FFFFFF';
     }
     return (
       <span

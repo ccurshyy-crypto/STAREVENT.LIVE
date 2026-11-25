@@ -845,10 +845,10 @@ export function ScoringDashboardView({
   const renderBallChip = (b: BallEvent) => {
     const label = getBallPillLabel(b);
     let cls = 'bg-slate-100 text-slate-800 border-slate-300';
-    if (b.isWicket) cls = 'bg-red-600 text-white border-red-700';
-    else if (b.isBoundary6) cls = 'bg-amber-400 text-slate-950 border-amber-500';
-    else if (b.isBoundary4) cls = 'bg-yellow-300 text-slate-950 border-yellow-500';
-    else if (b.extraType !== 'none') cls = 'bg-emerald-600 text-white border-emerald-700';
+    if (b.isWicket) cls = 'bg-[#DC2626] text-white border-[#B91C1C]';
+    else if (b.isBoundary6) cls = 'bg-[#7C3AED] text-white border-[#6D28D9]';
+    else if (b.isBoundary4) cls = 'bg-[#FACC15] text-slate-950 border-[#EAB308]';
+    else if (b.extraType !== 'none') cls = 'bg-[#16A34A] text-white border-[#15803D]';
     else if (b.runsOffBat > 0) cls = 'bg-[#FF8C00] text-white border-[#E87500]';
     return (
       <span
@@ -1494,7 +1494,7 @@ export function ScoringDashboardView({
 
           {/* Exact Color-Coded Scoring Keypad */}
           <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs space-y-3">
-            {/* Row 1: Runs (Orange: 0,1,2,3,5; Yellow: 4,6) */}
+            {/* Row 1: Runs (Orange: 0,1,2,3,5; Yellow: 4; Purple: 6) */}
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5">
               {[0, 1, 2, 3].map((r) => (
                 <button
@@ -1513,7 +1513,7 @@ export function ScoringDashboardView({
                 onClick={() =>
                   recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
                 }
-                className="h-14 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-xs transition-colors"
+                className="h-14 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] border border-yellow-500 disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-xs transition-colors"
               >
                 4
               </button>
@@ -1531,7 +1531,7 @@ export function ScoringDashboardView({
                 onClick={() =>
                   recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
                 }
-                className="h-14 rounded-xl bg-[#F59E0B] hover:bg-[#D97706] disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-xs transition-colors"
+                className="h-14 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-45 text-white font-display font-black text-xl shadow-xs transition-colors"
               >
                 6
               </button>
@@ -1995,7 +1995,7 @@ export function ScoringDashboardView({
           aria-modal="true"
         >
           <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-            <div className="bg-[#FF8C00] text-white px-4 py-3 flex items-center justify-between">
+            <div className="bg-[#16A34A] text-white px-4 py-3 flex items-center justify-between">
               <h3 className="font-display font-bold text-sm">
                 Record {extraModalType} Delivery
               </h3>
@@ -2032,8 +2032,8 @@ export function ScoringDashboardView({
                     onClick={() => setExtraAdditionalRuns(val)}
                     className={`py-2.5 rounded-lg text-sm font-bold border transition-colors ${
                       extraAdditionalRuns === val
-                        ? 'bg-[#FF8C00] text-white border-[#FF8C00]'
-                        : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-[#16A34A] text-white border-[#15803D] shadow-xs'
+                        : 'bg-emerald-50/50 text-slate-800 border-emerald-200 hover:bg-emerald-100'
                     }`}
                   >
                     {extraModalType === 'WD' || extraModalType === 'NB'
@@ -2054,7 +2054,7 @@ export function ScoringDashboardView({
                 <button
                   type="button"
                   onClick={submitExtraModal}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-xs font-bold text-white"
+                  className="px-4 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-xs font-bold text-white"
                 >
                   Confirm {extraModalType}
                 </button>
@@ -2064,16 +2064,18 @@ export function ScoringDashboardView({
         </div>
       )}
 
-      {/* ================= MODAL: WICKET / OUT ================= */}
+      {/* ================= MODAL: WICKET / OUT (DIRECT BUTTONS) ================= */}
       {wicketModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/55"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-            <div className="bg-red-600 text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-sm">Record Wicket (OUT)</h3>
+          <div className="w-full max-w-lg rounded-xl bg-white border border-red-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
+            <div className="bg-[#DC2626] text-white px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-bold text-sm sm:text-base tracking-wide">
+                Record Wicket (OUT)
+              </h3>
               <button
                 type="button"
                 onClick={() => setWicketModalOpen(false)}
@@ -2082,65 +2084,116 @@ export function ScoringDashboardView({
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
-            <div className="p-4 space-y-3 overflow-y-auto">
+
+            <div className="p-4 space-y-4 overflow-y-auto flex-1">
+              {/* Direct Wicket Type Buttons */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Wicket Type
-                </label>
-                <select
-                  value={wicketType}
-                  onChange={(e) => setWicketType(e.target.value as WicketType)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
-                >
-                  {WICKET_TYPES.map((wt) => (
-                    <option key={wt} value={wt}>
-                      {wt}
-                    </option>
-                  ))}
-                </select>
+                </p>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                  {WICKET_TYPES.map((wt) => {
+                    const isActive = wicketType === wt;
+                    return (
+                      <button
+                        key={wt}
+                        type="button"
+                        onClick={() => setWicketType(wt)}
+                        className={`px-2 py-2 rounded-lg text-[11px] sm:text-xs font-bold border text-center transition-colors leading-tight ${
+                          isActive
+                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
+                            : 'bg-red-50/50 text-slate-800 border-red-200 hover:bg-red-100'
+                        }`}
+                      >
+                        {wt}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
+              {/* Direct Dismissed Batter Buttons */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Dismissed Batter
-                </label>
-                <select
-                  value={wicketDismissedId}
-                  onChange={(e) => setWicketDismissedId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
-                >
+                </p>
+                <div className="grid grid-cols-2 gap-2">
                   {activeInn.strikerId && (
-                    <option value={activeInn.strikerId}>
-                      Striker: {strikerStats?.playerName || 'Striker'}
-                    </option>
+                    <button
+                      type="button"
+                      onClick={() => setWicketDismissedId(activeInn.strikerId)}
+                      className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                        wicketDismissedId === activeInn.strikerId
+                          ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
+                          : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
+                      }`}
+                    >
+                      <span
+                        className={`block text-[10px] font-bold uppercase ${
+                          wicketDismissedId === activeInn.strikerId
+                            ? 'text-red-100'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        Striker *
+                      </span>
+                      <span className="block text-xs sm:text-sm font-bold truncate">
+                        {strikerStats?.playerName || 'Striker'}
+                      </span>
+                    </button>
                   )}
                   {activeInn.nonStrikerId && (
-                    <option value={activeInn.nonStrikerId}>
-                      Non-Striker: {nonStrikerStats?.playerName || 'Non-Striker'}
-                    </option>
+                    <button
+                      type="button"
+                      onClick={() => setWicketDismissedId(activeInn.nonStrikerId)}
+                      className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                        wicketDismissedId === activeInn.nonStrikerId
+                          ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
+                          : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
+                      }`}
+                    >
+                      <span
+                        className={`block text-[10px] font-bold uppercase ${
+                          wicketDismissedId === activeInn.nonStrikerId
+                            ? 'text-red-100'
+                            : 'text-slate-500'
+                        }`}
+                      >
+                        Non-Striker
+                      </span>
+                      <span className="block text-xs sm:text-sm font-bold truncate">
+                        {nonStrikerStats?.playerName || 'Non-Striker'}
+                      </span>
+                    </button>
                   )}
-                </select>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {/* Direct Runs Completed Buttons + Fielder */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                     Runs Completed
-                  </label>
-                  <select
-                    value={wicketRunsCompleted}
-                    onChange={(e) => setWicketRunsCompleted(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
-                  >
+                  </p>
+                  <div className="grid grid-cols-4 gap-1.5">
                     {[0, 1, 2, 3].map((r) => (
-                      <option key={r} value={r}>
-                        {r} run(s)
-                      </option>
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setWicketRunsCompleted(r)}
+                        className={`py-2 rounded-lg text-xs font-black border transition-colors ${
+                          wicketRunsCompleted === r
+                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
+                            : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
+                        }`}
+                      >
+                        {r}
+                      </button>
                     ))}
-                  </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                     Fielder (Optional)
                   </label>
                   <input
@@ -2148,27 +2201,75 @@ export function ScoringDashboardView({
                     value={wicketFielder}
                     onChange={(e) => setWicketFielder(e.target.value)}
                     placeholder="Fielder name"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm"
                   />
                 </div>
               </div>
 
+              {/* Direct Next Incoming Batter Buttons */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
+                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                   Next Incoming Batter
-                </label>
-                <select
-                  value={wicketNextBatterId}
-                  onChange={(e) => setWicketNextBatterId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
-                >
-                  <option value="">-- Select Next Batter --</option>
-                  {(battingTeam?.players ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      #{p.jerseyNo} {p.name} ({p.role})
-                    </option>
-                  ))}
-                </select>
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5">
+                  {(battingTeam?.players ?? []).map((p) => {
+                    const isPicked = wicketNextBatterId === p.id;
+                    const isCurrentlyBatting =
+                      p.id === activeInn.strikerId || p.id === activeInn.nonStrikerId;
+                    const isAlreadyOut = activeInn.fallOfWickets.some(
+                      (f) => f.playerId === p.id
+                    );
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setWicketNextBatterId(p.id)}
+                        className={`px-2.5 py-2 rounded-lg border text-left transition-colors ${
+                          isPicked
+                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
+                            : isAlreadyOut || isCurrentlyBatting
+                              ? 'bg-slate-100 text-slate-500 border-slate-200 hover:bg-slate-200/70'
+                              : 'bg-white text-slate-800 border-slate-200 hover:border-red-300 hover:bg-red-50/40'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold truncate">
+                            #{p.jerseyNo} {p.name}
+                          </span>
+                          {isAlreadyOut && (
+                            <span
+                              className={`text-[9px] font-bold uppercase px-1 rounded shrink-0 ${
+                                isPicked
+                                  ? 'bg-white/20 text-white'
+                                  : 'bg-red-100 text-red-700'
+                              }`}
+                            >
+                              Out
+                            </span>
+                          )}
+                          {!isAlreadyOut && isCurrentlyBatting && (
+                            <span
+                              className={`text-[9px] font-bold uppercase px-1 rounded shrink-0 ${
+                                isPicked
+                                  ? 'bg-white/20 text-white'
+                                  : 'bg-orange-100 text-[#E87500]'
+                              }`}
+                            >
+                              In
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className={`block text-[10px] truncate ${
+                            isPicked ? 'text-red-100' : 'text-slate-500'
+                          }`}
+                        >
+                          {p.role}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* Quick Add Batter Inline */}
@@ -2189,7 +2290,7 @@ export function ScoringDashboardView({
                     <button
                       type="button"
                       onClick={() => handleQuickAddPlayer(battingTeam.id, 'nextWicket')}
-                      className="px-3 py-1.5 rounded-lg bg-[#FF8C00] text-white text-xs font-bold"
+                      className="px-3 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold"
                     >
                       Add
                     </button>
@@ -2197,7 +2298,7 @@ export function ScoringDashboardView({
                 </div>
               )}
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setWicketModalOpen(false)}
@@ -2208,9 +2309,9 @@ export function ScoringDashboardView({
                 <button
                   type="button"
                   onClick={submitWicketModal}
-                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-bold text-white"
+                  className="px-5 py-2 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-xs font-bold text-white shadow-xs"
                 >
-                  Confirm Wicket
+                  Confirm OUT ({wicketType})
                 </button>
               </div>
             </div>
