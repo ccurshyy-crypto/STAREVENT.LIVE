@@ -10,18 +10,29 @@ const STORAGE_PREFIX = 'starevent_cricket_suite_v2:';
 const CHANNEL_PREFIX = 'starevent_cricket_overlay_v2:';
 
 export function sanitizeUid(raw: string | null | undefined): string {
-  const cleaned = String(raw || '')
+  return String(raw || '')
     .trim()
     .replace(/[^A-Za-z0-9_-]/g, '')
     .slice(0, 48);
-  return cleaned || 'STAR-101';
+}
+
+function escapeLikePattern(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 function getStorageKey(uid: string): string {
   return `${STORAGE_PREFIX}${sanitizeUid(uid)}`;
 }
 
-function getSupabaseMatchId(uid: string): string {
+/**
+ * Isolated per-user Supabase `live_scoreboards` room key:
+ * `match_id` equals the user's `access_id` directly (e.g. `STAREVENTLIVE35484`).
+ */
+export function getSupabaseMatchId(uid: string): string {
+  return sanitizeUid(uid);
+}
+
+function getLegacySupabaseMatchId(uid: string): string {
   return `cricket_suite_v2_${sanitizeUid(uid)}`;
 }
 
@@ -30,7 +41,7 @@ function normalizeLoadedState(
   uid: string,
   userLabel?: string
 ): CricketSuiteState | null {
-  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.matches) || !Array.isArray(raw.teams)) {
+  if (!uid || !raw || typeof raw !== 'object' || !Array.isArray(raw.matches) || !Array.isArray(raw.teams)) {
     return null;
   }
   const base = createInitialCricketSuiteState(uid, userLabel);
@@ -61,7 +72,7 @@ function normalizeLoadedState(
 }
 
 function loadFromLocalStorage(uid: string, userLabel?: string): CricketSuiteState | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined' || !uid) return null;
   try {
     const raw = window.localStorage.getItem(getStorageKey(uid));
     if (!raw) return null;
@@ -73,7 +84,7 @@ function loadFromLocalStorage(uid: string, userLabel?: string): CricketSuiteStat
 }
 
 function saveToLocalStorage(uid: string, state: CricketSuiteState): void {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !uid) return;
   try {
     window.localStorage.setItem(getStorageKey(uid), JSON.stringify(state));
   } catch {
@@ -83,7 +94,7 @@ function saveToLocalStorage(uid: string, state: CricketSuiteState): void {
 
 /**
  * Per-user isolated Cricket Suite store with instant localStorage + BroadcastChannel sync
- * and automatic Supabase Realtime (`live_scoreboards`) sync whenever available.
+ * and automatic Supabase Realtime (`live_scoreboards`, `match_id = access_id`) sync.
  */
 export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const uid = sanitizeUid(rawUid);
@@ -96,14 +107,15 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const isRemoteRef = useRef(false);
 
   useEffect(() => {
+    if (!uid) return;
     const stored = loadFromLocalStorage(uid, userLabel);
     setState(stored ?? createInitialCricketSuiteState(uid, userLabel));
   }, [uid, userLabel]);
 
-  // Same-browser instant cross-tab sync (Controller / Scoring <-> /overlay)
+  // Same-browser instant cross-tab sync (Controller / Scoring <-> /overlay?id=<access_id>)
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
-    const ch = new BroadcastChannel(`${CHANNEL_PREFIX}${uid}`);
+    if (!uid || typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
+    const ch = new BroadcastChannel(`${CHANNEL_PREFIX}${uid.toUpperCase()}`);
     channelRef.current = ch;
 
     ch.onmessage = (evt) => {
@@ -128,28 +140,42 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     };
   }, [uid, userLabel]);
 
-  // Supabase Realtime sync (`live_scoreboards` keyed strictly by uid)
+  // Supabase Realtime sync (`live_scoreboards` keyed strictly by `match_id = user's access_id`)
   useEffect(() => {
+    if (!uid) return;
     let mounted = true;
     const matchRowId = getSupabaseMatchId(uid);
+    const legacyRowId = getLegacySupabaseMatchId(uid);
     const supabase = getSupabaseClient();
 
     const pullRemote = async () => {
       try {
         const { data, error } = await supabase
           .from(SUPABASE_SCOREBOARD_TABLE)
-          .select('data, updated_at')
+          .select('match_id, data, updated_at')
           .eq('match_id', matchRowId)
           .maybeSingle();
 
         if (!mounted) return;
+
+        let remotePayload = data?.data as Partial<CricketSuiteState> | undefined;
+
+        // Read-only backward-compatible fallback if user had older prefixed room data
+        if (!error && !remotePayload) {
+          const legacyRes = await supabase
+            .from(SUPABASE_SCOREBOARD_TABLE)
+            .select('data, updated_at')
+            .eq('match_id', legacyRowId)
+            .maybeSingle();
+          if (!mounted) return;
+          if (!legacyRes.error && legacyRes.data?.data) {
+            remotePayload = legacyRes.data.data as Partial<CricketSuiteState>;
+          }
+        }
+
         if (!error) {
           setSyncStatus('supabase');
-          const remoteState = normalizeLoadedState(
-            data?.data as Partial<CricketSuiteState> | undefined,
-            uid,
-            userLabel
-          );
+          const remoteState = normalizeLoadedState(remotePayload, uid, userLabel);
           if (remoteState && typeof remoteState.updatedAt === 'number') {
             setState((prev) => {
               if (remoteState.updatedAt <= prev.updatedAt) return prev;
@@ -167,7 +193,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     void pullRemote();
 
     const rtChannel = supabase
-      .channel(`cricket_suite_v2_${matchRowId}`)
+      .channel(`live_scoreboard_room_${matchRowId}`)
       .on(
         'postgres_changes',
         {
@@ -200,6 +226,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 
   const pushToSupabase = useCallback(
     (nextState: CricketSuiteState) => {
+      if (!uid) return;
       if (pushTimerRef.current) {
         window.clearTimeout(pushTimerRef.current);
       }
@@ -228,6 +255,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 
   const updateState = useCallback(
     (updater: (prev: CricketSuiteState) => CricketSuiteState) => {
+      if (!uid) return;
       setState((prev) => {
         const nextRaw = updater(prev);
         const next: CricketSuiteState = {
@@ -250,6 +278,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   );
 
   const resetAllData = useCallback(() => {
+    if (!uid) return;
     const fresh = createInitialCricketSuiteState(uid, userLabel);
     setState(fresh);
     saveToLocalStorage(uid, fresh);
@@ -262,6 +291,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   }, [uid, userLabel, pushToSupabase]);
 
   useEffect(() => {
+    if (!uid) return;
     if (isRemoteRef.current) {
       isRemoteRef.current = false;
       return;
@@ -279,33 +309,48 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 }
 
 /**
- * Public real-time listener for `/overlay?uid=<user_id>&match=<optional_match_id>`.
- * Works WITHOUT login and stays 100% blank when no saved state exists.
+ * Public real-time listener for `/overlay?id=<access_id>` (also supports `?uid=<access_id>`).
+ * Works WITHOUT login inside vMix / OBS Studio and stays 100% transparent when no id or no data exists.
  */
 export function useCricketOverlayListener(rawUid: string) {
-  const uid = sanitizeUid(rawUid);
+  const requestedUid = sanitizeUid(rawUid);
+  const [resolvedRoomId, setResolvedRoomId] = useState<string>(requestedUid);
   const [state, setState] = useState<CricketSuiteState | null>(() => {
-    return loadFromLocalStorage(uid);
+    return requestedUid ? loadFromLocalStorage(requestedUid) : null;
   });
 
   useEffect(() => {
-    const stored = loadFromLocalStorage(uid);
-    setState(stored);
+    setResolvedRoomId(requestedUid);
+  }, [requestedUid]);
+
+  useEffect(() => {
+    if (!requestedUid) {
+      setState(null);
+      return;
+    }
+
+    const activeRoom = resolvedRoomId || requestedUid;
+    const stored = loadFromLocalStorage(activeRoom) ?? loadFromLocalStorage(requestedUid);
+    if (stored) {
+      setState(stored);
+    }
 
     let ch: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
-      ch = new BroadcastChannel(`${CHANNEL_PREFIX}${uid}`);
+      ch = new BroadcastChannel(`${CHANNEL_PREFIX}${requestedUid.toUpperCase()}`);
       ch.onmessage = (evt) => {
         const incoming = normalizeLoadedState(
           evt.data as Partial<CricketSuiteState> | undefined,
-          uid
+          activeRoom
         );
         if (incoming) setState(incoming);
       };
     }
 
     const onStorage = (evt: StorageEvent) => {
-      if (evt.key !== getStorageKey(uid)) return;
+      if (evt.key !== getStorageKey(activeRoom) && evt.key !== getStorageKey(requestedUid)) {
+        return;
+      }
       if (!evt.newValue) {
         setState(null);
         return;
@@ -313,7 +358,7 @@ export function useCricketOverlayListener(rawUid: string) {
       try {
         const parsed = normalizeLoadedState(
           JSON.parse(evt.newValue) as Partial<CricketSuiteState>,
-          uid
+          activeRoom
         );
         if (parsed) setState(parsed);
       } catch {
@@ -322,25 +367,76 @@ export function useCricketOverlayListener(rawUid: string) {
     };
     window.addEventListener('storage', onStorage);
 
-    const matchRowId = getSupabaseMatchId(uid);
     const supabase = getSupabaseClient();
+    let mounted = true;
 
     const fetchLatest = async () => {
       try {
+        // 1. Direct isolated room match (`match_id = user's access_id`)
         const { data, error } = await supabase
           .from(SUPABASE_SCOREBOARD_TABLE)
-          .select('data')
-          .eq('match_id', matchRowId)
+          .select('match_id, data')
+          .eq('match_id', activeRoom)
           .maybeSingle();
-        if (!error) {
+
+        if (!mounted) return;
+
+        if (!error && data?.data) {
           const parsed = normalizeLoadedState(
-            data?.data as Partial<CricketSuiteState> | undefined,
-            uid
+            data.data as Partial<CricketSuiteState>,
+            String(data.match_id || activeRoom)
           );
           if (parsed) setState(parsed);
+          return;
+        }
+
+        // 2. Case-insensitive room resolution (e.g., `/overlay?id=stareventlive35484` -> `STAREVENTLIVE35484`)
+        if (!error) {
+          const ilikeRes = await supabase
+            .from(SUPABASE_SCOREBOARD_TABLE)
+            .select('match_id, data')
+            .ilike('match_id', escapeLikePattern(requestedUid));
+
+          if (!mounted) return;
+
+          if (!ilikeRes.error && Array.isArray(ilikeRes.data)) {
+            const exact = ilikeRes.data.find(
+              (row) =>
+                String(row.match_id || '').trim().toLowerCase() === requestedUid.toLowerCase()
+            );
+            if (exact?.data) {
+              const canonicalId = String(exact.match_id).trim();
+              if (canonicalId && canonicalId !== resolvedRoomId) {
+                setResolvedRoomId(canonicalId);
+              }
+              const parsed = normalizeLoadedState(
+                exact.data as Partial<CricketSuiteState>,
+                canonicalId || activeRoom
+              );
+              if (parsed) setState(parsed);
+              return;
+            }
+          }
+
+          // 3. Backward-compatible fallback for older prefixed room rows
+          const legacyRes = await supabase
+            .from(SUPABASE_SCOREBOARD_TABLE)
+            .select('data')
+            .eq('match_id', getLegacySupabaseMatchId(requestedUid))
+            .maybeSingle();
+
+          if (!mounted) return;
+
+          if (!legacyRes.error && legacyRes.data?.data) {
+            const parsed = normalizeLoadedState(
+              legacyRes.data.data as Partial<CricketSuiteState>,
+              activeRoom
+            );
+            if (parsed) setState(parsed);
+          }
         }
       } catch {
-        // Local state already loaded
+        // Local state remains active
       }
     };
 
@@ -349,17 +445,28 @@ export function useCricketOverlayListener(rawUid: string) {
     const onOnline = () => {
       void fetchLatest();
     };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchLatest();
+      }
+    };
     window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    // Lightweight fallback poll so long-running vMix/OBS Browser Sources never go stale if WebSocket drops
+    const pollTimer = window.setInterval(() => {
+      void fetchLatest();
+    }, 8000);
 
     const rtChannel = supabase
-      .channel(`cricket_overlay_v2_view_${matchRowId}`)
+      .channel(`live_overlay_view_${activeRoom}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: SUPABASE_SCOREBOARD_TABLE,
-          filter: `match_id=eq.${matchRowId}`,
+          filter: `match_id=eq.${activeRoom}`,
         },
         (payload) => {
           if (payload.eventType === 'DELETE') {
@@ -367,19 +474,22 @@ export function useCricketOverlayListener(rawUid: string) {
             return;
           }
           const row = payload.new as { data?: Partial<CricketSuiteState> | null } | undefined;
-          const parsed = normalizeLoadedState(row?.data, uid);
+          const parsed = normalizeLoadedState(row?.data, activeRoom);
           setState(parsed);
         }
       )
       .subscribe();
 
     return () => {
+      mounted = false;
       ch?.close();
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.clearInterval(pollTimer);
       void supabase.removeChannel(rtChannel);
     };
-  }, [uid]);
+  }, [requestedUid, resolvedRoomId]);
 
-  return { uid, state };
+  return { uid: resolvedRoomId || requestedUid, state };
 }

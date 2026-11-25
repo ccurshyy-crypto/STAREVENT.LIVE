@@ -25,7 +25,11 @@ function buildPlatformUrl(
           ? window.location.origin
           : 'http://localhost:3000'
     );
-    parsed.searchParams.set('source', target);
+    if (target === 'obs') {
+      parsed.searchParams.set('source', 'obs');
+    } else {
+      parsed.searchParams.delete('source');
+    }
     if (resolution === '1920x1080') {
       parsed.searchParams.set('w', '1920');
       parsed.searchParams.set('h', '1080');
@@ -39,13 +43,15 @@ function buildPlatformUrl(
     return isAbsolute ? parsed.toString() : `${parsed.pathname}${parsed.search}`;
   } catch {
     const sep = baseUrl.includes('?') ? '&' : '?';
+    const srcQuery = target === 'obs' ? `${sep}source=obs` : '';
+    const nextSep = srcQuery || baseUrl.includes('?') ? '&' : '?';
     const resQuery =
       resolution === '1920x1080'
-        ? '&w=1920&h=1080'
+        ? `${nextSep}w=1920&h=1080`
         : resolution === '1280x720'
-          ? '&w=1280&h=720'
+          ? `${nextSep}w=1280&h=720`
           : '';
-    return `${baseUrl}${sep}source=${target}${resQuery}`;
+    return `${baseUrl}${srcQuery}${resQuery}`;
   }
 }
 

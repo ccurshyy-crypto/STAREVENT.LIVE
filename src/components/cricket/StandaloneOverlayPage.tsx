@@ -12,7 +12,7 @@ const CANONICAL_STAGE_H = 720;
 
 /**
  * Public OBS Studio Browser Source & vMix Web Browser Input output route
- * (`/overlay?uid=<user_id>&match=<match_id>&source=obs|vmix`).
+ * (`/overlay?id=<access_id>`, also supports `?uid=<access_id>&source=obs`).
  * Works WITHOUT login so broadcast software can load the feed directly.
  * Supports true alpha transparency, `?bg=green` chroma-key mode,
  * 1920x1080, 1280x720, and any custom Browser Source width/height.

@@ -2,13 +2,14 @@ import { FormEvent, useMemo, useState } from 'react';
 import {
   Eye,
   EyeOff,
-  Lock,
+  LogOut,
   Monitor,
   ShieldCheck,
   Sparkles,
   Trash2,
   Tv,
 } from 'lucide-react';
+import { useOverlayAccess } from '../../context/OverlayAccessContext';
 import {
   BATSMAN_STATS_MODES,
   BOTTOM_SCORE_MODES,
@@ -31,10 +32,7 @@ interface TvOverlayControllerViewProps {
   onCopyOverlayUrl: (url?: string, label?: string) => void;
   onGoToGroups: () => void;
   onToast: (msg: string) => void;
-  authToken: string | null;
-  authorizedUser: string;
-  onAuthSuccess: (token: string, userLabel: string) => void;
-  onLockControl: () => void;
+  onRequestLogout?: () => void;
 }
 
 export function TvOverlayControllerView({
@@ -44,12 +42,12 @@ export function TvOverlayControllerView({
   onCopyOverlayUrl,
   onGoToGroups,
   onToast,
-  authToken,
-  authorizedUser,
-  onAuthSuccess,
-  onLockControl,
+  onRequestLogout,
 }: TvOverlayControllerViewProps) {
-  // Login Gate Form State
+  const { session, isUnlocked, unlockWithCredentials, lockAndLogout } =
+    useOverlayAccess();
+
+  // Unified Login Gate Form State (verifies directly against Supabase `overlay_access_keys`)
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -113,25 +111,24 @@ export function TvOverlayControllerView({
     e.preventDefault();
     setLoginError(null);
     const cleanId = loginId.trim();
-    if (!cleanId || !password.trim()) {
+    const cleanPass = password.trim();
+    if (!cleanId || !cleanPass) {
       setLoginError('Please enter both Login ID and Password.');
       return;
     }
 
     setLoginLoading(true);
     try {
-      const res = await fetch('/api/overlay-auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ loginId: cleanId, password }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.token) {
-        setLoginError(data?.error || 'Invalid Login ID or Password.');
+      const result = await unlockWithCredentials(cleanId, cleanPass);
+      if (!result.ok) {
+        setLoginError(result.error || 'Invalid Login ID or Password.');
         return;
       }
+      setLoginId('');
       setPassword('');
-      onAuthSuccess(data.token, data.label || data.loginId || cleanId);
+      onToast(
+        `Signed in as ${result.session?.accessId || cleanId}`
+      );
     } catch {
       setLoginError('Unable to verify credentials. Please try again.');
     } finally {
@@ -140,7 +137,7 @@ export function TvOverlayControllerView({
   };
 
   // ================= PROTECTED LOGIN GATE =================
-  if (!authToken) {
+  if (!isUnlocked || !session) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center py-6 px-3">
         <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
@@ -159,7 +156,7 @@ export function TvOverlayControllerView({
           <form onSubmit={handleOverlayLoginSubmit} className="p-6 space-y-4">
             <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
               <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
-              <span>Authorized Access Only — Sign in with your Overlay Controller credentials.</span>
+              <span>Sign in with your Star Event Live Access ID and Password.</span>
             </div>
 
             {loginError && (
@@ -184,8 +181,8 @@ export function TvOverlayControllerView({
                 autoComplete="username"
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
-                placeholder="Enter Overlay Login ID"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00]"
+                placeholder="e.g. STAREVENTLIVE35484"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm font-mono text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00]"
               />
             </div>
 
@@ -304,12 +301,12 @@ export function TvOverlayControllerView({
       <div className="rounded-xl bg-white border border-slate-200 shadow-xs p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
-                AUTHORIZED: {authorizedUser || 'CONTROLLER'}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
+                ROOM ID: {session.accessId}
               </span>
               <span className="text-xs text-slate-500">
-                Real-time OBS / vMix Control Panel
+                {session.label ? `${session.label} · ` : ''}Isolated Live OBS / vMix Control Panel
               </span>
             </div>
             <h2 className="font-display font-bold text-base text-slate-900 mt-0.5">
@@ -356,11 +353,11 @@ export function TvOverlayControllerView({
 
             <button
               type="button"
-              onClick={onLockControl}
+              onClick={() => (onRequestLogout ? onRequestLogout() : lockAndLogout())}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold"
             >
-              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Lock</span>
+              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Logout</span>
             </button>
           </div>
         </div>

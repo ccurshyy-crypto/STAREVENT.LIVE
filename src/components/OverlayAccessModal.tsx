@@ -154,7 +154,7 @@ export function OverlayAccessModal({
                     htmlFor="modal-access-id"
                     className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                   >
-                    Login ID (Email or Access ID)
+                    Login ID (Access ID)
                   </label>
                   <input
                     id="modal-access-id"
@@ -162,7 +162,7 @@ export function OverlayAccessModal({
                     autoComplete="username"
                     value={accessId}
                     onChange={(e) => setAccessId(e.target.value)}
-                    placeholder="e.g. user@example.com or STAR-101"
+                    placeholder="e.g. STAREVENTLIVE35484"
                     className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
                   />
                 </div>

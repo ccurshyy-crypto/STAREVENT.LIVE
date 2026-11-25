@@ -71,9 +71,9 @@ export function CricketHomeView({
     {
       step: '04',
       title: 'Control OBS / vMix Scoreboard Overlay',
-      done: false,
+      done: state.matches.length > 0,
       route: 'overlay',
-      cta: 'Overlay Login',
+      cta: 'Open Overlay Control',
     },
   ];
 

@@ -31,9 +31,9 @@ function isOwnerAdminRoute(): boolean {
 }
 
 function getOverlayUidFromUrl(): string {
-  if (typeof window === 'undefined') return 'STAR-101';
+  if (typeof window === 'undefined') return '';
   const params = new URLSearchParams(window.location.search);
-  return params.get('uid') || params.get('id') || 'STAR-101';
+  return (params.get('id') || params.get('uid') || '').trim();
 }
 
 function getOverlayMatchIdFromUrl(): string {

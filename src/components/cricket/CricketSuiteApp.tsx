@@ -55,10 +55,6 @@ export function CricketSuiteApp({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
-  // Separate in-memory Bearer token for SCOREBOARD OVERLAY CONTROL (never persisted in Web Storage)
-  const [overlayControlToken, setOverlayControlToken] = useState<string | null>(null);
-  const [overlayControlUser, setOverlayControlUser] = useState<string>('');
-
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     if (toastTimerRef.current) {
@@ -91,13 +87,10 @@ export function CricketSuiteApp({
   );
 
   const overlayUrl = useMemo(() => {
-    const basePath = `/overlay?uid=${encodeURIComponent(uid)}`;
-    const fullQuery = activeMatch
-      ? `${basePath}&match=${encodeURIComponent(activeMatch.id)}`
-      : basePath;
-    if (typeof window === 'undefined') return fullQuery;
-    return `${window.location.origin}${fullQuery}`;
-  }, [uid, activeMatch]);
+    const basePath = `/overlay?id=${encodeURIComponent(uid)}`;
+    if (typeof window === 'undefined') return basePath;
+    return `${window.location.origin}${basePath}`;
+  }, [uid]);
 
   const handleCopyOverlayUrl = useCallback(
     (customUrl?: string, label = 'OBS / vMix Overlay Link') => {
@@ -152,22 +145,9 @@ export function CricketSuiteApp({
     [updateState]
   );
 
-  const handleLockOverlayControl = useCallback(async () => {
-    const token = overlayControlToken;
-    setOverlayControlToken(null);
-    setOverlayControlUser('');
-    if (token) {
-      try {
-        await fetch('/api/overlay-auth/logout', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch {
-        // ignore network errors
-      }
-    }
-    showToast('Scoreboard Overlay Control locked.');
-  }, [overlayControlToken, showToast]);
+  const handleRequestLogout = useCallback(() => {
+    setShowLogoutConfirm(true);
+  }, []);
 
   const headerTitle = useMemo(() => {
     switch (activeRoute) {
@@ -541,14 +521,7 @@ export function CricketSuiteApp({
                 onCopyOverlayUrl={handleCopyOverlayUrl}
                 onGoToGroups={() => navigateTo('tournament-groups')}
                 onToast={showToast}
-                authToken={overlayControlToken}
-                authorizedUser={overlayControlUser}
-                onAuthSuccess={(token, userLabel) => {
-                  setOverlayControlToken(token);
-                  setOverlayControlUser(userLabel);
-                  showToast(`Signed in to Scoreboard Overlay Control as ${userLabel}`);
-                }}
-                onLockControl={() => void handleLockOverlayControl()}
+                onRequestLogout={handleRequestLogout}
               />
             )}
 
@@ -631,7 +604,6 @@ export function CricketSuiteApp({
                 type="button"
                 onClick={() => {
                   setShowLogoutConfirm(false);
-                  void handleLockOverlayControl();
                   onLogout();
                 }}
                 className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"

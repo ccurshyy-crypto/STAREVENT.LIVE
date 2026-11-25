@@ -73,6 +73,10 @@ function persistSession(session: UnlockedOverlaySession | null) {
   }
 }
 
+function escapeLikePattern(raw: string): string {
+  return raw.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+}
+
 export function sanitizeAccessIdInput(raw: string): string {
   return String(raw || '')
     .trim()
@@ -97,6 +101,7 @@ function deriveWorkspaceUidFromAuthUser(
 interface UnlockResult {
   ok: boolean;
   error?: string;
+  session?: UnlockedOverlaySession;
 }
 
 interface OverlayAccessContextValue {
@@ -126,15 +131,64 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Re-verify active Supabase Auth session or legacy Access ID on load
+  // Keep session synchronized across open browser tabs (login & logout)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onStorage = (evt: StorageEvent) => {
+      if (evt.key !== STORAGE_KEY) return;
+      setSession(loadStoredSession());
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
+  // Re-verify active session against Supabase overlay_access_keys (or Supabase Auth) on load
   useEffect(() => {
     let active = true;
 
     const verifySession = async () => {
       try {
         const supabase = getSupabaseClient();
+        const current = loadStoredSession();
 
-        // 1. Check active Supabase Auth session first
+        // 1. If stored session is an overlay_access_keys session, re-verify it directly
+        if (current && current.authType !== 'supabase_auth') {
+          const cleanId = current.accessId.trim();
+          const { data, error } = await supabase
+            .from(SUPABASE_ACCESS_KEYS_TABLE)
+            .select('access_id, label, is_active')
+            .ilike('access_id', escapeLikePattern(cleanId));
+
+          if (!active) return;
+
+          if (!error) {
+            const rows = (Array.isArray(data) ? data : []) as Array<{
+              access_id: string;
+              label: string | null;
+              is_active: boolean;
+            }>;
+            const exactRow = rows.find(
+              (r) => String(r.access_id || '').trim().toLowerCase() === cleanId.toLowerCase()
+            );
+
+            if (!exactRow || exactRow.is_active !== true) {
+              setSession(null);
+              persistSession(null);
+            } else {
+              const refreshed: UnlockedOverlaySession = {
+                accessId: String(exactRow.access_id).trim(),
+                label: typeof exactRow.label === 'string' ? exactRow.label : '',
+                unlockedAt: current.unlockedAt,
+                authType: 'access_key',
+              };
+              setSession(refreshed);
+              persistSession(refreshed);
+            }
+          }
+          return;
+        }
+
+        // 2. Check active Supabase Auth session (for email-based accounts)
         const { data: authData } = await supabase.auth.getUser();
         if (!active) return;
 
@@ -188,46 +242,13 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 2. Otherwise check stored session
-        const current = loadStoredSession();
-        if (!current) {
-          setSession(null);
-          return;
-        }
-
-        // If previously signed in via Supabase Auth but session is gone/revoked, lock immediately
-        if (current.authType === 'supabase_auth') {
-          setSession(null);
+        // 3. No active session
+        setSession(null);
+        if (current?.authType === 'supabase_auth') {
           persistSession(null);
-          return;
-        }
-
-        // 3. Re-verify legacy Access ID against overlay_access_keys
-        const { data, error } = await supabase
-          .from(SUPABASE_ACCESS_KEYS_TABLE)
-          .select('access_id, label, is_active')
-          .eq('access_id', current.accessId)
-          .maybeSingle();
-
-        if (!active) return;
-
-        if (!error) {
-          if (!data || !data.is_active) {
-            setSession(null);
-            persistSession(null);
-          } else {
-            const refreshed: UnlockedOverlaySession = {
-              accessId: String(data.access_id),
-              label: typeof data.label === 'string' ? data.label : '',
-              unlockedAt: current.unlockedAt,
-              authType: 'access_key',
-            };
-            setSession(refreshed);
-            persistSession(refreshed);
-          }
         }
       } catch {
-        // Keep cached session if offline
+        // Keep cached localStorage session if offline
       } finally {
         if (active) setIsReady(true);
       }
@@ -241,10 +262,10 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
 
   const unlockWithCredentials = useCallback(
     async (rawLoginId: string, rawPassword: string): Promise<UnlockResult> => {
-      const trimmedRaw = String(rawLoginId || '').trim();
+      const trimmedId = String(rawLoginId || '').trim();
       const trimmedPass = String(rawPassword || '').trim();
 
-      if (!trimmedRaw || !trimmedPass) {
+      if (!trimmedId || !trimmedPass) {
         return {
           ok: false,
           error: 'Please enter both Login ID and Password.',
@@ -253,9 +274,72 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
 
       const supabase = getSupabaseClient();
 
-      // 1. Supabase Authentication login for admin-created Email + Password accounts
-      if (trimmedRaw.includes('@')) {
-        const email = trimmedRaw.toLowerCase().slice(0, 254);
+      // 1. Primary unified verification directly against Supabase `overlay_access_keys`
+      //    (`.ilike('access_id', inputId.trim())` with wildcard protection, `is_active === true`, and trimmed password match)
+      const hasWildcardChars = /[*%]/.test(trimmedId);
+      if (!hasWildcardChars) {
+        try {
+          const { data, error } = await supabase
+            .from(SUPABASE_ACCESS_KEYS_TABLE)
+            .select('access_id, password, label, is_active')
+            .ilike('access_id', escapeLikePattern(trimmedId));
+
+          if (!error && Array.isArray(data) && data.length > 0) {
+            const rows = data as OverlayAccessKeyRow[];
+            const exactIdRows = rows.filter(
+              (row) => String(row.access_id || '').trim().toLowerCase() === trimmedId.toLowerCase()
+            );
+
+            if (exactIdRows.length > 0) {
+              const matched = exactIdRows.find(
+                (row) => String(row.password || '').trim() === trimmedPass
+              );
+
+              if (!matched) {
+                return {
+                  ok: false,
+                  error: 'Invalid Login ID or Password. Please check with Star Event Live.',
+                };
+              }
+
+              if (matched.is_active !== true) {
+                return {
+                  ok: false,
+                  error: 'This account is currently inactive. Contact Star Event Live.',
+                };
+              }
+
+              const canonicalAccessId = String(matched.access_id).trim();
+              const nextSession: UnlockedOverlaySession = {
+                accessId: canonicalAccessId,
+                label: typeof matched.label === 'string' ? matched.label : '',
+                unlockedAt: Date.now(),
+                authType: 'access_key',
+              };
+
+              setSession(nextSession);
+              persistSession(nextSession);
+              return { ok: true, session: nextSession };
+            }
+          } else if (error && !trimmedId.includes('@')) {
+            return {
+              ok: false,
+              error: 'Could not verify Login ID right now. Please try again.',
+            };
+          }
+        } catch {
+          if (!trimmedId.includes('@')) {
+            return {
+              ok: false,
+              error: 'Network error while verifying credentials. Please try again.',
+            };
+          }
+        }
+      }
+
+      // 2. Fallback: Supabase Authentication login for admin-created Email + Password accounts
+      if (trimmedId.includes('@')) {
+        const email = trimmedId.toLowerCase().slice(0, 254);
         try {
           const { data, error } = await supabase.auth.signInWithPassword({
             email,
@@ -321,7 +405,7 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
 
           setSession(nextSession);
           persistSession(nextSession);
-          return { ok: true };
+          return { ok: true, session: nextSession };
         } catch {
           return {
             ok: false,
@@ -330,58 +414,10 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 2. Legacy Client Access ID login via overlay_access_keys (backward compatible)
-      const trimmedId = sanitizeAccessIdInput(trimmedRaw);
-      const upperId = trimmedId.toUpperCase();
-
-      try {
-        const candidateIds = trimmedId === upperId ? [trimmedId] : [trimmedId, upperId];
-
-        const { data, error } = await supabase
-          .from(SUPABASE_ACCESS_KEYS_TABLE)
-          .select('access_id, password, label, is_active')
-          .in('access_id', candidateIds);
-
-        if (error) {
-          return {
-            ok: false,
-            error: 'Could not verify Login ID right now. Please try again.',
-          };
-        }
-
-        const rows = (Array.isArray(data) ? data : []) as OverlayAccessKeyRow[];
-        const matched = rows.find((row) => String(row.password || '').trim() === trimmedPass);
-
-        if (!matched) {
-          return {
-            ok: false,
-            error: 'Invalid Login ID or Password. Please check with Star Event Live.',
-          };
-        }
-
-        if (!matched.is_active) {
-          return {
-            ok: false,
-            error: 'This account is currently inactive. Contact Star Event Live.',
-          };
-        }
-
-        const nextSession: UnlockedOverlaySession = {
-          accessId: String(matched.access_id),
-          label: typeof matched.label === 'string' ? matched.label : '',
-          unlockedAt: Date.now(),
-          authType: 'access_key',
-        };
-
-        setSession(nextSession);
-        persistSession(nextSession);
-        return { ok: true };
-      } catch {
-        return {
-          ok: false,
-          error: 'Network error while verifying credentials. Please try again.',
-        };
-      }
+      return {
+        ok: false,
+        error: 'Invalid Login ID or Password. Please check with Star Event Live.',
+      };
     },
     []
   );
