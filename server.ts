@@ -4,6 +4,7 @@ import express from 'express';
 import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -180,6 +181,104 @@ function serializeOverlayAccount(rec: OverlayAccountRecord) {
     createdAt: rec.createdAt,
     updatedAt: rec.updatedAt,
   };
+}
+
+// ===========================================================================
+// SERVER-SIDE SUPABASE ADMIN CLIENT & EDGE FUNCTION BRIDGE (NEVER EXPOSED TO CLIENT)
+// ===========================================================================
+const DEFAULT_SUPABASE_URL = 'https://snhvvmabdzrcunssbqfn.supabase.co';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function normalizeSupabaseUrl(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/rest\/v1\/?$/i, '')
+    .replace(/\/+$/, '');
+}
+
+function getServerSupabaseUrl(): string {
+  const envUrl = process.env.SUPABASE_URL?.trim() || process.env.VITE_SUPABASE_URL?.trim();
+  return normalizeSupabaseUrl(envUrl || DEFAULT_SUPABASE_URL);
+}
+
+function getValidatedEdgeFunctionUrl(): string | null {
+  const raw = process.env.SUPABASE_EDGE_FUNCTION_URL?.trim();
+  if (!raw) return null;
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'https:') return null;
+    const host = parsed.hostname.toLowerCase();
+    const isSupabaseHost =
+      host.endsWith('.supabase.co') || host.endsWith('.supabase.in');
+    if (!isSupabaseHost) return null;
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
+let cachedSupabaseAdmin: SupabaseClient | null = null;
+
+function getSupabaseAdminClient(): SupabaseClient | null {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!serviceRoleKey) return null;
+  if (!cachedSupabaseAdmin) {
+    cachedSupabaseAdmin = createClient(getServerSupabaseUrl(), serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
+  }
+  return cachedSupabaseAdmin;
+}
+
+function isSupabaseUserBanned(bannedUntil?: string | null): boolean {
+  if (!bannedUntil) return false;
+  const ts = Date.parse(bannedUntil);
+  return Number.isFinite(ts) && ts > Date.now();
+}
+
+function deriveWorkspaceUid(userId: string, existingUid?: string | null): string {
+  if (existingUid && typeof existingUid === 'string' && existingUid.trim().length >= 3) {
+    return existingUid.trim().toUpperCase().slice(0, 32);
+  }
+  return `USR-${userId.replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+}
+
+async function invokeAdminUsersEdgeFunction(
+  body: Record<string, unknown>
+): Promise<{ status: number; data: Record<string, unknown> } | null> {
+  const edgeUrl = getValidatedEdgeFunctionUrl();
+  const edgeSecret = process.env.ADMIN_EDGE_SECRET?.trim();
+  if (!edgeUrl || !edgeSecret) return null;
+
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+    '';
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-admin-edge-secret': edgeSecret,
+  };
+  if (anonKey) {
+    headers['apikey'] = anonKey;
+    headers['Authorization'] = `Bearer ${anonKey}`;
+  }
+
+  const upstream = await fetch(edgeUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const parsed = (await upstream.json().catch(() => ({
+    ok: false,
+    error: 'Invalid response from Supabase Edge Function.',
+  }))) as Record<string, unknown>;
+  return { status: upstream.status, data: parsed };
 }
 
 async function startServer() {
@@ -408,6 +507,373 @@ async function startServer() {
     }
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true });
+  });
+
+  // =========================================================================
+  // 2B. MAIN ADMIN SUPABASE AUTH USER CREATION & MANAGEMENT
+  //     Strictly requires verified owner_admin Bearer token on EVERY request.
+  //     Uses Supabase Edge Function (if configured) or server-side Admin API.
+  // =========================================================================
+  const respondMissingSupabaseAdminConfig = (res: express.Response) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(503).json({
+      ok: false,
+      configRequired: true,
+      error:
+        'Server-side Supabase Admin credentials are not configured yet. Add SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_EDGE_FUNCTION_URL + ADMIN_EDGE_SECRET) in server Secrets.',
+    });
+  };
+
+  app.get('/api/admin/users', requireOwnerAdmin, async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const edgeResult = await invokeAdminUsersEdgeFunction({ action: 'list' });
+      if (edgeResult) {
+        res.status(edgeResult.status).json(edgeResult.data);
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        respondMissingSupabaseAdminConfig(res);
+        return;
+      }
+
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 200,
+      });
+      if (error) {
+        res.status(500).json({ ok: false, error: error.message });
+        return;
+      }
+
+      const authUsers = data?.users ?? [];
+      const [profilesRes, rolesRes] = await Promise.all([
+        supabaseAdmin.from('profiles').select('id, uid, full_name, is_active'),
+        supabaseAdmin.from('user_roles').select('user_id, role'),
+      ]);
+
+      const profileMap = new Map<
+        string,
+        { uid?: string; full_name?: string; is_active?: boolean }
+      >();
+      if (!profilesRes.error && Array.isArray(profilesRes.data)) {
+        for (const p of profilesRes.data) {
+          profileMap.set(String(p.id), p);
+        }
+      }
+
+      const roleMap = new Map<string, string>();
+      if (!rolesRes.error && Array.isArray(rolesRes.data)) {
+        for (const r of rolesRes.data) {
+          roleMap.set(String(r.user_id), String(r.role));
+        }
+      }
+
+      const users = authUsers.map((u) => {
+        const prof = profileMap.get(u.id);
+        const role =
+          roleMap.get(u.id) ||
+          (typeof u.user_metadata?.role === 'string' ? u.user_metadata.role : 'operator');
+        const banned = isSupabaseUserBanned(
+          (u as { banned_until?: string | null }).banned_until
+        );
+        const metaActive = u.user_metadata?.is_active !== false;
+        const profileActive = prof?.is_active !== false;
+
+        return {
+          userId: u.id,
+          email: u.email || '',
+          workspaceUid: deriveWorkspaceUid(
+            u.id,
+            prof?.uid || (typeof u.user_metadata?.uid === 'string' ? u.user_metadata.uid : null)
+          ),
+          role,
+          isActive: !banned && metaActive && profileActive,
+          createdAt: u.created_at,
+          lastSignInAt: u.last_sign_in_at || null,
+        };
+      });
+
+      res.json({ ok: true, users });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to load Supabase users.',
+      });
+    }
+  });
+
+  app.post('/api/admin/users', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const email =
+      typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+    if (!EMAIL_REGEX.test(email) || email.length > 254) {
+      res.status(400).json({ ok: false, error: 'Please enter a valid Login ID (Email).' });
+      return;
+    }
+    if (password.length < 8 || password.length > 128) {
+      res.status(400).json({
+        ok: false,
+        error: 'Password must be between 8 and 128 characters.',
+      });
+      return;
+    }
+
+    try {
+      const edgeResult = await invokeAdminUsersEdgeFunction({
+        action: 'create',
+        email,
+        password,
+      });
+      if (edgeResult) {
+        res.status(edgeResult.status).json(edgeResult.data);
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        respondMissingSupabaseAdminConfig(res);
+        return;
+      }
+
+      const { data: created, error: createErr } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: 'operator',
+          is_active: true,
+        },
+      });
+
+      if (createErr || !created?.user) {
+        res.status(400).json({
+          ok: false,
+          error: createErr?.message || 'Failed to create user in Supabase Authentication.',
+        });
+        return;
+      }
+
+      const userId = created.user.id;
+      const workspaceUid = deriveWorkspaceUid(userId);
+      const displayName = email.split('@')[0] || 'Tournament User';
+
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          role: 'operator',
+          uid: workspaceUid,
+          is_active: true,
+        },
+      });
+
+      await supabaseAdmin.from('profiles').upsert(
+        {
+          id: userId,
+          uid: workspaceUid,
+          full_name: displayName,
+          email,
+          is_active: true,
+        },
+        { onConflict: 'id' }
+      );
+
+      await supabaseAdmin.from('user_roles').upsert(
+        {
+          user_id: userId,
+          role: 'operator',
+        },
+        { onConflict: 'user_id' }
+      );
+
+      res.status(201).json({
+        ok: true,
+        user: {
+          userId,
+          email,
+          workspaceUid,
+          role: 'operator',
+          isActive: true,
+          createdAt: created.user.created_at,
+          lastSignInAt: null,
+        },
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to create user.',
+      });
+    }
+  });
+
+  app.patch('/api/admin/users/:userId/reset-password', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+    if (!UUID_REGEX.test(userId)) {
+      res.status(400).json({ ok: false, error: 'Invalid User ID.' });
+      return;
+    }
+    if (password.length < 8 || password.length > 128) {
+      res.status(400).json({
+        ok: false,
+        error: 'New password must be between 8 and 128 characters.',
+      });
+      return;
+    }
+
+    try {
+      const edgeResult = await invokeAdminUsersEdgeFunction({
+        action: 'reset_password',
+        userId,
+        password,
+      });
+      if (edgeResult) {
+        res.status(edgeResult.status).json(edgeResult.data);
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        respondMissingSupabaseAdminConfig(res);
+        return;
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password,
+      });
+      if (error) {
+        res.status(400).json({ ok: false, error: error.message });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to reset user password.',
+      });
+    }
+  });
+
+  app.patch('/api/admin/users/:userId/status', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+    if (!UUID_REGEX.test(userId)) {
+      res.status(400).json({ ok: false, error: 'Invalid User ID.' });
+      return;
+    }
+    if (typeof req.body?.isActive !== 'boolean') {
+      res.status(400).json({ ok: false, error: 'isActive boolean flag is required.' });
+      return;
+    }
+    const isActive = req.body.isActive;
+
+    try {
+      const edgeResult = await invokeAdminUsersEdgeFunction({
+        action: 'set_status',
+        userId,
+        isActive,
+      });
+      if (edgeResult) {
+        res.status(edgeResult.status).json(edgeResult.data);
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        respondMissingSupabaseAdminConfig(res);
+        return;
+      }
+
+      const { data: roleRow } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (roleRow?.role === 'owner_admin' && !isActive) {
+        res.status(400).json({ ok: false, error: 'Cannot deactivate a Main Admin account.' });
+        return;
+      }
+
+      const { data: existingUser } = await supabaseAdmin.auth.admin.getUserById(userId);
+      const currentMeta = existingUser?.user?.user_metadata ?? {};
+
+      const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+        ban_duration: isActive ? 'none' : '876000h',
+        user_metadata: {
+          ...currentMeta,
+          is_active: isActive,
+        },
+      });
+      if (error) {
+        res.status(400).json({ ok: false, error: error.message });
+        return;
+      }
+
+      await supabaseAdmin
+        .from('profiles')
+        .update({ is_active: isActive, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+
+      res.json({ ok: true, isActive });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to update user account status.',
+      });
+    }
+  });
+
+  app.delete('/api/admin/users/:userId', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const userId = typeof req.params.userId === 'string' ? req.params.userId.trim() : '';
+    if (!UUID_REGEX.test(userId)) {
+      res.status(400).json({ ok: false, error: 'Invalid User ID.' });
+      return;
+    }
+
+    try {
+      const edgeResult = await invokeAdminUsersEdgeFunction({
+        action: 'delete',
+        userId,
+      });
+      if (edgeResult) {
+        res.status(edgeResult.status).json(edgeResult.data);
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        respondMissingSupabaseAdminConfig(res);
+        return;
+      }
+
+      const { data: roleRow } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (roleRow?.role === 'owner_admin') {
+        res.status(400).json({ ok: false, error: 'Cannot delete a Main Admin account.' });
+        return;
+      }
+
+      const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (error) {
+        res.status(400).json({ ok: false, error: error.message });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to delete user.',
+      });
+    }
   });
 
   // =========================================================================

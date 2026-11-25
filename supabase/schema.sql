@@ -318,7 +318,60 @@ alter table public.match_results enable row level security;
 alter table public.points_table enable row level security;
 alter table public.audit_logs enable row level security;
 
+-- Add account status flag to profiles for admin activation/deactivation
+alter table public.profiles
+  add column if not exists is_active boolean not null default true;
+
+-- Helper function to verify Main Admin role securely inside RLS policies
+create or replace function public.is_main_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.user_roles
+    where user_id = auth.uid()
+      and role = 'owner_admin'
+  );
+$$;
+
+-- RLS Policies for public.profiles
+-- Users can only read their own profile; Main Admins can read all profiles.
+-- Only service_role (Admin API / Edge Function) can insert, delete, or toggle is_active.
+drop policy if exists "profiles_select_own_or_admin" on public.profiles;
+create policy "profiles_select_own_or_admin"
+  on public.profiles
+  for select
+  to authenticated
+  using (auth.uid() = id or public.is_main_admin());
+
+drop policy if exists "profiles_update_own_safe_fields" on public.profiles;
+create policy "profiles_update_own_safe_fields"
+  on public.profiles
+  for update
+  to authenticated
+  using (auth.uid() = id and is_active = true)
+  with check (
+    auth.uid() = id
+    and is_active = (select p.is_active from public.profiles p where p.id = auth.uid())
+    and uid = (select p.uid from public.profiles p where p.id = auth.uid())
+  );
+
+-- RLS Policies for public.user_roles
+-- Users can read their own role; Main Admins can read all roles.
+-- No client insert/update/delete policies: role mutations require service_role.
+drop policy if exists "user_roles_select_own_or_admin" on public.user_roles;
+create policy "user_roles_select_own_or_admin"
+  on public.user_roles
+  for select
+  to authenticated
+  using (auth.uid() = user_id or public.is_main_admin());
+
 -- Storage bucket for tournament logos, team logos & player photos
 insert into storage.buckets (id, name, public)
 values ('cricket-media', 'cricket-media', true)
 on conflict (id) do nothing;
+

@@ -132,10 +132,10 @@ export function OverlayAccessModal({
                   <Lock className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
                 </div>
                 <h2 className="font-display text-xl sm:text-2xl font-black text-white">
-                  Unlock Overlays
+                  User Login
                 </h2>
                 <p className="text-xs sm:text-sm text-zinc-400">
-                  Enter your Star Event Live Access ID and Password.
+                  Enter the Login ID and Password provided by the Main Admin.
                 </p>
               </div>
 
@@ -154,7 +154,7 @@ export function OverlayAccessModal({
                     htmlFor="modal-access-id"
                     className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                   >
-                    Access ID
+                    Login ID (Email or Access ID)
                   </label>
                   <input
                     id="modal-access-id"
@@ -162,8 +162,8 @@ export function OverlayAccessModal({
                     autoComplete="username"
                     value={accessId}
                     onChange={(e) => setAccessId(e.target.value)}
-                    placeholder="e.g. STAR-101"
-                    className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
+                    placeholder="e.g. user@example.com or STAR-101"
+                    className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
                   />
                 </div>
 

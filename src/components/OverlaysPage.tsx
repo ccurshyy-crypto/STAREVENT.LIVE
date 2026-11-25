@@ -92,10 +92,10 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
                   STAR EVENT LIVE · OVERLAY ACCESS
                 </p>
                 <h1 className="font-display text-2xl sm:text-3xl font-black text-white leading-tight">
-                  Unlock Overlays
+                  User Login
                 </h1>
                 <p className="text-xs sm:text-sm text-zinc-400">
-                  Enter your Access ID and Password to open your dashboard, live scoring, and overlay link.
+                  Sign in with the Login ID and Password provided by the Main Admin to open your dashboard, live scoring, and overlay links.
                 </p>
               </div>
 
@@ -114,7 +114,7 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
                     htmlFor="overlays-access-id"
                     className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                   >
-                    Access ID
+                    Login ID (Email or Access ID)
                   </label>
                   <input
                     id="overlays-access-id"
@@ -122,8 +122,8 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
                     autoComplete="username"
                     value={accessIdInput}
                     onChange={(e) => setAccessIdInput(e.target.value)}
-                    placeholder="e.g. STAR-101"
-                    className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
+                    placeholder="e.g. user@example.com or STAR-101"
+                    className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
                   />
                 </div>
 

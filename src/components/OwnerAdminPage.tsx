@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
+import { GenerateUserPanel } from './GenerateUserPanel';
 
 interface OwnerAdminPageProps {
   onBackHome: () => void;
@@ -533,7 +534,9 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
   });
 
   const [adminToken, setAdminToken] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'access-keys' | 'overlay-accounts'>('access-keys');
+  const [activeTab, setActiveTab] = useState<
+    'generate-users' | 'access-keys' | 'overlay-accounts'
+  >('generate-users');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -647,7 +650,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
 
   return (
     <div className="min-h-screen bg-[#09090D] text-[#F4F4F5] py-8 sm:py-14 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto space-y-5">
+      <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
@@ -679,10 +682,21 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                 <div className="flex flex-wrap items-center gap-2 p-1 rounded-xl bg-[#09090D] border border-white/10">
                   <button
                     type="button"
+                    onClick={() => setActiveTab('generate-users')}
+                    className={`flex-1 min-w-[180px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+                      activeTab === 'generate-users'
+                        ? 'bg-[#FF8C00] text-white'
+                        : 'text-zinc-300 hover:text-white'
+                    }`}
+                  >
+                    Generate User ID &amp; Password
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setActiveTab('access-keys')}
                     className={`flex-1 min-w-[160px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
                       activeTab === 'access-keys'
-                        ? 'bg-[#FFE600] text-[#09090D]'
+                        ? 'bg-[#FF8C00] text-white'
                         : 'text-zinc-300 hover:text-white'
                     }`}
                   >
@@ -693,7 +707,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                     onClick={() => setActiveTab('overlay-accounts')}
                     className={`flex-1 min-w-[160px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
                       activeTab === 'overlay-accounts'
-                        ? 'bg-[#FFE600] text-[#09090D]'
+                        ? 'bg-[#FF8C00] text-white'
                         : 'text-zinc-300 hover:text-white'
                     }`}
                   >
@@ -701,7 +715,12 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   </button>
                 </div>
 
-                {activeTab === 'access-keys' ? (
+                {activeTab === 'generate-users' ? (
+                  <GenerateUserPanel
+                    adminToken={adminToken}
+                    onLockAdmin={() => void handleLockAdmin()}
+                  />
+                ) : activeTab === 'access-keys' ? (
                   <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
                 ) : (
                   <OverlayAccountsManager
