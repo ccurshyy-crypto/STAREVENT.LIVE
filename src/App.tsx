@@ -16,6 +16,7 @@ import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSe
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { OwnerAdminPage } from './components/OwnerAdminPage';
 import { StandaloneOverlayPage } from './components/cricket/StandaloneOverlayPage';
+import { useOverlayAccess } from './context/OverlayAccessContext';
 import { EventCategoryId, Language } from './data/content';
 
 type PageRoute = MainPageRoute;
@@ -69,6 +70,8 @@ export default function App() {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
   const [accessModalOpen, setAccessModalOpen] = useState(false);
+  const { isUnlocked } = useOverlayAccess();
+  const isDashboardFullscreen = currentPage === 'overlays' && isUnlocked;
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -213,17 +216,19 @@ export default function App() {
     <div className="site-animated-ui relative min-h-screen bg-[#3B0207] text-white flex flex-col overflow-x-clip">
       <HomeAnimatedBackground />
 
-      <Navbar
-        lang={lang}
-        onChangeLang={setLang}
-        currentPage={currentPage}
-        onNavigateHome={navigateHome}
-        onNavigateServices={navigateToServices}
-        onNavigateOverlays={navigateToOverlays}
-        onNavigatePackages={navigateToPackages}
-        onNavigateBooking={navigateToBooking}
-        onOpenAccessModal={handleOpenAccessModal}
-      />
+      {!isDashboardFullscreen && (
+        <Navbar
+          lang={lang}
+          onChangeLang={setLang}
+          currentPage={currentPage}
+          onNavigateHome={navigateHome}
+          onNavigateServices={navigateToServices}
+          onNavigateOverlays={navigateToOverlays}
+          onNavigatePackages={navigateToPackages}
+          onNavigateBooking={navigateToBooking}
+          onOpenAccessModal={handleOpenAccessModal}
+        />
+      )}
 
       <main className="relative z-10 flex-1">
         <div key={currentPage} className="page-transition-enter">
@@ -310,14 +315,16 @@ export default function App() {
         </div>
       </main>
 
-      <Footer
-        lang={lang}
-        onNavigateHome={navigateHome}
-        onNavigateServices={navigateToServices}
-        onNavigateOverlays={navigateToOverlays}
-        onNavigatePackages={navigateToPackages}
-        onNavigateBooking={navigateToBooking}
-      />
+      {!isDashboardFullscreen && (
+        <Footer
+          lang={lang}
+          onNavigateHome={navigateHome}
+          onNavigateServices={navigateToServices}
+          onNavigateOverlays={navigateToOverlays}
+          onNavigatePackages={navigateToPackages}
+          onNavigateBooking={navigateToBooking}
+        />
+      )}
 
       <OverlayAccessModal
         open={accessModalOpen}

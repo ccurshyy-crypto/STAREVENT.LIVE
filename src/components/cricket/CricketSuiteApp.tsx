@@ -418,7 +418,7 @@ export function CricketSuiteApp({
   // STEP 4: Wait until cloud data loading completes before showing or editing the dashboard
   if (loadStatus === 'loading') {
     return (
-      <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
+      <div className="cricket-suite-animated min-h-screen bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -447,7 +447,7 @@ export function CricketSuiteApp({
   // STEP 7: Never interpret a network failure as an empty database
   if (loadStatus === 'error') {
     return (
-      <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
+      <div className="cricket-suite-animated min-h-screen bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 12 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -492,9 +492,9 @@ export function CricketSuiteApp({
   }
 
   return (
-    <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900">
+    <div className="cricket-suite-animated min-h-screen bg-transparent text-slate-900">
       {/* Animated Home-Matched Broadcast Dashboard Header */}
-      <header className="sticky top-0 z-30 topbar-animated-bg text-white shadow-lg border-b border-[#FFE600]/30 px-3 sm:px-5 py-3">
+      <header className="sticky top-0 z-40 topbar-animated-bg text-white shadow-lg border-b border-[#FFE600]/30 px-3 sm:px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -545,7 +545,7 @@ export function CricketSuiteApp({
       </header>
 
       {/* Main Content Layout: Home-Matched Dark Glass Sidebar + Transparent Home Background Workspace */}
-      <div className="flex min-h-[calc(85vh-60px)]">
+      <div className="flex min-h-[calc(100vh-60px)]">
         {desktopSidebarOpen && (
           <aside className="hidden lg:block w-64 shrink-0 border-r border-[#FFE600]/20 bg-transparent">
             <div className="sticky top-[60px] h-[calc(100vh-60px)]">
