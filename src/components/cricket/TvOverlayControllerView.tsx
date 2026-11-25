@@ -150,7 +150,7 @@ export function TvOverlayControllerView({
               <Tv className="w-6 h-6 text-white" aria-hidden="true" />
             </div>
             <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-orange-100">
-              DBN MEDIA · STAR EVENT LIVE
+              STAR EVENT LIVE
             </p>
             <h2 className="font-display font-black text-xl tracking-wide">
               SCOREBOARD OVERLAY CONTROL
