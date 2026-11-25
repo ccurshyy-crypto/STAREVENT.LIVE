@@ -1362,149 +1362,78 @@ export function ScoringDashboardView({
           transition={{ duration: 0.22 }}
           className="space-y-4"
         >
-          {/* Centered Animated Top Box: 1ST INNINGS & 2ND INNINGS SCOREBOARD */}
-          <div className="flex justify-center">
-            <motion.div
-              initial={{ opacity: 0, y: -16, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 310, damping: 24 }}
-              className="relative w-full max-w-4xl rounded-2xl overflow-hidden text-white border-2 border-[#FFE600] suite-top-box-glow shadow-2xl"
-              style={{
-                background:
-                  'linear-gradient(110deg, #1E030B 0%, #6B0410 38%, #9B0A16 58%, #0E153A 100%)',
-              }}
-            >
-              {/* Animated Golden Shimmer Sweep */}
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-y-0 w-1/3 suite-top-box-sheen"
-                style={{
-                  background:
-                    'linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)',
-                }}
-              />
-
-              {/* Centered Header Pill */}
-              <div className="relative z-10 px-4 py-1.5 bg-black/30 border-b border-white/15 flex items-center justify-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#FFE600]">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
-                <span>1ST INNINGS &amp; 2ND INNINGS LIVE SCOREBOARD</span>
-              </div>
-
-              <div className="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
-                {([0, 1] as const).map((idx) => {
-                  const inn = match.innings[idx];
-                  const batTeam = idx === 0 ? inn1Team : inn2Team;
-                  const isCurrent = innIdx === idx && match.status !== 'completed';
-                  const innStarted =
-                    idx === 0 ||
-                    innIdx === 1 ||
-                    inn.balls.length > 0 ||
-                    inn.runs > 0 ||
-                    inn.wickets > 0;
-                  const computedTarget = inn2.target ?? inn1.runs + 1;
-
-                  const panelContent = (
-                    <div
-                      key={idx}
-                      className={`p-4 sm:p-5 transition-all ${
-                        isCurrent
-                          ? 'bg-gradient-to-br from-[#FF8C00]/25 via-[#FFE600]/10 to-transparent'
-                          : 'bg-black/15'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            {isCurrent && (
-                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
-                            )}
-                            <span
-                              className={`text-[11px] font-black uppercase tracking-[0.16em] ${
-                                isCurrent ? 'text-[#FFE600]' : 'text-white/75'
-                              }`}
-                            >
-                              {idx === 0 ? '1ST INNINGS' : '2ND INNINGS'}
-                            </span>
-                            {isCurrent && !inn.completed && (
-                              <span className="px-2 py-0.5 rounded bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 text-[10px] font-bold uppercase">
-                                Batting
-                              </span>
-                            )}
-                            {inn.completed && (
-                              <span className="px-2 py-0.5 rounded bg-white/15 text-white/85 text-[10px] font-bold uppercase">
-                                Closed
-                              </span>
-                            )}
-                          </div>
-                          <h3 className="font-display font-extrabold text-base sm:text-lg text-white truncate mt-0.5">
-                            {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
-                          </h3>
-                        </div>
-
-                        <motion.button
-                          type="button"
-                          whileHover={{ scale: 1.06 }}
-                          whileTap={{ scale: 0.94 }}
-                          onClick={() => openEditScoreModal(idx)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold shrink-0"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                          <span>Edit</span>
-                        </motion.button>
-                      </div>
-
-                      <div className="mt-3 flex items-baseline justify-between gap-3">
-                        <div className="flex items-baseline gap-2">
-                          {innStarted ? (
-                            <>
-                              <motion.span
-                                key={`dash-inn-${idx}-${inn.runs}-${inn.wickets}`}
-                                initial={{ scale: 1.2, color: '#FFFFFF' }}
-                                animate={{ scale: 1, color: '#FFE600' }}
-                                transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-                                className="font-display font-black text-3xl sm:text-4xl tabular-nums drop-shadow-sm"
-                              >
-                                {inn.runs}/{inn.wickets}
-                              </motion.span>
-                              <span className="text-xs sm:text-sm font-bold text-white/80 tabular-nums">
-                                ({formatOvers(inn.legalBalls)} / {inn.maxOvers} ov)
-                              </span>
-                            </>
-                          ) : (
-                            <span className="font-display font-black text-lg sm:text-xl uppercase tracking-wider text-amber-200">
-                              YET TO BAT
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right text-xs text-white/75">
-                          CRR:{' '}
-                          <span className="font-black text-white tabular-nums">
-                            {calcRunRate(inn.runs, inn.legalBalls)}
+          {/* Dual Innings Score Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {([0, 1] as const).map((idx) => {
+              const inn = match.innings[idx];
+              const batTeam = idx === 0 ? inn1Team : inn2Team;
+              const isCurrent = innIdx === idx;
+              return (
+                <div
+                  key={idx}
+                  className={`rounded-xl bg-white/95 backdrop-blur-sm border p-4 shadow-xs transition-all ${
+                    isCurrent
+                      ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/15'
+                      : 'border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          {idx === 0 ? '1st Innings' : '2nd Innings'}
+                        </span>
+                        {isCurrent && !inn.completed && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
+                            Batting
                           </span>
-                        </div>
+                        )}
+                        {inn.completed && (
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+                            Closed
+                          </span>
+                        )}
                       </div>
+                      <h3 className="font-display font-bold text-base text-slate-900 truncate mt-0.5">
+                        {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
+                      </h3>
                     </div>
-                  );
 
-                  if (idx === 0) {
-                    return (
-                      <div key="inn-0-wrap" className="contents">
-                        {panelContent}
-                        <div className="px-3.5 py-2.5 md:py-4 flex md:flex-col items-center justify-center gap-1.5 bg-black/30 shrink-0">
-                          <span className="text-[10px] font-black uppercase tracking-widest text-white/70">
-                            {inn1.completed || innIdx === 1 ? 'TARGET' : 'MATCH'}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-lg bg-[#FFE600]/15 border border-[#FFE600]/45 font-display font-black text-sm sm:text-base text-[#FFE600] tabular-nums">
-                            {inn1.completed || innIdx === 1 ? computedTarget : 'VS'}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  }
-                  return panelContent;
-                })}
-              </div>
-            </motion.div>
+                    <button
+                      type="button"
+                      onClick={() => openEditScoreModal(idx)}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-baseline justify-between gap-3">
+                    <div className="flex items-baseline gap-2">
+                      <motion.span
+                        key={`dash-inn-${idx}-${inn.runs}-${inn.wickets}`}
+                        initial={{ scale: 1.18 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 20 }}
+                        className="font-display font-black text-3xl text-[#FF8C00] tabular-nums"
+                      >
+                        {inn.runs}/{inn.wickets}
+                      </motion.span>
+                      <span className="text-sm font-semibold text-slate-600 tabular-nums">
+                        ({formatOvers(inn.legalBalls)} / {inn.maxOvers} ov)
+                      </span>
+                    </div>
+                    <div className="text-right text-xs text-slate-500">
+                      CRR:{' '}
+                      <span className="font-bold text-slate-900 tabular-nums">
+                        {calcRunRate(inn.runs, inn.legalBalls)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Match Status / Chase / Innings Break Bar */}

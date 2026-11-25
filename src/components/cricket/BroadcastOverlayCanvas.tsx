@@ -271,7 +271,7 @@ export function BroadcastOverlayCanvas({
       children: React.ReactNode;
       wide?: boolean;
     }) => (
-      <div className="absolute inset-0 flex items-center justify-center px-8 pb-24 pt-24 pointer-events-none">
+      <div className="absolute inset-0 flex items-center justify-center px-8 pb-24 pt-12 pointer-events-none">
         <motion.div
           initial={{ opacity: 0, y: 18, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -1348,160 +1348,12 @@ export function BroadcastOverlayCanvas({
     );
   };
 
-  const renderTopCenterInningsBox = () => {
-    if (!match || !inn1 || !inn2 || overlay.bottomScoreMode === 'EMPTY') return null;
-
-    const inn1BatTeam = teamMap.get(inn1.battingTeamId);
-    const inn2BatTeam = teamMap.get(inn2.battingTeamId);
-    const inn1Active = match.currentInningsIndex === 0 && match.status !== 'completed';
-    const inn2Active = match.currentInningsIndex === 1 && match.status !== 'completed';
-    const inn2Started =
-      match.currentInningsIndex === 1 || inn2.balls.length > 0 || inn2.runs > 0 || inn2.wickets > 0;
-    const computedTarget = inn2.target ?? inn1.runs + 1;
-
-    return (
-      <div className="absolute top-3.5 left-1/2 -translate-x-1/2 z-20 pointer-events-none max-w-[94%]">
-        <motion.div
-          key={`top-innings-box-${match.id}`}
-          initial={{ opacity: 0, y: -26, scale: 0.92 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 300, damping: 24 }}
-          className="relative rounded-2xl overflow-hidden text-white border-2 suite-top-box-glow backdrop-blur-md"
-          style={{
-            background: `linear-gradient(105deg, ${theme.surface}F2 0%, ${theme.primary}E8 50%, ${theme.surface}F2 100%)`,
-            borderColor: '#FACC15',
-          }}
-        >
-          {/* Animated Golden Shimmer Sweep */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 w-1/3 suite-top-box-sheen"
-            style={{
-              background:
-                'linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent)',
-            }}
-          />
-
-          <div className="relative z-10 flex items-stretch divide-x divide-white/20">
-            {/* 1ST INNINGS PANEL */}
-            <div
-              className="px-3.5 sm:px-5 py-2 flex items-center gap-2.5 sm:gap-3"
-              style={{
-                background: inn1Active
-                  ? 'linear-gradient(135deg, rgba(250,204,21,0.22), rgba(255,140,0,0.12))'
-                  : 'transparent',
-              }}
-            >
-              {renderTeamBadge(inn1BatTeam, 'w-7 h-7 sm:w-8 sm:h-8')}
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5">
-                  {inn1Active && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
-                  )}
-                  <span
-                    className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em]"
-                    style={{ color: inn1Active ? '#FACC15' : 'rgba(255,255,255,0.72)' }}
-                  >
-                    1ST INNINGS
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1.5 sm:gap-2 mt-0.5">
-                  <span className="font-display font-black text-xs sm:text-sm tracking-wide text-white">
-                    {inn1BatTeam?.shortName || 'T1'}
-                  </span>
-                  <motion.span
-                    key={`top-inn1-${inn1.runs}-${inn1.wickets}`}
-                    initial={{ scale: 1.24, color: '#FEF08A' }}
-                    animate={{ scale: 1, color: '#FACC15' }}
-                    transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-                    className="font-display font-black text-base sm:text-xl tabular-nums leading-none"
-                  >
-                    {inn1.runs}/{inn1.wickets}
-                  </motion.span>
-                  <span className="text-[10px] sm:text-xs font-bold text-white/80 tabular-nums">
-                    ({formatOvers(inn1.legalBalls)})
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* CENTER BADGE (VS / TARGET) */}
-            <div className="px-2.5 sm:px-3.5 py-2 flex flex-col items-center justify-center bg-black/30 shrink-0">
-              <span className="text-[8px] sm:text-[9px] font-extrabold uppercase tracking-widest text-white/70">
-                {inn1.completed || match.currentInningsIndex === 1 ? 'TARGET' : 'MATCH'}
-              </span>
-              <span
-                className="font-display font-black text-xs sm:text-sm tabular-nums leading-tight"
-                style={{ color: '#FACC15' }}
-              >
-                {inn1.completed || match.currentInningsIndex === 1 ? computedTarget : 'VS'}
-              </span>
-            </div>
-
-            {/* 2ND INNINGS PANEL */}
-            <div
-              className="px-3.5 sm:px-5 py-2 flex items-center gap-2.5 sm:gap-3"
-              style={{
-                background: inn2Active
-                  ? 'linear-gradient(135deg, rgba(250,204,21,0.22), rgba(255,140,0,0.12))'
-                  : 'transparent',
-              }}
-            >
-              {renderTeamBadge(inn2BatTeam, 'w-7 h-7 sm:w-8 sm:h-8')}
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5">
-                  {inn2Active && (
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
-                  )}
-                  <span
-                    className="text-[9px] sm:text-[10px] font-black uppercase tracking-[0.16em]"
-                    style={{ color: inn2Active ? '#FACC15' : 'rgba(255,255,255,0.72)' }}
-                  >
-                    2ND INNINGS
-                  </span>
-                </div>
-                <div className="flex items-baseline gap-1.5 sm:gap-2 mt-0.5">
-                  <span className="font-display font-black text-xs sm:text-sm tracking-wide text-white">
-                    {inn2BatTeam?.shortName || 'T2'}
-                  </span>
-                  {inn2Started ? (
-                    <>
-                      <motion.span
-                        key={`top-inn2-${inn2.runs}-${inn2.wickets}`}
-                        initial={{ scale: 1.24, color: '#FEF08A' }}
-                        animate={{ scale: 1, color: '#FACC15' }}
-                        transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-                        className="font-display font-black text-base sm:text-xl tabular-nums leading-none"
-                      >
-                        {inn2.runs}/{inn2.wickets}
-                      </motion.span>
-                      <span className="text-[10px] sm:text-xs font-bold text-white/80 tabular-nums">
-                        ({formatOvers(inn2.legalBalls)})
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-[11px] sm:text-xs font-extrabold uppercase tracking-wider text-amber-200/90">
-                      YET TO BAT
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  };
-
   return (
     <div
       className="relative w-full h-full select-none overflow-hidden font-sans"
       style={bgStyle}
       aria-label="Live Cricket Broadcast Overlay"
     >
-      {/* Top-Center Animated 1st & 2nd Innings Scoreboard Box */}
-      {renderTopCenterInningsBox()}
-
       {/* Main Graphic Card */}
       {renderMainCard()}
 
