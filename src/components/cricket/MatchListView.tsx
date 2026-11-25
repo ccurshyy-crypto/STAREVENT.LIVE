@@ -245,13 +245,10 @@ export function MatchListView({
             nextInnings[1].battingTeamId = bowlFirstId;
             nextInnings[1].bowlingTeamId = batFirstId;
             nextInnings[1].maxOvers = oversNum;
-            nextInnings[1].strikerId = bowlFirstTeam?.players[0]?.id || '';
-            nextInnings[1].nonStrikerId = bowlFirstTeam?.players[1]?.id || '';
-            nextInnings[1].bowlerId = batFirstTeam?.players[0]?.id || '';
-            nextInnings[1].battingOrder = [
-              nextInnings[1].strikerId,
-              nextInnings[1].nonStrikerId,
-            ].filter(Boolean);
+            nextInnings[1].strikerId = '';
+            nextInnings[1].nonStrikerId = '';
+            nextInnings[1].bowlerId = '';
+            nextInnings[1].battingOrder = [];
           }
           return {
             ...m,
@@ -332,13 +329,10 @@ export function MatchListView({
           maxOvers: oversNum,
           target: null,
           extras: { wd: 0, nb: 0, lb: 0, bye: 0, penalty: 0 },
-          strikerId: bowlFirstTeam?.players[0]?.id || '',
-          nonStrikerId: bowlFirstTeam?.players[1]?.id || '',
-          bowlerId: batFirstTeam?.players[0]?.id || '',
-          battingOrder: [
-            bowlFirstTeam?.players[0]?.id,
-            bowlFirstTeam?.players[1]?.id,
-          ].filter(Boolean) as string[],
+          strikerId: '',
+          nonStrikerId: '',
+          bowlerId: '',
+          battingOrder: [],
           balls: [],
           fallOfWickets: [],
           completed: false,

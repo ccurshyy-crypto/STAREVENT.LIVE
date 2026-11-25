@@ -1040,12 +1040,16 @@ export function applyDeliveryToMatch(
   input: DeliveryInput,
   teams: Team[]
 ): CricketMatch {
-  // Prevent invalid scoring after match/innings completion or while awaiting next over bowler
+  // Prevent invalid scoring after match/innings completion, while awaiting next bowler/batter, or before players are assigned
   const currentInnCheck = match.innings[match.currentInningsIndex];
   if (
     match.status === 'completed' ||
     currentInnCheck.completed ||
-    currentInnCheck.pendingBowlerChange
+    currentInnCheck.pendingBowlerChange ||
+    currentInnCheck.pendingNewBatter ||
+    !currentInnCheck.strikerId ||
+    !currentInnCheck.nonStrikerId ||
+    !currentInnCheck.bowlerId
   ) {
     return match;
   }
@@ -1144,19 +1148,8 @@ export function applyDeliveryToMatch(
       });
     }
 
-    // Bring in next batter
-    let incomingId = input.nextBatterId || '';
-    if (!incomingId && battingTeam) {
-      const used = new Set([
-        ...inn.battingOrder,
-        inn.strikerId,
-        inn.nonStrikerId,
-        dismissedId,
-      ]);
-      const nextUnused = battingTeam.players.find((p) => !used.has(p.id));
-      if (nextUnused) incomingId = nextUnused.id;
-    }
-
+    // Do NOT auto-pick next batter silently; only assign if scorer explicitly chose incoming batter
+    const incomingId = (input.nextBatterId || '').trim();
     if (incomingId) {
       if (!inn.battingOrder.includes(incomingId)) {
         inn.battingOrder.push(incomingId);
@@ -1165,6 +1158,13 @@ export function applyDeliveryToMatch(
         inn.nonStrikerId = incomingId;
       } else {
         inn.strikerId = incomingId;
+      }
+    } else {
+      // Clear dismissed batter slot so scoring pauses until scorer selects or adds the next batter
+      if (dismissedId === inn.nonStrikerId) {
+        inn.nonStrikerId = '';
+      } else {
+        inn.strikerId = '';
       }
     }
 
@@ -1204,7 +1204,7 @@ export function applyDeliveryToMatch(
   const maxBalls = inn.maxOvers * 6;
   const battingTeamObj = teams.find((t) => t.id === inn.battingTeamId);
   const bowlingTeamObj = teams.find((t) => t.id === inn.bowlingTeamId);
-  const maxWickets = battingTeamObj && battingTeamObj.players.length > 1
+  const maxWickets = battingTeamObj && battingTeamObj.players.length >= 6
     ? Math.min(10, battingTeamObj.players.length - 1)
     : 10;
 
@@ -1246,12 +1246,24 @@ export function applyDeliveryToMatch(
   // Trigger mandatory bowler change pause when 6 legal balls complete an over (and innings/match continues)
   if (inn.completed || nextMatch.status === 'completed') {
     inn.pendingBowlerChange = false;
-  } else if (isOverCompletedNow) {
-    inn.pendingBowlerChange = true;
-    inn.lastCompletedOverNumber = Math.floor(inn.legalBalls / 6);
-    inn.previousOverBowlerId = inn.bowlerId;
+    inn.pendingNewBatter = false;
+    inn.pendingBatterSlot = undefined;
   } else {
-    inn.pendingBowlerChange = false;
+    if (isOverCompletedNow) {
+      inn.pendingBowlerChange = true;
+      inn.lastCompletedOverNumber = Math.floor(inn.legalBalls / 6);
+      inn.previousOverBowlerId = inn.bowlerId;
+    } else {
+      inn.pendingBowlerChange = false;
+    }
+
+    if (!inn.strikerId || !inn.nonStrikerId) {
+      inn.pendingNewBatter = true;
+      inn.pendingBatterSlot = !inn.strikerId ? 'striker' : 'nonStriker';
+    } else {
+      inn.pendingNewBatter = false;
+      inn.pendingBatterSlot = undefined;
+    }
   }
 
   return nextMatch;

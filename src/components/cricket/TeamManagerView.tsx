@@ -198,7 +198,23 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
 
   const handleSavePlayer = (e: FormEvent) => {
     e.preventDefault();
-    if (!playersModalTeamId || !playerName.trim()) return;
+    const cleanName = playerName.trim();
+    if (!playersModalTeamId || !cleanName) return;
+
+    const targetTeam = state.teams.find((t) => t.id === playersModalTeamId);
+    const normalized = cleanName.toLowerCase();
+    const hasDuplicate = targetTeam?.players.some(
+      (p) =>
+        p.id !== editingPlayerId &&
+        p.name.trim().toLowerCase() === normalized
+    );
+    if (hasDuplicate) {
+      onToast(
+        `Player "${cleanName}" already exists in ${targetTeam?.name || 'this team'}. Same name player cannot be added!`
+      );
+      return;
+    }
+
     const jersey = Math.max(0, Math.min(999, Number(playerJersey) || 0));
 
     updateState((prev) => ({
@@ -215,7 +231,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             p.id === editingPlayerId
               ? {
                   ...p,
-                  name: playerName.trim(),
+                  name: cleanName,
                   photoUrl: playerPhotoUrl,
                   jerseyNo: jersey,
                   role: playerRole,
@@ -229,7 +245,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         } else {
           const newPlayer: Player = {
             id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
-            name: playerName.trim(),
+            name: cleanName,
             photoUrl: playerPhotoUrl,
             jerseyNo: jersey,
             role: playerRole,
@@ -244,7 +260,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
       }),
     }));
 
-    onToast(editingPlayerId ? 'Player updated.' : `Player "${playerName.trim()}" added.`);
+    onToast(editingPlayerId ? 'Player updated.' : `Player "${cleanName}" added.`);
     resetPlayerForm();
   };
 

@@ -208,6 +208,8 @@ export interface InningsState {
   pendingBowlerChange?: boolean;
   lastCompletedOverNumber?: number;
   previousOverBowlerId?: string;
+  pendingNewBatter?: boolean;
+  pendingBatterSlot?: 'striker' | 'nonStriker';
 }
 
 export type MatchStatus = 'not_started' | 'live' | 'innings_break' | 'completed';
