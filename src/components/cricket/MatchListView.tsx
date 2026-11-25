@@ -38,8 +38,6 @@ const STAGE_OPTIONS: MatchStageBadge[] = [
   'ELIMINATOR',
 ];
 
-const BALL_TYPES: BallType[] = ['Tennis', 'Leather', 'Soft Tennis', 'Rubber'];
-
 function formatStatusLabel(status: CricketMatch['status']): string {
   switch (status) {
     case 'not_started':
@@ -88,10 +86,6 @@ export function MatchListView({
   const [tossDecision, setTossDecision] = useState<'Bat' | 'Bowl'>('Bat');
 
   const selectedTour = state.tournaments.find((t) => t.id === tournamentId);
-  const tourGroups = useMemo(
-    () => state.groups.filter((g) => g.tournamentId === tournamentId),
-    [state.groups, tournamentId]
-  );
   const tourTeams = useMemo(
     () => state.teams.filter((tm) => tm.tournamentId === tournamentId),
     [state.teams, tournamentId]
@@ -803,7 +797,7 @@ export function MatchListView({
               ) : (
                 /* ================= STEP 1 (OR EDIT MODE): TEAMS & MATCH DETAILS ================= */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div className="space-y-1">
+                  <div className="sm:col-span-2 space-y-1">
                     <label className="block text-xs font-semibold text-slate-700">
                       Select Tournament *
                     </label>
@@ -817,24 +811,6 @@ export function MatchListView({
                       {state.tournaments.map((t) => (
                         <option key={t.id} value={t.id}>
                           {t.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Select Tournament Group (optional)
-                    </label>
-                    <select
-                      value={groupId}
-                      onChange={(e) => setGroupId(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                    >
-                      <option value="">No Group / General</option>
-                      {tourGroups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
                         </option>
                       ))}
                     </select>
@@ -965,30 +941,6 @@ export function MatchListView({
 
                   <div className="space-y-1">
                     <label className="block text-xs font-semibold text-slate-700">
-                      Match Date
-                    </label>
-                    <input
-                      type="date"
-                      value={matchDate}
-                      onChange={(e) => setMatchDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Match Time
-                    </label>
-                    <input
-                      type="time"
-                      value={matchTime}
-                      onChange={(e) => setMatchTime(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
                       Venue
                     </label>
                     <input
@@ -1013,23 +965,6 @@ export function MatchListView({
                       onChange={(e) => setTotalOvers(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm tabular-nums"
                     />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Ball Type
-                    </label>
-                    <select
-                      value={ballType}
-                      onChange={(e) => setBallType(e.target.value as BallType)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                    >
-                      {BALL_TYPES.map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
-                    </select>
                   </div>
                 </div>
               )}
