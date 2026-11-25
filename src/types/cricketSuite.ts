@@ -121,6 +121,7 @@ export interface Team {
   shortName: string;
   place: string;
   colorTag: TeamColorTag;
+  textColor?: string;
   logoUrl?: string;
   players: Player[];
 }

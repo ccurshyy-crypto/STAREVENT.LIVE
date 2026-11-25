@@ -1,4 +1,5 @@
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
+import { motion } from 'motion/react';
 import {
   Camera,
   Edit3,
@@ -25,6 +26,7 @@ interface TeamManagerViewProps {
 }
 
 const COLOR_OPTIONS: TeamColorTag[] = [
+  'Defoult',
   'Blue',
   'Light_blue',
   'Crimson_red',
@@ -34,7 +36,15 @@ const COLOR_OPTIONS: TeamColorTag[] = [
   'Royal_purple',
   'Light_brown',
   'Light_pink',
-  'Defoult',
+];
+
+const TEXT_COLOR_OPTIONS: Array<{ label: string; hex: string }> = [
+  { label: 'White', hex: '#FFFFFF' },
+  { label: 'Black', hex: '#0F172A' },
+  { label: 'Yellow', hex: '#FACC15' },
+  { label: 'Gold', hex: '#F59E0B' },
+  { label: 'Blue', hex: '#1D4ED8' },
+  { label: 'Red', hex: '#DC2626' },
 ];
 
 const ROLES: PlayerRole[] = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper'];
@@ -53,12 +63,12 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
   const [place, setPlace] = useState('');
-  const [colorTag, setColorTag] = useState<TeamColorTag>('Blue');
+  const [colorTag, setColorTag] = useState<TeamColorTag>('Defoult');
+  const [textColor, setTextColor] = useState<string>('White');
   const [teamTourId, setTeamTourId] = useState(
     state.activeTournamentId || state.tournaments[0]?.id || ''
   );
   const [logoUrl, setLogoUrl] = useState('');
-  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Player Form State (Add + Edit)
   const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
@@ -77,7 +87,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     setName('');
     setShortName('');
     setPlace('');
-    setColorTag('Blue');
+    setColorTag('Defoult');
+    setTextColor('White');
     setTeamTourId(
       selectedTournamentId !== 'ALL'
         ? selectedTournamentId
@@ -93,6 +104,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     setShortName(team.shortName);
     setPlace(team.place);
     setColorTag(team.colorTag);
+    setTextColor(team.textColor || 'White');
     setTeamTourId(team.tournamentId);
     setLogoUrl(team.logoUrl || '');
     setTeamModalOpen(true);
@@ -132,6 +144,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 shortName: cleanShort,
                 place: place.trim(),
                 colorTag,
+                textColor,
                 tournamentId: teamTourId,
                 logoUrl,
               }
@@ -147,6 +160,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         shortName: cleanShort,
         place: place.trim(),
         colorTag,
+        textColor,
         logoUrl,
         players: [],
       };
@@ -402,8 +416,14 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                           />
                         ) : (
                           <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                            style={{ backgroundColor: colorMeta.hex }}
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold"
+                            style={{
+                              backgroundColor: colorMeta.hex,
+                              color:
+                                TEXT_COLOR_OPTIONS.find(
+                                  (opt) => opt.label === (team.textColor || 'White')
+                                )?.hex || '#FFFFFF',
+                            }}
                           >
                             {team.shortName.slice(0, 3)}
                           </div>
@@ -471,162 +491,122 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
       {/* Create / Edit Team Modal */}
       {teamModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px] overflow-y-auto"
           role="dialog"
           aria-modal="true"
         >
-          <form
+          <motion.form
+            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             onSubmit={handleSaveTeam}
-            className="w-full max-w-lg rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto"
+            className="w-full max-w-[820px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
           >
-            <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
-              <h3 className="font-display font-bold text-base">
+            {/* Top Blue Header */}
+            <div className="relative px-6 py-4 bg-[#1696F3] text-white flex items-center justify-center">
+              <h3 className="font-display font-bold text-xl tracking-wide text-center">
                 {editingTeamId ? 'Edit Team' : 'Create Team'}
               </h3>
-              <button type="button" onClick={() => setTeamModalOpen(false)}>
-                <X className="w-5 h-5" />
+              <button
+                type="button"
+                onClick={() => setTeamModalOpen(false)}
+                aria-label="Close modal"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/95 hover:text-white transition-transform hover:scale-110"
+              >
+                <X className="w-5 h-5 stroke-[2.5]" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4">
-              <div className="space-y-1">
-                <label className="block text-xs font-semibold text-slate-700">
-                  Tournament
-                </label>
-                <select
-                  value={teamTourId}
-                  onChange={(e) => setTeamTourId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                >
-                  <option value="">Select Tournament</option>
-                  {state.tournaments.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Team Full Name *
-                  </label>
+            {/* Clean Material Underline Form Body */}
+            <div className="px-7 sm:px-10 pt-9 pb-8 space-y-8 bg-white">
+              {/* Row 1: Name & Short Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-7 items-end">
+                <div>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter team full name"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    placeholder="Name"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Team Short Name *
-                  </label>
+                <div>
                   <input
                     type="text"
                     required
                     maxLength={8}
                     value={shortName}
                     onChange={(e) => setShortName(e.target.value.toUpperCase())}
-                    placeholder="e.g. CSK, MI"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono uppercase"
+                    placeholder="Short Name (Max. 8 Chars)"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors uppercase"
                   />
                 </div>
+              </div>
 
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Team Color
-                  </label>
-                  <select
-                    value={colorTag}
-                    onChange={(e) => setColorTag(e.target.value as TeamColorTag)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
-                  >
-                    {COLOR_OPTIONS.map((c) => (
-                      <option key={c} value={c}>
-                        {TEAM_COLOR_MAP[c].label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2 space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Team Place / Village / City
-                  </label>
+              {/* Row 2: Place & (Team Color + Text Color) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-7 items-end">
+                <div>
                   <input
                     type="text"
                     value={place}
                     onChange={(e) => setPlace(e.target.value)}
-                    placeholder="Enter place"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    placeholder="Place"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
                   />
                 </div>
 
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Team Logo Upload
-                  </label>
-                  <div className="flex items-center gap-3">
-                    {logoUrl ? (
-                      <img
-                        src={logoUrl}
-                        alt="Team logo"
-                        className="w-12 h-12 rounded-lg object-cover border border-slate-200"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
-                        <Camera className="w-5 h-5" />
-                      </div>
-                    )}
-                    <input
-                      ref={logoInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleImageFile(e, setLogoUrl)}
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => logoInputRef.current?.click()}
-                      className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
+                <div className="grid grid-cols-12 gap-5 items-end">
+                  <div className="col-span-8">
+                    <label className="block text-[11px] font-medium text-slate-400 mb-0.5">
+                      Team Color
+                    </label>
+                    <select
+                      value={colorTag}
+                      onChange={(e) => setColorTag(e.target.value as TeamColorTag)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
                     >
-                      Choose Logo
-                    </button>
-                    {logoUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setLogoUrl('')}
-                        className="text-xs font-semibold text-red-600"
-                      >
-                        Remove
-                      </button>
-                    )}
+                      {COLOR_OPTIONS.map((c) => (
+                        <option key={c} value={c}>
+                          {TEAM_COLOR_MAP[c].label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="col-span-4">
+                    <label className="block text-[11px] font-medium text-slate-400 mb-0.5">
+                      Text Color
+                    </label>
+                    <select
+                      value={textColor}
+                      onChange={(e) => setTextColor(e.target.value)}
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
+                    >
+                      {TEXT_COLOR_OPTIONS.map((opt) => (
+                        <option key={opt.label} value={opt.label}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setTeamModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
-              >
-                Save Team
-              </button>
+              {/* Centered Blue SUBMIT Button */}
+              <div className="pt-3 flex justify-center">
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: 1.03 }}
+                  whileTap={{ scale: 0.96 }}
+                  className="px-7 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md transition-colors cursor-pointer"
+                >
+                  SUBMIT
+                </motion.button>
+              </div>
             </div>
-          </form>
+          </motion.form>
         </div>
       )}
 
