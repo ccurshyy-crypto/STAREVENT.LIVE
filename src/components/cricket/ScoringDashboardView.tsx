@@ -14,6 +14,7 @@ import {
   Radio,
   RotateCcw,
   ShieldAlert,
+  Trophy,
   Tv,
   UserPlus,
   Users,
@@ -155,6 +156,11 @@ export function ScoringDashboardView({
   const [selectedNextBatterId, setSelectedNextBatterId] = useState('');
   const lastPromptedNewBatterKeyRef = useRef<string>('');
 
+  // Match Completed -> Confirmation Popup & Match Summary in Overs tab
+  const [matchCompleteModalOpen, setMatchCompleteModalOpen] = useState(false);
+  const [oversInningsTab, setOversInningsTab] = useState<0 | 1>(0);
+  const lastPromptedMatchCompleteKeyRef = useRef<string>('');
+
   const match: CricketMatch | undefined = useMemo(() => {
     return (
       state.matches.find((m) => m.id === state.activeMatchId) ?? state.matches[0]
@@ -225,9 +231,18 @@ export function ScoringDashboardView({
   const secondInningsSetupPromptKey =
     needsSecondInningsSetupSafe && match ? `${match.id}:inn2setup` : '';
 
+  const isMatchCompletedPendingConfirmSafe = Boolean(
+    match && match.status === 'completed' && !match.matchCompletedConfirmed
+  );
+  const matchCompletePromptKey =
+    isMatchCompletedPendingConfirmSafe && match
+      ? `${match.id}:match_complete:${match.innings[1].runs}:${match.innings[1].wickets}:${match.innings[1].legalBalls}`
+      : '';
+
   useEffect(() => {
     if (match) {
       setScorecardInningsTab(match.currentInningsIndex);
+      setOversInningsTab(match.currentInningsIndex);
     }
   }, [match?.id, match?.currentInningsIndex]);
 
@@ -288,6 +303,20 @@ export function ScoringDashboardView({
       setSecondInningsSetupModalOpen(false);
     }
   }, [secondInningsSetupPromptKey, match]);
+
+  useEffect(() => {
+    if (matchCompletePromptKey && match) {
+      if (lastPromptedMatchCompleteKeyRef.current !== matchCompletePromptKey) {
+        lastPromptedMatchCompleteKeyRef.current = matchCompletePromptKey;
+        setMatchCompleteModalOpen(true);
+      }
+    } else {
+      lastPromptedMatchCompleteKeyRef.current = '';
+      if (match?.status !== 'completed') {
+        setMatchCompleteModalOpen(false);
+      }
+    }
+  }, [matchCompletePromptKey, match]);
 
   useEffect(() => {
     return () => {
@@ -649,6 +678,30 @@ export function ScoringDashboardView({
     });
     setSecondInningsSetupModalOpen(false);
     onToast('2nd Innings Batters & Bowler confirmed! Live scoring enabled.');
+  };
+
+  const handleConfirmMatchCompleted = () => {
+    updateCurrentMatch((m) => ({
+      ...m,
+      status: 'completed',
+      matchCompletedConfirmed: true,
+    }));
+    setMatchCompleteModalOpen(false);
+    setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
+    setActiveTab('overs');
+    onToast('Match confirmed completed! Match Summary & Overs opened.');
+  };
+
+  const handleShowSummaryOnOverlay = () => {
+    updateState((prev) => ({
+      ...prev,
+      overlay: {
+        ...prev.overlay,
+        mainCard: { kind: 'MATCH_STATS', mode: 'Match Summary' },
+        bottomScoreMode: 'Result',
+      },
+    }));
+    onToast('Match Summary & Result sent to Live Broadcast Overlay!');
   };
 
   const handleCompleteInningsOrMatch = () => {
@@ -1276,7 +1329,10 @@ export function ScoringDashboardView({
             [
               { id: 'scoring', label: 'SCORING PANEL' },
               { id: 'scorecard', label: 'SCORECARD' },
-              { id: 'overs', label: 'OVERS' },
+              {
+                id: 'overs',
+                label: match.status === 'completed' ? 'OVERS & SUMMARY' : 'OVERS',
+              },
               { id: 'overlay', label: 'OVERLAY' },
             ] as const
           ).map((tab) => (
@@ -1411,6 +1467,31 @@ export function ScoringDashboardView({
                 >
                   <Play className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>CONFIRM &amp; SWITCH TO 2ND INNINGS</span>
+                </button>
+              )}
+
+              {match.status === 'completed' && !match.matchCompletedConfirmed && (
+                <button
+                  type="button"
+                  onClick={() => setMatchCompleteModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-black tracking-wide shadow-xs animate-pulse"
+                >
+                  <Trophy className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>CONFIRM MATCH COMPLETED</span>
+                </button>
+              )}
+
+              {match.status === 'completed' && match.matchCompletedConfirmed && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
+                    setActiveTab('overs');
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold shadow-xs"
+                >
+                  <Trophy className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Match Summary</span>
                 </button>
               )}
 
@@ -1788,8 +1869,101 @@ export function ScoringDashboardView({
             </div>
           </div>
 
-          {/* Animated Innings End / Over Completion Pause Banner & New Bowler Confirmed Banner */}
+          {/* Animated Match Complete / Innings End / Over Completion Pause Banner & New Bowler Confirmed Banner */}
           <AnimatePresence mode="wait">
+            {match.status === 'completed' && !match.matchCompletedConfirmed && (
+              <motion.div
+                key={`match-completed-pending-${inn2.runs}-${inn2.legalBalls}`}
+                initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+                className="rounded-xl bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#D97706] text-white p-4 shadow-md border border-amber-500 flex flex-wrap items-center justify-between gap-3"
+                role="alert"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <motion.div
+                    animate={{ scale: [1, 1.12, 1], rotate: [0, -6, 6, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity }}
+                    className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/30"
+                  >
+                    <Trophy className="w-6 h-6 text-white" aria-hidden="true" />
+                  </motion.div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
+                        MATCH COMPLETED!
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
+                        CONFIRM TO OPEN SUMMARY
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-amber-50">
+                      {match.resultText}
+                    </p>
+                    <p className="text-[11px] text-orange-100 mt-0.5 tabular-nums">
+                      {inn1Team?.shortName || 'T1'}: {inn1.runs}/{inn1.wickets} ({formatOvers(inn1.legalBalls)}) ·{' '}
+                      {inn2Team?.shortName || 'T2'}: {inn2.runs}/{inn2.wickets} ({formatOvers(inn2.legalBalls)})
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {match.undoStack.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleUndo}
+                      className="inline-flex items-center gap-1 px-3 py-2.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-white text-xs font-bold"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>UNDO</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setMatchCompleteModalOpen(true)}
+                    className="px-4 py-2.5 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                    <span>CONFIRM MATCH COMPLETED</span>
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {match.status === 'completed' && match.matchCompletedConfirmed && (
+              <motion.div
+                key={`match-completed-confirmed-${match.id}`}
+                initial={{ opacity: 0, y: -10, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                className="rounded-xl bg-emerald-50 border-2 border-emerald-400 px-4 py-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <Trophy className="w-5 h-5" aria-hidden="true" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display font-black text-sm text-emerald-950 uppercase tracking-wide">
+                      MATCH OVER — CONFIRMED
+                    </p>
+                    <p className="text-xs font-bold text-emerald-800 truncate">
+                      {match.resultText}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
+                    setActiveTab('overs');
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
+                >
+                  OPEN MATCH SUMMARY
+                </button>
+              </motion.div>
+            )}
+
             {isFirstInningsEnded && (
               <motion.div
                 key={`innings-ended-${inn1.runs}-${inn1.legalBalls}`}
@@ -2364,106 +2538,442 @@ export function ScoringDashboardView({
         </div>
       )}
 
-      {/* ================= TAB 3: OVERS ================= */}
-      {activeTab === 'overs' && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#FF8C00] mb-2">
-                Current Over (Over {currentOverNumber + 1})
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {thisOverBalls.length > 0 ? (
-                  thisOverBalls.map(renderBallChip)
-                ) : (
-                  <span className="text-xs text-slate-400">Awaiting first delivery.</span>
-                )}
-              </div>
-            </div>
+      {/* ================= TAB 3: OVERS & MATCH OVER SUMMARY ================= */}
+      {activeTab === 'overs' && (() => {
+        const selectedOverInn = match.innings[oversInningsTab];
+        const selectedOverBatTeam = teamMap.get(selectedOverInn.battingTeamId);
+        const selectedOverBowlTeam = teamMap.get(selectedOverInn.bowlingTeamId);
+        const selectedOversList = computeOversBreakdown(selectedOverInn);
 
-            <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Previous Over {currentOverNumber > 0 ? `(Over ${currentOverNumber})` : ''}
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {prevOverBalls.length > 0 ? (
-                  prevOverBalls.map(renderBallChip)
-                ) : (
-                  <span className="text-xs text-slate-400">No previous over yet.</span>
-                )}
-              </div>
-            </div>
-          </div>
+        const inn1BatSummary = computeBattingCard(inn1, inn1Team);
+        const inn1BowlTeamObj = teamMap.get(inn1.bowlingTeamId);
+        const inn1BowlSummary = computeBowlingCard(inn1, inn1BowlTeamObj);
 
-          <div className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-            <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
-              <h3 className="font-display font-bold text-sm text-slate-900">
-                Complete Over-by-Over History ({battingTeam?.name || 'Batting Team'})
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase border-b border-slate-200">
-                  <tr>
-                    <th className="px-4 py-2.5">Over</th>
-                    <th className="px-3 py-2.5">Bowler</th>
-                    <th className="px-3 py-2.5">Ball-by-Ball</th>
-                    <th className="px-3 py-2.5 text-right">Runs</th>
-                    <th className="px-3 py-2.5 text-right">Wkts</th>
-                    <th className="px-3 py-2.5 text-right">Extras</th>
-                    <th className="px-4 py-2.5 text-right">Score</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {oversBreakdown.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
-                        No overs bowled yet.
-                      </td>
-                    </tr>
-                  ) : (
-                    oversBreakdown
-                      .slice()
-                      .reverse()
-                      .map((ov) => {
-                        const bowlerObj = bowlingTeam?.players.find(
-                          (p) => p.id === ov.bowlerId
-                        );
-                        return (
-                          <tr key={ov.overNumber} className="hover:bg-slate-50/70">
-                            <td className="px-4 py-3 font-bold text-[#FF8C00]">
-                              Over {ov.overNumber}
-                            </td>
-                            <td className="px-3 py-3 font-medium text-slate-800">
-                              {bowlerObj?.name || 'Bowler'}
-                            </td>
-                            <td className="px-3 py-3">
-                              <div className="flex flex-wrap gap-1">
-                                {ov.balls.map(renderBallChip)}
+        const inn2BatSummary = computeBattingCard(inn2, inn2Team);
+        const inn2BowlTeamObj = teamMap.get(inn2.bowlingTeamId);
+        const inn2BowlSummary = computeBowlingCard(inn2, inn2BowlTeamObj);
+
+        const inn1Fours = inn1.balls.filter((b) => b.isBoundary4).length;
+        const inn1Sixes = inn1.balls.filter((b) => b.isBoundary6).length;
+        const inn1ExtrasTotal =
+          inn1.extras.wd + inn1.extras.nb + inn1.extras.lb + inn1.extras.bye + inn1.extras.penalty;
+
+        const inn2Fours = inn2.balls.filter((b) => b.isBoundary4).length;
+        const inn2Sixes = inn2.balls.filter((b) => b.isBoundary6).length;
+        const inn2ExtrasTotal =
+          inn2.extras.wd + inn2.extras.nb + inn2.extras.lb + inn2.extras.bye + inn2.extras.penalty;
+
+        const topBat1 = [...inn1BatSummary]
+          .sort((a, b) => b.runs - a.runs || a.balls - b.balls)
+          .slice(0, 3);
+        const topBowl1 = [...inn1BowlSummary]
+          .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs)
+          .slice(0, 3);
+        const topBat2 = [...inn2BatSummary]
+          .sort((a, b) => b.runs - a.runs || a.balls - b.balls)
+          .slice(0, 3);
+        const topBowl2 = [...inn2BowlSummary]
+          .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs)
+          .slice(0, 3);
+
+        const pomPlayer = match.playerOfMatchId
+          ? [...(team1?.players ?? []), ...(team2?.players ?? [])].find(
+              (p) => p.id === match.playerOfMatchId
+            )
+          : undefined;
+        const pomTeam = match.playerOfMatchId
+          ? team1?.players.some((p) => p.id === match.playerOfMatchId)
+            ? team1
+            : team2
+          : undefined;
+
+        return (
+          <div className="space-y-4">
+            {/* COMPLETE MATCH SUMMARY (Shown when match is completed) */}
+            {match.status === 'completed' && (
+              <div className="rounded-2xl bg-white border-2 border-[#FF8C00] shadow-sm overflow-hidden">
+                {/* Result & Trophy Banner */}
+                <div className="bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#D97706] text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0">
+                      <Trophy className="w-6 h-6 text-white" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-white/20">
+                          MATCH SUMMARY · {match.stageBadge}
+                        </span>
+                        <span className="text-[11px] font-semibold text-orange-100">
+                          {tournament?.name || 'Tournament'} · {match.matchLabel}
+                        </span>
+                      </div>
+                      <h2 className="font-display font-black text-lg sm:text-xl tracking-wide mt-0.5">
+                        {match.resultText}
+                      </h2>
+                      <p className="text-[11px] text-orange-100 mt-0.5">
+                        Toss: {teamMap.get(match.tossWinnerId)?.name || team1?.name || 'Team 1'} won &amp; elected to {match.tossDecision}
+                        {match.venue ? ` · Venue: ${match.venue}` : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleShowSummaryOnOverlay}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] text-xs font-black shadow-xs transition-colors"
+                    >
+                      <Tv className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Show Summary on Overlay</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPomId(match.playerOfMatchId || '');
+                        setPomModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-amber-300 hover:bg-amber-200 text-slate-950 text-xs font-bold transition-colors"
+                    >
+                      <Award className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{pomPlayer ? 'Edit POM' : 'Set POM'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('scorecard')}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-xs font-bold transition-colors"
+                    >
+                      <span>Full Scorecard</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div className="p-4 sm:p-5 space-y-5">
+                  {/* Both Innings Final Score Comparison */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div className="rounded-xl bg-[#FFF3E0]/55 border border-[#FF8C00]/30 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#E87500]">
+                          1st Innings
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500 tabular-nums">
+                          RR {calcRunRate(inn1.runs, inn1.legalBalls)}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="font-display font-bold text-base text-slate-900 truncate">
+                          {inn1Team?.name || 'Team 1'}
+                        </p>
+                        <p className="font-display font-black text-2xl text-[#FF8C00] tabular-nums shrink-0">
+                          {inn1.runs}/{inn1.wickets}{' '}
+                          <span className="text-xs font-bold text-slate-600">
+                            ({formatOvers(inn1.legalBalls)}/{inn1.maxOvers} ov)
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600 pt-1 border-t border-[#FF8C00]/15">
+                        <span>4s: <strong className="text-slate-900">{inn1Fours}</strong></span>
+                        <span>6s: <strong className="text-slate-900">{inn1Sixes}</strong></span>
+                        <span>Extras: <strong className="text-slate-900">{inn1ExtrasTotal}</strong></span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-emerald-50/70 border border-emerald-200 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700">
+                          2nd Innings · Target {inn2.target ?? inn1.runs + 1}
+                        </span>
+                        <span className="text-[11px] font-bold text-slate-500 tabular-nums">
+                          RR {calcRunRate(inn2.runs, inn2.legalBalls)}
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="font-display font-bold text-base text-slate-900 truncate">
+                          {inn2Team?.name || 'Team 2'}
+                        </p>
+                        <p className="font-display font-black text-2xl text-emerald-700 tabular-nums shrink-0">
+                          {inn2.runs}/{inn2.wickets}{' '}
+                          <span className="text-xs font-bold text-slate-600">
+                            ({formatOvers(inn2.legalBalls)}/{inn2.maxOvers} ov)
+                          </span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-3 text-[11px] font-semibold text-slate-600 pt-1 border-t border-emerald-200/70">
+                        <span>4s: <strong className="text-slate-900">{inn2Fours}</strong></span>
+                        <span>6s: <strong className="text-slate-900">{inn2Sixes}</strong></span>
+                        <span>Extras: <strong className="text-slate-900">{inn2ExtrasTotal}</strong></span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Player of the Match Highlight */}
+                  <div className="rounded-xl bg-amber-50/80 border border-amber-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Award className="w-5 h-5" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                          Player of the Match
+                        </p>
+                        <p className="font-display font-bold text-sm sm:text-base text-slate-900 truncate">
+                          {pomPlayer
+                            ? `${pomPlayer.name} (${pomTeam?.shortName || 'Team'})`
+                            : 'Not selected yet'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPomId(match.playerOfMatchId || '');
+                        setPomModalOpen(true);
+                      }}
+                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold shrink-0"
+                    >
+                      {pomPlayer ? 'Change Player' : 'Select Player of the Match'}
+                    </button>
+                  </div>
+
+                  {/* Top Performers — Both Innings */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* 1st Innings Top Batters & Bowlers */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-3">
+                      <h4 className="font-display font-bold text-xs uppercase tracking-wider text-[#E87500]">
+                        1st Innings Top Performers
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase text-slate-500">
+                            Batting ({inn1Team?.shortName || 'T1'})
+                          </p>
+                          {topBat1.length === 0 ? (
+                            <p className="text-xs text-slate-400">No batting records.</p>
+                          ) : (
+                            topBat1.map((b) => (
+                              <div
+                                key={b.playerId}
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                              >
+                                <span className="font-semibold text-slate-800 truncate">
+                                  {b.playerName}
+                                </span>
+                                <span className="font-black text-slate-900 tabular-nums shrink-0">
+                                  {b.runs}
+                                  {b.isOut ? '' : '*'} ({b.balls})
+                                </span>
                               </div>
-                            </td>
-                            <td className="px-3 py-3 text-right font-bold text-slate-900 tabular-nums">
-                              {ov.runsInOver}
-                            </td>
-                            <td className="px-3 py-3 text-right font-bold text-red-600 tabular-nums">
-                              {ov.wicketsInOver}
-                            </td>
-                            <td className="px-3 py-3 text-right text-emerald-700 tabular-nums">
-                              {ov.extrasInOver}
-                            </td>
-                            <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">
-                              {ov.cumulativeRuns}/{ov.cumulativeWickets}
-                            </td>
-                          </tr>
-                        );
-                      })
-                  )}
-                </tbody>
-              </table>
+                            ))
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase text-slate-500">
+                            Bowling ({inn1BowlTeamObj?.shortName || 'T2'})
+                          </p>
+                          {topBowl1.length === 0 ? (
+                            <p className="text-xs text-slate-400">No bowling records.</p>
+                          ) : (
+                            topBowl1.map((b) => (
+                              <div
+                                key={b.playerId}
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                              >
+                                <span className="font-semibold text-slate-800 truncate">
+                                  {b.playerName}
+                                </span>
+                                <span className="font-black text-red-600 tabular-nums shrink-0">
+                                  {b.wickets}/{b.runs} ({b.overs})
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2nd Innings Top Batters & Bowlers */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 space-y-3">
+                      <h4 className="font-display font-bold text-xs uppercase tracking-wider text-emerald-700">
+                        2nd Innings Top Performers
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase text-slate-500">
+                            Batting ({inn2Team?.shortName || 'T2'})
+                          </p>
+                          {topBat2.length === 0 ? (
+                            <p className="text-xs text-slate-400">No batting records.</p>
+                          ) : (
+                            topBat2.map((b) => (
+                              <div
+                                key={b.playerId}
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                              >
+                                <span className="font-semibold text-slate-800 truncate">
+                                  {b.playerName}
+                                </span>
+                                <span className="font-black text-slate-900 tabular-nums shrink-0">
+                                  {b.runs}
+                                  {b.isOut ? '' : '*'} ({b.balls})
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <p className="text-[10px] font-bold uppercase text-slate-500">
+                            Bowling ({inn2BowlTeamObj?.shortName || 'T1'})
+                          </p>
+                          {topBowl2.length === 0 ? (
+                            <p className="text-xs text-slate-400">No bowling records.</p>
+                          ) : (
+                            topBowl2.map((b) => (
+                              <div
+                                key={b.playerId}
+                                className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-xs"
+                              >
+                                <span className="font-semibold text-slate-800 truncate">
+                                  {b.playerName}
+                                </span>
+                                <span className="font-black text-red-600 tabular-nums shrink-0">
+                                  {b.wickets}/{b.runs} ({b.overs})
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Current & Previous Over Cards (when live) */}
+            {match.status !== 'completed' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#FF8C00] mb-2">
+                    Current Over (Over {currentOverNumber + 1})
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {thisOverBalls.length > 0 ? (
+                      thisOverBalls.map(renderBallChip)
+                    ) : (
+                      <span className="text-xs text-slate-400">Awaiting first delivery.</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
+                    Previous Over {currentOverNumber > 0 ? `(Over ${currentOverNumber})` : ''}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {prevOverBalls.length > 0 ? (
+                      prevOverBalls.map(renderBallChip)
+                    ) : (
+                      <span className="text-xs text-slate-400">No previous over yet.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Innings Switcher for Over-by-Over History */}
+            <div className="flex flex-wrap items-center gap-2">
+              {([0, 1] as const).map((idx) => {
+                const t = idx === 0 ? inn1Team : inn2Team;
+                const inn = match.innings[idx];
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setOversInningsTab(idx)}
+                    className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                      oversInningsTab === idx
+                        ? 'bg-[#FF8C00] text-white border-[#FF8C00]'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    {idx === 0 ? '1st Innings Overs' : '2nd Innings Overs'} ·{' '}
+                    {t?.shortName || `Team ${idx + 1}`} ({inn.runs}/{inn.wickets},{' '}
+                    {formatOvers(inn.legalBalls)})
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
+              <div className="px-4 py-3 bg-slate-50 border-b border-slate-200">
+                <h3 className="font-display font-bold text-sm text-slate-900">
+                  Complete Over-by-Over History ({selectedOverBatTeam?.name || 'Batting Team'})
+                </h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs sm:text-sm">
+                  <thead className="bg-slate-50 text-slate-500 text-[11px] uppercase border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 py-2.5">Over</th>
+                      <th className="px-3 py-2.5">Bowler</th>
+                      <th className="px-3 py-2.5">Ball-by-Ball</th>
+                      <th className="px-3 py-2.5 text-right">Runs</th>
+                      <th className="px-3 py-2.5 text-right">Wkts</th>
+                      <th className="px-3 py-2.5 text-right">Extras</th>
+                      <th className="px-4 py-2.5 text-right">Score</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {selectedOversList.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
+                          No overs bowled yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      selectedOversList
+                        .slice()
+                        .reverse()
+                        .map((ov) => {
+                          const bowlerObj = selectedOverBowlTeam?.players.find(
+                            (p) => p.id === ov.bowlerId
+                          );
+                          return (
+                            <tr key={ov.overNumber} className="hover:bg-slate-50/70">
+                              <td className="px-4 py-3 font-bold text-[#FF8C00]">
+                                Over {ov.overNumber}
+                              </td>
+                              <td className="px-3 py-3 font-medium text-slate-800">
+                                {bowlerObj?.name || 'Bowler'}
+                              </td>
+                              <td className="px-3 py-3">
+                                <div className="flex flex-wrap gap-1">
+                                  {ov.balls.map(renderBallChip)}
+                                </div>
+                              </td>
+                              <td className="px-3 py-3 text-right font-bold text-slate-900 tabular-nums">
+                                {ov.runsInOver}
+                              </td>
+                              <td className="px-3 py-3 text-right font-bold text-red-600 tabular-nums">
+                                {ov.wicketsInOver}
+                              </td>
+                              <td className="px-3 py-3 text-right text-emerald-700 tabular-nums">
+                                {ov.extrasInOver}
+                              </td>
+                              <td className="px-4 py-3 text-right font-bold text-slate-900 tabular-nums">
+                                {ov.cumulativeRuns}/{ov.cumulativeWickets}
+                              </td>
+                            </tr>
+                          );
+                        })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ================= TAB 4: OVERLAY CONTROL ================= */}
       {activeTab === 'overlay' && (
@@ -4047,6 +4557,149 @@ export function ScoringDashboardView({
                 >
                   <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                   <span>CONFIRM &amp; START 2ND INNINGS</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: MATCH COMPLETED — CONFIRM MATCH OVER ================= */}
+      <AnimatePresence>
+        {matchCompleteModalOpen && match.status === 'completed' && (
+          <motion.div
+            key="match-complete-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/65 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="match-complete-title"
+          >
+            <motion.div
+              key="match-complete-card"
+              initial={{ opacity: 0, scale: 0.92, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 14 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+              className="w-full max-w-lg rounded-2xl bg-white border-2 border-[#FF8C00] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#D97706] text-white px-5 py-4 flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <motion.div
+                    animate={{ scale: [1, 1.12, 1], rotate: [0, -6, 6, 0] }}
+                    transition={{ duration: 1.4, repeat: Infinity }}
+                    className="w-11 h-11 rounded-xl bg-white/20 border border-white/30 flex items-center justify-center shrink-0"
+                  >
+                    <Trophy className="w-6 h-6 text-white" aria-hidden="true" />
+                  </motion.div>
+                  <div>
+                    <h3
+                      id="match-complete-title"
+                      className="font-display font-black text-base sm:text-lg tracking-wide uppercase"
+                    >
+                      MATCH COMPLETED!
+                    </h3>
+                    <p className="text-xs font-bold text-[#FFF3E0] mt-0.5">
+                      Confirm match over to open complete Match Summary &amp; Overs
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMatchCompleteModalOpen(false)}
+                  aria-label="Close match completed popup"
+                  className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
+                {/* Winner / Result Highlight */}
+                <div className="rounded-xl bg-emerald-50 border-2 border-emerald-300 px-4 py-3 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700">
+                    OFFICIAL MATCH RESULT
+                  </p>
+                  <p className="font-display font-black text-lg sm:text-xl text-emerald-950 mt-0.5">
+                    {match.resultText}
+                  </p>
+                </div>
+
+                {/* 1st & 2nd Innings Final Score Comparison */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[#E87500]">
+                      1st Innings
+                    </p>
+                    <p className="font-display font-bold text-sm text-slate-900 truncate mt-0.5">
+                      {inn1Team?.name || 'Team 1'}
+                    </p>
+                    <p className="font-display font-black text-2xl text-[#FF8C00] tabular-nums mt-1">
+                      {inn1.runs}/{inn1.wickets}
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-600 tabular-nums">
+                      Overs: {formatOvers(inn1.legalBalls)} / {inn1.maxOvers}
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                      2nd Innings
+                    </p>
+                    <p className="font-display font-bold text-sm text-slate-900 truncate mt-0.5">
+                      {inn2Team?.name || 'Team 2'}
+                    </p>
+                    <p className="font-display font-black text-2xl text-emerald-700 tabular-nums mt-1">
+                      {inn2.runs}/{inn2.wickets}
+                    </p>
+                    <p className="text-[11px] font-semibold text-emerald-800 tabular-nums">
+                      Overs: {formatOvers(inn2.legalBalls)} / {inn2.maxOvers}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 text-center">
+                  Confirm karne ke baad <strong>Overs &amp; Match Summary</strong> open ho jayega jisme dono innings ke scores, top batters, top bowlers, Player of the Match aur over-by-over history dikhegi.
+                </p>
+              </div>
+
+              {/* Footer Actions */}
+              <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMatchCompleteModalOpen(false)}
+                    className="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs font-bold text-slate-700"
+                  >
+                    CANCEL
+                  </button>
+                  {match.undoStack.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMatchCompleteModalOpen(false);
+                        handleUndo();
+                      }}
+                      className="inline-flex items-center gap-1 px-3 py-2.5 rounded-xl bg-orange-100 hover:bg-orange-200 text-[#E87500] text-xs font-bold"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>UNDO</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleConfirmMatchCompleted}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#16A34A] hover:bg-[#15803D] text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
+                >
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  <span>CONFIRM MATCH OVER &amp; OPEN SUMMARY</span>
                 </button>
               </div>
             </motion.div>

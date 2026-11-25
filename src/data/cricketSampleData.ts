@@ -1285,6 +1285,7 @@ export function undoLastDelivery(match: CricketMatch): CricketMatch {
     currentInningsIndex: last.currentInningsIndex,
     innings: last.innings,
     status: last.status,
+    matchCompletedConfirmed: last.status === 'completed' ? match.matchCompletedConfirmed : false,
     resultText: last.resultText,
     undoStack: match.undoStack.slice(0, -1),
   };

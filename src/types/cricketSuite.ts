@@ -240,6 +240,7 @@ export interface CricketMatch {
   tossCompleted?: boolean;
   oversPerInnings: number;
   status: MatchStatus;
+  matchCompletedConfirmed?: boolean;
   resultText: string;
   currentInningsIndex: 0 | 1;
   innings: [InningsState, InningsState];
