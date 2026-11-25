@@ -302,7 +302,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search team by name, short name, or place..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#303F9F] focus:bg-white focus:outline-none text-sm"
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none text-sm"
             />
           </div>
         </div>
@@ -310,7 +310,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         <button
           type="button"
           onClick={openCreateTeam}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
         >
           <Plus className="w-4 h-4" />
           <span>CREATE TEAM</span>
@@ -320,8 +320,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
       {/* Blank State or Table */}
       {filteredTeams.length === 0 ? (
         <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-indigo-50 flex items-center justify-center">
-            <Users className="w-6 h-6 text-[#303F9F]" />
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] flex items-center justify-center">
+            <Users className="w-6 h-6 text-[#FF8C00]" />
           </div>
           <h2 className="font-display font-bold text-base text-slate-900">
             No Teams Created Yet
@@ -332,7 +332,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
           <button
             type="button"
             onClick={openCreateTeam}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE TEAM</span>
@@ -398,7 +398,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                           <button
                             type="button"
                             onClick={() => openEditTeam(team)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#E87500] hover:bg-[#D06600] text-white text-xs font-semibold"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             Edit
@@ -409,7 +409,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                               setPlayersModalTeamId(team.id);
                               resetPlayerForm();
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap"
                           >
                             <UserPlus className="w-3.5 h-3.5" />
                             Add Players ({team.players.length})
@@ -463,7 +463,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             onSubmit={handleSaveTeam}
             className="w-full max-w-lg rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto"
           >
-            <div className="px-5 py-4 bg-[#303F9F] text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
               <h3 className="font-display font-bold text-base">
                 {editingTeamId ? 'Edit Team' : 'Create Team'}
               </h3>
@@ -605,7 +605,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+                className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
               >
                 Save Team
               </button>
@@ -622,12 +622,12 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
           aria-modal="true"
         >
           <div className="w-full max-w-3xl rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto">
-            <div className="px-5 py-4 bg-[#303F9F] text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
               <div>
                 <h3 className="font-display font-bold text-base">
                   Squad Players · {activePlayersTeam.name}
                 </h3>
-                <p className="text-xs text-indigo-100">
+                <p className="text-xs text-orange-100">
                   {activePlayersTeam.players.length} players registered
                 </p>
               </div>
@@ -649,7 +649,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3"
               >
                 <div className="flex items-center justify-between">
-                  <p className="text-xs font-bold uppercase tracking-wide text-[#303F9F]">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#FF8C00]">
                     {editingPlayerId ? 'Edit Player' : 'Add New Player'}
                   </p>
                   {editingPlayerId && (
@@ -751,7 +751,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                         type="checkbox"
                         checked={isCaptain}
                         onChange={(e) => setIsCaptain(e.target.checked)}
-                        className="rounded border-slate-300 text-[#303F9F]"
+                        className="rounded border-slate-300 text-[#FF8C00]"
                       />
                       Captain (C)
                     </label>
@@ -761,7 +761,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                         type="checkbox"
                         checked={isWicketKeeper}
                         onChange={(e) => setIsWicketKeeper(e.target.checked)}
-                        className="rounded border-slate-300 text-[#303F9F]"
+                        className="rounded border-slate-300 text-[#FF8C00]"
                       />
                       Wicketkeeper (WK)
                     </label>
@@ -787,7 +787,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
 
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{editingPlayerId ? 'Update Player' : 'Add Player'}</span>
@@ -829,7 +829,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                                   className="w-7 h-7 rounded-full object-cover border border-slate-200"
                                 />
                               ) : (
-                                <div className="w-7 h-7 rounded-full bg-indigo-50 text-[#303F9F] font-bold flex items-center justify-center text-[10px]">
+                                <div className="w-7 h-7 rounded-full bg-[#FFF3E0] text-[#FF8C00] font-bold flex items-center justify-center text-[10px]">
                                   {p.name.slice(0, 2).toUpperCase()}
                                 </div>
                               )}
@@ -849,7 +849,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                               <button
                                 type="button"
                                 onClick={() => startEditPlayer(p)}
-                                className="px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold"
+                                className="px-2 py-1 rounded bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] font-semibold"
                               >
                                 Edit
                               </button>

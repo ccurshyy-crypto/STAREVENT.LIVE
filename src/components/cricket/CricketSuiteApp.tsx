@@ -203,8 +203,8 @@ export function CricketSuiteApp({
   const navItemClass = (isActive: boolean) =>
     `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-colors ${
       isActive
-        ? 'bg-[#303F9F] text-white shadow-xs'
-        : 'text-slate-700 hover:text-[#303F9F] hover:bg-indigo-50'
+        ? 'bg-[#FFF3E0] text-[#E87500] border border-[#FF8C00]/30 shadow-xs'
+        : 'text-slate-700 hover:text-[#FF8C00] hover:bg-[#FFF3E0]/70'
     }`;
 
   const renderSidebarContent = (isMobileDrawer: boolean) => (
@@ -220,7 +220,7 @@ export function CricketSuiteApp({
               className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-[#303F9F] flex items-center justify-center font-display font-black text-sm text-white shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[#FF8C00] flex items-center justify-center font-display font-black text-sm text-white shrink-0">
               SE
             </div>
           )}
@@ -268,8 +268,8 @@ export function CricketSuiteApp({
               activeRoute === 'tournament' ||
               activeRoute === 'tournament-groups' ||
               activeRoute === 'tournament-teams'
-                ? 'bg-indigo-50 text-[#303F9F]'
-                : 'text-slate-700 hover:text-[#303F9F] hover:bg-indigo-50'
+                ? 'bg-[#FFF3E0] text-[#E87500]'
+                : 'text-slate-700 hover:text-[#FF8C00] hover:bg-[#FFF3E0]/70'
             }`}
           >
             <span className="flex items-center gap-3">
@@ -416,8 +416,8 @@ export function CricketSuiteApp({
 
   return (
     <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900">
-      {/* Blue Dashboard Header (#303F9F) */}
-      <header className="sticky top-0 z-30 bg-[#303F9F] text-white shadow-sm px-3 sm:px-5 py-3">
+      {/* Orange Dashboard Header (#FF8C00) */}
+      <header className="sticky top-0 z-30 bg-[#FF8C00] text-white shadow-sm px-3 sm:px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button

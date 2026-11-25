@@ -310,14 +310,14 @@ export function MatchListView({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search match by tournament, team name, or match name..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#303F9F] focus:bg-white focus:outline-none text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none text-sm"
           />
         </div>
 
         <button
           type="button"
           onClick={openCreateMatch}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
         >
           <Plus className="w-4 h-4" />
           <span>CREATE MATCH</span>
@@ -327,8 +327,8 @@ export function MatchListView({
       {/* Clean Blank Match List or Table */}
       {filteredMatches.length === 0 ? (
         <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-indigo-50 flex items-center justify-center">
-            <Radio className="w-6 h-6 text-[#303F9F]" />
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] flex items-center justify-center">
+            <Radio className="w-6 h-6 text-[#FF8C00]" />
           </div>
           <h2 className="font-display font-bold text-base text-slate-900">
             No Matches Created Yet
@@ -339,7 +339,7 @@ export function MatchListView({
           <button
             type="button"
             onClick={openCreateMatch}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE MATCH</span>
@@ -393,7 +393,7 @@ export function MatchListView({
                             m.status === 'live'
                               ? 'text-emerald-700'
                               : m.status === 'completed'
-                                ? 'text-blue-700'
+                                ? 'text-[#E87500]'
                                 : 'text-slate-600'
                           }`}
                         >
@@ -415,7 +415,7 @@ export function MatchListView({
                           <button
                             type="button"
                             onClick={() => onOpenScoring(m.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap"
                           >
                             <Play className="w-3.5 h-3.5" />
                             OPEN SCORING
@@ -423,7 +423,7 @@ export function MatchListView({
                           <button
                             type="button"
                             onClick={() => openEditMatch(m)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-semibold"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             EDIT
@@ -477,7 +477,7 @@ export function MatchListView({
             onSubmit={handleSaveMatch}
             className="w-full max-w-xl rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto"
           >
-            <div className="px-5 py-4 bg-[#303F9F] text-white flex items-center justify-between">
+            <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
               <h3 className="font-display font-bold text-base">
                 {editingId ? 'Edit Match' : 'Create Match'}
               </h3>
@@ -697,7 +697,7 @@ export function MatchListView({
               <button
                 type="submit"
                 disabled={tourTeams.length < 2}
-                className="px-5 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] disabled:opacity-50 text-white text-xs font-semibold"
+                className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-semibold"
               >
                 {editingId ? 'Save Match' : 'Create & Open Scoring'}
               </button>

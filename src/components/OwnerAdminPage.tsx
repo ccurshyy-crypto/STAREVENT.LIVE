@@ -329,7 +329,7 @@ function OverlayAccountsManager({
         <button
           type="submit"
           disabled={saving}
-          className="w-full min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#303F9F] hover:bg-[#3949AB] disabled:opacity-60 text-white font-display font-bold text-xs uppercase tracking-wide"
+          className="w-full min-h-[42px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-60 text-white font-display font-bold text-xs uppercase tracking-wide"
         >
           <Plus className="w-4 h-4 text-[#FFE600]" />
           <span>{saving ? 'Creating...' : 'Create Overlay Controller Account'}</span>
@@ -397,7 +397,7 @@ function OverlayAccountsManager({
                       setEditUid(acct.uid);
                       setEditNewPassword('');
                     }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/70 border border-blue-500/40 text-[11px] font-bold text-blue-200"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#FF8C00]/20 hover:bg-[#FF8C00]/30 border border-[#FF8C00]/40 text-[11px] font-bold text-orange-200"
                   >
                     <Edit3 className="w-3 h-3" />
                     Edit / Reset Pass
