@@ -1,9 +1,5 @@
-import { useState } from 'react';
 import {
   ArrowRight,
-  Check,
-  Copy,
-  ExternalLink,
   Palette,
   Radio,
   Trophy,
@@ -12,11 +8,12 @@ import {
 } from 'lucide-react';
 import { getThemePalette } from '../../data/cricketSampleData';
 import { CricketSuiteState, SidebarRoute } from '../../types/cricketSuite';
+import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 
 interface CricketHomeViewProps {
   state: CricketSuiteState;
   overlayUrl: string;
-  onCopyOverlayUrl: () => void;
+  onCopyOverlayUrl: (url?: string, label?: string) => void;
   onNavigate: (route: SidebarRoute) => void;
 }
 
@@ -26,13 +23,6 @@ export function CricketHomeView({
   onCopyOverlayUrl,
   onNavigate,
 }: CricketHomeViewProps) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    onCopyOverlayUrl();
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1800);
-  };
 
   const activeTheme = getThemePalette(state.user.userTheme, state.user.customThemeColors);
 
@@ -80,7 +70,7 @@ export function CricketHomeView({
     },
     {
       step: '04',
-      title: 'Control vMix Scoreboard Overlay',
+      title: 'Control OBS / vMix Scoreboard Overlay',
       done: false,
       route: 'overlay',
       cta: 'Overlay Login',
@@ -201,11 +191,11 @@ export function CricketHomeView({
         </div>
       </div>
 
-      {/* User Details & Public vMix Link Card */}
+      {/* User Details & Public OBS / vMix Overlay Link Card */}
       <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
         <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display font-bold text-base text-slate-900">
-            Account &amp; vMix Output Details
+            Account &amp; OBS / vMix Output Details
           </h2>
           <span className="font-mono text-xs font-semibold text-slate-600">
             UID: {state.uid}
@@ -227,36 +217,12 @@ export function CricketHomeView({
             </div>
           ))}
 
-          {/* Public vMix Link Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 px-5 py-4 bg-[#FFF3E0]/70 items-center">
-            <div className="sm:col-span-4 text-xs sm:text-sm font-bold text-[#E87500]">
-              Public vMix / OBS Overlay Link
-            </div>
-            <div className="sm:col-span-8 flex flex-wrap items-center gap-2">
-              <div className="flex-1 min-w-[200px] flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-3 py-2">
-                <span className="font-mono text-xs text-slate-700 truncate flex-1">
-                  {overlayUrl}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  aria-label="Copy vMix overlay link"
-                  className="p-1.5 rounded-md bg-slate-100 hover:bg-[#FF8C00] text-slate-700 hover:text-white transition-colors shrink-0"
-                >
-                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <a
-                href={overlayUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold transition-colors whitespace-nowrap"
-              >
-                <span>Open Public Output</span>
-                <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-              </a>
-            </div>
+          {/* Public OBS / vMix Overlay Link Section */}
+          <div className="px-5 py-4 bg-[#FFF3E0]/55">
+            <ObsVmixLinkPanel
+              baseOverlayUrl={overlayUrl}
+              onCopyUrl={(url, label) => onCopyOverlayUrl(url, label)}
+            />
           </div>
         </div>
       </div>

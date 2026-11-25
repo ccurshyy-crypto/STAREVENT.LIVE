@@ -325,7 +325,7 @@ export function useCricketOverlayListener(rawUid: string) {
     const matchRowId = getSupabaseMatchId(uid);
     const supabase = getSupabaseClient();
 
-    void (async () => {
+    const fetchLatest = async () => {
       try {
         const { data, error } = await supabase
           .from(SUPABASE_SCOREBOARD_TABLE)
@@ -342,7 +342,14 @@ export function useCricketOverlayListener(rawUid: string) {
       } catch {
         // Local state already loaded
       }
-    })();
+    };
+
+    void fetchLatest();
+
+    const onOnline = () => {
+      void fetchLatest();
+    };
+    window.addEventListener('online', onOnline);
 
     const rtChannel = supabase
       .channel(`cricket_overlay_v2_view_${matchRowId}`)
@@ -369,6 +376,7 @@ export function useCricketOverlayListener(rawUid: string) {
     return () => {
       ch?.close();
       window.removeEventListener('storage', onStorage);
+      window.removeEventListener('online', onOnline);
       void supabase.removeChannel(rtChannel);
     };
   }, [uid]);

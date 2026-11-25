@@ -1,9 +1,7 @@
 import { FormEvent, useMemo, useState } from 'react';
 import {
-  Copy,
   Eye,
   EyeOff,
-  ExternalLink,
   Lock,
   Monitor,
   ShieldCheck,
@@ -24,12 +22,13 @@ import {
   TransitionOverlayType,
 } from '../../types/cricketSuite';
 import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
+import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 
 interface TvOverlayControllerViewProps {
   state: CricketSuiteState;
   overlayUrl: string;
   updateState: (updater: (prev: CricketSuiteState) => CricketSuiteState) => void;
-  onCopyOverlayUrl: () => void;
+  onCopyOverlayUrl: (url?: string, label?: string) => void;
   onGoToGroups: () => void;
   onToast: (msg: string) => void;
   authToken: string | null;
@@ -231,7 +230,7 @@ export function TvOverlayControllerView({
             </button>
 
             <p className="text-[11px] text-center text-slate-500 pt-1">
-              Note: Public vMix browser source links continue running live without requiring login.
+              Note: Public OBS &amp; vMix browser source links continue running live without requiring login.
             </p>
           </form>
         </div>
@@ -310,7 +309,7 @@ export function TvOverlayControllerView({
                 AUTHORIZED: {authorizedUser || 'CONTROLLER'}
               </span>
               <span className="text-xs text-slate-500">
-                Real-time vMix / OBS Control Panel
+                Real-time OBS / vMix Control Panel
               </span>
             </div>
             <h2 className="font-display font-bold text-base text-slate-900 mt-0.5">
@@ -366,38 +365,12 @@ export function TvOverlayControllerView({
           </div>
         </div>
 
-        {/* VMix Public Link Row */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-[#FF8C00] px-2 shrink-0">
-            VMix Link (Public)
-          </span>
-          <input
-            type="text"
-            readOnly
-            value={overlayUrl}
-            aria-label="Public vMix Browser Source URL"
-            className="flex-1 bg-white px-3 py-1.5 rounded border border-slate-200 text-xs font-mono text-slate-800"
-          />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onCopyOverlayUrl}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold"
-            >
-              <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Copy Link</span>
-            </button>
-            <a
-              href={overlayUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 text-xs font-bold"
-            >
-              <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>Open</span>
-            </a>
-          </div>
-        </div>
+        {/* OBS / vMix Public Overlay Links */}
+        <ObsVmixLinkPanel
+          baseOverlayUrl={overlayUrl}
+          onCopyUrl={(url, label) => onCopyOverlayUrl(url, label)}
+          compact
+        />
 
         {/* Visibility Toggles */}
         <div className="flex flex-wrap items-center gap-4 pt-1">
@@ -435,7 +408,7 @@ export function TvOverlayControllerView({
         <div className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
           <div className="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
             <span className="font-bold tracking-wide">
-              LIVE 16:9 vMix PREVIEW MONITOR
+              LIVE 16:9 OBS / vMix PREVIEW MONITOR
             </span>
             <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px]">
               <input

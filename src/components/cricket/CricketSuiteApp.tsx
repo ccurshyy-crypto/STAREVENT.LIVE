@@ -99,28 +99,34 @@ export function CricketSuiteApp({
     return `${window.location.origin}${fullQuery}`;
   }, [uid, activeMatch]);
 
-  const handleCopyOverlayUrl = useCallback(() => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard
-        .writeText(overlayUrl)
-        .then(() => showToast('vMix Overlay Link copied to clipboard!'))
-        .catch(() => showToast('Copy failed — please select and copy the link manually.'));
-      return;
-    }
-    try {
-      const textarea = document.createElement('textarea');
-      textarea.value = overlayUrl;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      showToast('vMix Overlay Link copied to clipboard!');
-    } catch {
-      showToast('Copy failed — please select and copy the link manually.');
-    }
-  }, [overlayUrl, showToast]);
+  const handleCopyOverlayUrl = useCallback(
+    (customUrl?: string, label = 'OBS / vMix Overlay Link') => {
+      const targetUrl = customUrl || overlayUrl;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(targetUrl)
+          .then(() => showToast(`${label} copied to clipboard!`))
+          .catch(() =>
+            showToast('Copy failed — please select and copy the link manually.')
+          );
+        return;
+      }
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = targetUrl;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast(`${label} copied to clipboard!`);
+      } catch {
+        showToast('Copy failed — please select and copy the link manually.');
+      }
+    },
+    [overlayUrl, showToast]
+  );
 
   const navigateTo = useCallback((route: SidebarRoute) => {
     setActiveRoute(route);
