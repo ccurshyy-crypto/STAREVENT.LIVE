@@ -36,6 +36,12 @@ function getOverlayUidFromUrl(): string {
   return params.get('uid') || params.get('id') || 'STAR-101';
 }
 
+function getOverlayMatchIdFromUrl(): string {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.search);
+  return params.get('match') || '';
+}
+
 function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
   if (window.location.pathname.startsWith('/services')) return 'services';
@@ -53,6 +59,9 @@ export default function App() {
     isOwnerAdminRoute()
   );
   const [overlayUid, setOverlayUid] = useState<string>(() => getOverlayUidFromUrl());
+  const [overlayMatchId, setOverlayMatchId] = useState<string>(() =>
+    getOverlayMatchIdFromUrl()
+  );
   const [lang, setLang] = useState<Language>('en');
   const [currentPage, setCurrentPage] = useState<PageRoute>(() => getInitialPage());
   const [selectedEvent, setSelectedEvent] = useState<EventCategoryId>('kabaddi');
@@ -70,6 +79,7 @@ export default function App() {
       setStandaloneOverlay(isStandaloneOverlayRoute());
       setOwnerAdminRoute(isOwnerAdminRoute());
       setOverlayUid(getOverlayUidFromUrl());
+      setOverlayMatchId(getOverlayMatchIdFromUrl());
       setCurrentPage(getInitialPage());
     };
     window.addEventListener('popstate', handlePopState);
@@ -187,7 +197,12 @@ export default function App() {
   };
 
   if (standaloneOverlay) {
-    return <StandaloneOverlayPage uid={overlayUid} />;
+    return (
+      <StandaloneOverlayPage
+        uid={overlayUid}
+        matchId={overlayMatchId || undefined}
+      />
+    );
   }
 
   if (ownerAdminRoute) {

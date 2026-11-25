@@ -1,5 +1,16 @@
-import { Check, Copy, ExternalLink, Radio, ShieldCheck, Trophy, Tv, Users } from 'lucide-react';
 import { useState } from 'react';
+import {
+  ArrowRight,
+  Check,
+  Copy,
+  ExternalLink,
+  Palette,
+  Radio,
+  Trophy,
+  Tv,
+  Users,
+} from 'lucide-react';
+import { getThemePalette } from '../../data/cricketSampleData';
 import { CricketSuiteState, SidebarRoute } from '../../types/cricketSuite';
 
 interface CricketHomeViewProps {
@@ -8,13 +19,6 @@ interface CricketHomeViewProps {
   onCopyOverlayUrl: () => void;
   onNavigate: (route: SidebarRoute) => void;
 }
-
-const THEME_LABELS: Record<string, string> = {
-  theme14: 'theme14 · Classic Broadcast',
-  'star-red-gold': 'theme14 / Star Event Red & Gold',
-  'royal-navy-gold': 'Royal Navy & Metallic Gold',
-  'emerald-gold': 'Emerald Stadium & Gold',
-};
 
 export function CricketHomeView({
   state,
@@ -30,38 +34,73 @@ export function CricketHomeView({
     window.setTimeout(() => setCopied(false), 1800);
   };
 
-  const rows: Array<{ label: string; value: string; accent?: boolean }> = [
+  const activeTheme = getThemePalette(state.user.userTheme, state.user.customThemeColors);
+
+  const rows: Array<{ label: string; value: string }> = [
     { label: 'User Name', value: state.user.userName },
     { label: 'User Email', value: state.user.userEmail },
     { label: 'User Mobile No.', value: state.user.userMobile },
-    {
-      label: 'User Theme',
-      value: THEME_LABELS[state.user.userTheme] || state.user.userTheme,
-      accent: true,
-    },
+    { label: 'Selected Overlay Theme', value: activeTheme.name },
     { label: 'Subscription Start Date', value: state.user.subscriptionStartDate },
     { label: 'Subscription End Date', value: state.user.subscriptionEndDate },
     { label: 'Total Tournaments', value: String(state.tournaments.length) },
-    { label: 'Total Matches', value: String(state.matches.length) },
     { label: 'Total Teams', value: String(state.teams.length) },
-    { label: 'Plan Name', value: state.user.planName, accent: true },
+    { label: 'Total Matches', value: String(state.matches.length) },
+    { label: 'Plan Name', value: state.user.planName },
     { label: 'Balance Tournaments', value: String(state.user.balanceTournaments) },
   ];
 
+  const steps: Array<{
+    step: string;
+    title: string;
+    done: boolean;
+    route: SidebarRoute;
+    cta: string;
+  }> = [
+    {
+      step: '01',
+      title: 'Create Tournament',
+      done: state.tournaments.length > 0,
+      route: 'tournament',
+      cta: state.tournaments.length > 0 ? 'Manage' : 'Create Tournament',
+    },
+    {
+      step: '02',
+      title: 'Create Teams & Add Players',
+      done: state.teams.length >= 2,
+      route: 'team',
+      cta: state.teams.length > 0 ? 'Manage Teams' : 'Create Team',
+    },
+    {
+      step: '03',
+      title: 'Create Match & Score Live',
+      done: state.matches.length > 0,
+      route: 'match',
+      cta: state.matches.length > 0 ? 'Open Matches' : 'Create Match',
+    },
+    {
+      step: '04',
+      title: 'Control vMix Scoreboard Overlay',
+      done: false,
+      route: 'overlay',
+      cta: 'Overlay Login',
+    },
+  ];
+
   return (
-    <div className="space-y-5">
-      {/* Quick Broadcast KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="space-y-6">
+      {/* Top KPI Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           type="button"
           onClick={() => onNavigate('tournament')}
-          className="text-left rounded-xl bg-[#111116] border border-[#FFE600]/25 hover:border-[#FFE600]/65 p-4 transition-colors"
+          className="text-left rounded-xl bg-white border border-slate-200 hover:border-[#303F9F] p-4 transition-colors shadow-xs"
         >
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
             <span>Tournaments</span>
-            <Trophy className="w-4 h-4 text-[#FFE600]" />
+            <Trophy className="w-4 h-4 text-[#303F9F]" aria-hidden="true" />
           </div>
-          <p className="mt-2 font-mono text-2xl font-black text-white tabular-nums">
+          <p className="mt-2 font-mono text-2xl font-bold text-slate-900 tabular-nums">
             {state.tournaments.length}
           </p>
         </button>
@@ -69,13 +108,13 @@ export function CricketHomeView({
         <button
           type="button"
           onClick={() => onNavigate('team')}
-          className="text-left rounded-xl bg-[#111116] border border-white/12 hover:border-[#FFE600]/55 p-4 transition-colors"
+          className="text-left rounded-xl bg-white border border-slate-200 hover:border-[#303F9F] p-4 transition-colors shadow-xs"
         >
-          <div className="flex items-center justify-between text-xs text-zinc-400">
-            <span>Registered Teams</span>
-            <Users className="w-4 h-4 text-sky-400" />
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Teams</span>
+            <Users className="w-4 h-4 text-blue-600" aria-hidden="true" />
           </div>
-          <p className="mt-2 font-mono text-2xl font-black text-white tabular-nums">
+          <p className="mt-2 font-mono text-2xl font-bold text-slate-900 tabular-nums">
             {state.teams.length}
           </p>
         </button>
@@ -83,82 +122,126 @@ export function CricketHomeView({
         <button
           type="button"
           onClick={() => onNavigate('match')}
-          className="text-left rounded-xl bg-[#111116] border border-white/12 hover:border-[#DC2626]/70 p-4 transition-colors"
+          className="text-left rounded-xl bg-white border border-slate-200 hover:border-[#303F9F] p-4 transition-colors shadow-xs"
         >
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
             <span>Matches</span>
-            <Radio className="w-4 h-4 text-[#EF4444]" />
+            <Radio className="w-4 h-4 text-emerald-600" aria-hidden="true" />
           </div>
-          <p className="mt-2 font-mono text-2xl font-black text-white tabular-nums">
+          <p className="mt-2 font-mono text-2xl font-bold text-slate-900 tabular-nums">
             {state.matches.length}
           </p>
         </button>
 
         <button
           type="button"
-          onClick={() => onNavigate('overlay')}
-          className="text-left rounded-xl bg-gradient-to-br from-[#2B060B] to-[#111116] border border-[#DC2626]/55 hover:border-[#FFE600] p-4 transition-colors"
+          onClick={() => onNavigate('theme')}
+          className="text-left rounded-xl bg-white border border-slate-200 hover:border-[#303F9F] p-4 transition-colors shadow-xs"
         >
-          <div className="flex items-center justify-between text-xs text-[#FFE600]">
-            <span>TV Controller</span>
-            <Tv className="w-4 h-4 text-[#FFE600]" />
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Broadcast Theme</span>
+            <Palette className="w-4 h-4 text-amber-600" aria-hidden="true" />
           </div>
-          <p className="mt-2 font-display text-sm font-black text-white uppercase tracking-wide">
-            Open Scorecard Desk
+          <p className="mt-2 font-display text-sm font-bold text-slate-900 truncate">
+            {activeTheme.name}
           </p>
         </button>
       </div>
 
-      {/* Exact User Details Card */}
-      <div className="rounded-2xl bg-[#111116] border border-[#FFE600]/30 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
-        <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
-        <div className="px-5 py-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-2 bg-[#16161E]">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            <h2 className="font-display text-base sm:text-lg font-black text-white uppercase tracking-wide">
-              User Details
+      {/* Tournament Setup Workflow Strip */}
+      <div className="rounded-xl bg-white border border-slate-200 p-5 space-y-4 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="font-display font-bold text-base text-slate-900">
+              Quick Tournament Workflow
             </h2>
+            <p className="text-xs text-slate-500">
+              Start fresh — only tournaments, teams, players, and matches you create will appear.
+            </p>
           </div>
-          <span className="font-mono text-xs px-2.5 py-1 rounded bg-[#DC2626]/20 border border-[#DC2626]/45 text-[#FFE600] font-bold">
+          <button
+            type="button"
+            onClick={() => onNavigate('overlay')}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold transition-colors whitespace-nowrap"
+          >
+            <Tv className="w-3.5 h-3.5" aria-hidden="true" />
+            <span>Scoreboard Overlay Control</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {steps.map((s) => (
+            <div
+              key={s.step}
+              className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 flex flex-col justify-between gap-3"
+            >
+              <div className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono font-bold text-[#303F9F]">Step {s.step}</span>
+                  <span
+                    className={`font-semibold ${
+                      s.done ? 'text-emerald-600' : 'text-slate-400'
+                    }`}
+                  >
+                    {s.done ? 'Ready' : 'Pending'}
+                  </span>
+                </div>
+                <p className="text-sm font-semibold text-slate-900">{s.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onNavigate(s.route)}
+                className="inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-indigo-50 border border-slate-200 text-xs font-semibold text-[#303F9F] transition-colors"
+              >
+                <span>{s.cta}</span>
+                <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* User Details & Public vMix Link Card */}
+      <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+        <div className="px-5 py-3.5 border-b border-slate-200 bg-slate-50 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display font-bold text-base text-slate-900">
+            Account &amp; vMix Output Details
+          </h2>
+          <span className="font-mono text-xs font-semibold text-slate-600">
             UID: {state.uid}
           </span>
         </div>
 
-        <div className="divide-y divide-white/8">
+        <div className="divide-y divide-slate-100">
           {rows.map((row) => (
             <div
               key={row.label}
-              className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 px-5 py-3 hover:bg-white/[0.02] transition-colors"
+              className="grid grid-cols-1 sm:grid-cols-12 gap-1 sm:gap-4 px-5 py-3 hover:bg-slate-50/70 transition-colors"
             >
-              <div className="sm:col-span-5 text-xs sm:text-sm font-semibold text-zinc-400">
+              <div className="sm:col-span-4 text-xs sm:text-sm font-medium text-slate-500">
                 {row.label}
               </div>
-              <div
-                className={`sm:col-span-7 text-sm font-bold break-words ${
-                  row.accent ? 'text-[#FFE600]' : 'text-white'
-                }`}
-              >
+              <div className="sm:col-span-8 text-sm font-semibold text-slate-900 break-words tabular-nums">
                 {row.value}
               </div>
             </div>
           ))}
 
-          {/* Vmix Link Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 px-5 py-4 bg-[#0D0D13] items-center">
-            <div className="sm:col-span-5 text-xs sm:text-sm font-bold text-[#FFE600]">
-              Vmix Link :
+          {/* Public vMix Link Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 px-5 py-4 bg-indigo-50/50 items-center">
+            <div className="sm:col-span-4 text-xs sm:text-sm font-bold text-[#303F9F]">
+              Public vMix / OBS Overlay Link
             </div>
-            <div className="sm:col-span-7 flex flex-wrap items-center gap-2.5">
-              <div className="flex-1 min-w-[200px] flex items-center gap-2 rounded-lg bg-[#09090D] border border-white/15 px-3 py-2">
-                <span className="font-mono text-xs text-zinc-200 truncate flex-1">
+            <div className="sm:col-span-8 flex flex-wrap items-center gap-2">
+              <div className="flex-1 min-w-[200px] flex items-center gap-2 rounded-lg bg-white border border-slate-300 px-3 py-2">
+                <span className="font-mono text-xs text-slate-700 truncate flex-1">
                   {overlayUrl}
                 </span>
                 <button
                   type="button"
                   onClick={handleCopy}
                   aria-label="Copy vMix overlay link"
-                  title="Copy vMix Link"
-                  className="p-1.5 rounded-md bg-white/10 hover:bg-[#FFE600] text-[#FFE600] hover:text-black transition-colors shrink-0"
+                  className="p-1.5 rounded-md bg-slate-100 hover:bg-[#303F9F] text-slate-700 hover:text-white transition-colors shrink-0"
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
@@ -168,9 +251,9 @@ export function CricketHomeView({
                 href={overlayUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#DC2626] hover:bg-[#EF4444] text-white font-display font-black text-xs uppercase tracking-wide shadow-md transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold transition-colors whitespace-nowrap"
               >
-                <span>Overlay Link</span>
+                <span>Open Public Output</span>
                 <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
               </a>
             </div>

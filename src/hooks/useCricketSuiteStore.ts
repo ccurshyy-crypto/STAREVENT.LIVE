@@ -6,8 +6,8 @@ import {
 } from '../lib/supabaseClient';
 import { CricketSuiteState } from '../types/cricketSuite';
 
-const STORAGE_PREFIX = 'starevent_cricket_suite_v1:';
-const CHANNEL_PREFIX = 'starevent_cricket_overlay:';
+const STORAGE_PREFIX = 'starevent_cricket_suite_v2:';
+const CHANNEL_PREFIX = 'starevent_cricket_overlay_v2:';
 
 export function sanitizeUid(raw: string | null | undefined): string {
   const cleaned = String(raw || '')
@@ -22,19 +22,51 @@ function getStorageKey(uid: string): string {
 }
 
 function getSupabaseMatchId(uid: string): string {
-  return `cricket_suite_${sanitizeUid(uid)}`;
+  return `cricket_suite_v2_${sanitizeUid(uid)}`;
 }
 
-function loadFromLocalStorage(uid: string): CricketSuiteState | null {
+function normalizeLoadedState(
+  raw: Partial<CricketSuiteState> | null | undefined,
+  uid: string,
+  userLabel?: string
+): CricketSuiteState | null {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.matches) || !Array.isArray(raw.teams)) {
+    return null;
+  }
+  const base = createInitialCricketSuiteState(uid, userLabel);
+  return {
+    ...base,
+    ...raw,
+    version: 2,
+    uid,
+    user: {
+      ...base.user,
+      ...(raw.user || {}),
+      customThemeColors: {
+        ...base.user.customThemeColors,
+        ...(raw.user?.customThemeColors || {}),
+      },
+    },
+    overlay: {
+      ...base.overlay,
+      ...(raw.overlay || {}),
+    },
+    pointTableOverrides: Array.isArray(raw.pointTableOverrides) ? raw.pointTableOverrides : [],
+    pointTableAuditLog: Array.isArray(raw.pointTableAuditLog) ? raw.pointTableAuditLog : [],
+    fieldPositions:
+      Array.isArray(raw.fieldPositions) && raw.fieldPositions.length > 0
+        ? raw.fieldPositions
+        : base.fieldPositions,
+  };
+}
+
+function loadFromLocalStorage(uid: string, userLabel?: string): CricketSuiteState | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem(getStorageKey(uid));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CricketSuiteState> | null;
-    if (!parsed || !Array.isArray(parsed.matches) || !Array.isArray(parsed.teams)) {
-      return null;
-    }
-    return parsed as CricketSuiteState;
+    return normalizeLoadedState(parsed, uid, userLabel);
   } catch {
     return null;
   }
@@ -56,27 +88,30 @@ function saveToLocalStorage(uid: string, state: CricketSuiteState): void {
 export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const uid = sanitizeUid(rawUid);
   const [state, setState] = useState<CricketSuiteState>(() => {
-    return loadFromLocalStorage(uid) ?? createInitialCricketSuiteState(uid, userLabel);
+    return loadFromLocalStorage(uid, userLabel) ?? createInitialCricketSuiteState(uid, userLabel);
   });
   const [syncStatus, setSyncStatus] = useState<'supabase' | 'local'>('local');
   const channelRef = useRef<BroadcastChannel | null>(null);
   const pushTimerRef = useRef<number | null>(null);
   const isRemoteRef = useRef(false);
 
-  // Reload when UID switches
   useEffect(() => {
-    const stored = loadFromLocalStorage(uid);
+    const stored = loadFromLocalStorage(uid, userLabel);
     setState(stored ?? createInitialCricketSuiteState(uid, userLabel));
   }, [uid, userLabel]);
 
-  // Setup BroadcastChannel for instant same-browser cross-tab sync (Controller <-> /overlay)
+  // Same-browser instant cross-tab sync (Controller / Scoring <-> /overlay)
   useEffect(() => {
     if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
     const ch = new BroadcastChannel(`${CHANNEL_PREFIX}${uid}`);
     channelRef.current = ch;
 
     ch.onmessage = (evt) => {
-      const incoming = evt.data as CricketSuiteState | undefined;
+      const incoming = normalizeLoadedState(
+        evt.data as Partial<CricketSuiteState> | undefined,
+        uid,
+        userLabel
+      );
       if (incoming && typeof incoming.updatedAt === 'number') {
         setState((prev) => {
           if (incoming.updatedAt <= prev.updatedAt) return prev;
@@ -91,9 +126,9 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       ch.close();
       channelRef.current = null;
     };
-  }, [uid]);
+  }, [uid, userLabel]);
 
-  // Try initial fetch + realtime subscription from Supabase live_scoreboards
+  // Supabase Realtime sync (`live_scoreboards` keyed strictly by uid)
   useEffect(() => {
     let mounted = true;
     const matchRowId = getSupabaseMatchId(uid);
@@ -110,7 +145,11 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
         if (!mounted) return;
         if (!error) {
           setSyncStatus('supabase');
-          const remoteState = data?.data as CricketSuiteState | undefined;
+          const remoteState = normalizeLoadedState(
+            data?.data as Partial<CricketSuiteState> | undefined,
+            uid,
+            userLabel
+          );
           if (remoteState && typeof remoteState.updatedAt === 'number') {
             setState((prev) => {
               if (remoteState.updatedAt <= prev.updatedAt) return prev;
@@ -121,14 +160,14 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
           }
         }
       } catch {
-        // Fallback smoothly to localStorage + BroadcastChannel
+        // Local sync remains active
       }
     };
 
     void pullRemote();
 
     const rtChannel = supabase
-      .channel(`cricket_suite_${matchRowId}`)
+      .channel(`cricket_suite_v2_${matchRowId}`)
       .on(
         'postgres_changes',
         {
@@ -138,8 +177,8 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
           filter: `match_id=eq.${matchRowId}`,
         },
         (payload) => {
-          const row = payload.new as { data?: CricketSuiteState } | undefined;
-          const remoteState = row?.data;
+          const row = payload.new as { data?: Partial<CricketSuiteState> } | undefined;
+          const remoteState = normalizeLoadedState(row?.data, uid, userLabel);
           if (remoteState && typeof remoteState.updatedAt === 'number') {
             setSyncStatus('supabase');
             setState((prev) => {
@@ -157,7 +196,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       mounted = false;
       void supabase.removeChannel(rtChannel);
     };
-  }, [uid]);
+  }, [uid, userLabel]);
 
   const pushToSupabase = useCallback(
     (nextState: CricketSuiteState) => {
@@ -182,7 +221,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
         } catch {
           // Local sync already succeeded
         }
-      }, 120);
+      }, 100);
     },
     [uid]
   );
@@ -193,6 +232,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
         const nextRaw = updater(prev);
         const next: CricketSuiteState = {
           ...nextRaw,
+          version: 2,
           uid,
           updatedAt: Date.now(),
         };
@@ -209,7 +249,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     [uid, pushToSupabase]
   );
 
-  const resetDemoData = useCallback(() => {
+  const resetAllData = useCallback(() => {
     const fresh = createInitialCricketSuiteState(uid, userLabel);
     setState(fresh);
     saveToLocalStorage(uid, fresh);
@@ -221,7 +261,6 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     pushToSupabase(fresh);
   }, [uid, userLabel, pushToSupabase]);
 
-  // Also ensure initial state is saved to localStorage so opening /overlay?uid=... immediately has data
   useEffect(() => {
     if (isRemoteRef.current) {
       isRemoteRef.current = false;
@@ -235,13 +274,13 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     state,
     syncStatus,
     updateState,
-    resetDemoData,
+    resetDemoData: resetAllData,
   };
 }
 
 /**
- * Lightweight real-time listener specifically for the standalone `/overlay?uid=<user_id>` page.
- * Syncs instantly via BroadcastChannel + localStorage `storage` events + Supabase Realtime.
+ * Public real-time listener for `/overlay?uid=<user_id>&match=<optional_match_id>`.
+ * Works WITHOUT login and stays 100% blank when no saved state exists.
  */
 export function useCricketOverlayListener(rawUid: string) {
   const uid = sanitizeUid(rawUid);
@@ -253,19 +292,18 @@ export function useCricketOverlayListener(rawUid: string) {
     const stored = loadFromLocalStorage(uid);
     setState(stored);
 
-    // 1. BroadcastChannel (instant cross-tab)
     let ch: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       ch = new BroadcastChannel(`${CHANNEL_PREFIX}${uid}`);
       ch.onmessage = (evt) => {
-        const incoming = evt.data as CricketSuiteState | undefined;
-        if (incoming && typeof incoming.updatedAt === 'number') {
-          setState(incoming);
-        }
+        const incoming = normalizeLoadedState(
+          evt.data as Partial<CricketSuiteState> | undefined,
+          uid
+        );
+        if (incoming) setState(incoming);
       };
     }
 
-    // 2. Storage event fallback
     const onStorage = (evt: StorageEvent) => {
       if (evt.key !== getStorageKey(uid)) return;
       if (!evt.newValue) {
@@ -273,17 +311,17 @@ export function useCricketOverlayListener(rawUid: string) {
         return;
       }
       try {
-        const parsed = JSON.parse(evt.newValue) as CricketSuiteState;
-        if (parsed && typeof parsed.updatedAt === 'number') {
-          setState(parsed);
-        }
+        const parsed = normalizeLoadedState(
+          JSON.parse(evt.newValue) as Partial<CricketSuiteState>,
+          uid
+        );
+        if (parsed) setState(parsed);
       } catch {
         // ignore
       }
     };
     window.addEventListener('storage', onStorage);
 
-    // 3. Supabase Realtime (cross-device / vMix & OBS Browser Source)
     const matchRowId = getSupabaseMatchId(uid);
     const supabase = getSupabaseClient();
 
@@ -295,15 +333,19 @@ export function useCricketOverlayListener(rawUid: string) {
           .eq('match_id', matchRowId)
           .maybeSingle();
         if (!error) {
-          setState((data?.data as CricketSuiteState | undefined) ?? null);
+          const parsed = normalizeLoadedState(
+            data?.data as Partial<CricketSuiteState> | undefined,
+            uid
+          );
+          if (parsed) setState(parsed);
         }
       } catch {
-        // local state already loaded
+        // Local state already loaded
       }
     })();
 
     const rtChannel = supabase
-      .channel(`cricket_overlay_view_${matchRowId}`)
+      .channel(`cricket_overlay_v2_view_${matchRowId}`)
       .on(
         'postgres_changes',
         {
@@ -317,8 +359,9 @@ export function useCricketOverlayListener(rawUid: string) {
             setState(null);
             return;
           }
-          const row = payload.new as { data?: CricketSuiteState | null } | undefined;
-          setState(row?.data ?? null);
+          const row = payload.new as { data?: Partial<CricketSuiteState> | null } | undefined;
+          const parsed = normalizeLoadedState(row?.data, uid);
+          setState(parsed);
         }
       )
       .subscribe();

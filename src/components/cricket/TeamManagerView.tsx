@@ -6,6 +6,7 @@ import {
   Search,
   Trash2,
   UserPlus,
+  Users,
   X,
 } from 'lucide-react';
 import { TEAM_COLOR_MAP } from '../../data/cricketSampleData';
@@ -24,15 +25,19 @@ interface TeamManagerViewProps {
 }
 
 const COLOR_OPTIONS: TeamColorTag[] = [
-  'Light_yellow',
-  'Light_brown',
-  'Light_pink',
   'Blue',
   'Light_blue',
-  'Defoult',
   'Crimson_red',
+  'Light_yellow',
   'Metallic_gold',
+  'Emerald_green',
+  'Royal_purple',
+  'Light_brown',
+  'Light_pink',
+  'Defoult',
 ];
+
+const ROLES: PlayerRole[] = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper'];
 
 export function TeamManagerView({ state, updateState, onToast }: TeamManagerViewProps) {
   const [selectedTournamentId, setSelectedTournamentId] = useState<string>(
@@ -43,101 +48,113 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const [editingTeamId, setEditingTeamId] = useState<string | null>(null);
   const [playersModalTeamId, setPlayersModalTeamId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const logoUploadTeamIdRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Team Form
-  const [nameInput, setNameInput] = useState('');
-  const [shortInput, setShortInput] = useState('');
-  const [placeInput, setPlaceInput] = useState('');
-  const [colorInput, setColorInput] = useState<TeamColorTag>('Light_yellow');
+  // Team Form State
+  const [name, setName] = useState('');
+  const [shortName, setShortName] = useState('');
+  const [place, setPlace] = useState('');
+  const [colorTag, setColorTag] = useState<TeamColorTag>('Blue');
+  const [teamTourId, setTeamTourId] = useState(
+    state.activeTournamentId || state.tournaments[0]?.id || ''
+  );
+  const [logoUrl, setLogoUrl] = useState('');
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Player Form
-  const [pName, setPName] = useState('');
-  const [pRole, setPRole] = useState<PlayerRole>('Batsman');
-  const [pJersey, setPJersey] = useState('7');
-
-  const filteredTeams = state.teams.filter((t) => {
-    if (selectedTournamentId !== 'ALL' && t.tournamentId !== selectedTournamentId) {
-      return false;
-    }
-    const q = search.trim().toLowerCase();
-    if (!q) return true;
-    return (
-      t.name.toLowerCase().includes(q) ||
-      t.shortName.toLowerCase().includes(q) ||
-      t.place.toLowerCase().includes(q)
-    );
-  });
+  // Player Form State (Add + Edit)
+  const [editingPlayerId, setEditingPlayerId] = useState<string | null>(null);
+  const [playerName, setPlayerName] = useState('');
+  const [playerPhotoUrl, setPlayerPhotoUrl] = useState('');
+  const [playerJersey, setPlayerJersey] = useState('');
+  const [playerRole, setPlayerRole] = useState<PlayerRole>('All-Rounder');
+  const [battingStyle, setBattingStyle] = useState('Right-hand bat');
+  const [bowlingStyle, setBowlingStyle] = useState('Right-arm medium');
+  const [isCaptain, setIsCaptain] = useState(false);
+  const [isWicketKeeper, setIsWicketKeeper] = useState(false);
+  const playerPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
   const openCreateTeam = () => {
     setEditingTeamId(null);
-    setNameInput('');
-    setShortInput('');
-    setPlaceInput('');
-    setColorInput('Light_yellow');
+    setName('');
+    setShortName('');
+    setPlace('');
+    setColorTag('Blue');
+    setTeamTourId(
+      selectedTournamentId !== 'ALL'
+        ? selectedTournamentId
+        : state.activeTournamentId || state.tournaments[0]?.id || ''
+    );
+    setLogoUrl('');
     setTeamModalOpen(true);
   };
 
   const openEditTeam = (team: Team) => {
     setEditingTeamId(team.id);
-    setNameInput(team.name);
-    setShortInput(team.shortName);
-    setPlaceInput(team.place);
-    setColorInput(team.colorTag);
+    setName(team.name);
+    setShortName(team.shortName);
+    setPlace(team.place);
+    setColorTag(team.colorTag);
+    setTeamTourId(team.tournamentId);
+    setLogoUrl(team.logoUrl || '');
     setTeamModalOpen(true);
+  };
+
+  const handleImageFile = (
+    e: ChangeEvent<HTMLInputElement>,
+    setter: (dataUrl: string) => void
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_500_000) {
+      onToast('Image must be smaller than 1.5 MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') setter(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSaveTeam = (e: FormEvent) => {
     e.preventDefault();
-    if (!nameInput.trim()) return;
-    const cleanShort =
-      shortInput.trim().toUpperCase().slice(0, 5) ||
-      nameInput.trim().slice(0, 3).toUpperCase();
+    const cleanName = name.trim();
+    if (!cleanName) return;
+    const cleanShort = (shortName.trim() || cleanName.slice(0, 4)).toUpperCase().slice(0, 8);
 
     if (editingTeamId) {
       updateState((prev) => ({
         ...prev,
-        teams: prev.teams.map((t) =>
-          t.id === editingTeamId
+        teams: prev.teams.map((tm) =>
+          tm.id === editingTeamId
             ? {
-                ...t,
-                name: nameInput.trim(),
+                ...tm,
+                name: cleanName,
                 shortName: cleanShort,
-                place: placeInput.trim() || t.place,
-                colorTag: colorInput,
+                place: place.trim(),
+                colorTag,
+                tournamentId: teamTourId,
+                logoUrl,
               }
-            : t
+            : tm
         ),
       }));
-      onToast('Team updated');
+      onToast(`Team "${cleanName}" updated.`);
     } else {
-      const targetTournament =
-        selectedTournamentId !== 'ALL'
-          ? selectedTournamentId
-          : state.activeTournamentId || state.tournaments[0]?.id || '';
-      const teamId = `team_${Date.now()}`;
       const newTeam: Team = {
-        id: teamId,
-        tournamentId: targetTournament,
-        name: nameInput.trim(),
+        id: `team_${Date.now()}`,
+        tournamentId: teamTourId,
+        name: cleanName,
         shortName: cleanShort,
-        place: placeInput.trim() || 'Karjat',
-        colorTag: colorInput,
-        players: Array.from({ length: 11 }, (_, idx) => ({
-          id: `${teamId}_p${idx + 1}`,
-          name: `${cleanShort} Player ${idx + 1}`,
-          role: idx >= 7 ? 'Bowler' : idx === 2 ? 'Wicket-Keeper' : 'Batsman',
-          battingStyle: 'Right-Hand Bat',
-          bowlingStyle: 'Right-Arm Medium',
-          jerseyNo: idx + 1,
-        })),
+        place: place.trim(),
+        colorTag,
+        logoUrl,
+        players: [],
       };
       updateState((prev) => ({
         ...prev,
         teams: [newTeam, ...prev.teams],
       }));
-      onToast(`Team "${newTeam.name}" created with 11 default players`);
+      onToast(`Team "${cleanName}" created. Click Add Players to build its squad.`);
     }
     setTeamModalOpen(false);
   };
@@ -145,95 +162,130 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const handleDeleteTeam = (id: string) => {
     updateState((prev) => ({
       ...prev,
-      teams: prev.teams.filter((t) => t.id !== id),
+      teams: prev.teams.filter((tm) => tm.id !== id),
       groups: prev.groups.map((g) => ({
         ...g,
         teamIds: g.teamIds.filter((tid) => tid !== id),
       })),
     }));
     setDeleteConfirmId(null);
-    onToast('Team deleted');
+    onToast('Team deleted.');
   };
 
-  const triggerLogoUpload = (teamId: string) => {
-    logoUploadTeamIdRef.current = teamId;
-    fileInputRef.current?.click();
+  const resetPlayerForm = () => {
+    setEditingPlayerId(null);
+    setPlayerName('');
+    setPlayerPhotoUrl('');
+    setPlayerJersey('');
+    setPlayerRole('All-Rounder');
+    setBattingStyle('Right-hand bat');
+    setBowlingStyle('Right-arm medium');
+    setIsCaptain(false);
+    setIsWicketKeeper(false);
   };
 
-  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    const teamId = logoUploadTeamIdRef.current;
-    if (!file || !teamId) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = typeof reader.result === 'string' ? reader.result : '';
-      if (!dataUrl) return;
-      updateState((prev) => ({
-        ...prev,
-        teams: prev.teams.map((t) =>
-          t.id === teamId ? { ...t, logoUrl: dataUrl } : t
-        ),
-      }));
-      onToast('Team logo updated');
-    };
-    reader.readAsDataURL(file);
-    e.target.value = '';
+  const startEditPlayer = (p: Player) => {
+    setEditingPlayerId(p.id);
+    setPlayerName(p.name);
+    setPlayerPhotoUrl(p.photoUrl || '');
+    setPlayerJersey(String(p.jerseyNo || ''));
+    setPlayerRole(p.role);
+    setBattingStyle(p.battingStyle);
+    setBowlingStyle(p.bowlingStyle);
+    setIsCaptain(Boolean(p.isCaptain));
+    setIsWicketKeeper(Boolean(p.isWicketKeeper));
   };
 
-  const activePlayersTeam = state.teams.find((t) => t.id === playersModalTeamId) ?? null;
-
-  const handleAddPlayer = (e: FormEvent) => {
+  const handleSavePlayer = (e: FormEvent) => {
     e.preventDefault();
-    if (!activePlayersTeam || !pName.trim()) return;
-    const newPlayer: Player = {
-      id: `${activePlayersTeam.id}_p_${Date.now()}`,
-      name: pName.trim(),
-      role: pRole,
-      battingStyle: 'Right-Hand Bat',
-      bowlingStyle: pRole === 'Bowler' ? 'Right-Arm Fast' : 'Right-Arm Offbreak',
-      jerseyNo: Math.max(0, Number(pJersey) || 0),
-    };
+    if (!playersModalTeamId || !playerName.trim()) return;
+    const jersey = Math.max(0, Math.min(999, Number(playerJersey) || 0));
+
     updateState((prev) => ({
       ...prev,
-      teams: prev.teams.map((t) =>
-        t.id === activePlayersTeam.id
-          ? { ...t, players: [...t.players, newPlayer] }
-          : t
-      ),
+      teams: prev.teams.map((tm) => {
+        if (tm.id !== playersModalTeamId) return tm;
+        let updatedPlayers: Player[] = tm.players.map((p) => ({
+          ...p,
+          isCaptain: isCaptain ? false : p.isCaptain,
+        }));
+
+        if (editingPlayerId) {
+          updatedPlayers = updatedPlayers.map((p) =>
+            p.id === editingPlayerId
+              ? {
+                  ...p,
+                  name: playerName.trim(),
+                  photoUrl: playerPhotoUrl,
+                  jerseyNo: jersey,
+                  role: playerRole,
+                  battingStyle,
+                  bowlingStyle,
+                  isCaptain,
+                  isWicketKeeper,
+                }
+              : p
+          );
+        } else {
+          const newPlayer: Player = {
+            id: `p_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+            name: playerName.trim(),
+            photoUrl: playerPhotoUrl,
+            jerseyNo: jersey,
+            role: playerRole,
+            battingStyle,
+            bowlingStyle,
+            isCaptain,
+            isWicketKeeper,
+          };
+          updatedPlayers = [...updatedPlayers, newPlayer];
+        }
+        return { ...tm, players: updatedPlayers };
+      }),
     }));
-    setPName('');
-    onToast(`Added ${newPlayer.name}`);
+
+    onToast(editingPlayerId ? 'Player updated.' : `Player "${playerName.trim()}" added.`);
+    resetPlayerForm();
   };
 
-  const handleRemovePlayer = (teamId: string, playerId: string) => {
+  const handleDeletePlayer = (teamId: string, playerId: string) => {
     updateState((prev) => ({
       ...prev,
-      teams: prev.teams.map((t) =>
-        t.id === teamId
-          ? { ...t, players: t.players.filter((p) => p.id !== playerId) }
-          : t
+      teams: prev.teams.map((tm) =>
+        tm.id === teamId
+          ? { ...tm, players: tm.players.filter((p) => p.id !== playerId) }
+          : tm
       ),
     }));
+    if (editingPlayerId === playerId) resetPlayerForm();
+    onToast('Player removed from squad.');
   };
+
+  const filteredTeams = state.teams.filter((tm) => {
+    if (selectedTournamentId !== 'ALL' && tm.tournamentId !== selectedTournamentId) {
+      return false;
+    }
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
+    return (
+      tm.name.toLowerCase().includes(q) ||
+      tm.shortName.toLowerCase().includes(q) ||
+      tm.place.toLowerCase().includes(q)
+    );
+  });
+
+  const activePlayersTeam = state.teams.find((t) => t.id === playersModalTeamId);
+  const tourMap = new Map(state.tournaments.map((t) => [t.id, t.name]));
 
   return (
     <div className="space-y-4">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-
-      {/* Tournament Selector + Create Team + Search */}
-      <div className="rounded-xl bg-[#111116] border border-[#FFE600]/25 p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      {/* Toolbar */}
+      <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
           <select
             value={selectedTournamentId}
             onChange={(e) => setSelectedTournamentId(e.target.value)}
-            aria-label="Filter teams by tournament"
-            className="flex-1 px-3.5 py-2.5 rounded-xl bg-[#09090D] border border-white/15 text-sm font-semibold text-white focus:border-[#FFE600] focus:outline-none"
+            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 min-w-[180px]"
           >
             <option value="ALL">All Tournaments</option>
             {state.tournaments.map((t) => (
@@ -243,329 +295,578 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             ))}
           </select>
 
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search team by name, short name, or place..."
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#303F9F] focus:bg-white focus:outline-none text-sm"
+            />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={openCreateTeam}
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
+        >
+          <Plus className="w-4 h-4" />
+          <span>CREATE TEAM</span>
+        </button>
+      </div>
+
+      {/* Blank State or Table */}
+      {filteredTeams.length === 0 ? (
+        <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-indigo-50 flex items-center justify-center">
+            <Users className="w-6 h-6 text-[#303F9F]" />
+          </div>
+          <h2 className="font-display font-bold text-base text-slate-900">
+            No Teams Created Yet
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+            Click CREATE TEAM to register your own teams, upload team logos, and add squad players.
+          </p>
           <button
             type="button"
             onClick={openCreateTeam}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-display font-black text-xs sm:text-sm uppercase tracking-wide whitespace-nowrap shadow-lg"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE TEAM</span>
           </button>
         </div>
-
-        <div className="relative">
-          <Search className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="search team by name, short name, place"
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
-          />
-        </div>
-      </div>
-
-      {/* Team Table (Responsive) */}
-      <div className="rounded-2xl bg-[#111116] border border-white/12 overflow-hidden shadow-xl">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-[#181822] border-b border-white/10 text-[11px] font-mono font-bold uppercase tracking-wider text-[#FFE600]">
-                <th className="px-4 py-3">Name / Short Name</th>
-                <th className="px-4 py-3">Color</th>
-                <th className="px-4 py-3 text-center">Logo</th>
-                <th className="px-4 py-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/8 text-sm">
-              {filteredTeams.length === 0 ? (
+      ) : (
+        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
                 <tr>
-                  <td colSpan={4} className="px-4 py-10 text-center text-zinc-400">
-                    No matching teams found. Click <strong>CREATE TEAM</strong> to add one.
-                  </td>
+                  <th className="px-4 py-3">Team Name</th>
+                  <th className="px-4 py-3">Short Name</th>
+                  <th className="px-4 py-3">Color</th>
+                  <th className="px-4 py-3">Place</th>
+                  <th className="px-4 py-3">Logo</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
-              ) : (
-                filteredTeams.map((team) => {
-                  const colorInfo = TEAM_COLOR_MAP[team.colorTag] || TEAM_COLOR_MAP.Defoult;
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredTeams.map((team) => {
+                  const colorMeta = TEAM_COLOR_MAP[team.colorTag] || TEAM_COLOR_MAP.Defoult;
                   return (
-                    <tr
-                      key={team.id}
-                      className="hover:bg-white/[0.025] transition-colors"
-                    >
+                    <tr key={team.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-bold text-white leading-snug">{team.name}</div>
-                        <div className="text-xs text-zinc-400 font-mono">
-                          {team.shortName} · {team.place} · {team.players.length} Players
-                        </div>
+                        <p className="font-semibold text-slate-900">{team.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
+                          {team.players.length} Players
+                        </p>
                       </td>
-
+                      <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700">
+                        {team.shortName}
+                      </td>
                       <td className="px-4 py-3">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border text-xs font-mono font-bold ${colorInfo.bg} ${colorInfo.text} ${colorInfo.border}`}
-                        >
+                        <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
                           <span
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: colorInfo.hex }}
+                            className="w-3.5 h-3.5 rounded-xs border border-black/15 shrink-0"
+                            style={{ backgroundColor: colorMeta.hex }}
                           />
-                          {team.colorTag}
+                          <span>{colorMeta.label}</span>
                         </span>
                       </td>
-
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          type="button"
-                          onClick={() => triggerLogoUpload(team.id)}
-                          title="Upload / Change Team Logo"
-                          className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-[#09090D] hover:bg-white/10 border border-white/15 hover:border-[#FFE600] overflow-hidden transition-colors"
-                        >
-                          {team.logoUrl ? (
-                            <img
-                              src={team.logoUrl}
-                              alt={`${team.name} logo`}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <Camera className="w-4 h-4 text-[#FFE600]" />
-                          )}
-                        </button>
+                      <td className="px-4 py-3 text-xs text-slate-700">{team.place || '—'}</td>
+                      <td className="px-4 py-3">
+                        {team.logoUrl ? (
+                          <img
+                            src={team.logoUrl}
+                            alt={team.name}
+                            className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+                          />
+                        ) : (
+                          <div
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-white text-xs font-bold"
+                            style={{ backgroundColor: colorMeta.hex }}
+                          >
+                            {team.shortName.slice(0, 3)}
+                          </div>
+                        )}
                       </td>
-
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
                             onClick={() => openEditTeam(team)}
-                            title="Edit Team"
-                            className="p-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
                           >
-                            <Edit3 className="w-4 h-4" />
+                            <Edit3 className="w-3.5 h-3.5" />
+                            Edit
                           </button>
-
                           <button
                             type="button"
-                            onClick={() => setPlayersModalTeamId(team.id)}
-                            title="Add / Manage Players"
-                            className="p-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white transition-colors"
+                            onClick={() => {
+                              setPlayersModalTeamId(team.id);
+                              resetPlayerForm();
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold whitespace-nowrap"
                           >
-                            <UserPlus className="w-4 h-4" />
+                            <UserPlus className="w-3.5 h-3.5" />
+                            Add Players ({team.players.length})
                           </button>
-
-                          {deleteConfirmId === team.id ? (
-                            <div className="flex items-center gap-1">
+                          {deleteConfirmId !== team.id ? (
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(team.id)}
+                              className="p-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white"
+                              aria-label={`Delete ${team.name}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          ) : (
+                            <div className="inline-flex items-center gap-1">
                               <button
                                 type="button"
                                 onClick={() => handleDeleteTeam(team.id)}
-                                className="px-2 py-1.5 rounded-lg bg-[#DC2626] text-white text-xs font-bold"
+                                className="px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold"
                               >
                                 Delete
                               </button>
                               <button
                                 type="button"
                                 onClick={() => setDeleteConfirmId(null)}
-                                className="px-2 py-1.5 rounded-lg bg-white/10 text-zinc-200 text-xs"
+                                className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-semibold"
                               >
-                                No
+                                Cancel
                               </button>
                             </div>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirmId(team.id)}
-                              title="Delete Team"
-                              className="p-2 rounded-lg bg-[#DC2626] hover:bg-[#EF4444] text-white transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
                           )}
                         </div>
                       </td>
                     </tr>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Create / Edit Team Modal */}
-      {teamModalOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-        >
-          <div className="w-full max-w-md rounded-2xl bg-[#111116] border border-[#FFE600]/40 overflow-hidden shadow-2xl">
-            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-[#16161E]">
-              <h3 className="font-display font-black text-base text-white uppercase">
-                {editingTeamId ? 'Edit Team' : 'Create Team'}
-              </h3>
-              <button
-                type="button"
-                onClick={() => setTeamModalOpen(false)}
-                className="p-1 text-zinc-400 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveTeam} className="p-5 space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Team Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={nameInput}
-                  onChange={(e) => setNameInput(e.target.value)}
-                  placeholder="e.g. जय हनुमान चाहूचीवाडी"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#09090D] border border-white/15 text-sm text-white focus:border-[#FFE600] focus:outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Short Name
-                  </label>
-                  <input
-                    type="text"
-                    value={shortInput}
-                    onChange={(e) => setShortInput(e.target.value.toUpperCase())}
-                    placeholder="JHC"
-                    maxLength={5}
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#09090D] border border-white/15 text-sm font-mono uppercase text-white focus:border-[#FFE600] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-zinc-300 mb-1">
-                    Place / Village
-                  </label>
-                  <input
-                    type="text"
-                    value={placeInput}
-                    onChange={(e) => setPlaceInput(e.target.value)}
-                    placeholder="चाहूचीवाडी"
-                    className="w-full px-3 py-2.5 rounded-xl bg-[#09090D] border border-white/15 text-sm text-white focus:border-[#FFE600] focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-zinc-300 mb-1">
-                  Team Color Tag
-                </label>
-                <select
-                  value={colorInput}
-                  onChange={(e) => setColorInput(e.target.value as TeamColorTag)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-[#09090D] border border-white/15 text-sm text-white focus:border-[#FFE600] focus:outline-none"
-                >
-                  {COLOR_OPTIONS.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-display font-black text-sm uppercase tracking-wide"
-              >
-                {editingTeamId ? 'Save Team' : 'Create Team'}
-              </button>
-            </form>
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Manage Players Modal */}
-      {activePlayersTeam && (
+      {/* Create / Edit Team Modal */}
+      {teamModalOpen && (
         <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 overflow-y-auto"
           role="dialog"
           aria-modal="true"
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
         >
-          <div className="w-full max-w-lg rounded-2xl bg-[#111116] border border-[#FFE600]/40 overflow-hidden shadow-2xl my-auto">
-            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-[#16161E]">
-              <div>
-                <h3 className="font-display font-black text-base text-white">
-                  {activePlayersTeam.name} · Squad ({activePlayersTeam.players.length})
-                </h3>
-                <p className="text-xs text-zinc-400">
-                  Add or remove players for live scoring &amp; Playing XI
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPlayersModalTeamId(null)}
-                className="p-1 text-zinc-400 hover:text-white"
-              >
+          <form
+            onSubmit={handleSaveTeam}
+            className="w-full max-w-lg rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto"
+          >
+            <div className="px-5 py-4 bg-[#303F9F] text-white flex items-center justify-between">
+              <h3 className="font-display font-bold text-base">
+                {editingTeamId ? 'Edit Team' : 'Create Team'}
+              </h3>
+              <button type="button" onClick={() => setTeamModalOpen(false)}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <form onSubmit={handleAddPlayer} className="grid grid-cols-1 sm:grid-cols-12 gap-2">
-                <input
-                  type="text"
-                  required
-                  value={pName}
-                  onChange={(e) => setPName(e.target.value)}
-                  placeholder="Player Name"
-                  className="sm:col-span-5 px-3 py-2 rounded-lg bg-[#09090D] border border-white/15 text-xs sm:text-sm text-white focus:border-[#FFE600] focus:outline-none"
-                />
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Tournament
+                </label>
                 <select
-                  value={pRole}
-                  onChange={(e) => setPRole(e.target.value as PlayerRole)}
-                  className="sm:col-span-3 px-2.5 py-2 rounded-lg bg-[#09090D] border border-white/15 text-xs text-white"
+                  value={teamTourId}
+                  onChange={(e) => setTeamTourId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
                 >
-                  <option value="Batsman">Batsman</option>
-                  <option value="Bowler">Bowler</option>
-                  <option value="All-Rounder">All-Rounder</option>
-                  <option value="Wicket-Keeper">WK</option>
+                  <option value="">Select Tournament</option>
+                  {state.tournaments.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
                 </select>
-                <input
-                  type="number"
-                  min={0}
-                  max={999}
-                  value={pJersey}
-                  onChange={(e) => setPJersey(e.target.value)}
-                  placeholder="#"
-                  className="sm:col-span-2 px-2.5 py-2 rounded-lg bg-[#09090D] border border-white/15 text-xs font-mono text-white"
-                />
-                <button
-                  type="submit"
-                  className="sm:col-span-2 py-2 rounded-lg bg-[#FFE600] hover:bg-[#FEF08A] text-black font-black text-xs uppercase"
-                >
-                  Add
-                </button>
-              </form>
+              </div>
 
-              <div className="max-h-72 overflow-y-auto divide-y divide-white/8 border border-white/10 rounded-xl bg-[#09090D]">
-                {activePlayersTeam.players.map((p, i) => (
-                  <div
-                    key={p.id}
-                    className="px-3.5 py-2.5 flex items-center justify-between gap-2 text-xs sm:text-sm"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Team Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="Enter team full name"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Team Short Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={8}
+                    value={shortName}
+                    onChange={(e) => setShortName(e.target.value.toUpperCase())}
+                    placeholder="e.g. CSK, MI"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono uppercase"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Team Color
+                  </label>
+                  <select
+                    value={colorTag}
+                    onChange={(e) => setColorTag(e.target.value as TeamColorTag)}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="font-mono text-[11px] text-[#FFE600] w-6 shrink-0">
-                        #{p.jerseyNo || i + 1}
-                      </span>
-                      <span className="font-semibold text-white truncate">{p.name}</span>
-                      <span className="text-[11px] text-zinc-400 shrink-0">({p.role})</span>
-                    </div>
+                    {COLOR_OPTIONS.map((c) => (
+                      <option key={c} value={c}>
+                        {TEAM_COLOR_MAP[c].label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Team Place / Village / City
+                  </label>
+                  <input
+                    type="text"
+                    value={place}
+                    onChange={(e) => setPlace(e.target.value)}
+                    placeholder="Enter place"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Team Logo Upload
+                  </label>
+                  <div className="flex items-center gap-3">
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Team logo"
+                        className="w-12 h-12 rounded-lg object-cover border border-slate-200"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-slate-100 border border-dashed border-slate-300 flex items-center justify-center text-slate-400">
+                        <Camera className="w-5 h-5" />
+                      </div>
+                    )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageFile(e, setLogoUrl)}
+                      className="hidden"
+                    />
                     <button
                       type="button"
-                      onClick={() => handleRemovePlayer(activePlayersTeam.id, p.id)}
-                      className="p-1 text-red-400 hover:text-red-300"
-                      aria-label={`Remove ${p.name}`}
+                      onClick={() => logoInputRef.current?.click()}
+                      className="px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      Choose Logo
                     </button>
+                    {logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrl('')}
+                        className="text-xs font-semibold text-red-600"
+                      >
+                        Remove
+                      </button>
+                    )}
                   </div>
-                ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setTeamModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+              >
+                Save Team
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Add / Edit / Delete Players Modal */}
+      {activePlayersTeam && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-3xl rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto">
+            <div className="px-5 py-4 bg-[#303F9F] text-white flex items-center justify-between">
+              <div>
+                <h3 className="font-display font-bold text-base">
+                  Squad Players · {activePlayersTeam.name}
+                </h3>
+                <p className="text-xs text-indigo-100">
+                  {activePlayersTeam.players.length} players registered
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlayersModalTeamId(null);
+                  resetPlayerForm();
+                }}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-5 max-h-[80vh] overflow-y-auto">
+              {/* Add / Edit Player Form */}
+              <form
+                onSubmit={handleSavePlayer}
+                className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[#303F9F]">
+                    {editingPlayerId ? 'Edit Player' : 'Add New Player'}
+                  </p>
+                  {editingPlayerId && (
+                    <button
+                      type="button"
+                      onClick={resetPlayerForm}
+                      className="text-xs font-semibold text-slate-500 hover:text-slate-900"
+                    >
+                      Cancel Edit
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Player Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={playerName}
+                      onChange={(e) => setPlayerName(e.target.value)}
+                      placeholder="Enter player full name"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Jersey Number
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={999}
+                      value={playerJersey}
+                      onChange={(e) => setPlayerJersey(e.target.value)}
+                      placeholder="e.g. 7"
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm tabular-nums"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Player Role
+                    </label>
+                    <select
+                      value={playerRole}
+                      onChange={(e) => setPlayerRole(e.target.value as PlayerRole)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm"
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Batting Style
+                    </label>
+                    <select
+                      value={battingStyle}
+                      onChange={(e) => setBattingStyle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm"
+                    >
+                      <option value="Right-hand bat">Right-hand bat</option>
+                      <option value="Left-hand bat">Left-hand bat</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      Bowling Style
+                    </label>
+                    <select
+                      value={bowlingStyle}
+                      onChange={(e) => setBowlingStyle(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 text-sm"
+                    >
+                      <option value="Right-arm medium">Right-arm medium</option>
+                      <option value="Right-arm fast">Right-arm fast</option>
+                      <option value="Left-arm medium">Left-arm medium</option>
+                      <option value="Right-arm offbreak">Right-arm offbreak</option>
+                      <option value="Slow left-arm orthodox">Slow left-arm orthodox</option>
+                      <option value="Legbreak">Legbreak</option>
+                      <option value="None">None</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isCaptain}
+                        onChange={(e) => setIsCaptain(e.target.checked)}
+                        className="rounded border-slate-300 text-[#303F9F]"
+                      />
+                      Captain (C)
+                    </label>
+
+                    <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isWicketKeeper}
+                        onChange={(e) => setIsWicketKeeper(e.target.checked)}
+                        className="rounded border-slate-300 text-[#303F9F]"
+                      />
+                      Wicketkeeper (WK)
+                    </label>
+
+                    <div className="inline-flex items-center gap-2">
+                      <input
+                        ref={playerPhotoInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageFile(e, setPlayerPhotoUrl)}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => playerPhotoInputRef.current?.click()}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-white border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        {playerPhotoUrl ? 'Photo Added' : 'Upload Photo'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#303F9F] hover:bg-[#283593] text-white text-xs font-semibold"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>{editingPlayerId ? 'Update Player' : 'Add Player'}</span>
+                  </button>
+                </div>
+              </form>
+
+              {/* Squad List Table */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase">
+                    <tr>
+                      <th className="px-3 py-2.5">#</th>
+                      <th className="px-3 py-2.5">Player</th>
+                      <th className="px-3 py-2.5">Role</th>
+                      <th className="px-3 py-2.5">Styles</th>
+                      <th className="px-3 py-2.5 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {activePlayersTeam.players.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
+                          No players added yet. Use the form above to add squad members.
+                        </td>
+                      </tr>
+                    ) : (
+                      activePlayersTeam.players.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50">
+                          <td className="px-3 py-2.5 font-mono font-bold text-slate-600">
+                            {p.jerseyNo || '—'}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center gap-2">
+                              {p.photoUrl ? (
+                                <img
+                                  src={p.photoUrl}
+                                  alt={p.name}
+                                  className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                                />
+                              ) : (
+                                <div className="w-7 h-7 rounded-full bg-indigo-50 text-[#303F9F] font-bold flex items-center justify-center text-[10px]">
+                                  {p.name.slice(0, 2).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="font-semibold text-slate-900">
+                                {p.name}
+                                {p.isCaptain ? ' (C)' : ''}
+                                {p.isWicketKeeper ? ' (WK)' : ''}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2.5 text-slate-700">{p.role}</td>
+                          <td className="px-3 py-2.5 text-slate-500">
+                            {p.battingStyle} · {p.bowlingStyle}
+                          </td>
+                          <td className="px-3 py-2.5">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                onClick={() => startEditPlayer(p)}
+                                className="px-2 py-1 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePlayer(activePlayersTeam.id, p.id)}
+                                className="px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-600 font-semibold"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>

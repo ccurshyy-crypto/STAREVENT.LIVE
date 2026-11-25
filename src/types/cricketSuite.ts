@@ -6,19 +6,32 @@ export type TeamColorTag =
   | 'Light_blue'
   | 'Defoult'
   | 'Crimson_red'
-  | 'Metallic_gold';
+  | 'Metallic_gold'
+  | 'Emerald_green'
+  | 'Royal_purple';
 
 export type PlayerRole = 'Batsman' | 'Bowler' | 'All-Rounder' | 'Wicket-Keeper';
 
 export type MatchStageBadge =
-  | 'QUALIFIER-1'
-  | 'QUALIFIER-2'
-  | 'ELIMINATOR'
+  | 'LEAGUE'
   | 'GENERAL'
   | 'QUATER'
   | 'SEMI FINAL'
   | 'FINAL'
-  | 'LEAGUE';
+  | 'QUALIFIER-1'
+  | 'QUALIFIER-2'
+  | 'ELIMINATOR';
+
+export type BallType = 'Tennis' | 'Leather' | 'Soft Tennis' | 'Rubber';
+
+export type TournamentType =
+  | 'League + Knockout'
+  | 'Knockout'
+  | 'League'
+  | 'Tri-Series'
+  | 'Bilateral';
+
+export type MatchFormat = 'T10' | 'T20' | 'Limited Overs' | 'Box Cricket' | 'ODI';
 
 export type ExtraType = 'none' | 'WD' | 'NB' | 'LB' | 'BYE' | 'PENALTY';
 
@@ -41,16 +54,29 @@ export const WICKET_TYPES = [
 export type WicketType = (typeof WICKET_TYPES)[number];
 
 export type OverlayThemeId =
-  | 'theme14'
-  | 'star-red-gold'
-  | 'royal-navy-gold'
-  | 'emerald-gold';
+  | 'cpl-2026'
+  | 'wpl-2025'
+  | 'tri-nation-series'
+  | 'ipl-2025'
+  | 'ipl-2023-dynamic'
+  | 'psl-2025'
+  | 'emerging-asia-cup-2024'
+  | 't20-world-cup-2024'
+  | 'world-cup-2019';
+
+export interface CustomThemeColors {
+  enabled: boolean;
+  primary: string;
+  secondary: string;
+  accent: string;
+}
 
 export interface UserAccountDetails {
   userName: string;
   userEmail: string;
   userMobile: string;
   userTheme: OverlayThemeId;
+  customThemeColors: CustomThemeColors;
   subscriptionStartDate: string;
   subscriptionEndDate: string;
   planName: string;
@@ -69,6 +95,8 @@ export interface Player {
   bowlingStyle: string;
   jerseyNo: number;
   photoUrl?: string;
+  isCaptain?: boolean;
+  isWicketKeeper?: boolean;
 }
 
 export interface Team {
@@ -93,7 +121,11 @@ export interface Tournament {
   id: string;
   name: string;
   shortName: string;
+  logoUrl?: string;
   location: string;
+  tournamentType: TournamentType;
+  ballType: BallType;
+  matchFormat: MatchFormat;
   oversPerInnings: number;
   startDate: string;
   endDate: string;
@@ -160,28 +192,34 @@ export interface InningsState {
   manualWicketsOffset?: number;
 }
 
+export type MatchStatus = 'not_started' | 'live' | 'innings_break' | 'completed';
+
 export interface MatchSnapshot {
   currentInningsIndex: 0 | 1;
   innings: [InningsState, InningsState];
-  status: 'upcoming' | 'live' | 'completed';
+  status: MatchStatus;
   resultText: string;
 }
 
 export interface CricketMatch {
   id: string;
   tournamentId: string;
+  groupId?: string;
   stageBadge: MatchStageBadge;
-  dayLabel: string; // e.g. 'DAY 4'
-  matchLabel: string; // e.g. 'MATCH 7'
+  dayLabel: string;
+  matchLabel: string;
   team1Id: string;
   team2Id: string;
-  dateLabel: string; // e.g. 'Sun, 15 November'
-  startsAt: string; // e.g. '04:15 PM'
-  endsAt: string; // e.g. '05:30 PM'
+  dateLabel: string;
+  startsAt: string;
+  endsAt: string;
+  venue: string;
+  ballType: BallType;
   tossWinnerId: string;
   tossDecision: 'Bat' | 'Bowl';
+  tossCompleted?: boolean;
   oversPerInnings: number;
-  status: 'upcoming' | 'live' | 'completed';
+  status: MatchStatus;
   resultText: string;
   currentInningsIndex: 0 | 1;
   innings: [InningsState, InningsState];
@@ -204,11 +242,22 @@ export interface PointTableEntry {
   nrr: number;
 }
 
+export interface PointTableAuditEntry {
+  id: string;
+  timestamp: number;
+  tournamentId: string;
+  teamId: string;
+  teamName: string;
+  actor: string;
+  summary: string;
+  reason: string;
+}
+
 export interface FieldPositionSpot {
   id: string;
   label: string;
-  x: number; // 0..100 percentage on field circle
-  y: number; // 0..100 percentage on field circle
+  x: number;
+  y: number;
   playerId: string | null;
 }
 
@@ -375,6 +424,7 @@ export interface CricketSuiteState {
   teams: Team[];
   matches: CricketMatch[];
   pointTableOverrides: PointTableEntry[];
+  pointTableAuditLog: PointTableAuditEntry[];
   fieldPositions: FieldPositionSpot[];
   overlay: OverlayControlState;
 }

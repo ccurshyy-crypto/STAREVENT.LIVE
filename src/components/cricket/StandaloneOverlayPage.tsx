@@ -4,21 +4,37 @@ import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 
 interface StandaloneOverlayPageProps {
   uid: string;
+  matchId?: string;
 }
 
 /**
- * Pure 1920x1080 vMix / OBS Studio Browser Source output route (`/overlay?uid=<user_id>`).
- * Supports `?bg=green` for chroma-key testing. Zero buttons, zero scrollbars,
- * and 100% blank/transparent when overlay state is empty or cleared (no fallback dummy data).
+ * Public 1920x1080 vMix / OBS Studio Browser Source output route
+ * (`/overlay?uid=<user_id>&match=<match_id>`).
+ * Works WITHOUT login so broadcast software can load the feed directly.
+ * Supports `?bg=green` for chroma-key testing.
  */
-export function StandaloneOverlayPage({ uid }: StandaloneOverlayPageProps) {
+export function StandaloneOverlayPage({
+  uid,
+  matchId,
+}: StandaloneOverlayPageProps) {
   const { state } = useCricketOverlayListener(uid);
 
-  const bgMode = useMemo<'transparent' | 'green'>(() => {
-    if (typeof window === 'undefined') return 'transparent';
+  const { bgMode, resolvedMatchId } = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {
+        bgMode: 'transparent' as const,
+        resolvedMatchId: matchId || undefined,
+      };
+    }
     const params = new URLSearchParams(window.location.search);
-    return params.get('bg')?.toLowerCase() === 'green' ? 'green' : 'transparent';
-  }, []);
+    return {
+      bgMode:
+        params.get('bg')?.toLowerCase() === 'green'
+          ? ('green' as const)
+          : ('transparent' as const),
+      resolvedMatchId: matchId || params.get('match') || undefined,
+    };
+  }, [matchId]);
 
   useEffect(() => {
     const prevHtmlBg = document.documentElement.style.background;
@@ -47,7 +63,11 @@ export function StandaloneOverlayPage({ uid }: StandaloneOverlayPageProps) {
           className="relative w-full h-full max-w-[1920px] max-h-[1080px] aspect-video overflow-hidden"
           style={{ background: bgMode === 'green' ? '#00B140' : 'transparent' }}
         >
-          <BroadcastOverlayCanvas state={state} bgMode={bgMode} />
+          <BroadcastOverlayCanvas
+            state={state}
+            matchId={resolvedMatchId}
+            bgMode={bgMode}
+          />
         </div>
       </div>
     </div>

@@ -55,6 +55,10 @@ export function CricketSuiteApp({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);
 
+  // Separate in-memory Bearer token for SCOREBOARD OVERLAY CONTROL (never persisted in Web Storage)
+  const [overlayControlToken, setOverlayControlToken] = useState<string | null>(null);
+  const [overlayControlUser, setOverlayControlUser] = useState<string>('');
+
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
     if (toastTimerRef.current) {
@@ -73,12 +77,27 @@ export function CricketSuiteApp({
     };
   }, []);
 
+  const activeTournament = useMemo(
+    () =>
+      state.tournaments.find((t) => t.id === state.activeTournamentId) ??
+      state.tournaments[0],
+    [state.tournaments, state.activeTournamentId]
+  );
+
+  const activeMatch = useMemo(
+    () =>
+      state.matches.find((m) => m.id === state.activeMatchId) ?? state.matches[0],
+    [state.matches, state.activeMatchId]
+  );
+
   const overlayUrl = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return `/overlay?uid=${encodeURIComponent(uid)}`;
-    }
-    return `${window.location.origin}/overlay?uid=${encodeURIComponent(uid)}`;
-  }, [uid]);
+    const basePath = `/overlay?uid=${encodeURIComponent(uid)}`;
+    const fullQuery = activeMatch
+      ? `${basePath}&match=${encodeURIComponent(activeMatch.id)}`
+      : basePath;
+    if (typeof window === 'undefined') return fullQuery;
+    return `${window.location.origin}${fullQuery}`;
+  }, [uid, activeMatch]);
 
   const handleCopyOverlayUrl = useCallback(() => {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
@@ -102,19 +121,6 @@ export function CricketSuiteApp({
       showToast('Copy failed — please select and copy the link manually.');
     }
   }, [overlayUrl, showToast]);
-
-  const activeTournament = useMemo(
-    () =>
-      state.tournaments.find((t) => t.id === state.activeTournamentId) ??
-      state.tournaments[0],
-    [state.tournaments, state.activeTournamentId]
-  );
-
-  const activeMatch = useMemo(
-    () =>
-      state.matches.find((m) => m.id === state.activeMatchId) ?? state.matches[0],
-    [state.matches, state.activeMatchId]
-  );
 
   const navigateTo = useCallback((route: SidebarRoute) => {
     setActiveRoute(route);
@@ -140,72 +146,90 @@ export function CricketSuiteApp({
     [updateState]
   );
 
-  const breadcrumbText = useMemo(() => {
+  const handleLockOverlayControl = useCallback(async () => {
+    const token = overlayControlToken;
+    setOverlayControlToken(null);
+    setOverlayControlUser('');
+    if (token) {
+      try {
+        await fetch('/api/overlay-auth/logout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // ignore network errors
+      }
+    }
+    showToast('Scoreboard Overlay Control locked.');
+  }, [overlayControlToken, showToast]);
+
+  const headerTitle = useMemo(() => {
     switch (activeRoute) {
       case 'home':
-        return '> Home';
+        return 'Home';
       case 'tournament':
-        return '> Tournament';
+        return 'Tournament Management';
       case 'tournament-groups':
-        return '> Tournament > Groups';
+        return 'Tournament / Groups';
       case 'tournament-teams':
-        return '> Tournament > Teams';
+        return 'Tournament / Teams';
       case 'team':
-        return '> Team';
+        return 'Team Management';
       case 'match':
-        return `> ${activeTournament?.name || 'Tournament'} >`;
+        return activeTournament ? `Match / ${activeTournament.name}` : 'Match Management';
       case 'scoring':
         return 'Scoring Dashboard';
       case 'overlay':
-        return 'TV Settings > Scorecard Controller';
+        return 'Scoreboard Overlay Control';
       case 'point-table':
-        return '> Edit Point Table';
+        return 'Edit Point Table';
       case 'runrate':
-        return '> Runrate Predictor';
+        return 'Runrate Predictor';
       case 'player-position':
-        return '> Player Position';
+        return 'Player Position';
       case 'theme':
-        return '> Theme Setup';
+        return 'Theme Setup';
       case 'statistics':
-        return '> Statistics';
+        return 'Statistics';
       case 'setting':
-        return '> Setting';
+        return 'Setting';
       case 'account':
-        return '> User Account';
+        return 'User Account';
       default:
-        return '> Home';
+        return 'Home';
     }
   }, [activeRoute, activeTournament]);
 
   const navItemClass = (isActive: boolean) =>
-    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-left text-xs font-bold tracking-wider uppercase transition-all ${
+    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-colors ${
       isActive
-        ? 'bg-gradient-to-r from-[#DC2626] to-[#991B1B] text-white border border-[#FFE600]/45 shadow-[0_6px_18px_rgba(220,38,38,0.35)]'
-        : 'text-zinc-300 hover:text-white hover:bg-white/5 border border-transparent'
+        ? 'bg-[#303F9F] text-white shadow-xs'
+        : 'text-slate-700 hover:text-[#303F9F] hover:bg-indigo-50'
     }`;
 
   const renderSidebarContent = (isMobileDrawer: boolean) => (
-    <div className="flex flex-col h-full bg-[#09090D] text-[#F4F4F5]">
+    <div className="flex flex-col h-full bg-white text-slate-800">
       {/* Brand Header */}
-      <div className="px-4 py-4 border-b border-white/10 bg-gradient-to-r from-[#14070A] via-[#111116] to-[#09090D] flex items-center justify-between gap-2">
+      <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-50">
         <div className="flex items-center gap-3 min-w-0">
           {state.user.channelLogoUrl ? (
             <img
               src={state.user.channelLogoUrl}
               alt={state.user.channelTitle}
-              className="w-10 h-10 rounded-xl object-cover border border-[#FFE600]/45 shrink-0"
+              referrerPolicy="no-referrer"
+              className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#DC2626] to-[#7F1D1D] border border-[#FFE600]/60 flex items-center justify-center font-display font-black text-sm text-[#FFE600] shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-[#303F9F] flex items-center justify-center font-display font-black text-sm text-white shrink-0">
               SE
             </div>
           )}
           <div className="min-w-0">
-            <p className="font-display font-black text-sm tracking-wide text-white truncate">
+            <p className="font-display font-bold text-sm text-slate-900 truncate">
               {state.user.channelTitle || 'STAR EVENT LIVE'}
             </p>
-            <p className="text-[11px] font-mono text-[#FFE600] truncate">
-              ID: {uid}
+            <p className="text-[11px] font-mono text-slate-500 truncate">
+              UID: {uid}
             </p>
           </div>
         </div>
@@ -214,16 +238,16 @@ export function CricketSuiteApp({
             type="button"
             onClick={() => setDrawerOpen(false)}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
         )}
       </div>
 
-      {/* Navigation Links */}
+      {/* 13 Exact Navigation Links */}
       <nav
-        aria-label="Cricket Tournament Workspace Navigation"
+        aria-label="Cricket Tournament Navigation"
         className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
       >
         <button
@@ -231,42 +255,41 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('home')}
           className={navItemClass(activeRoute === 'home')}
         >
-          <Home className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>HOME</span>
         </button>
 
-        {/* Expandable TOURNAMENT Submenu */}
+        {/* Expandable TOURNAMENT Menu */}
         <div className="space-y-1">
           <button
             type="button"
             onClick={() => setTournamentMenuOpen((prev) => !prev)}
-            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-xl text-left text-xs font-bold tracking-wider uppercase transition-all ${
+            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-colors ${
               activeRoute === 'tournament' ||
               activeRoute === 'tournament-groups' ||
               activeRoute === 'tournament-teams'
-                ? 'bg-white/10 text-[#FFE600] border border-[#FFE600]/30'
-                : 'text-zinc-300 hover:text-white hover:bg-white/5 border border-transparent'
+                ? 'bg-indigo-50 text-[#303F9F]'
+                : 'text-slate-700 hover:text-[#303F9F] hover:bg-indigo-50'
             }`}
           >
             <span className="flex items-center gap-3">
-              <Trophy className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+              <Trophy className="w-4 h-4 shrink-0" aria-hidden="true" />
               <span>TOURNAMENT</span>
             </span>
             {tournamentMenuOpen ? (
-              <ChevronDown className="w-4 h-4 text-zinc-400 shrink-0" aria-hidden="true" />
+              <ChevronDown className="w-4 h-4 shrink-0" aria-hidden="true" />
             ) : (
-              <ChevronRight className="w-4 h-4 text-zinc-400 shrink-0" aria-hidden="true" />
+              <ChevronRight className="w-4 h-4 shrink-0" aria-hidden="true" />
             )}
           </button>
 
           {tournamentMenuOpen && (
-            <div className="ml-4 pl-3 border-l border-white/10 space-y-1 py-0.5">
+            <div className="ml-4 pl-3 border-l border-slate-200 space-y-1 py-0.5">
               <button
                 type="button"
                 onClick={() => navigateTo('tournament')}
                 className={navItemClass(activeRoute === 'tournament')}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FFE600] shrink-0" />
                 <span>TOURNAMENT</span>
               </button>
               <button
@@ -274,7 +297,6 @@ export function CricketSuiteApp({
                 onClick={() => navigateTo('tournament-groups')}
                 className={navItemClass(activeRoute === 'tournament-groups')}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FFE600] shrink-0" />
                 <span>TOURNAMENT GROUPS</span>
               </button>
               <button
@@ -282,7 +304,6 @@ export function CricketSuiteApp({
                 onClick={() => navigateTo('tournament-teams')}
                 className={navItemClass(activeRoute === 'tournament-teams')}
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FFE600] shrink-0" />
                 <span>TOURNAMENT TEAMS</span>
               </button>
             </div>
@@ -294,7 +315,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('team')}
           className={navItemClass(activeRoute === 'team')}
         >
-          <Users className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Users className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>TEAM</span>
         </button>
 
@@ -303,7 +324,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('match')}
           className={navItemClass(activeRoute === 'match' || activeRoute === 'scoring')}
         >
-          <Radio className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Radio className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>MATCH</span>
         </button>
 
@@ -312,8 +333,8 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('overlay')}
           className={navItemClass(activeRoute === 'overlay')}
         >
-          <Tv className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
-          <span>OVERLAY</span>
+          <Tv className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span className="truncate">SCOREBOARD OVERLAY CONTROL</span>
         </button>
 
         <button
@@ -321,7 +342,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('point-table')}
           className={navItemClass(activeRoute === 'point-table')}
         >
-          <Table2 className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Table2 className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>EDIT POINT TABLE</span>
         </button>
 
@@ -330,7 +351,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('runrate')}
           className={navItemClass(activeRoute === 'runrate')}
         >
-          <Calculator className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Calculator className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>RUNRATE PREDICTOR</span>
         </button>
 
@@ -339,7 +360,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('player-position')}
           className={navItemClass(activeRoute === 'player-position')}
         >
-          <Crosshair className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Crosshair className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>PLAYER POSITION</span>
         </button>
 
@@ -348,7 +369,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('theme')}
           className={navItemClass(activeRoute === 'theme')}
         >
-          <Palette className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Palette className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>THEME SETUP</span>
         </button>
 
@@ -357,7 +378,7 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('statistics')}
           className={navItemClass(activeRoute === 'statistics')}
         >
-          <BarChart3 className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <BarChart3 className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>STATISTICS</span>
         </button>
 
@@ -366,133 +387,97 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('setting')}
           className={navItemClass(activeRoute === 'setting')}
         >
-          <Settings className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+          <Settings className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>SETTING</span>
         </button>
+
+        <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
+          <button
+            type="button"
+            onClick={() => navigateTo('account')}
+            className={navItemClass(activeRoute === 'account')}
+          >
+            <UserCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>USER ACCOUNT</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
+            <span>LOGOUT</span>
+          </button>
+        </div>
       </nav>
-
-      {/* Bottom Blue Action Buttons (USER ACCOUNT & LOGOUT) */}
-      <div className="p-3 border-t border-white/10 space-y-2 bg-[#0B0B10]">
-        <button
-          type="button"
-          onClick={() => navigateTo('account')}
-          className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-colors ${
-            activeRoute === 'account'
-              ? 'bg-blue-500 text-white ring-2 ring-[#FFE600]'
-              : 'bg-blue-600 hover:bg-blue-500 text-white'
-          }`}
-        >
-          <UserCircle className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>USER ACCOUNT</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowLogoutConfirm(true)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-700 hover:bg-blue-600 text-white font-bold text-xs uppercase tracking-wider transition-colors"
-        >
-          <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>LOGOUT</span>
-        </button>
-      </div>
     </div>
   );
 
   return (
-    <div className="min-h-[82vh] bg-[#09090D] text-[#F4F4F5] border-t border-white/10">
-      {/* Top Hindi Notice Banner */}
-      <div className="bg-gradient-to-r from-[#7F1D1D] via-[#B91C1C] to-[#7F1D1D] border-b border-[#FFE600]/35 px-3 py-1.5 text-center">
-        <p className="text-[11px] sm:text-xs font-semibold text-[#FEF9C3] tracking-wide">
-          तीन महीने से पुराना टूर्नामेंट डेटा स्थायी रूप से हटाया जाएगा।
-        </p>
-      </div>
-
-      {/* Workspace Top Navigation Bar */}
-      <header className="sticky top-0 z-30 bg-[#111116]/95 backdrop-blur-md border-b border-white/10 px-3 sm:px-5 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2.5">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {/* Mobile Drawer Trigger */}
+    <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900">
+      {/* Blue Dashboard Header (#303F9F) */}
+      <header className="sticky top-0 z-30 bg-[#303F9F] text-white shadow-sm px-3 sm:px-5 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu drawer"
-              className="lg:hidden p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-[#FFE600]"
+              className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
 
-            {/* Desktop Sidebar Collapse Toggle */}
             <button
               type="button"
               onClick={() => setDesktopSidebarOpen((prev) => !prev)}
               aria-label="Toggle sidebar"
-              className="hidden lg:inline-flex p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-[#FFE600]"
+              className="hidden lg:inline-flex p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
 
-            <div className="min-w-0">
-              <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#FFE600]">
-                STAR EVENT LIVE · CRICKET SUITE
-              </p>
-              <h1 className="font-display font-bold text-sm sm:text-base text-white truncate">
-                {breadcrumbText}
-              </h1>
-            </div>
+            <h1 className="font-display font-bold text-base sm:text-lg text-white truncate">
+              {headerTitle}
+            </h1>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {activeMatch && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {activeMatch && activeRoute !== 'scoring' && (
               <button
                 type="button"
                 onClick={() => navigateTo('scoring')}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-                  activeRoute === 'scoring'
-                    ? 'bg-[#FFE600] text-[#09090D]'
-                    : 'bg-[#DC2626]/20 hover:bg-[#DC2626]/35 border border-[#DC2626]/50 text-red-200'
-                }`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-semibold text-white transition-colors whitespace-nowrap"
               >
                 <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>{activeMatch.matchLabel} Scoring</span>
+                <span>Open Scoring ({activeMatch.matchLabel})</span>
               </button>
             )}
 
             <button
               type="button"
-              onClick={() => navigateTo('overlay')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap ${
-                activeRoute === 'overlay'
-                  ? 'bg-[#FFE600] text-[#09090D]'
-                  : 'bg-teal-600/25 hover:bg-teal-600/40 border border-teal-400/45 text-teal-200'
-              }`}
-            >
-              <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-              <span>TV Controller</span>
-            </button>
-
-            <button
-              type="button"
               onClick={onBackHome}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-semibold text-zinc-300 hover:text-white transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors whitespace-nowrap"
             >
-              <ArrowLeft className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
-              <span className="hidden sm:inline">Site Home</span>
+              <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Website Home</span>
             </button>
           </div>
         </div>
       </header>
 
-      {/* Main Layout: Desktop Collapsible Sidebar + Content */}
-      <div className="flex min-h-[calc(82vh-88px)]">
+      {/* Main Content Layout: White Left Sidebar + Light Grey Workspace */}
+      <div className="flex min-h-[calc(85vh-60px)]">
         {desktopSidebarOpen && (
-          <aside className="hidden lg:block w-64 shrink-0 border-r border-white/10">
-            <div className="sticky top-[57px] h-[calc(100vh-57px)]">
+          <aside className="hidden lg:block w-64 shrink-0 border-r border-slate-200 bg-white">
+            <div className="sticky top-[60px] h-[calc(100vh-60px)]">
               {renderSidebarContent(false)}
             </div>
           </aside>
         )}
 
-        <div className="flex-1 min-w-0 px-3 sm:px-5 lg:px-7 py-5">
+        <div className="flex-1 min-w-0 px-3 sm:px-6 py-5">
           <div className="max-w-7xl mx-auto">
             {activeRoute === 'home' && (
               <CricketHomeView
@@ -510,6 +495,7 @@ export function CricketSuiteApp({
                 mode={activeRoute}
                 state={state}
                 updateState={updateState}
+                onOpenScoring={handleOpenScoring}
                 onToast={showToast}
               />
             )}
@@ -536,6 +522,7 @@ export function CricketSuiteApp({
                 state={state}
                 updateState={updateState}
                 onOpenOverlayController={() => navigateTo('overlay')}
+                onNavigateToMatches={() => navigateTo('match')}
                 onToast={showToast}
               />
             )}
@@ -548,6 +535,14 @@ export function CricketSuiteApp({
                 onCopyOverlayUrl={handleCopyOverlayUrl}
                 onGoToGroups={() => navigateTo('tournament-groups')}
                 onToast={showToast}
+                authToken={overlayControlToken}
+                authorizedUser={overlayControlUser}
+                onAuthSuccess={(token, userLabel) => {
+                  setOverlayControlToken(token);
+                  setOverlayControlUser(userLabel);
+                  showToast(`Signed in to Scoreboard Overlay Control as ${userLabel}`);
+                }}
+                onLockControl={() => void handleLockOverlayControl()}
               />
             )}
 
@@ -564,7 +559,7 @@ export function CricketSuiteApp({
                 updateState={updateState}
                 onResetDemoData={() => {
                   resetDemoData();
-                  showToast('Sample tournament & match data restored.');
+                  showToast('Workspace reset to clean blank state.');
                 }}
                 onToast={showToast}
               />
@@ -579,65 +574,64 @@ export function CricketSuiteApp({
           className="fixed inset-0 z-50 lg:hidden flex"
           role="dialog"
           aria-modal="true"
-          aria-label="Workspace navigation drawer"
+          aria-label="Dashboard navigation drawer"
         >
           <div
-            className="fixed inset-0 bg-black/75 backdrop-blur-xs"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
             onClick={() => setDrawerOpen(false)}
           />
-          <div className="relative z-10 w-72 max-w-[84vw] h-full border-r border-[#FFE600]/30 shadow-2xl">
+          <div className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl">
             {renderSidebarContent(true)}
           </div>
         </div>
       )}
 
-      {/* Inline Logout Confirmation Modal (No window.confirm) */}
+      {/* Inline Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55"
           role="dialog"
           aria-modal="true"
           aria-labelledby="logout-confirm-title"
         >
-          <div className="w-full max-w-sm rounded-2xl bg-[#111116] border border-[#FFE600]/35 overflow-hidden shadow-2xl">
-            <div className="h-1 bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
-            <div className="p-5 space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-950/70 border border-red-500/40 flex items-center justify-center shrink-0">
-                  <AlertTriangle className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-                </div>
-                <div className="space-y-1">
-                  <h2
-                    id="logout-confirm-title"
-                    className="font-display font-bold text-base text-white"
-                  >
-                    Lock & Logout?
-                  </h2>
-                  <p className="text-xs text-zinc-400 leading-relaxed">
-                    Your tournament data for <span className="font-mono text-[#FFE600]">{uid}</span> stays saved. You will need your Access ID and Password to unlock again.
-                  </p>
-                </div>
+          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 p-5 space-y-4 shadow-xl">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" aria-hidden="true" />
               </div>
+              <div className="space-y-1">
+                <h2
+                  id="logout-confirm-title"
+                  className="font-display font-bold text-base text-slate-900"
+                >
+                  Sign Out of Dashboard?
+                </h2>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  All tournaments, teams, matches, and scores for{' '}
+                  <span className="font-mono font-semibold text-slate-900">{uid}</span> remain saved.
+                </p>
+              </div>
+            </div>
 
-              <div className="flex items-center justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs font-bold text-zinc-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowLogoutConfirm(false);
-                    onLogout();
-                  }}
-                  className="px-4 py-2 rounded-xl bg-[#DC2626] hover:bg-[#EF4444] text-xs font-bold text-white"
-                >
-                  Yes, Logout
-                </button>
-              </div>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  void handleLockOverlayControl();
+                  onLogout();
+                }}
+                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
+              >
+                Yes, Logout
+              </button>
             </div>
           </div>
         </div>
@@ -648,10 +642,9 @@ export function CricketSuiteApp({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-[#111116] border border-[#FFE600]/60 shadow-[0_14px_40px_rgba(0,0,0,0.75)] flex items-center gap-2.5 text-xs sm:text-sm font-semibold text-white"
+          className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg bg-slate-900 text-white shadow-xl text-xs sm:text-sm font-medium"
         >
-          <span className="w-2 h-2 rounded-full bg-[#FFE600] shrink-0" />
-          <span>{toastMessage}</span>
+          {toastMessage}
         </div>
       )}
     </div>
