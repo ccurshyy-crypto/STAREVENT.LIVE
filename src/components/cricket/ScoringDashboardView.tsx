@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
   ArrowLeftRight,
   Award,
+  Ban,
+  BellRing,
+  Check,
   CheckCircle2,
   Edit3,
   Play,
@@ -39,22 +43,31 @@ import {
   WICKET_TYPES,
   WicketType,
 } from '../../types/cricketSuite';
+import { TvOverlayControllerView } from './TvOverlayControllerView';
 
 interface ScoringDashboardViewProps {
   state: CricketSuiteState;
+  overlayUrl: string;
   updateState: (updater: (prev: CricketSuiteState) => CricketSuiteState) => void;
+  onCopyOverlayUrl: (url?: string, label?: string) => void;
+  onGoToGroups: () => void;
   onOpenOverlayController: () => void;
   onNavigateToMatches?: () => void;
+  onRequestLogout?: () => void;
   onToast: (msg: string) => void;
 }
 
-type ScoringTab = 'scoring' | 'scorecard' | 'overs';
+type ScoringTab = 'scoring' | 'scorecard' | 'overs' | 'overlay';
 
 export function ScoringDashboardView({
   state,
+  overlayUrl,
   updateState,
-  onOpenOverlayController,
+  onCopyOverlayUrl,
+  onGoToGroups,
+  onOpenOverlayController: _onOpenOverlayController,
   onNavigateToMatches,
+  onRequestLogout,
   onToast,
 }: ScoringDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
@@ -93,6 +106,18 @@ export function ScoringDashboardView({
   const [pomModalOpen, setPomModalOpen] = useState(false);
   const [selectedPomId, setSelectedPomId] = useState('');
 
+  // Over completion & bowler change popup state
+  const [overCompleteModalOpen, setOverCompleteModalOpen] = useState(false);
+  const [selectedNextBowlerId, setSelectedNextBowlerId] = useState('');
+  const [bowlerConfirmedBanner, setBowlerConfirmedBanner] = useState<{
+    bowlerName: string;
+    overNumber: number;
+    photoUrl?: string;
+    initials: string;
+  } | null>(null);
+  const lastPromptedOverKeyRef = useRef<string>('');
+  const confirmTimerRef = useRef<number | null>(null);
+
   const match: CricketMatch | undefined = useMemo(() => {
     return (
       state.matches.find((m) => m.id === state.activeMatchId) ?? state.matches[0]
@@ -109,11 +134,49 @@ export function ScoringDashboardView({
     [state.teams]
   );
 
+  const activeInnSafe = match ? match.innings[match.currentInningsIndex] : undefined;
+  const isPendingBowlerChangeSafe = Boolean(
+    match &&
+      activeInnSafe &&
+      activeInnSafe.pendingBowlerChange &&
+      !activeInnSafe.completed &&
+      match.status !== 'completed'
+  );
+  const completedOverNumSafe = activeInnSafe
+    ? activeInnSafe.lastCompletedOverNumber || Math.floor(activeInnSafe.legalBalls / 6)
+    : 0;
+  const overPromptKey =
+    isPendingBowlerChangeSafe && match
+      ? `${match.id}:${match.currentInningsIndex}:${completedOverNumSafe}`
+      : '';
+
   useEffect(() => {
     if (match) {
       setScorecardInningsTab(match.currentInningsIndex);
     }
   }, [match?.id, match?.currentInningsIndex]);
+
+  useEffect(() => {
+    if (overPromptKey) {
+      if (lastPromptedOverKeyRef.current !== overPromptKey) {
+        lastPromptedOverKeyRef.current = overPromptKey;
+        setSelectedNextBowlerId('');
+        setOverCompleteModalOpen(true);
+      }
+    } else {
+      lastPromptedOverKeyRef.current = '';
+      setOverCompleteModalOpen(false);
+      setSelectedNextBowlerId('');
+    }
+  }, [overPromptKey]);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimerRef.current !== null) {
+        window.clearTimeout(confirmTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!match) {
     return (
@@ -196,7 +259,63 @@ export function ScoringDashboardView({
         ? '0.00'
         : '--';
 
-  const isScoringLocked = match.status === 'completed' || activeInn.completed;
+  const isPendingBowlerChange = Boolean(
+    activeInn.pendingBowlerChange &&
+      !activeInn.completed &&
+      match.status !== 'completed'
+  );
+  const completedOverNum =
+    activeInn.lastCompletedOverNumber || Math.floor(activeInn.legalBalls / 6);
+  const previousOverBowlerId =
+    activeInn.previousOverBowlerId ||
+    (activeInn.legalBalls > 0 && activeInn.legalBalls % 6 === 0
+      ? [...activeInn.balls].reverse().find((b) => b.isLegal)?.bowlerId ||
+        activeInn.bowlerId
+      : '');
+  const isAtNewOverStart =
+    activeInn.legalBalls > 0 && activeInn.legalBalls % 6 === 0;
+  const blockPreviousBowler = isPendingBowlerChange || isAtNewOverStart;
+
+  const bowlingStatsByPlayerId = useMemo(
+    () => new Map(bowlingCard.map((row) => [row.playerId, row])),
+    [bowlingCard]
+  );
+
+  const prevOverSummary = useMemo(() => {
+    const runs = prevOverBalls.reduce((sum, b) => sum + b.totalRuns, 0);
+    const wkts = prevOverBalls.filter(
+      (b) => b.isWicket && b.wicketType !== 'Retired Hurt'
+    ).length;
+    return { runs, wkts };
+  }, [prevOverBalls]);
+
+  const getPlayerInitials = (name: string) =>
+    name
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || '')
+      .join('') || 'P';
+
+  const triggerBowlerConfirmedBanner = (player?: Player) => {
+    if (!player) return;
+    if (confirmTimerRef.current !== null) {
+      window.clearTimeout(confirmTimerRef.current);
+    }
+    setBowlerConfirmedBanner({
+      bowlerName: player.name,
+      overNumber: completedOverNum + 1,
+      photoUrl: player.photoUrl,
+      initials: getPlayerInitials(player.name),
+    });
+    confirmTimerRef.current = window.setTimeout(() => {
+      setBowlerConfirmedBanner(null);
+      confirmTimerRef.current = null;
+    }, 3200);
+  };
+
+  const isScoringLocked =
+    match.status === 'completed' || activeInn.completed || isPendingBowlerChange;
   const needsOpeningSetup =
     !activeInn.strikerId || !activeInn.nonStrikerId || !activeInn.bowlerId;
 
@@ -223,6 +342,12 @@ export function ScoringDashboardView({
   };
 
   const recordDelivery = (input: DeliveryInput, label?: string) => {
+    if (isPendingBowlerChange) {
+      setOverCompleteModalOpen(true);
+      onToast('OVER COMPLETED! Please select a new bowler before scoring the next ball.');
+      return;
+    }
+
     if (isScoringLocked) {
       onToast(
         match.status === 'innings_break'
@@ -292,9 +417,13 @@ export function ScoringDashboardView({
         structuredClone(m.innings[1]),
       ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
       nextInnings[0].completed = true;
+      nextInnings[0].pendingBowlerChange = false;
       const targetRuns = nextInnings[0].runs + 1;
       nextInnings[1].target = targetRuns;
       nextInnings[1].completed = false;
+      nextInnings[1].pendingBowlerChange = false;
+      nextInnings[1].previousOverBowlerId = undefined;
+      nextInnings[1].lastCompletedOverNumber = undefined;
       const secondBatTeam = teamMap.get(nextInnings[1].battingTeamId);
       const secondBowlTeam = teamMap.get(nextInnings[1].bowlingTeamId);
       if (!nextInnings[1].strikerId && secondBatTeam?.players[0]) {
@@ -338,6 +467,7 @@ export function ScoringDashboardView({
       ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
       const cur = nextInnings[m.currentInningsIndex];
       cur.completed = true;
+      cur.pendingBowlerChange = false;
       if (m.currentInningsIndex === 0) {
         nextInnings[1].target = cur.runs + 1;
         return {
@@ -460,8 +590,54 @@ export function ScoringDashboardView({
     setWicketModalOpen(false);
   };
 
+  const handleConfirmNextBowler = (bowlerId: string) => {
+    if (!bowlerId) {
+      onToast('Please select a bowler for the next over.');
+      return;
+    }
+    if (previousOverBowlerId && bowlerId === previousOverBowlerId) {
+      onToast('Previous over bowler cannot bowl consecutive overs.');
+      return;
+    }
+    const chosenPlayer = bowlingTeam?.players.find((p) => p.id === bowlerId);
+    updateCurrentMatch((m) => {
+      const nextInnings = [
+        structuredClone(m.innings[0]),
+        structuredClone(m.innings[1]),
+      ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+      const cur = nextInnings[m.currentInningsIndex];
+      cur.bowlerId = bowlerId;
+      cur.pendingBowlerChange = false;
+      if (previousOverBowlerId) {
+        cur.previousOverBowlerId = previousOverBowlerId;
+      }
+      return { ...m, innings: nextInnings };
+    });
+    setOverCompleteModalOpen(false);
+    setSelectedNextBowlerId('');
+    triggerBowlerConfirmedBanner(chosenPlayer);
+    onToast(
+      `New bowler selected: ${chosenPlayer?.name || 'Bowler'} · Over ${completedOverNum + 1} ready!`
+    );
+  };
+
   const handleAssignPlayerSlot = (playerId: string) => {
     if (!playerPickerSlot) return;
+    if (
+      playerPickerSlot === 'bowler' &&
+      blockPreviousBowler &&
+      previousOverBowlerId &&
+      playerId === previousOverBowlerId
+    ) {
+      onToast('Previous over bowler is disabled and cannot bowl consecutive overs.');
+      return;
+    }
+    const chosenBowler =
+      playerPickerSlot === 'bowler'
+        ? bowlingTeam?.players.find((p) => p.id === playerId)
+        : undefined;
+    const wasPendingOverChange = playerPickerSlot === 'bowler' && isPendingBowlerChange;
+
     updateCurrentMatch((m) => {
       const nextInnings = [
         structuredClone(m.innings[0]),
@@ -482,14 +658,27 @@ export function ScoringDashboardView({
         if (!cur.battingOrder.includes(playerId)) cur.battingOrder.push(playerId);
       } else {
         cur.bowlerId = playerId;
+        if (cur.pendingBowlerChange) {
+          cur.pendingBowlerChange = false;
+        }
       }
       return { ...m, innings: nextInnings };
     });
     setPlayerPickerSlot(null);
-    onToast('Player assigned.');
+    if (wasPendingOverChange) {
+      setOverCompleteModalOpen(false);
+      setSelectedNextBowlerId('');
+      triggerBowlerConfirmedBanner(chosenBowler);
+      onToast(`New bowler selected: ${chosenBowler?.name || 'Bowler'}. Scoring enabled!`);
+    } else {
+      onToast('Player assigned.');
+    }
   };
 
-  const handleQuickAddPlayer = (targetTeamId: string, assignToSlot?: 'striker' | 'nonStriker' | 'bowler' | 'nextWicket') => {
+  const handleQuickAddPlayer = (
+    targetTeamId: string,
+    assignToSlot?: 'striker' | 'nonStriker' | 'bowler' | 'nextWicket' | 'overBowler'
+  ) => {
     const clean = quickPlayerName.trim();
     if (!clean) return;
     const teamObj = teamMap.get(targetTeamId);
@@ -502,6 +691,8 @@ export function ScoringDashboardView({
       bowlingStyle: 'Right-Arm Medium',
       jerseyNo: teamObj.players.length + 1,
     };
+    const wasPendingOverChange = assignToSlot === 'bowler' && isPendingBowlerChange;
+
     updateState((prev) => {
       const updatedTeams = prev.teams.map((t) =>
         t.id === targetTeamId ? { ...t, players: [...t.players, newPlayer] } : t
@@ -521,6 +712,9 @@ export function ScoringDashboardView({
           if (!cur.battingOrder.includes(newPlayer.id)) cur.battingOrder.push(newPlayer.id);
         } else if (assignToSlot === 'bowler') {
           cur.bowlerId = newPlayer.id;
+          if (cur.pendingBowlerChange) {
+            cur.pendingBowlerChange = false;
+          }
         }
         return { ...m, innings: nextInnings };
       });
@@ -529,8 +723,14 @@ export function ScoringDashboardView({
 
     if (assignToSlot === 'nextWicket') {
       setWicketNextBatterId(newPlayer.id);
+    } else if (assignToSlot === 'overBowler') {
+      setSelectedNextBowlerId(newPlayer.id);
     } else if (assignToSlot) {
       setPlayerPickerSlot(null);
+      if (wasPendingOverChange) {
+        setOverCompleteModalOpen(false);
+        triggerBowlerConfirmedBanner(newPlayer);
+      }
     }
     setQuickPlayerName('');
     onToast(`Player "${clean}" added to ${teamObj.shortName}.`);
@@ -563,6 +763,9 @@ export function ScoringDashboardView({
       nextInnings[editInningsIdx].wickets = wktsVal;
       nextInnings[editInningsIdx].legalBalls = ballsVal;
       nextInnings[editInningsIdx].maxOvers = maxOvVal;
+      if (ballsVal === 0 || ballsVal % 6 !== 0) {
+        nextInnings[editInningsIdx].pendingBowlerChange = false;
+      }
       if (editInningsIdx === 1) {
         nextInnings[1].target = targetVal;
       } else if (nextInnings[0].completed) {
@@ -760,8 +963,12 @@ export function ScoringDashboardView({
 
             <button
               type="button"
-              onClick={onOpenOverlayController}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-bold transition-colors"
+              onClick={() => setActiveTab('overlay')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                activeTab === 'overlay'
+                  ? 'bg-white text-[#E87500]'
+                  : 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+              }`}
             >
               <Tv className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Overlay Control</span>
@@ -769,20 +976,21 @@ export function ScoringDashboardView({
           </div>
         </div>
 
-        {/* 3 Main Tabs: SCORING PANEL | SCORECARD | OVERS */}
-        <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50">
+        {/* 4 Main Tabs: SCORING PANEL | SCORECARD | OVERS | OVERLAY */}
+        <div className="grid grid-cols-4 border-b border-slate-200 bg-slate-50">
           {(
             [
               { id: 'scoring', label: 'SCORING PANEL' },
               { id: 'scorecard', label: 'SCORECARD' },
               { id: 'overs', label: 'OVERS' },
+              { id: 'overlay', label: 'OVERLAY' },
             ] as const
           ).map((tab) => (
             <button
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 text-xs sm:text-sm font-bold tracking-wide transition-colors border-b-2 ${
+              className={`py-3 px-1 text-[11px] sm:text-sm font-bold tracking-wide transition-colors border-b-2 truncate ${
                 activeTab === tab.id
                   ? 'border-[#FF8C00] text-[#FF8C00] bg-white'
                   : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -1092,18 +1300,35 @@ export function ScoringDashboardView({
 
           {/* Bowler Card + THIS OVER / PREV OVER */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs">
+            <div
+              className={`rounded-xl bg-white p-4 shadow-xs transition-all ${
+                isPendingBowlerChange
+                  ? 'border-2 border-[#FF8C00] ring-2 ring-[#FF8C00]/20 bg-[#FFF3E0]/30'
+                  : 'border border-slate-200'
+              }`}
+            >
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
-                  BOWLER
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                    BOWLER
+                  </span>
+                  {isPendingBowlerChange && (
+                    <span className="px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-bold uppercase tracking-wider animate-pulse">
+                      CHANGE BOWLER
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => setPlayerPickerSlot('bowler')}
+                  onClick={() =>
+                    isPendingBowlerChange
+                      ? setOverCompleteModalOpen(true)
+                      : setPlayerPickerSlot('bowler')
+                  }
                   className="text-xs font-semibold text-[#FF8C00] hover:underline inline-flex items-center gap-1"
                 >
                   <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>Edit Bowler</span>
+                  <span>{isPendingBowlerChange ? 'Select New Bowler' : 'Edit Bowler'}</span>
                 </button>
               </div>
               <p className="font-display font-bold text-base text-slate-900 truncate">
@@ -1172,9 +1397,104 @@ export function ScoringDashboardView({
             </div>
           </div>
 
+          {/* Animated Over Completion Pause Banner & New Bowler Confirmed Banner */}
+          <AnimatePresence mode="wait">
+            {isPendingBowlerChange && (
+              <motion.div
+                key={`over-paused-${completedOverNum}`}
+                initial={{ opacity: 0, y: -12, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+                className="rounded-xl bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#FF8C00] text-white p-4 shadow-md border border-[#E87500] flex flex-wrap items-center justify-between gap-3"
+                role="alert"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <motion.div
+                    animate={{ rotate: [0, -14, 14, -10, 10, 0], scale: [1, 1.08, 1] }}
+                    transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 1.8 }}
+                    className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/30"
+                  >
+                    <BellRing className="w-6 h-6 text-white" aria-hidden="true" />
+                  </motion.div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
+                        OVER COMPLETED!
+                      </span>
+                      <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
+                        OVER {completedOverNum} DONE
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-bold text-orange-50 tracking-wide">
+                      PLEASE CHANGE BOWLER — Scoring paused until next bowler is selected.
+                    </p>
+                    <p className="text-[11px] text-orange-100 mt-0.5">
+                      Strike rotated automatically · On Strike:{' '}
+                      <strong className="text-white">
+                        {strikerStats?.playerName || 'Striker'} *
+                      </strong>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOverCompleteModalOpen(true)}
+                  className="px-4 py-2.5 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors shrink-0"
+                >
+                  SELECT BOWLER
+                </button>
+              </motion.div>
+            )}
+
+            {!isPendingBowlerChange && bowlerConfirmedBanner && (
+              <motion.div
+                key={`bowler-confirmed-${bowlerConfirmedBanner.bowlerName}-${bowlerConfirmedBanner.overNumber}`}
+                initial={{ opacity: 0, y: -10, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                className="rounded-xl bg-emerald-50 border border-emerald-300 px-4 py-3 shadow-xs flex items-center justify-between gap-3"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  {bowlerConfirmedBanner.photoUrl ? (
+                    <img
+                      src={bowlerConfirmedBanner.photoUrl}
+                      alt={bowlerConfirmedBanner.bowlerName}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-emerald-500 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-emerald-600 text-white font-display font-bold text-xs flex items-center justify-center shrink-0">
+                      {bowlerConfirmedBanner.initials}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-extrabold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                      <span>
+                        Bowler Changed: {bowlerConfirmedBanner.bowlerName}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-emerald-700 font-medium">
+                      Over {bowlerConfirmedBanner.overNumber} ready · Live scoring &amp; overlay updated.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBowlerConfirmedBanner(null)}
+                  aria-label="Dismiss bowler confirmation"
+                  className="p-1 rounded-lg text-emerald-700 hover:bg-emerald-100"
+                >
+                  <X className="w-4 h-4" aria-hidden="true" />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Exact Color-Coded Scoring Keypad */}
           <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs space-y-3">
-            {/* Row 1: Runs (Blue: 0,1,2,3,5; Yellow: 4,6) */}
+            {/* Row 1: Runs (Orange: 0,1,2,3,5; Yellow: 4,6) */}
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5">
               {[0, 1, 2, 3].map((r) => (
                 <button
@@ -1301,12 +1621,16 @@ export function ScoringDashboardView({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setPlayerPickerSlot('bowler')}
+                    onClick={() =>
+                      isPendingBowlerChange
+                        ? setOverCompleteModalOpen(true)
+                        : setPlayerPickerSlot('bowler')
+                    }
                     className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold"
                   >
                     Change Bowler
                   </button>
-                  {!isScoringLocked && (
+                  {match.status !== 'completed' && !activeInn.completed && (
                     <button
                       type="button"
                       onClick={handleCompleteInningsOrMatch}
@@ -1650,6 +1974,19 @@ export function ScoringDashboardView({
         </div>
       )}
 
+      {/* ================= TAB 4: OVERLAY CONTROL ================= */}
+      {activeTab === 'overlay' && (
+        <TvOverlayControllerView
+          state={state}
+          overlayUrl={overlayUrl}
+          updateState={updateState}
+          onCopyOverlayUrl={onCopyOverlayUrl}
+          onGoToGroups={onGoToGroups}
+          onToast={onToast}
+          onRequestLogout={onRequestLogout}
+        />
+      )}
+
       {/* ================= MODAL: EXTRA DELIVERY ================= */}
       {extraModalType && (
         <div
@@ -1927,21 +2264,63 @@ export function ScoringDashboardView({
                               activeInn.nonStrikerId === p.id) ||
                             (playerPickerSlot === 'bowler' &&
                               activeInn.bowlerId === p.id);
+                          const isDisabledPrevBowler =
+                            playerPickerSlot === 'bowler' &&
+                            blockPreviousBowler &&
+                            Boolean(previousOverBowlerId) &&
+                            p.id === previousOverBowlerId;
+                          const bStats =
+                            playerPickerSlot === 'bowler'
+                              ? bowlingStatsByPlayerId.get(p.id)
+                              : undefined;
                           return (
                             <button
                               key={p.id}
                               type="button"
+                              disabled={isDisabledPrevBowler}
                               onClick={() => handleAssignPlayerSlot(p.id)}
-                              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg border text-left transition-colors ${
-                                isSelected
-                                  ? 'bg-[#FFF3E0] border-[#FF8C00] text-[#FF8C00]'
-                                  : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
+                              className={`w-full flex items-center justify-between gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+                                isDisabledPrevBowler
+                                  ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70'
+                                  : isSelected
+                                    ? 'bg-[#FFF3E0] border-[#FF8C00] text-[#FF8C00]'
+                                    : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-800'
                               }`}
                             >
-                              <span className="text-sm font-semibold">
-                                #{p.jerseyNo} {p.name}
-                              </span>
-                              <span className="text-[11px] text-slate-500">{p.role}</span>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {p.photoUrl ? (
+                                  <img
+                                    src={p.photoUrl}
+                                    alt={p.name}
+                                    className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-[#FFF3E0] text-[#E87500] font-bold text-[11px] flex items-center justify-center shrink-0 border border-[#FF8C00]/25">
+                                    {getPlayerInitials(p.name)}
+                                  </div>
+                                )}
+                                <div className="min-w-0">
+                                  <p className="text-sm font-semibold truncate">
+                                    #{p.jerseyNo} {p.name}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500">
+                                    {p.role}
+                                    {bStats
+                                      ? ` · ${bStats.overs}-${bStats.maidens}-${bStats.runs}-${bStats.wickets}`
+                                      : ''}
+                                  </p>
+                                </div>
+                              </div>
+                              {isDisabledPrevBowler ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase shrink-0">
+                                  <Ban className="w-3 h-3" aria-hidden="true" />
+                                  Last Over
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-500 shrink-0">
+                                  {isSelected ? 'Active' : ''}
+                                </span>
+                              )}
                             </button>
                           );
                         })
@@ -2233,6 +2612,237 @@ export function ScoringDashboardView({
           </div>
         </div>
       )}
+
+      {/* ================= MODAL: OVER COMPLETED — SELECT NEXT BOWLER ================= */}
+      <AnimatePresence>
+        {overCompleteModalOpen && isPendingBowlerChange && (
+          <motion.div
+            key="over-complete-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="over-completed-title"
+          >
+            <motion.div
+              key="over-complete-card"
+              initial={{ opacity: 0, scale: 0.9, y: 24 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 16 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 26 }}
+              className="w-full max-w-lg rounded-2xl bg-white border border-orange-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+            >
+              {/* Animated Notification Header */}
+              <div className="bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#FF8C00] text-white px-5 py-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <motion.div
+                      animate={{ rotate: [0, -16, 16, -12, 12, 0], scale: [1, 1.1, 1] }}
+                      transition={{ duration: 0.95, repeat: Infinity, repeatDelay: 1.4 }}
+                      className="w-12 h-12 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0 shadow-inner"
+                    >
+                      <BellRing className="w-6 h-6 text-white" aria-hidden="true" />
+                    </motion.div>
+                    <div>
+                      <h3
+                        id="over-completed-title"
+                        className="font-display font-black text-lg sm:text-xl tracking-wide leading-tight"
+                      >
+                        OVER COMPLETED!
+                      </h3>
+                      <p className="text-xs sm:text-sm font-extrabold text-[#FFF3E0] tracking-wider uppercase mt-0.5">
+                        PLEASE CHANGE BOWLER
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setOverCompleteModalOpen(false)}
+                    aria-label="Close bowler popup"
+                    className="p-1.5 rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    <X className="w-4 h-4" aria-hidden="true" />
+                  </button>
+                </div>
+
+                {/* Completed Over Summary + Strike Rotation Confirmation */}
+                <div className="mt-3 pt-3 border-t border-white/20 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                  <span className="px-2.5 py-1 rounded-md bg-white/20 text-white">
+                    Over {completedOverNum} Complete · {prevOverSummary.runs}R / {prevOverSummary.wkts}W
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md bg-white/15 text-orange-50">
+                    Next Over: Over {completedOverNum + 1}
+                  </span>
+                  <span className="px-2.5 py-1 rounded-md bg-white/15 text-orange-50">
+                    Strike Rotated: {strikerStats?.playerName || 'Striker'} *
+                  </span>
+                </div>
+              </div>
+
+              {/* Bowler Selection List */}
+              <div className="p-4 sm:p-5 space-y-3 overflow-y-auto flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Select Bowler ({bowlingTeam?.name || 'Bowling Team'})
+                  </p>
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Previous bowler disabled
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
+                  {(bowlingTeam?.players ?? []).length === 0 ? (
+                    <p className="text-xs text-slate-500 py-6 text-center bg-slate-50 rounded-xl border border-slate-200">
+                      No bowlers found in {bowlingTeam?.name || 'this team'}. Add a bowler below.
+                    </p>
+                  ) : (
+                    (bowlingTeam?.players ?? []).map((p) => {
+                      const isPrevBowler =
+                        Boolean(previousOverBowlerId) && p.id === previousOverBowlerId;
+                      const isPicked = !isPrevBowler && selectedNextBowlerId === p.id;
+                      const stats = bowlingStatsByPlayerId.get(p.id);
+
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          disabled={isPrevBowler}
+                          onClick={() => setSelectedNextBowlerId(p.id)}
+                          className={`w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 text-left transition-all ${
+                            isPrevBowler
+                              ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-70'
+                              : isPicked
+                                ? 'bg-[#FFF3E0] border-[#FF8C00] shadow-xs'
+                                : 'bg-white border-slate-200 hover:border-[#FF8C00]/50 hover:bg-orange-50/30 text-slate-900'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            {p.photoUrl ? (
+                              <img
+                                src={p.photoUrl}
+                                alt={p.name}
+                                className={`w-11 h-11 rounded-full object-cover shrink-0 border-2 ${
+                                  isPrevBowler
+                                    ? 'border-slate-300 grayscale'
+                                    : isPicked
+                                      ? 'border-[#FF8C00]'
+                                      : 'border-slate-200'
+                                }`}
+                              />
+                            ) : (
+                              <div
+                                className={`w-11 h-11 rounded-full font-display font-bold text-xs flex items-center justify-center shrink-0 border ${
+                                  isPrevBowler
+                                    ? 'bg-slate-200 text-slate-500 border-slate-300'
+                                    : isPicked
+                                      ? 'bg-[#FF8C00] text-white border-[#E87500]'
+                                      : 'bg-[#FFF3E0] text-[#E87500] border-[#FF8C00]/30'
+                                }`}
+                              >
+                                {getPlayerInitials(p.name)}
+                              </div>
+                            )}
+
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p
+                                  className={`font-display font-bold text-sm truncate ${
+                                    isPrevBowler ? 'text-slate-500' : 'text-slate-900'
+                                  }`}
+                                >
+                                  {p.name}
+                                </p>
+                                <span className="text-[10px] font-bold text-slate-400 shrink-0">
+                                  #{p.jerseyNo}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-slate-500 mt-0.5">
+                                <span>{p.role}</span>
+                                <span className="text-slate-300">·</span>
+                                <span className="font-semibold tabular-nums">
+                                  {stats
+                                    ? `${stats.overs} ov · ${stats.maidens}M · ${stats.runs}R · ${stats.wickets}W (Eco ${stats.economy})`
+                                    : '0.0 ov · 0R · 0W'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isPrevBowler ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-200 text-slate-600 text-[10px] font-extrabold uppercase tracking-wide">
+                                <Ban className="w-3 h-3" aria-hidden="true" />
+                                Previous
+                              </span>
+                            ) : isPicked ? (
+                              <span className="w-7 h-7 rounded-full bg-[#FF8C00] text-white inline-flex items-center justify-center shadow-xs">
+                                <Check className="w-4 h-4" aria-hidden="true" />
+                              </span>
+                            ) : (
+                              <span className="w-6 h-6 rounded-full border-2 border-slate-300 inline-block" />
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Quick Add Bowler inline if team needs an extra bowler */}
+                {bowlingTeam && (
+                  <div className="pt-3 border-t border-slate-200 space-y-2">
+                    <p className="text-[11px] font-bold text-slate-600 flex items-center gap-1.5">
+                      <UserPlus className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                      Quick Add New Bowler to {bowlingTeam.shortName}
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={quickPlayerName}
+                        onChange={(e) => setQuickPlayerName(e.target.value)}
+                        placeholder="Enter bowler name"
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-xs bg-white focus:outline-hidden focus:border-[#FF8C00]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleQuickAddPlayer(bowlingTeam.id, 'overBowler')}
+                        className="px-3.5 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 border border-[#FF8C00]/30 text-[#E87500] text-xs font-bold shrink-0"
+                      >
+                        + Add
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Actions: CANCEL & SELECT BOWLER */}
+              <div className="px-4 sm:px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setOverCompleteModalOpen(false)}
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-xs sm:text-sm font-bold text-slate-700 transition-colors"
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    !selectedNextBowlerId || selectedNextBowlerId === previousOverBowlerId
+                  }
+                  onClick={() => handleConfirmNextBowler(selectedNextBowlerId)}
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
+                >
+                  <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
+                  <span>SELECT BOWLER</span>
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

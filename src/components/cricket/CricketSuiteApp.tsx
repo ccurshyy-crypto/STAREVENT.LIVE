@@ -610,9 +610,13 @@ export function CricketSuiteApp({
             {activeRoute === 'scoring' && (
               <ScoringDashboardView
                 state={state}
+                overlayUrl={overlayUrl}
                 updateState={updateState}
+                onCopyOverlayUrl={handleCopyOverlayUrl}
+                onGoToGroups={() => navigateTo('tournament-groups')}
                 onOpenOverlayController={() => navigateTo('overlay')}
                 onNavigateToMatches={() => navigateTo('match')}
+                onRequestLogout={handleRequestLogout}
                 onToast={showToast}
               />
             )}

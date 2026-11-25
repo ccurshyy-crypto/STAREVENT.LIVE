@@ -1040,9 +1040,13 @@ export function applyDeliveryToMatch(
   input: DeliveryInput,
   teams: Team[]
 ): CricketMatch {
-  // Prevent invalid scoring after match or current innings completion
+  // Prevent invalid scoring after match/innings completion or while awaiting next over bowler
   const currentInnCheck = match.innings[match.currentInningsIndex];
-  if (match.status === 'completed' || currentInnCheck.completed) {
+  if (
+    match.status === 'completed' ||
+    currentInnCheck.completed ||
+    currentInnCheck.pendingBowlerChange
+  ) {
     return match;
   }
 
@@ -1163,6 +1167,13 @@ export function applyDeliveryToMatch(
         inn.strikerId = incomingId;
       }
     }
+
+    // Rotate strike if odd runs were completed before dismissal (e.g. run out)
+    if (runsOffBat % 2 === 1 && !ballEvent.isDcl) {
+      const tmp = inn.strikerId;
+      inn.strikerId = inn.nonStrikerId;
+      inn.nonStrikerId = tmp;
+    }
   } else {
     // Rotate strike on odd completed runs
     const runsForStrikeSwap =
@@ -1181,8 +1192,9 @@ export function applyDeliveryToMatch(
     }
   }
 
-  // Over completion swaps strike
-  if (isLegal && inn.legalBalls > 0 && inn.legalBalls % 6 === 0) {
+  // Over completion (6 legal balls) swaps strike automatically
+  const isOverCompletedNow = isLegal && inn.legalBalls > 0 && inn.legalBalls % 6 === 0;
+  if (isOverCompletedNow) {
     const tmp = inn.strikerId;
     inn.strikerId = inn.nonStrikerId;
     inn.nonStrikerId = tmp;
@@ -1229,6 +1241,17 @@ export function applyDeliveryToMatch(
       const remBalls = Math.max(0, maxBalls - inn.legalBalls);
       nextMatch.resultText = `${battingTeamObj?.shortName || 'Team 2'} need ${need} runs in ${remBalls} balls`;
     }
+  }
+
+  // Trigger mandatory bowler change pause when 6 legal balls complete an over (and innings/match continues)
+  if (inn.completed || nextMatch.status === 'completed') {
+    inn.pendingBowlerChange = false;
+  } else if (isOverCompletedNow) {
+    inn.pendingBowlerChange = true;
+    inn.lastCompletedOverNumber = Math.floor(inn.legalBalls / 6);
+    inn.previousOverBowlerId = inn.bowlerId;
+  } else {
+    inn.pendingBowlerChange = false;
   }
 
   return nextMatch;

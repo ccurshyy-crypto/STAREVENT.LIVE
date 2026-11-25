@@ -205,6 +205,9 @@ export interface InningsState {
   completed: boolean;
   manualRunsOffset?: number;
   manualWicketsOffset?: number;
+  pendingBowlerChange?: boolean;
+  lastCompletedOverNumber?: number;
+  previousOverBowlerId?: string;
 }
 
 export type MatchStatus = 'not_started' | 'live' | 'innings_break' | 'completed';
