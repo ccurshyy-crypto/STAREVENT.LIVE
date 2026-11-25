@@ -803,15 +803,20 @@ export function computeBattingCard(
 
   return order.map((id, idx) => {
     const s = statsMap.get(id)!;
+    const off = innings.battingStatOffsets?.[id];
+    const runs = Math.max(0, s.runs + (off?.runs ?? 0));
+    const balls = Math.max(0, s.balls + (off?.balls ?? 0));
+    const fours = Math.max(0, s.fours + (off?.fours ?? 0));
+    const sixes = Math.max(0, s.sixes + (off?.sixes ?? 0));
     return {
       playerId: id,
       playerName: playerMap.get(id) || 'Batter',
       battingPosition: idx + 1,
-      runs: s.runs,
-      balls: s.balls,
-      fours: s.fours,
-      sixes: s.sixes,
-      sr: calcStrikeRate(s.runs, s.balls),
+      runs,
+      balls,
+      fours,
+      sixes,
+      sr: calcStrikeRate(runs, balls),
       isOut: s.isOut,
       dismissalText: s.dismissalText,
       isStriker: id === innings.strikerId && !s.isOut,
@@ -894,21 +899,26 @@ export function computeBowlingCard(
 
   return order.map((id) => {
     const s = statsMap.get(id)!;
-    let maidens = 0;
+    let maidensBase = 0;
     s.overRuns.forEach((ov) => {
-      if (ov.legal === 6 && ov.conceded === 0) maidens += 1;
+      if (ov.legal === 6 && ov.conceded === 0) maidensBase += 1;
     });
+    const off = innings.bowlingStatOffsets?.[id];
+    const legalBalls = Math.max(0, s.legalBalls + (off?.legalBalls ?? 0));
+    const maidens = Math.max(0, maidensBase + (off?.maidens ?? 0));
+    const runs = Math.max(0, s.runs + (off?.runs ?? 0));
+    const wickets = Math.max(0, s.wickets + (off?.wickets ?? 0));
     return {
       playerId: id,
       playerName: playerMap.get(id) || 'Bowler',
-      legalBalls: s.legalBalls,
-      overs: formatOvers(s.legalBalls),
+      legalBalls,
+      overs: formatOvers(legalBalls),
       maidens,
-      runs: s.runs,
-      wickets: s.wickets,
+      runs,
+      wickets,
       wides: s.wides,
       noBalls: s.noBalls,
-      economy: calcRunRate(s.runs, s.legalBalls),
+      economy: calcRunRate(runs, legalBalls),
       isCurrentBowler: id === innings.bowlerId,
     };
   });

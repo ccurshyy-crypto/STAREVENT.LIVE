@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   ArrowLeft,
@@ -13,9 +13,10 @@ import {
   Plus,
   Radio,
   RotateCcw,
-  ShieldAlert,
+  Send,
   Trophy,
   Tv,
+  UserPen,
   UserPlus,
   Users,
   X,
@@ -110,6 +111,23 @@ export function ScoringDashboardView({
   const [playerPickerSlot, setPlayerPickerSlot] = useState<
     'striker' | 'nonStriker' | 'bowler' | null
   >(null);
+  const [slotMenuOpen, setSlotMenuOpen] = useState<
+    'striker' | 'nonStriker' | 'bowler' | null
+  >(null);
+  const [editPlayerModal, setEditPlayerModal] = useState<{
+    slot: 'striker' | 'nonStriker' | 'bowler';
+    playerId: string;
+    teamId: string;
+  } | null>(null);
+  const [editPlayerName, setEditPlayerName] = useState('');
+  const [editBatterScore, setEditBatterScore] = useState('0');
+  const [editBatterBalls, setEditBatterBalls] = useState('0');
+  const [editBatter4s, setEditBatter4s] = useState('0');
+  const [editBatter6s, setEditBatter6s] = useState('0');
+  const [editBowlerOvers, setEditBowlerOvers] = useState('0.0');
+  const [editBowlerMaidens, setEditBowlerMaidens] = useState('0');
+  const [editBowlerRuns, setEditBowlerRuns] = useState('0');
+  const [editBowlerWickets, setEditBowlerWickets] = useState('0');
   const [quickPlayerName, setQuickPlayerName] = useState('');
   const [quickPlayerRole, setQuickPlayerRole] = useState<PlayerRole>('All-Rounder');
 
@@ -296,13 +314,31 @@ export function ScoringDashboardView({
         setInn2StrikerId(secondInn.strikerId || '');
         setInn2NonStrikerId(secondInn.nonStrikerId || '');
         setInn2BowlerId(secondInn.bowlerId || '');
-        setSecondInningsSetupModalOpen(true);
+        // Do NOT auto-open blocking popup — show big red Select Batsman & Select Bowler buttons directly on the cards
       }
     } else {
       lastPromptedSecondInnSetupKeyRef.current = '';
       setSecondInningsSetupModalOpen(false);
     }
   }, [secondInningsSetupPromptKey, match]);
+
+  useEffect(() => {
+    if (!slotMenuOpen) return;
+    const handleOutside = (ev: MouseEvent) => {
+      const target = ev.target as HTMLElement | null;
+      if (target?.closest('[data-slot-menu="true"]')) return;
+      setSlotMenuOpen(null);
+    };
+    const handleKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') setSlotMenuOpen(null);
+    };
+    document.addEventListener('mousedown', handleOutside);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handleOutside);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [slotMenuOpen]);
 
   useEffect(() => {
     if (matchCompletePromptKey && match) {
@@ -509,18 +545,10 @@ export function ScoringDashboardView({
     }
 
     if (needsOpeningSetup) {
-      if (innIdx === 1) {
-        setInn2StrikerId(activeInn.strikerId || '');
-        setInn2NonStrikerId(activeInn.nonStrikerId || '');
-        setInn2BowlerId(activeInn.bowlerId || '');
-        setSecondInningsSetupModalOpen(true);
-        onToast('Please select or add 2nd Innings Batters and Bowler before scoring.');
-      } else {
-        onToast('Please assign Striker, Non-Striker, and Bowler before scoring.');
-        if (!activeInn.strikerId) setPlayerPickerSlot('striker');
-        else if (!activeInn.nonStrikerId) setPlayerPickerSlot('nonStriker');
-        else setPlayerPickerSlot('bowler');
-      }
+      onToast('Please select Striker, Non-Striker, and Bowler before scoring.');
+      if (!activeInn.strikerId) setPlayerPickerSlot('striker');
+      else if (!activeInn.nonStrikerId) setPlayerPickerSlot('nonStriker');
+      else setPlayerPickerSlot('bowler');
       return;
     }
 
@@ -592,15 +620,6 @@ export function ScoringDashboardView({
     setInningsSwitchModalOpen(true);
   };
 
-  const openSecondInningsSetupModal = () => {
-    setInn2StrikerId(inn2.strikerId || '');
-    setInn2NonStrikerId(inn2.nonStrikerId || '');
-    setInn2BowlerId(inn2.bowlerId || '');
-    setQuickPlayerName('');
-    setQuickBowlPlayerName('');
-    setSecondInningsSetupModalOpen(true);
-  };
-
   const handleStartSecondInnings = () => {
     updateCurrentMatch((m) => {
       const nextInnings = [
@@ -619,7 +638,7 @@ export function ScoringDashboardView({
       nextInnings[1].pendingBatterSlot = undefined;
       nextInnings[1].previousOverBowlerId = undefined;
       nextInnings[1].lastCompletedOverNumber = undefined;
-      // Never auto-assign players or bowler on 2nd innings switch — scorer must select or add them
+      // Never auto-assign players or bowler on 2nd innings switch — scorer selects them via inline red buttons
       if (nextInnings[1].balls.length === 0) {
         nextInnings[1].strikerId = '';
         nextInnings[1].nonStrikerId = '';
@@ -643,8 +662,7 @@ export function ScoringDashboardView({
     setInn2BowlerId('');
     setQuickPlayerName('');
     setQuickBowlPlayerName('');
-    setSecondInningsSetupModalOpen(true);
-    onToast('Switched to 2nd Innings! Please select or add Batters and Bowler to start scoring.');
+    onToast('Switched to 2nd Innings! Tap Select Batsman & Select Bowler to start scoring.');
   };
 
   const handleConfirmSecondInningsSetup = () => {
@@ -991,6 +1009,206 @@ export function ScoringDashboardView({
       onToast(`New bowler selected: ${chosenBowler?.name || 'Bowler'}. Scoring enabled!`);
     } else {
       onToast('Player assigned.');
+    }
+  };
+
+  const openEditPlayerModal = (slot: 'striker' | 'nonStriker' | 'bowler') => {
+    setSlotMenuOpen(null);
+    if (slot === 'striker') {
+      if (!activeInn.strikerId || !battingTeam) return;
+      setEditPlayerModal({
+        slot: 'striker',
+        playerId: activeInn.strikerId,
+        teamId: battingTeam.id,
+      });
+      setEditPlayerName(strikerStats?.playerName || '');
+      setEditBatterScore(String(strikerStats?.runs ?? 0));
+      setEditBatterBalls(String(strikerStats?.balls ?? 0));
+      setEditBatter4s(String(strikerStats?.fours ?? 0));
+      setEditBatter6s(String(strikerStats?.sixes ?? 0));
+    } else if (slot === 'nonStriker') {
+      if (!activeInn.nonStrikerId || !battingTeam) return;
+      setEditPlayerModal({
+        slot: 'nonStriker',
+        playerId: activeInn.nonStrikerId,
+        teamId: battingTeam.id,
+      });
+      setEditPlayerName(nonStrikerStats?.playerName || '');
+      setEditBatterScore(String(nonStrikerStats?.runs ?? 0));
+      setEditBatterBalls(String(nonStrikerStats?.balls ?? 0));
+      setEditBatter4s(String(nonStrikerStats?.fours ?? 0));
+      setEditBatter6s(String(nonStrikerStats?.sixes ?? 0));
+    } else {
+      if (!activeInn.bowlerId || !bowlingTeam) return;
+      setEditPlayerModal({
+        slot: 'bowler',
+        playerId: activeInn.bowlerId,
+        teamId: bowlingTeam.id,
+      });
+      setEditPlayerName(bowlerStats?.playerName || '');
+      setEditBowlerOvers(bowlerStats?.overs ?? '0.0');
+      setEditBowlerMaidens(String(bowlerStats?.maidens ?? 0));
+      setEditBowlerRuns(String(bowlerStats?.runs ?? 0));
+      setEditBowlerWickets(String(bowlerStats?.wickets ?? 0));
+    }
+  };
+
+  const handleSaveEditPlayer = (e: FormEvent) => {
+    e.preventDefault();
+    if (!editPlayerModal) return;
+    const cleanName = editPlayerName.trim();
+    if (!cleanName) {
+      onToast('Please enter a player name.');
+      return;
+    }
+    const targetTeam = teamMap.get(editPlayerModal.teamId);
+    if (targetTeam) {
+      const normalized = cleanName.toLowerCase();
+      const duplicate = targetTeam.players.some(
+        (p) =>
+          p.id !== editPlayerModal.playerId &&
+          p.name.trim().toLowerCase() === normalized
+      );
+      if (duplicate) {
+        onToast(`Player "${cleanName}" already exists in ${targetTeam.name}.`);
+        return;
+      }
+    }
+
+    const { slot, playerId, teamId } = editPlayerModal;
+
+    if (slot === 'striker' || slot === 'nonStriker') {
+      const desiredRuns = Math.max(0, Math.floor(Number(editBatterScore) || 0));
+      const desiredBalls = Math.max(0, Math.floor(Number(editBatterBalls) || 0));
+      const desired4s = Math.max(0, Math.floor(Number(editBatter4s) || 0));
+      const desired6s = Math.max(0, Math.floor(Number(editBatter6s) || 0));
+
+      // Compute raw ball-derived stats so offsets persist cleanly across future deliveries
+      let rawRuns = 0;
+      let rawBalls = 0;
+      let raw4s = 0;
+      let raw6s = 0;
+      for (const b of activeInn.balls) {
+        if (b.strikerId !== playerId) continue;
+        if (b.extraType !== 'WD' && b.extraType !== 'PENALTY') rawBalls += 1;
+        rawRuns += b.runsOffBat;
+        if (b.isBoundary4) raw4s += 1;
+        if (b.isBoundary6) raw6s += 1;
+      }
+
+      updateState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((t) =>
+          t.id === teamId
+            ? {
+                ...t,
+                players: t.players.map((p) =>
+                  p.id === playerId ? { ...p, name: cleanName } : p
+                ),
+              }
+            : t
+        ),
+        matches: prev.matches.map((m) => {
+          if (m.id !== match.id) return m;
+          const nextInnings = [
+            structuredClone(m.innings[0]),
+            structuredClone(m.innings[1]),
+          ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+          const cur = nextInnings[m.currentInningsIndex];
+          cur.battingStatOffsets = {
+            ...(cur.battingStatOffsets ?? {}),
+            [playerId]: {
+              runs: desiredRuns - rawRuns,
+              balls: desiredBalls - rawBalls,
+              fours: desired4s - raw4s,
+              sixes: desired6s - raw6s,
+            },
+          };
+          return { ...m, innings: nextInnings };
+        }),
+      }));
+
+      setEditPlayerModal(null);
+      onToast(`${slot === 'striker' ? 'Striker' : 'Non-Striker'} updated.`);
+    } else {
+      const oversParts = editBowlerOvers.trim().split('.');
+      const ovWhole = Math.max(0, parseInt(oversParts[0] || '0', 10) || 0);
+      const ovBalls = Math.max(
+        0,
+        Math.min(5, parseInt(oversParts[1] || '0', 10) || 0)
+      );
+      const desiredLegalBalls = ovWhole * 6 + ovBalls;
+      const desiredMaidens = Math.max(0, Math.floor(Number(editBowlerMaidens) || 0));
+      const desiredRuns = Math.max(0, Math.floor(Number(editBowlerRuns) || 0));
+      const desiredWickets = Math.max(0, Math.floor(Number(editBowlerWickets) || 0));
+
+      let rawLegalBalls = 0;
+      let rawRuns = 0;
+      let rawWickets = 0;
+      const overRuns = new Map<number, { legal: number; conceded: number }>();
+      for (const b of activeInn.balls) {
+        if (b.bowlerId !== playerId) continue;
+        if (b.isLegal) rawLegalBalls += 1;
+        let bowlerRuns = 0;
+        if (b.extraType === 'WD') bowlerRuns = b.extraRuns;
+        else if (b.extraType === 'NB') bowlerRuns = b.runsOffBat + b.extraRuns;
+        else if (b.extraType === 'none') bowlerRuns = b.runsOffBat;
+        rawRuns += bowlerRuns;
+        if (
+          b.isWicket &&
+          b.wicketType !== 'Run Out' &&
+          b.wicketType !== 'Retired Hurt' &&
+          b.wicketType !== 'Retired Out' &&
+          b.wicketType !== 'Time Out' &&
+          b.wicketType !== 'Obstructing the Field' &&
+          b.wicketType !== 'Mankad Runout'
+        ) {
+          rawWickets += 1;
+        }
+        const entry = overRuns.get(b.over) ?? { legal: 0, conceded: 0 };
+        if (b.isLegal) entry.legal += 1;
+        entry.conceded += bowlerRuns;
+        overRuns.set(b.over, entry);
+      }
+      let rawMaidens = 0;
+      overRuns.forEach((ov) => {
+        if (ov.legal === 6 && ov.conceded === 0) rawMaidens += 1;
+      });
+
+      updateState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((t) =>
+          t.id === teamId
+            ? {
+                ...t,
+                players: t.players.map((p) =>
+                  p.id === playerId ? { ...p, name: cleanName } : p
+                ),
+              }
+            : t
+        ),
+        matches: prev.matches.map((m) => {
+          if (m.id !== match.id) return m;
+          const nextInnings = [
+            structuredClone(m.innings[0]),
+            structuredClone(m.innings[1]),
+          ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+          const cur = nextInnings[m.currentInningsIndex];
+          cur.bowlingStatOffsets = {
+            ...(cur.bowlingStatOffsets ?? {}),
+            [playerId]: {
+              legalBalls: desiredLegalBalls - rawLegalBalls,
+              maidens: desiredMaidens - rawMaidens,
+              runs: desiredRuns - rawRuns,
+              wickets: desiredWickets - rawWickets,
+            },
+          };
+          return { ...m, innings: nextInnings };
+        }),
+      }));
+
+      setEditPlayerModal(null);
+      onToast('Bowler updated.');
     }
   };
 
@@ -1548,61 +1766,6 @@ export function ScoringDashboardView({
             </div>
           </div>
 
-          {/* Setup Prompt if Players/Bowler Not Yet Assigned */}
-          {needsOpeningSetup && !isPendingNewBatter && !activeInn.completed && match.status !== 'completed' && (
-            <div className="rounded-xl bg-[#FFF3E0] border-2 border-[#FF8C00] px-4 py-3.5 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-              <div className="flex items-center gap-2.5 text-slate-900 text-xs sm:text-sm font-bold">
-                <ShieldAlert className="w-5 h-5 text-[#E87500] shrink-0" aria-hidden="true" />
-                <span>
-                  {innIdx === 1
-                    ? '2ND INNINGS: Please select or add Opening Striker, Non-Striker & Bowler to start scoring.'
-                    : 'Scoring paused — Assign Striker, Non-Striker, and Opening Bowler to start live ball-by-ball scoring.'}
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {innIdx === 1 ? (
-                  <button
-                    type="button"
-                    onClick={openSecondInningsSetupModal}
-                    className="px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-black tracking-wide shadow-xs"
-                  >
-                    + SELECT / ADD PLAYERS &amp; BOWLER
-                  </button>
-                ) : (
-                  <>
-                    {!activeInn.strikerId && (
-                      <button
-                        type="button"
-                        onClick={() => setPlayerPickerSlot('striker')}
-                        className="px-3 py-1.5 rounded-lg bg-[#FF8C00] text-white text-xs font-bold"
-                      >
-                        + Select Striker
-                      </button>
-                    )}
-                    {!activeInn.nonStrikerId && (
-                      <button
-                        type="button"
-                        onClick={() => setPlayerPickerSlot('nonStriker')}
-                        className="px-3 py-1.5 rounded-lg bg-[#FF8C00] text-white text-xs font-bold"
-                      >
-                        + Select Non-Striker
-                      </button>
-                    )}
-                    {!activeInn.bowlerId && (
-                      <button
-                        type="button"
-                        onClick={() => setPlayerPickerSlot('bowler')}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold"
-                      >
-                        + Select Bowler
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           {/* Striker + SWAP + Non-Striker Cards */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
             {/* Striker Card */}
@@ -1611,33 +1774,60 @@ export function ScoringDashboardView({
                 !activeInn.strikerId && !activeInn.completed && match.status !== 'completed';
               return (
                 <div
-                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                  className={`relative rounded-xl bg-white shadow-xs transition-all flex flex-col ${
                     needsStriker
                       ? 'border-2 border-[#DC2626]'
-                      : 'border-2 border-[#FF8C00]'
+                      : 'border-2 border-[#1696F3]'
                   }`}
                 >
-                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-gradient-to-r from-[#FF8C00] to-[#E87500] text-white">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 bg-[#1696F3] text-white">
                     <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider">
                       {!needsStriker && <CricketBatIcon className="w-3.5 h-3.5" />}
                       <span>STRIKER</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        needsStriker && isPendingNewBatter
-                          ? setNewBatterModalOpen(true)
-                          : setPlayerPickerSlot('striker')
-                      }
-                      className="text-xs font-bold text-white/95 hover:text-white inline-flex items-center gap-1"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>{needsStriker ? 'Select' : 'Edit'}</span>
-                    </button>
+                    <div className="relative" data-slot-menu="true">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (needsStriker) {
+                            if (isPendingNewBatter) setNewBatterModalOpen(true);
+                            else setPlayerPickerSlot('striker');
+                          } else {
+                            setSlotMenuOpen((prev) => (prev === 'striker' ? null : 'striker'));
+                          }
+                        }}
+                        aria-label="Edit or Replace Striker"
+                        className="p-1 rounded-md text-white/95 hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                      >
+                        <UserPen className="w-4 h-4" aria-hidden="true" />
+                      </button>
+
+                      {slotMenuOpen === 'striker' && !needsStriker && (
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-[4px] bg-white border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.22)] overflow-hidden text-left">
+                          <button
+                            type="button"
+                            onClick={() => openEditPlayerModal('striker')}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors border-b border-slate-100"
+                          >
+                            Edit Batsman
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlotMenuOpen(null);
+                              setPlayerPickerSlot('striker');
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors"
+                          >
+                            Replace Batsman
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {needsStriker ? (
-                    <div className="p-3 flex-1 flex">
+                    <div className="p-2.5 flex-1 flex">
                       <motion.button
                         type="button"
                         initial={{ opacity: 0, scale: 0.96 }}
@@ -1650,7 +1840,7 @@ export function ScoringDashboardView({
                             ? setNewBatterModalOpen(true)
                             : setPlayerPickerSlot('striker')
                         }
-                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
                       >
                         Select Batsman
                       </motion.button>
@@ -1697,7 +1887,7 @@ export function ScoringDashboardView({
                         </div>
                         <div>
                           <p className="text-[10px] text-slate-500 font-semibold">SR</p>
-                          <p className="text-xs font-bold text-[#FF8C00] tabular-nums">
+                          <p className="text-xs font-bold text-[#1696F3] tabular-nums">
                             {strikerStats?.sr ?? '0.0'}
                           </p>
                         </div>
@@ -1713,10 +1903,11 @@ export function ScoringDashboardView({
               <button
                 type="button"
                 onClick={handleSwapBatsmen}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold shadow-sm transition-colors"
+                title="Swap Batsmen"
+                className="w-full md:w-12 md:h-12 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 md:p-0 rounded-xl bg-[#FF9800] hover:bg-[#FB8C00] text-white text-xs font-bold shadow-md transition-colors"
               >
-                <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
-                <span>SWAP BATSMEN</span>
+                <ArrowLeftRight className="w-5 h-5" aria-hidden="true" />
+                <span className="md:hidden">SWAP BATSMEN</span>
               </button>
             </div>
 
@@ -1726,32 +1917,61 @@ export function ScoringDashboardView({
                 !activeInn.nonStrikerId && !activeInn.completed && match.status !== 'completed';
               return (
                 <div
-                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                  className={`relative rounded-xl bg-white shadow-xs transition-all flex flex-col ${
                     needsNonStriker
                       ? 'border-2 border-[#DC2626]'
                       : 'border border-slate-200'
                   }`}
                 >
-                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-slate-800 text-white">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 bg-[#1696F3] text-white">
                     <span className="text-xs font-black uppercase tracking-wider">
-                      NON-STRIKER
+                      NONSTRIKER
                     </span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        needsNonStriker && isPendingNewBatter
-                          ? setNewBatterModalOpen(true)
-                          : setPlayerPickerSlot('nonStriker')
-                      }
-                      className="text-xs font-bold text-white/90 hover:text-white inline-flex items-center gap-1"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>{needsNonStriker ? 'Select' : 'Edit'}</span>
-                    </button>
+                    <div className="relative" data-slot-menu="true">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (needsNonStriker) {
+                            if (isPendingNewBatter) setNewBatterModalOpen(true);
+                            else setPlayerPickerSlot('nonStriker');
+                          } else {
+                            setSlotMenuOpen((prev) =>
+                              prev === 'nonStriker' ? null : 'nonStriker'
+                            );
+                          }
+                        }}
+                        aria-label="Edit or Replace Non-Striker"
+                        className="p-1 rounded-md text-white/95 hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                      >
+                        <UserPen className="w-4 h-4" aria-hidden="true" />
+                      </button>
+
+                      {slotMenuOpen === 'nonStriker' && !needsNonStriker && (
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-[4px] bg-white border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.22)] overflow-hidden text-left">
+                          <button
+                            type="button"
+                            onClick={() => openEditPlayerModal('nonStriker')}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors border-b border-slate-100"
+                          >
+                            Edit Batsman
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlotMenuOpen(null);
+                              setPlayerPickerSlot('nonStriker');
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors"
+                          >
+                            Replace Batsman
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {needsNonStriker ? (
-                    <div className="p-3 flex-1 flex">
+                    <div className="p-2.5 flex-1 flex">
                       <motion.button
                         type="button"
                         initial={{ opacity: 0, scale: 0.96 }}
@@ -1764,7 +1984,7 @@ export function ScoringDashboardView({
                             ? setNewBatterModalOpen(true)
                             : setPlayerPickerSlot('nonStriker')
                         }
-                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
                       >
                         Select Batsman
                       </motion.button>
@@ -1822,13 +2042,13 @@ export function ScoringDashboardView({
                 match.status !== 'completed';
               return (
                 <div
-                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                  className={`relative rounded-xl bg-white shadow-xs transition-all flex flex-col ${
                     needsNewBowler
                       ? 'border-2 border-[#DC2626]'
                       : 'border border-slate-200'
                   }`}
                 >
-                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-emerald-700 text-white">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 bg-[#1696F3] text-white">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black uppercase tracking-wider">
                         BOWLER
@@ -1839,22 +2059,50 @@ export function ScoringDashboardView({
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        isPendingBowlerChange
-                          ? setOverCompleteModalOpen(true)
-                          : setPlayerPickerSlot('bowler')
-                      }
-                      className="text-xs font-bold text-white/95 hover:text-white inline-flex items-center gap-1"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>{needsNewBowler ? 'Select' : 'Edit'}</span>
-                    </button>
+                    <div className="relative" data-slot-menu="true">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (needsNewBowler) {
+                            if (isPendingBowlerChange) setOverCompleteModalOpen(true);
+                            else setPlayerPickerSlot('bowler');
+                          } else {
+                            setSlotMenuOpen((prev) => (prev === 'bowler' ? null : 'bowler'));
+                          }
+                        }}
+                        aria-label="Edit or Replace Bowler"
+                        className="p-1 rounded-md text-white/95 hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                      >
+                        <UserPen className="w-4 h-4" aria-hidden="true" />
+                      </button>
+
+                      {slotMenuOpen === 'bowler' && !needsNewBowler && (
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-[4px] bg-white border border-slate-200 shadow-[0_8px_24px_rgba(15,23,42,0.22)] overflow-hidden text-left">
+                          <button
+                            type="button"
+                            onClick={() => openEditPlayerModal('bowler')}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors border-b border-slate-100"
+                          >
+                            Edit Bowler
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlotMenuOpen(null);
+                              if (isPendingBowlerChange) setOverCompleteModalOpen(true);
+                              else setPlayerPickerSlot('bowler');
+                            }}
+                            className="w-full px-4 py-2.5 text-left text-sm font-medium text-slate-800 hover:bg-[#D6ECFA] transition-colors"
+                          >
+                            Replace Bowler
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {needsNewBowler ? (
-                    <div className="p-3 flex-1 flex">
+                    <div className="p-2.5 flex-1 flex">
                       <motion.button
                         type="button"
                         initial={{ opacity: 0, scale: 0.96 }}
@@ -1867,7 +2115,7 @@ export function ScoringDashboardView({
                             ? setOverCompleteModalOpen(true)
                             : setPlayerPickerSlot('bowler')
                         }
-                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
                       >
                         Select Bowler
                       </motion.button>
@@ -4659,6 +4907,226 @@ export function ScoringDashboardView({
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ================= MODAL: EDIT STRIKER / NON-STRIKER / BOWLER ================= */}
+      <AnimatePresence>
+        {editPlayerModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-[2px] overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-player-modal-title"
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.95, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+              onSubmit={handleSaveEditPlayer}
+              className="w-full max-w-[700px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
+            >
+              {/* Blue Header with Yellow Cricketer Icon & Yellow Title */}
+              <div className="relative px-5 py-3.5 bg-[#1696F3] flex items-center justify-center">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FFEB3B] flex items-center">
+                  <svg
+                    viewBox="0 0 36 36"
+                    className="w-8 h-8"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    {/* Helmet / Cap + Head */}
+                    <circle cx="20" cy="10" r="4.5" />
+                    <path d="M15 8.5c1-2.8 4-4.2 7.2-3.5 1.8.4 3.2 1.7 3.8 3.5H15z" />
+                    {/* Torso & Jersey */}
+                    <path d="M14.5 17.5c0-1.6 1.3-2.8 3-2.8h5c1.7 0 3 1.2 3 2.8v9.5c0 1.2-.9 2-2 2h-7c-1.1 0-2-.8-2-2v-9.5z" />
+                    {/* Cricket Bat held upright */}
+                    <rect
+                      x="7.2"
+                      y="6"
+                      width="3.4"
+                      height="15"
+                      rx="1.2"
+                      transform="rotate(14 8.9 13.5)"
+                    />
+                    <rect
+                      x="6.4"
+                      y="20"
+                      width="1.6"
+                      height="5.5"
+                      rx="0.8"
+                      transform="rotate(14 7.2 22.7)"
+                    />
+                  </svg>
+                </span>
+
+                <h3
+                  id="edit-player-modal-title"
+                  className="font-display font-bold text-xl tracking-wide text-[#FFEB3B] uppercase text-center"
+                >
+                  {editPlayerModal.slot === 'striker'
+                    ? 'EDIT STRIKER'
+                    : editPlayerModal.slot === 'nonStriker'
+                      ? 'EDIT NON-STRIKER'
+                      : 'EDIT BOWLER'}
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() => setEditPlayerModal(null)}
+                  aria-label="Close modal"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/95 hover:text-white transition-transform hover:scale-110"
+                >
+                  <X className="w-5 h-5 stroke-[2.5]" />
+                </button>
+              </div>
+
+              {/* Clean Material Underline Inputs */}
+              <div className="px-7 sm:px-9 pt-6 pb-7 space-y-6 bg-white">
+                {/* Player Name */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">
+                    {editPlayerModal.slot === 'striker'
+                      ? 'Striker'
+                      : editPlayerModal.slot === 'nonStriker'
+                        ? 'Non-Striker'
+                        : 'Bowler'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    autoFocus
+                    value={editPlayerName}
+                    onChange={(e) => setEditPlayerName(e.target.value)}
+                    placeholder="Enter player name"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base font-medium text-slate-900 focus:outline-none transition-colors"
+                  />
+                </div>
+
+                {/* Stats Row */}
+                {editPlayerModal.slot !== 'bowler' ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Score
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBatterScore}
+                        onChange={(e) => setEditBatterScore(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Balls
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBatterBalls}
+                        onChange={(e) => setEditBatterBalls(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        4s
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBatter4s}
+                        onChange={(e) => setEditBatter4s(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        6s
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBatter6s}
+                        onChange={(e) => setEditBatter6s(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-5">
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Overs
+                      </label>
+                      <input
+                        type="text"
+                        value={editBowlerOvers}
+                        onChange={(e) => setEditBowlerOvers(e.target.value)}
+                        placeholder="0.0"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Maidens
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBowlerMaidens}
+                        onChange={(e) => setEditBowlerMaidens(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Runs
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBowlerRuns}
+                        onChange={(e) => setEditBowlerRuns(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Wickets
+                      </label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={editBowlerWickets}
+                        onChange={(e) => setEditBowlerWickets(e.target.value)}
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Centered Blue UPDATE Button */}
+                <div className="pt-2 flex justify-center">
+                  <motion.button
+                    type="submit"
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md transition-colors cursor-pointer"
+                  >
+                    <span>UPDATE</span>
+                    <Send className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                  </motion.button>
+                </div>
+              </div>
+            </motion.form>
           </motion.div>
         )}
       </AnimatePresence>

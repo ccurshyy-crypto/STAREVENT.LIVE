@@ -206,6 +206,14 @@ export interface InningsState {
   completed: boolean;
   manualRunsOffset?: number;
   manualWicketsOffset?: number;
+  battingStatOffsets?: Record<
+    string,
+    { runs: number; balls: number; fours: number; sixes: number }
+  >;
+  bowlingStatOffsets?: Record<
+    string,
+    { legalBalls: number; maidens: number; runs: number; wickets: number }
+  >;
   pendingBowlerChange?: boolean;
   lastCompletedOverNumber?: number;
   previousOverBowlerId?: string;

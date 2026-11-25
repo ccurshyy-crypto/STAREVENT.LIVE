@@ -208,8 +208,6 @@ export function MatchListView({
     const loserId = winnerId === team1Id ? team2Id : team1Id;
     const batFirstId = tossDecision === 'Bat' ? winnerId : loserId;
     const bowlFirstId = batFirstId === team1Id ? team2Id : team1Id;
-    const batFirstTeam = state.teams.find((t) => t.id === batFirstId);
-    const bowlFirstTeam = state.teams.find((t) => t.id === bowlFirstId);
     const winnerTeam = state.teams.find((t) => t.id === winnerId);
     const tossResultSummary = `${winnerTeam?.shortName || 'Team'} won the toss & elected to ${tossDecision.toLowerCase()}`;
 
@@ -228,13 +226,10 @@ export function MatchListView({
             nextInnings[0].battingTeamId = batFirstId;
             nextInnings[0].bowlingTeamId = bowlFirstId;
             nextInnings[0].maxOvers = oversNum;
-            nextInnings[0].strikerId = batFirstTeam?.players[0]?.id || '';
-            nextInnings[0].nonStrikerId = batFirstTeam?.players[1]?.id || '';
-            nextInnings[0].bowlerId = bowlFirstTeam?.players[0]?.id || '';
-            nextInnings[0].battingOrder = [
-              nextInnings[0].strikerId,
-              nextInnings[0].nonStrikerId,
-            ].filter(Boolean);
+            nextInnings[0].strikerId = '';
+            nextInnings[0].nonStrikerId = '';
+            nextInnings[0].bowlerId = '';
+            nextInnings[0].battingOrder = [];
 
             nextInnings[1].battingTeamId = bowlFirstId;
             nextInnings[1].bowlingTeamId = batFirstId;
@@ -303,13 +298,10 @@ export function MatchListView({
           maxOvers: oversNum,
           target: null,
           extras: { wd: 0, nb: 0, lb: 0, bye: 0, penalty: 0 },
-          strikerId: batFirstTeam?.players[0]?.id || '',
-          nonStrikerId: batFirstTeam?.players[1]?.id || '',
-          bowlerId: bowlFirstTeam?.players[0]?.id || '',
-          battingOrder: [
-            batFirstTeam?.players[0]?.id,
-            batFirstTeam?.players[1]?.id,
-          ].filter(Boolean) as string[],
+          strikerId: '',
+          nonStrikerId: '',
+          bowlerId: '',
+          battingOrder: [],
           balls: [],
           fallOfWickets: [],
           completed: false,
