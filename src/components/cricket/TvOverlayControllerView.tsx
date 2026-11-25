@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Eye,
   EyeOff,
@@ -6,6 +6,7 @@ import {
   Monitor,
   ShieldCheck,
   Sparkles,
+  Timer,
   Trash2,
   Tv,
 } from 'lucide-react';
@@ -59,6 +60,66 @@ export function TvOverlayControllerView({
   // Controller UI State
   const [showPreviewMonitor, setShowPreviewMonitor] = useState(true);
   const [previewGreenBg, setPreviewGreenBg] = useState(false);
+  const [autoHideSeconds, setAutoHideSeconds] = useState<number>(8);
+  const [autoHideRemaining, setAutoHideRemaining] = useState<number | null>(null);
+  const [activeTransitionType, setActiveTransitionType] =
+    useState<TransitionOverlayType | null>(null);
+  const autoHideTimeoutRef = useRef<number | null>(null);
+  const countdownIntervalRef = useRef<number | null>(null);
+
+  const cancelAutoHide = useCallback(() => {
+    if (autoHideTimeoutRef.current !== null) {
+      window.clearTimeout(autoHideTimeoutRef.current);
+      autoHideTimeoutRef.current = null;
+    }
+    if (countdownIntervalRef.current !== null) {
+      window.clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    setAutoHideRemaining(null);
+  }, []);
+
+  const scheduleAutoHide = useCallback(
+    (durationSec: number, clearTransitionOnly = false) => {
+      cancelAutoHide();
+      if (durationSec <= 0) return;
+
+      const totalMs = Math.round(durationSec * 1000);
+      const endAt = Date.now() + totalMs;
+      setAutoHideRemaining(Math.ceil(durationSec));
+
+      countdownIntervalRef.current = window.setInterval(() => {
+        const left = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+        setAutoHideRemaining(left > 0 ? left : null);
+      }, 250);
+
+      autoHideTimeoutRef.current = window.setTimeout(() => {
+        cancelAutoHide();
+        setActiveTransitionType(null);
+        updateState((prev) => ({
+          ...prev,
+          overlay: clearTransitionOnly
+            ? {
+                ...prev.overlay,
+                activeTransition: null,
+              }
+            : {
+                ...prev.overlay,
+                bottomScoreMode: 'EMPTY',
+                mainCard: { kind: 'NONE' },
+                activeTransition: null,
+              },
+        }));
+      }, totalMs);
+    },
+    [cancelAutoHide, updateState]
+  );
+
+  useEffect(() => {
+    return () => {
+      cancelAutoHide();
+    };
+  }, [cancelAutoHide]);
 
   const activeMatch = useMemo(
     () =>
@@ -241,14 +302,43 @@ export function TvOverlayControllerView({
   const { overlay } = state;
 
   const setMainCard = (card: MainOverlayCard, toastLabel?: string) => {
+    setActiveTransitionType(null);
+    if (card.kind === 'NONE') {
+      cancelAutoHide();
+      updateState((prev) => ({
+        ...prev,
+        overlay: {
+          ...prev.overlay,
+          bottomScoreMode: 'EMPTY',
+          mainCard: { kind: 'NONE' },
+          activeTransition: null,
+        },
+      }));
+      if (toastLabel) onToast(`Overlay off: ${toastLabel}`);
+      return;
+    }
+
     updateState((prev) => ({
       ...prev,
       overlay: {
         ...prev.overlay,
+        bottomScoreMode: 'EMPTY',
         mainCard: card,
+        activeTransition: null,
       },
     }));
-    if (toastLabel) onToast(`Overlay live: ${toastLabel}`);
+    if (autoHideSeconds > 0) {
+      scheduleAutoHide(autoHideSeconds);
+    } else {
+      cancelAutoHide();
+    }
+    if (toastLabel) {
+      onToast(
+        autoHideSeconds > 0
+          ? `Overlay live: ${toastLabel} (auto-off in ${autoHideSeconds}s)`
+          : `Overlay live: ${toastLabel}`
+      );
+    }
   };
 
   const toggleMainCard = (
@@ -263,21 +353,72 @@ export function TvOverlayControllerView({
     }
   };
 
-  const triggerTransition = (type: TransitionOverlayType) => {
+  const handleSelectBottomMode = (
+    mode: (typeof BOTTOM_SCORE_MODES)[number]
+  ) => {
+    setActiveTransitionType(null);
+    const isCurrentlyActive =
+      overlay.bottomScoreMode === mode && overlay.mainCard.kind === 'NONE';
+
+    if (mode === 'EMPTY' || isCurrentlyActive) {
+      cancelAutoHide();
+      updateState((prev) => ({
+        ...prev,
+        overlay: {
+          ...prev.overlay,
+          bottomScoreMode: 'EMPTY',
+          mainCard: { kind: 'NONE' },
+          activeTransition: null,
+        },
+      }));
+      onToast('Overlay off (EMPTY)');
+      return;
+    }
+
     updateState((prev) => ({
       ...prev,
       overlay: {
         ...prev.overlay,
+        bottomScoreMode: mode,
+        mainCard: { kind: 'NONE' },
+        activeTransition: null,
+      },
+    }));
+
+    // Keep live main 'Score' steady; auto-hide all temporary bottom ticker modes
+    if (mode === 'Score') {
+      cancelAutoHide();
+      onToast('Bottom score: Score (Live)');
+    } else if (autoHideSeconds > 0) {
+      scheduleAutoHide(autoHideSeconds);
+      onToast(`Bottom score: ${mode} (auto-off in ${autoHideSeconds}s)`);
+    } else {
+      cancelAutoHide();
+      onToast(`Bottom score: ${mode}`);
+    }
+  };
+
+  const triggerTransition = (type: TransitionOverlayType) => {
+    setActiveTransitionType(type);
+    updateState((prev) => ({
+      ...prev,
+      overlay: {
+        ...prev.overlay,
+        bottomScoreMode: 'EMPTY',
+        mainCard: { kind: 'NONE' },
         activeTransition: {
           type,
           id: Date.now(),
         },
       },
     }));
+    scheduleAutoHide(3.5, true);
     onToast(`Transition fired: ${type}`);
   };
 
   const handleClearOverlay = () => {
+    cancelAutoHide();
+    setActiveTransitionType(null);
     updateState((prev) => ({
       ...prev,
       overlay: {
@@ -399,34 +540,72 @@ export function TvOverlayControllerView({
           compact
         />
 
-        {/* Visibility Toggles */}
-        <div className="flex flex-wrap items-center gap-4 pt-1">
-          {(
-            [
-              { key: 'showPlayerPhoto', label: 'Player Photo' },
-              { key: 'showTeamLogo', label: 'Team Logo' },
-              { key: 'showChannelLogo', label: 'User Channel Logo' },
-              { key: 'autoTransition', label: 'Auto Transition' },
-            ] as const
-          ).map((item) => (
-            <label
-              key={item.key}
-              className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={overlay[item.key]}
-                onChange={(e) =>
-                  updateState((prev) => ({
-                    ...prev,
-                    overlay: { ...prev.overlay, [item.key]: e.target.checked },
-                  }))
-                }
-                className="w-4 h-4 rounded accent-[#FF8C00]"
-              />
-              <span>{item.label}</span>
+        {/* Visibility Toggles + Auto-Hide Timer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+          <div className="flex flex-wrap items-center gap-4">
+            {(
+              [
+                { key: 'showPlayerPhoto', label: 'Player Photo' },
+                { key: 'showTeamLogo', label: 'Team Logo' },
+                { key: 'showChannelLogo', label: 'User Channel Logo' },
+                { key: 'autoTransition', label: 'Auto Transition' },
+              ] as const
+            ).map((item) => (
+              <label
+                key={item.key}
+                className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={overlay[item.key]}
+                  onChange={(e) =>
+                    updateState((prev) => ({
+                      ...prev,
+                      overlay: { ...prev.overlay, [item.key]: e.target.checked },
+                    }))
+                  }
+                  className="w-4 h-4 rounded accent-[#FF8C00]"
+                />
+                <span>{item.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">
+              <Timer className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+              <span>Auto Hide:</span>
+              <select
+                value={autoHideSeconds}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  setAutoHideSeconds(next);
+                  if (next === 0) cancelAutoHide();
+                }}
+                aria-label="Auto hide duration"
+                className="px-2 py-1 rounded-md border border-slate-300 bg-white text-xs font-bold text-slate-800"
+              >
+                <option value={5}>5 sec</option>
+                <option value={8}>8 sec</option>
+                <option value={12}>12 sec</option>
+                <option value={15}>15 sec</option>
+                <option value={0}>Off (Manual)</option>
+              </select>
             </label>
-          ))}
+
+            {autoHideRemaining !== null && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200 text-[#E65100] text-[11px] font-extrabold tabular-nums">
+                <span>Auto-off in {autoHideRemaining}s</span>
+                <button
+                  type="button"
+                  onClick={cancelAutoHide}
+                  className="underline text-slate-600 hover:text-slate-900 ml-1"
+                >
+                  Hold
+                </button>
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -470,22 +649,26 @@ export function TvOverlayControllerView({
           BOTTOM SCORE
         </div>
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
-          {BOTTOM_SCORE_MODES.map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => {
-                updateState((prev) => ({
-                  ...prev,
-                  overlay: { ...prev.overlay, bottomScoreMode: mode },
-                }));
-                onToast(`Bottom score: ${mode}`);
-              }}
-              className={chipBtn(overlay.bottomScoreMode === mode)}
-            >
-              {mode}
-            </button>
-          ))}
+          {BOTTOM_SCORE_MODES.map((mode) => {
+            const isActive =
+              mode === 'EMPTY'
+                ? overlay.bottomScoreMode === 'EMPTY' &&
+                  overlay.mainCard.kind === 'NONE' &&
+                  !activeTransitionType
+                : overlay.bottomScoreMode === mode &&
+                  overlay.mainCard.kind === 'NONE' &&
+                  !activeTransitionType;
+            return (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => handleSelectBottomMode(mode)}
+                className={chipBtn(isActive)}
+              >
+                {mode}
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -655,16 +838,23 @@ export function TvOverlayControllerView({
             </label>
           </div>
           <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {TRANSITION_OVERLAYS.map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => triggerTransition(t)}
-                className="px-3 py-2.5 rounded-lg bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold transition-colors"
-              >
-                {t}
-              </button>
-            ))}
+            {TRANSITION_OVERLAYS.map((t) => {
+              const isTransActive = activeTransitionType === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => triggerTransition(t)}
+                  className={`px-3 py-2.5 rounded-lg border text-xs font-bold transition-colors ${
+                    isTransActive
+                      ? 'bg-[#FF8C00] text-white border-[#FF8C00] shadow-xs'
+                      : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950'
+                  }`}
+                >
+                  {t}
+                </button>
+              );
+            })}
           </div>
         </section>
 
