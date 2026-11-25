@@ -33,6 +33,7 @@ import {
   PointTableAuditEntry,
   PointTableEntry,
 } from '../../types/cricketSuite';
+import { ProScoreboardBar } from './ProScoreboardBar';
 
 interface SidebarToolsViewsProps {
   route:
@@ -868,10 +869,33 @@ export function SidebarToolsViews({
     );
   }
 
-  // ================= 4. THEME SETUP (9 THEMES + CUSTOM COLORS) =================
+  // ================= 4. THEME SETUP (15 PRO SCOREBOARD THEMES + 9 CLASSIC + CUSTOM COLORS) =================
   if (route === 'theme') {
     const customColors = state.user.customThemeColors;
     const activePalette = getThemePalette(state.user.userTheme, customColors);
+    const proThemes = BROADCAST_THEMES.filter((t) => t.barStyle);
+    const classicThemes = BROADCAST_THEMES.filter((t) => !t.barStyle);
+
+    const previewSamples: Record<
+      number,
+      { striker: string; nonStriker: string; bowler: string; secondary: string }
+    > = {
+      1: { striker: 'Rohit Sharma', nonStriker: 'K. Rahul', bowler: 'S. Afridi', secondary: 'H. Rauf' },
+      2: { striker: 'Virat Kohli', nonStriker: 'R. Sharma', bowler: 'P. Cummins', secondary: 'M. Starc' },
+      3: { striker: 'S. Yadav', nonStriker: 'R. Pant', bowler: 'P. Cummins', secondary: 'M. Starc' },
+      4: { striker: 'R. Sharma', nonStriker: 'S. Gill', bowler: 'P. Cummins', secondary: '' },
+      5: { striker: 'Rohit Sharma', nonStriker: 'K. Rahul', bowler: 'P. Cummins', secondary: 'J. Hazlewood' },
+      6: { striker: 'V. Kohli', nonStriker: 'R. Sharma', bowler: 'P. Cummins', secondary: 'J. Hazlewood' },
+      7: { striker: 'S. Yadav', nonStriker: 'R. Pant', bowler: 'P. Cummins', secondary: 'M. Starc' },
+      8: { striker: 'V. Kohli', nonStriker: 'R. Sharma', bowler: 'D. Willey', secondary: '' },
+      9: { striker: 'R. Sharma', nonStriker: 'S. Gill', bowler: 'P. Cummins', secondary: 'J. Hazlewood' },
+      10: { striker: 'V. Kohli', nonStriker: 'R. Sharma', bowler: 'M. Starc', secondary: 'P. Cummins' },
+      11: { striker: 'R. Sharma', nonStriker: 'H. Pandya', bowler: 'A. Zampa', secondary: 'J. Hazlewood' },
+      12: { striker: 'D. Warner', nonStriker: 'M. Marsh', bowler: 'S. Abbott', secondary: 'A. Zampa' },
+      13: { striker: 'V. Kohli', nonStriker: 'R. Sharma', bowler: 'P. Cummins', secondary: 'T. Head' },
+      14: { striker: 'R. Sharma', nonStriker: 'S. Gill', bowler: 'P. Cummins', secondary: 'J. Hazlewood' },
+      15: { striker: 'Rohit Sharma', nonStriker: 'K. Rahul', bowler: 'P. Cummins', secondary: 'M. Starc' },
+    };
 
     const handleSelectTheme = (themeId: OverlayThemeId, themeName: string) => {
       updateState((prev) => ({
@@ -885,7 +909,7 @@ export function SidebarToolsViews({
           },
         },
       }));
-      onToast(`Theme switched to ${themeName} (live on vMix overlay).`);
+      onToast(`Theme switched to ${themeName} (live on OBS / vMix overlay).`);
     };
 
     return (
@@ -900,7 +924,7 @@ export function SidebarToolsViews({
                 Broadcast Theme Setup
               </h2>
               <p className="text-xs text-slate-500">
-                Choose from 9 live broadcast graphic themes or apply custom colors. Updates vMix overlay instantly.
+                Choose from {BROADCAST_THEMES.length} live broadcast scoreboard themes (15 Pro Scoreboard Themes + 9 Classic Themes) or apply custom colors. Updates OBS &amp; vMix overlay instantly.
               </p>
             </div>
           </div>
@@ -910,110 +934,201 @@ export function SidebarToolsViews({
           </span>
         </div>
 
-        {/* 9 Broadcast Themes Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {BROADCAST_THEMES.map((theme) => {
-            const isSelected =
-              state.user.userTheme === theme.id && !customColors.enabled;
-            return (
-              <div
-                key={theme.id}
-                className={`rounded-xl bg-white border-2 shadow-xs overflow-hidden flex flex-col transition-all ${
-                  isSelected
-                    ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/20'
-                    : 'border-slate-200 hover:border-slate-300'
-                }`}
-              >
-                {/* Original Live Miniature Broadcast Graphic Preview */}
-                <div
-                  className="p-4 h-36 flex flex-col justify-between relative overflow-hidden"
-                  style={{
-                    background: `radial-gradient(circle at top right, ${theme.secondary}66, ${theme.surface})`,
-                  }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span
-                      className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider text-slate-950"
-                      style={{ background: theme.accent }}
-                    >
-                      LIVE HD
-                    </span>
-                    <span className="text-[10px] font-bold text-white/75 uppercase">
-                      {theme.name}
-                    </span>
-                  </div>
+        {/* 15 Pro Broadcast Scoreboard Themes */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display font-bold text-sm text-slate-900 uppercase tracking-wide">
+              All Scoreboard Themes — Clear View ({proThemes.length} Themes)
+            </h3>
+            <span className="text-[11px] font-semibold text-slate-500">
+              Instant Live OBS &amp; vMix Sync
+            </span>
+          </div>
 
-                  {/* Mini Scorebug */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {proThemes.map((theme) => {
+              const bar = theme.barStyle!;
+              const isSelected =
+                state.user.userTheme === theme.id && !customColors.enabled;
+              const sample = previewSamples[bar.number] || previewSamples[1];
+
+              return (
+                <div
+                  key={theme.id}
+                  className={`rounded-xl bg-white border-2 shadow-xs overflow-hidden flex flex-col transition-all ${
+                    bar.isWidescreen ? 'lg:col-span-2' : ''
+                  } ${
+                    isSelected
+                      ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/25'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {/* Broadcast Blue Stage Preview matching Reference Card */}
                   <div
-                    className="rounded-lg overflow-hidden border shadow-md"
+                    className="p-3.5 sm:p-4 space-y-2.5"
                     style={{
-                      background: theme.surface,
-                      borderColor: theme.accent,
+                      background:
+                        'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
                     }}
                   >
-                    <div className="flex items-center justify-between px-2.5 py-1.5 text-white">
-                      <div
-                        className="px-2 py-0.5 rounded text-[11px] font-black"
-                        style={{
-                          background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary})`,
-                        }}
-                      >
-                        IND <span style={{ color: theme.accent }}>142-3</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-white/80">
-                        14.2 OV
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display font-black text-xs sm:text-sm text-white tracking-wide">
+                        {bar.number}. {theme.name}
                       </span>
-                      <div className="flex gap-1">
-                        {['1', '4', '6'].map((b, i) => (
+                      {isSelected && (
+                        <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                          Active Live
+                        </span>
+                      )}
+                    </div>
+
+                    <ProScoreboardBar
+                      barStyle={bar}
+                      leftTeam="IND"
+                      rightTeam="AUS"
+                      strikerName={sample.striker}
+                      nonStrikerName={sample.nonStriker}
+                      scoreText="0 - 0"
+                      oversText="0.0 (0)"
+                      bowlerName={sample.bowler}
+                      secondaryRightText={sample.secondary}
+                      compact
+                    />
+                  </div>
+
+                  {/* Card Footer */}
+                  <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-white">
+                    <div className="min-w-0">
+                      <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTheme(theme.id, theme.name)}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold tracking-wide transition-colors inline-flex items-center justify-center gap-1.5 shrink-0 ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                      <span>{isSelected ? 'SELECTED THEME' : 'SELECT THEME'}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 9 Classic Broadcast Themes Grid */}
+        <div className="space-y-3 pt-2">
+          <h3 className="font-display font-bold text-sm text-slate-900 uppercase tracking-wide">
+            Classic Broadcast Themes ({classicThemes.length})
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {classicThemes.map((theme) => {
+              const isSelected =
+                state.user.userTheme === theme.id && !customColors.enabled;
+              return (
+                <div
+                  key={theme.id}
+                  className={`rounded-xl bg-white border-2 shadow-xs overflow-hidden flex flex-col transition-all ${
+                    isSelected
+                      ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/20'
+                      : 'border-slate-200 hover:border-slate-300'
+                  }`}
+                >
+                  {/* Original Live Miniature Broadcast Graphic Preview */}
+                  <div
+                    className="p-4 h-36 flex flex-col justify-between relative overflow-hidden"
+                    style={{
+                      background: `radial-gradient(circle at top right, ${theme.secondary}66, ${theme.surface})`,
+                    }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider text-slate-950"
+                        style={{ background: theme.accent }}
+                      >
+                        LIVE HD
+                      </span>
+                      <span className="text-[10px] font-bold text-white/75 uppercase">
+                        {theme.name}
+                      </span>
+                    </div>
+
+                    {/* Mini Scorebug */}
+                    <div
+                      className="rounded-lg overflow-hidden border shadow-md"
+                      style={{
+                        background: theme.surface,
+                        borderColor: theme.accent,
+                      }}
+                    >
+                      <div className="flex items-center justify-between px-2.5 py-1.5 text-white">
+                        <div
+                          className="px-2 py-0.5 rounded text-[11px] font-black"
+                          style={{
+                            background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary})`,
+                          }}
+                        >
+                          IND <span style={{ color: theme.accent }}>142-3</span>
+                        </div>
+                        <span className="text-[10px] font-bold text-white/80">
+                          14.2 OV
+                        </span>
+                        <div className="flex gap-1">
+                          {['1', '4', '6'].map((b, i) => (
+                            <span
+                              key={i}
+                              className="w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center text-slate-950"
+                              style={{
+                                background: b === '6' ? theme.accent : '#FFFFFF',
+                              }}
+                            >
+                              {b}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 flex-1 flex flex-col justify-between gap-3">
+                    <div>
+                      <h3 className="font-display font-bold text-sm text-slate-900">
+                        {theme.name}
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-0.5">{theme.subtitle}</p>
+                      <div className="flex items-center gap-1.5 mt-2">
+                        {[theme.primary, theme.secondary, theme.accent].map((hex, i) => (
                           <span
                             key={i}
-                            className="w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center text-slate-950"
-                            style={{
-                              background: b === '6' ? theme.accent : '#FFFFFF',
-                            }}
-                          >
-                            {b}
-                          </span>
+                            className="w-5 h-5 rounded-full border border-slate-300"
+                            style={{ background: hex }}
+                            title={hex}
+                          />
                         ))}
                       </div>
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSelectTheme(theme.id, theme.name)}
+                      className={`w-full py-2 rounded-lg text-xs font-bold tracking-wide transition-colors inline-flex items-center justify-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                      <span>{isSelected ? 'SELECTED THEME' : 'SELECT THEME'}</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="p-4 flex-1 flex flex-col justify-between gap-3">
-                  <div>
-                    <h3 className="font-display font-bold text-sm text-slate-900">
-                      {theme.name}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">{theme.subtitle}</p>
-                    <div className="flex items-center gap-1.5 mt-2">
-                      {[theme.primary, theme.secondary, theme.accent].map((hex, i) => (
-                        <span
-                          key={i}
-                          className="w-5 h-5 rounded-full border border-slate-300"
-                          style={{ background: hex }}
-                          title={hex}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSelectTheme(theme.id, theme.name)}
-                    className={`w-full py-2 rounded-lg text-xs font-bold tracking-wide transition-colors inline-flex items-center justify-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
-                    }`}
-                  >
-                    {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
-                    <span>{isSelected ? 'SELECTED THEME' : 'SELECT THEME'}</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {/* Custom Theme Color Selection */}

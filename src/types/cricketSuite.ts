@@ -54,6 +54,21 @@ export const WICKET_TYPES = [
 export type WicketType = (typeof WICKET_TYPES)[number];
 
 export type OverlayThemeId =
+  | 'champions-trophy-2025'
+  | 'cwc-25'
+  | 'wcl'
+  | 'cwc-23-2'
+  | 'cric-sky-sports'
+  | 'cric-fusion'
+  | 'emerging-asia-cup'
+  | 'sa20'
+  | 'jio-cinema'
+  | 'ipl-classic'
+  | 'world-t20'
+  | 'bbl-on-star'
+  | 'ipl-25-pro'
+  | 'hotstar'
+  | 'cric-astra'
   | 'cpl-2026'
   | 'wpl-2025'
   | 'tri-nation-series'

@@ -17,6 +17,7 @@ import {
   Player,
   Team,
 } from '../../types/cricketSuite';
+import { ProScoreboardBar } from './ProScoreboardBar';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
@@ -1048,6 +1049,42 @@ export function BroadcastOverlayCanvas({
       infoStrip = `${teamMap.get(inn1!.battingTeamId)?.shortName}: ${inn1!.runs}/${inn1!.wickets} vs ${teamMap.get(inn2!.battingTeamId)?.shortName}: ${inn2!.runs}/${inn2!.wickets}`;
     } else if (mode === 'Mini Player Position') {
       infoStrip = `FIELDING: ${bowlTeam?.shortName || 'BOWL'} · ${state.fieldPositions.slice(0, 4).map((s) => s.label).join(' · ')}`;
+    }
+
+    if (theme.barStyle) {
+      const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
+        id: b.id,
+        label: getBallPillLabel(b),
+        isBoundary4: b.isBoundary4,
+        isBoundary6: b.isBoundary6,
+        isWicket: b.isWicket,
+        isExtra: b.extraType !== 'none',
+      }));
+
+      return (
+        <div className="absolute bottom-4 inset-x-6 pointer-events-none">
+          <ProScoreboardBar
+            barStyle={theme.barStyle}
+            leftTeam={batTeam?.shortName || 'BAT'}
+            rightTeam={bowlTeam?.shortName || 'BOWL'}
+            strikerName={striker?.playerName || 'Striker'}
+            strikerScore={`${striker?.runs ?? 0} (${striker?.balls ?? 0})`}
+            nonStrikerName={nonStriker?.playerName || 'Non-Striker'}
+            nonStrikerScore={`${nonStriker?.runs ?? 0} (${nonStriker?.balls ?? 0})`}
+            scoreText={`${activeInn.runs} - ${activeInn.wickets}`}
+            oversText={`${formatOvers(activeInn.legalBalls)} (${activeInn.maxOvers})`}
+            bowlerName={bowler?.playerName || 'Bowler'}
+            bowlerFigures={`${bowler?.wickets ?? 0}-${bowler?.runs ?? 0} (${bowler?.overs ?? '0.0'})`}
+            balls={ballList}
+            infoStrip={infoStrip}
+            footerRight={`${match.matchLabel} · ${state.user.watermarkText || 'STAREVENT.LIVE'}`}
+            accentColor={theme.accent}
+            primaryColor={theme.primary}
+            leftBadgeExtra={renderTeamBadge(batTeam, 'w-7 h-7')}
+            rightBadgeExtra={renderTeamBadge(bowlTeam, 'w-7 h-7')}
+          />
+        </div>
+      );
     }
 
     return (
