@@ -18,10 +18,12 @@ import {
   HIGHLIGHT_MODES,
   MainOverlayCard,
   MATCH_STATS_MODES,
+  OverlayThemeId,
   TOURNAMENT_STAT_MODES,
   TRANSITION_OVERLAYS,
   TransitionOverlayType,
 } from '../../types/cricketSuite';
+import { BROADCAST_THEMES } from '../../data/cricketSampleData';
 import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 
@@ -332,6 +334,34 @@ export function TvOverlayControllerView({
                 ))}
               </select>
             )}
+
+            <select
+              value={state.user.userTheme}
+              onChange={(e) => {
+                const nextThemeId = e.target.value as OverlayThemeId;
+                const found = BROADCAST_THEMES.find((t) => t.id === nextThemeId);
+                updateState((prev) => ({
+                  ...prev,
+                  user: {
+                    ...prev.user,
+                    userTheme: nextThemeId,
+                    customThemeColors: {
+                      ...prev.user.customThemeColors,
+                      enabled: false,
+                    },
+                  },
+                }));
+                onToast(`Scoreboard theme: ${found?.name || nextThemeId}`);
+              }}
+              aria-label="Select scoreboard theme"
+              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-800"
+            >
+              {BROADCAST_THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Theme: {t.name}
+                </option>
+              ))}
+            </select>
 
             <button
               type="button"

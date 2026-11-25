@@ -20,6 +20,7 @@ import {
   Team,
 } from '../../types/cricketSuite';
 import { ProScoreboardBar } from './ProScoreboardBar';
+import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
@@ -81,6 +82,11 @@ export function BroadcastOverlayCanvas({
 
   const { overlay } = state;
   const theme = getThemePalette(state.user.userTheme, state.user.customThemeColors);
+  const useTataIplPatti =
+    !state.user.customThemeColors?.enabled &&
+    (theme.id === 'tata-ipl-2022' ||
+      Boolean(theme.barStyle?.isTataIpl2022) ||
+      theme.id === 'ipl-2023-dynamic');
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
 
@@ -1188,6 +1194,63 @@ export function BroadcastOverlayCanvas({
       infoStrip = `FIELDING: ${bowlTeam?.shortName || 'BOWL'} · ${state.fieldPositions.slice(0, 4).map((s) => s.label).join(' · ')}`;
     }
 
+    if (useTataIplPatti) {
+      const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
+        id: b.id,
+        label: getBallPillLabel(b),
+        isBoundary4: b.isBoundary4,
+        isBoundary6: b.isBoundary6,
+        isWicket: b.isWicket,
+        isExtra: b.extraType !== 'none',
+      }));
+
+      const pattiTargetText =
+        mode === 'Score'
+          ? target !== null
+            ? `TARGET ${target}${needRuns !== null ? ` • NEED ${needRuns} IN ${remBalls}B` : ''}`
+            : `CRR ${crr} • ${activeInn.maxOvers} OVERS`
+          : infoStrip;
+
+      const pattiMatchTitle = `${(
+        tournament?.name ||
+        state.user.channelTitle ||
+        'LIVE CRICKET'
+      ).toUpperCase()}${match.stageBadge ? ` - ${match.stageBadge}` : ''}`;
+
+      return (
+        <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+          <TataIplScoreboardBar
+            batTeamCode={batTeam?.shortName || 'BAT'}
+            batTeamLogo={batTeam?.logoUrl}
+            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={bowlTeam?.logoUrl}
+            showTeamLogo={overlay.showTeamLogo}
+            scoreText={`${activeInn.runs}-${activeInn.wickets}`}
+            oversText={formatOvers(activeInn.legalBalls)}
+            batter1Name={striker?.playerName || 'NEXT BATTER'}
+            batter1Runs={striker ? striker.runs : ''}
+            batter1Balls={striker ? striker.balls : ''}
+            batter2Name={nonStriker?.playerName || 'NEXT BATTER'}
+            batter2Runs={nonStriker ? nonStriker.runs : ''}
+            batter2Balls={nonStriker ? nonStriker.balls : ''}
+            strikerIndex={1}
+            bowlerName={bowler?.playerName || 'BOWLER'}
+            bowlerFigs={`${bowler?.wickets ?? 0}-${bowler?.runs ?? 0}`}
+            bowlerOvers={bowler?.overs ?? '0.0'}
+            balls={ballList}
+            showBalls={ballList.length > 0}
+            targetText={pattiTargetText}
+            matchTitle={pattiMatchTitle}
+            activeEvent={
+              showTransition && activeTransition
+                ? { id: activeTransition.id, type: activeTransition.type }
+                : null
+            }
+          />
+        </div>
+      );
+    }
+
     if (theme.barStyle) {
       const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
         id: b.id,
@@ -1360,8 +1423,19 @@ export function BroadcastOverlayCanvas({
       {/* Bottom Broadcast Scorebug */}
       {renderBottomBar()}
 
-      {/* Transition Overlay Stinger Banner */}
-      {showTransition && activeTransition && (
+      {/* Transition Overlay Stinger Banner (for non-IPL Patti themes or when bar is hidden) */}
+      {showTransition &&
+        activeTransition &&
+        !(
+          useTataIplPatti &&
+          overlay.bottomScoreMode !== 'EMPTY' &&
+          overlay.bottomScoreMode !== 'Versus' &&
+          overlay.bottomScoreMode !== 'Versus With Logo' &&
+          overlay.bottomScoreMode !== 'Toss' &&
+          overlay.bottomScoreMode !== 'Result' &&
+          overlay.bottomScoreMode !== 'Tournament Name' &&
+          !(match?.status === 'completed' && overlay.bottomScoreMode === 'Score')
+        ) && (
         <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
           <div
             className="px-14 py-6 rounded-2xl border-4 shadow-2xl text-center animate-bounce"

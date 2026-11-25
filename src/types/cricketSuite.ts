@@ -54,6 +54,7 @@ export const WICKET_TYPES = [
 export type WicketType = (typeof WICKET_TYPES)[number];
 
 export type OverlayThemeId =
+  | 'tata-ipl-2022'
   | 'champions-trophy-2025'
   | 'cwc-25'
   | 'wcl'

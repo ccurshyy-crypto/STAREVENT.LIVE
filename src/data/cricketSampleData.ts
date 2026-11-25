@@ -98,6 +98,7 @@ export interface ScoreboardBarStyle {
   ballMode?: 'outline' | 'colored' | 'solid-white' | 'cric-astra';
   sunburstRight?: boolean;
   isWidescreen?: boolean;
+  isTataIpl2022?: boolean;
 }
 
 export interface BroadcastThemeConfig {
@@ -114,6 +115,37 @@ export interface BroadcastThemeConfig {
 }
 
 export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
+  // ================= FEATURED: 2021-2022 TATA IPL ANIMATED PATTI =================
+  {
+    id: 'tata-ipl-2022',
+    name: 'TATA IPL 2022 Animated Patti',
+    subtitle: 'Angled Metallic Shield Wings · Gold Score Box · Magenta Bowler Bar · Event Stingers',
+    primary: '#081024',
+    secondary: '#D81B60',
+    accent: '#F7C01D',
+    surface: '#0A1224',
+    textOnPrimary: '#FFFFFF',
+    category: 'pro-scoreboard',
+    barStyle: {
+      number: 0,
+      outerBorder: '#F8FAFC',
+      outerGlow: 'rgba(247, 192, 29, 0.45)',
+      leftBadgeBg: 'linear-gradient(180deg, #1E293B, #060911)',
+      leftBadgeText: '#FFFFFF',
+      batterPanelBg: 'linear-gradient(180deg, #F5FAFF, #CDE3FA)',
+      batterPanelText: '#081024',
+      scorePillBg: 'linear-gradient(180deg, #FFE05D 0%, #F7C01D 52%, #E09E04 100%)',
+      scorePillText: '#081024',
+      scorePillBorder: '#FFFFFF',
+      bowlerPanelBg: 'linear-gradient(90deg, #F0236B 0%, #D81B60 54%, #9C1147 100%)',
+      bowlerPanelText: '#FFFFFF',
+      rightBadgeBg: 'linear-gradient(180deg, #2D1E3E, #060911)',
+      rightBadgeText: '#FACC15',
+      ballMode: 'colored',
+      isWidescreen: true,
+      isTataIpl2022: true,
+    },
+  },
   // ================= 15 PRO BROADCAST SCOREBOARD THEMES =================
   {
     id: 'champions-trophy-2025',
@@ -1671,7 +1703,7 @@ export function createInitialCricketSuiteState(
       userName: userLabel || uid,
       userEmail: 'stareventlive01@gmail.com',
       userMobile: '9890175727',
-      userTheme: 'ipl-2023-dynamic',
+      userTheme: 'tata-ipl-2022',
       customThemeColors: {
         enabled: false,
         primary: '#303F9F',

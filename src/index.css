@@ -985,6 +985,936 @@ body.overlay-chroma-blue #root {
   transform: none;
 }
 
+/* =========================================================
+   2021-2022 TATA IPL ANIMATED BROADCAST SCOREBOARD PATTI
+========================================================= */
+.ipl-patti-stage {
+  --ipl-bat-bg-top: #eef6ff;
+  --ipl-bat-bg-mid: #d9ebfc;
+  --ipl-bat-bg-bot: #c3def8;
+  --ipl-score-gold-top: #ffe05d;
+  --ipl-score-gold-mid: #f7c01d;
+  --ipl-score-gold-bot: #e09e04;
+  --ipl-bowl-pink-top: #f0236b;
+  --ipl-bowl-pink-mid: #d81b60;
+  --ipl-bowl-pink-bot: #9c1147;
+  --ipl-navy-ink: #081024;
+  --ipl-sub-bar-top: #141c2f;
+  --ipl-sub-bar-bot: #070b14;
+  font-family: 'Roboto Condensed', 'DM Sans', 'Noto Sans Devanagari', sans-serif;
+  user-select: none;
+  container-type: inline-size;
+}
+
+.ipl-patti-wrapper {
+  width: 100%;
+  max-width: 1760px;
+  height: 64px;
+  margin: 0 auto;
+  display: flex;
+  align-items: stretch;
+  position: relative;
+  filter: drop-shadow(0 12px 26px rgba(0, 0, 0, 0.78));
+  animation: iplPattiCenterReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, clip-path;
+}
+
+.ipl-patti-wrapper.is-compact {
+  height: 52px;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.65));
+  animation: none;
+}
+
+@keyframes iplPattiCenterReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(28px) scaleX(0.45);
+    clip-path: inset(0 45% 0 45%);
+  }
+  45% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1.01);
+    clip-path: inset(0 0% 0 0%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scaleX(1);
+    clip-path: inset(0 0% 0 0%);
+  }
+}
+
+.ipl-wing-shield-left,
+.ipl-wing-shield-right {
+  width: 132px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-wing-shield-left,
+.ipl-patti-wrapper.is-compact .ipl-wing-shield-right {
+  width: 76px;
+}
+
+.ipl-wing-shield-left {
+  background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+  clip-path: polygon(0 5px, 100% 0, 86% 100%, 16% 100%);
+  margin-right: -16px;
+  padding: 2.5px 3px;
+  animation: iplWingSlideLeft 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+}
+
+.ipl-wing-shield-right {
+  background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+  clip-path: polygon(0 0, 100% 5px, 84% 100%, 14% 100%);
+  margin-left: -16px;
+  padding: 2.5px 3px;
+  animation: iplWingSlideRight 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-wing-shield-left {
+  margin-right: -11px;
+  padding: 2px;
+  animation: none;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-wing-shield-right {
+  margin-left: -11px;
+  padding: 2px;
+  animation: none;
+}
+
+@keyframes iplWingSlideLeft {
+  0% { transform: translateX(65px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes iplWingSlideRight {
+  0% { transform: translateX(-65px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.ipl-wing-inner-left {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 45% 40%, #2a3346 0%, #101522 58%, #060911 100%);
+  clip-path: polygon(1px 5px, calc(100% - 2px) 1px, calc(86% - 1px) 100%, calc(16% + 1px) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.ipl-wing-inner-right {
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at 55% 40%, #2d1e3e 0%, #111524 58%, #060911 100%);
+  clip-path: polygon(2px 1px, calc(100% - 1px) 5px, calc(84% - 1px) 100%, calc(14% + 1px) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.ipl-wing-inner-left::before,
+.ipl-wing-inner-right::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+    radial-gradient(rgba(56, 189, 248, 0.25) 1px, transparent 1px);
+  background-size: 18px 18px, 26px 26px;
+  background-position: 0 0, 9px 11px;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.ipl-wing-inner-left::after,
+.ipl-wing-inner-right::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: -120%;
+  width: 70%;
+  height: 140%;
+  background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.24) 50%, transparent 80%);
+  transform: skewX(-22deg);
+  animation: iplWingSheenLoop 6.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.ipl-wing-inner-right::after {
+  animation-delay: 0.35s;
+}
+
+@keyframes iplWingSheenLoop {
+  0%, 68% { left: -120%; }
+  88%, 100% { left: 170%; }
+}
+
+.ipl-team-crest-box {
+  width: 54px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  animation: iplCrestFloat 4.5s ease-in-out infinite;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-team-crest-box {
+  width: 38px;
+  height: 36px;
+}
+
+@keyframes iplCrestFloat {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.035); }
+}
+
+.ipl-team-crest-box img {
+  max-width: 50px;
+  max-height: 46px;
+  object-fit: contain;
+  border-radius: 6px;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.75));
+}
+
+.ipl-patti-wrapper.is-compact .ipl-team-crest-box img {
+  max-width: 34px;
+  max-height: 32px;
+}
+
+.ipl-patti-core {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 2;
+  background: #080d1a;
+  border-top: 2.5px solid #f8fafc;
+  border-bottom: 2.5px solid #94a3b8;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+}
+
+.ipl-patti-core::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -45%;
+  width: 35%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.28) 48%,
+    rgba(255, 255, 255, 0.45) 50%,
+    rgba(255, 255, 255, 0.28) 52%,
+    transparent 100%
+  );
+  transform: skewX(-28deg);
+  pointer-events: none;
+  z-index: 15;
+  animation: iplBarMetallicSweep 7s cubic-bezier(0.4, 0, 0.2, 1) 0.45s infinite;
+}
+
+@keyframes iplBarMetallicSweep {
+  0% { left: -45%; opacity: 0; }
+  4% { opacity: 1; }
+  18% { left: 135%; opacity: 1; }
+  20%, 100% { left: 135%; opacity: 0; }
+}
+
+.ipl-patti-top-band {
+  height: 39px;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  position: relative;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-patti-top-band {
+  height: 31px;
+}
+
+.ipl-seg-team-score {
+  width: 29%;
+  background: linear-gradient(180deg, var(--ipl-bat-bg-top) 0%, var(--ipl-bat-bg-mid) 55%, var(--ipl-bat-bg-bot) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 0 14px 0 22px;
+  border-right: 1.5px solid #93c5fd;
+  position: relative;
+  min-width: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-seg-team-score {
+  padding: 0 8px 0 14px;
+}
+
+.ipl-bat-team-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ipl-live-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e11d48;
+  box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75);
+  animation: iplLiveDotPulse 2s infinite;
+  flex-shrink: 0;
+}
+
+@keyframes iplLiveDotPulse {
+  0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75); }
+  70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+  100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+}
+
+.ipl-bat-team-code {
+  font-family: 'Oswald', 'Roboto Condensed', sans-serif;
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ipl-navy-ink);
+  letter-spacing: 0.6px;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-bat-team-code {
+  font-size: 14px;
+}
+
+.ipl-score-gold-box {
+  background: linear-gradient(180deg, var(--ipl-score-gold-top) 0%, var(--ipl-score-gold-mid) 52%, var(--ipl-score-gold-bot) 100%);
+  color: var(--ipl-navy-ink);
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 24px;
+  padding: 1px 14px;
+  border-radius: 2px;
+  line-height: 1.08;
+  letter-spacing: 0.4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.8);
+  border-bottom: 1px solid rgba(146, 64, 14, 0.45);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  flex-shrink: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-score-gold-box {
+  font-size: 14px;
+  padding: 1px 7px;
+  min-width: 46px;
+}
+
+.ipl-score-gold-box.digit-flip {
+  animation: iplScoreFlipPop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes iplScoreFlipPop {
+  0% { transform: perspective(300px) rotateX(0deg) scale(1); }
+  40% { transform: perspective(300px) rotateX(-24deg) scale(1.1); filter: brightness(1.18); }
+  100% { transform: perspective(300px) rotateX(0deg) scale(1); filter: brightness(1); }
+}
+
+.ipl-overs-display {
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 17px;
+  color: var(--ipl-navy-ink);
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-overs-display {
+  font-size: 11px;
+}
+
+.ipl-seg-batsmen {
+  width: 35%;
+  background: linear-gradient(180deg, #f5faff 0%, #e1effd 55%, #cde3fa 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1.5px solid #93c5fd;
+  min-width: 0;
+}
+
+.ipl-batter-line {
+  height: 19.5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px 0 11px;
+  color: var(--ipl-navy-ink);
+  transition: background-color 0.25s ease;
+  min-width: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-batter-line {
+  height: 15.5px;
+  padding: 0 7px 0 6px;
+}
+
+.ipl-batter-line:first-child {
+  border-bottom: 1px solid rgba(14, 116, 144, 0.2);
+}
+
+.ipl-batter-line.is-striker {
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+}
+
+.ipl-batter-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ipl-strike-arrow {
+  font-size: 11px;
+  font-weight: 900;
+  color: var(--ipl-navy-ink);
+  width: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  animation: iplStrikerTrianglePulse 1.35s ease-in-out infinite;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-strike-arrow {
+  font-size: 8px;
+  width: 9px;
+}
+
+@keyframes iplStrikerTrianglePulse {
+  0%, 100% {
+    transform: translateX(0) scale(1);
+    color: #081024;
+    text-shadow: 0 0 0 transparent;
+  }
+  50% {
+    transform: translateX(2.5px) scale(1.18);
+    color: #0284c7;
+    text-shadow: 0 0 8px rgba(2, 132, 199, 0.65);
+  }
+}
+
+.ipl-strike-arrow.inactive {
+  opacity: 0;
+  animation: none;
+}
+
+.ipl-batter-name {
+  font-family: 'Roboto Condensed', 'Noto Sans Devanagari', sans-serif;
+  font-weight: 800;
+  font-size: 15.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-batter-name {
+  font-size: 10px;
+}
+
+.ipl-batter-line.is-striker .ipl-batter-name {
+  font-weight: 900;
+  color: #040916;
+}
+
+.ipl-batter-stats {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: 'Roboto Condensed', sans-serif;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-batter-stats {
+  gap: 5px;
+}
+
+.ipl-batter-runs {
+  font-weight: 900;
+  font-size: 16.5px;
+  color: var(--ipl-navy-ink);
+  min-width: 18px;
+  text-align: right;
+  display: inline-block;
+}
+
+.ipl-batter-balls {
+  font-weight: 700;
+  font-size: 13px;
+  color: #334155;
+  min-width: 16px;
+  text-align: right;
+  display: inline-block;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-batter-runs {
+  font-size: 10.5px;
+  min-width: 12px;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-batter-balls {
+  font-size: 9px;
+  min-width: 10px;
+}
+
+.ipl-num-bump {
+  animation: iplNumPop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes iplNumPop {
+  0% { transform: translateY(4px) scale(0.88); opacity: 0.6; }
+  55% { transform: translateY(-2px) scale(1.15); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.ipl-seg-bowler {
+  width: 36%;
+  background: linear-gradient(90deg, var(--ipl-bowl-pink-top) 0%, var(--ipl-bowl-pink-mid) 54%, var(--ipl-bowl-pink-bot) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 22px 0 14px;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-seg-bowler {
+  padding: 0 13px 0 8px;
+}
+
+.ipl-seg-bowler::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.02) 100%);
+  pointer-events: none;
+}
+
+.ipl-bowler-info-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  position: relative;
+  z-index: 2;
+}
+
+.ipl-bowler-name {
+  font-family: 'Roboto Condensed', 'Noto Sans Devanagari', sans-serif;
+  font-weight: 900;
+  font-size: 17px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-bowler-name {
+  font-size: 11px;
+}
+
+.ipl-over-balls-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ipl-ball-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  animation: iplDotEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ipl-patti-wrapper.is-compact .ipl-ball-dot {
+  width: 13px;
+  height: 13px;
+  font-size: 7.5px;
+}
+
+@keyframes iplDotEnter {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.ipl-ball-dot.boundary {
+  background: #facc15;
+  color: #081024;
+  border-color: #fef08a;
+}
+
+.ipl-ball-dot.wicket {
+  background: #080d1a;
+  color: #ff4d6d;
+  border-color: #ffccd5;
+}
+
+.ipl-bowler-figures-box {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: 'Roboto Condensed', sans-serif;
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-bowler-figures-box {
+  gap: 4px;
+}
+
+.ipl-bowler-figs {
+  font-weight: 900;
+  font-size: 19px;
+  color: #ffffff;
+  letter-spacing: 0.4px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+}
+
+.ipl-bowler-overs {
+  font-weight: 800;
+  font-size: 14px;
+  color: #fce7f3;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-bowler-figs {
+  font-size: 12px;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-bowler-overs {
+  font-size: 9.5px;
+}
+
+.ipl-patti-bottom-band {
+  height: 20px;
+  background: linear-gradient(180deg, var(--ipl-sub-bar-top) 0%, var(--ipl-sub-bar-bot) 100%);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 0 22px;
+  color: #f8fafc;
+  font-family: 'Roboto Condensed', 'Noto Sans Devanagari', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  position: relative;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-patti-bottom-band {
+  height: 16px;
+  padding: 0 13px;
+  font-size: 8.5px;
+}
+
+.ipl-sub-left {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ipl-patti-wrapper.is-compact .ipl-sub-left {
+  gap: 12px;
+}
+
+.ipl-sub-vs {
+  color: #e2e8f0;
+  font-weight: 800;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ipl-sub-target {
+  color: #ffffff;
+  font-weight: 900;
+  letter-spacing: 0.55px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipl-sub-right {
+  color: #f8fafc;
+  font-weight: 900;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: right;
+  max-width: 45%;
+}
+
+/* Full-width Broadcast Event Stinger Banner inside Patti Core */
+.ipl-event-banner {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: scaleX(0.05);
+  transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+
+.ipl-event-banner.active {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+.ipl-event-banner.theme-four {
+  background: linear-gradient(90deg, #0284c7 0%, #0ea5e9 25%, #38bdf8 50%, #0ea5e9 75%, #0284c7 100%);
+  border-top: 2px solid #e0f2fe;
+  border-bottom: 2px solid #0369a1;
+}
+
+.ipl-event-banner.theme-six {
+  background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 25%, #f59e0b 50%, #8b5cf6 75%, #6d28d9 100%);
+  border-top: 2px solid #fef08a;
+  border-bottom: 2px solid #4c1d95;
+}
+
+.ipl-event-banner.theme-wicket {
+  background: linear-gradient(90deg, #991b1b 0%, #dc2626 28%, #ef4444 50%, #dc2626 72%, #991b1b 100%);
+  border-top: 2px solid #fecaca;
+  border-bottom: 2px solid #7f1d1d;
+}
+
+.ipl-event-banner.theme-freehit {
+  background: linear-gradient(90deg, #b45309 0%, #f59e0b 28%, #fde047 50%, #f59e0b 72%, #b45309 100%);
+  border-top: 2px solid #fef9c3;
+  border-bottom: 2px solid #78350f;
+}
+
+.ipl-event-banner.theme-chased {
+  background: linear-gradient(90deg, #065f46 0%, #10b981 28%, #facc15 50%, #10b981 72%, #065f46 100%);
+  border-top: 2px solid #fef08a;
+  border-bottom: 2px solid #064e3b;
+}
+
+.ipl-event-banner::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: repeating-linear-gradient(
+    -55deg,
+    rgba(255, 255, 255, 0.14) 0px,
+    rgba(255, 255, 255, 0.14) 18px,
+    transparent 18px,
+    transparent 36px
+  );
+  animation: iplEventStripesMove 1.2s linear infinite;
+}
+
+@keyframes iplEventStripesMove {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(50px); }
+}
+
+.ipl-event-content-box {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 0 28px;
+}
+
+.ipl-event-badge-pill {
+  background: #081024;
+  color: #facc15;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  padding: 3px 13px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+}
+
+.ipl-event-main-headline {
+  font-family: 'Oswald', 'Roboto Condensed', sans-serif;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 36px;
+  letter-spacing: 2.5px;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  animation: iplEventHeadlineZoom 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.ipl-event-banner.theme-freehit .ipl-event-main-headline,
+.ipl-event-banner.theme-chased .ipl-event-main-headline {
+  color: #081024;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.ipl-event-sub-caption {
+  font-family: 'Roboto Condensed', sans-serif;
+  font-weight: 900;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(8, 16, 36, 0.45);
+  padding: 4px 12px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+@keyframes iplEventHeadlineZoom {
+  0% { transform: scale(1.65); letter-spacing: 8px; opacity: 0; }
+  100% { transform: scale(1); letter-spacing: 2.5px; opacity: 1; }
+}
+
+/* Container-responsive adjustments for smaller preview monitors */
+@container (max-width: 960px) {
+  .ipl-patti-wrapper:not(.is-compact) {
+    height: 54px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-wing-shield-left,
+  .ipl-patti-wrapper:not(.is-compact) .ipl-wing-shield-right {
+    width: 84px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-wing-shield-left {
+    margin-right: -12px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-wing-shield-right {
+    margin-left: -12px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-team-crest-box {
+    width: 40px;
+    height: 36px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-patti-top-band {
+    height: 33px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-seg-team-score {
+    padding: 0 8px 0 15px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-bat-team-code,
+  .ipl-patti-wrapper:not(.is-compact) .ipl-score-gold-box {
+    font-size: 16px;
+    padding: 1px 8px;
+    min-width: auto;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-overs-display {
+    font-size: 13px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-batter-line {
+    height: 16.5px;
+    padding: 0 8px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-batter-name {
+    font-size: 11.5px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-batter-runs {
+    font-size: 12.5px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-batter-balls {
+    font-size: 10px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-seg-bowler {
+    padding: 0 14px 0 8px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-bowler-name {
+    font-size: 12.5px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-bowler-figs {
+    font-size: 14px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-bowler-overs {
+    font-size: 11px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-ball-dot {
+    width: 14px;
+    height: 14px;
+    font-size: 8px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-patti-bottom-band {
+    height: 16px;
+    font-size: 9.5px;
+    padding: 0 14px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-sub-left {
+    gap: 14px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-event-main-headline {
+    font-size: 24px;
+  }
+  .ipl-patti-wrapper:not(.is-compact) .ipl-event-badge-pill,
+  .ipl-patti-wrapper:not(.is-compact) .ipl-event-sub-caption {
+    font-size: 11px;
+    padding: 2px 8px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

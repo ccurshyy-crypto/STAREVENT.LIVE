@@ -66,7 +66,9 @@ function hasMeaningfulUserData(state: CricketSuiteState | null | undefined): boo
     state.groups.length > 0 ||
     state.pointTableOverrides.length > 0 ||
     Boolean(state.user?.channelLogoUrl?.trim()) ||
-    (Boolean(state.user?.userTheme) && state.user.userTheme !== 'ipl-2023-dynamic')
+    (Boolean(state.user?.userTheme) &&
+      state.user.userTheme !== 'ipl-2023-dynamic' &&
+      state.user.userTheme !== 'tata-ipl-2022')
   );
 }
 

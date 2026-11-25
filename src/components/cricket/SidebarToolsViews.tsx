@@ -34,6 +34,7 @@ import {
   PointTableEntry,
 } from '../../types/cricketSuite';
 import { ProScoreboardBar } from './ProScoreboardBar';
+import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 
 interface SidebarToolsViewsProps {
   route:
@@ -973,7 +974,8 @@ export function SidebarToolsViews({
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-display font-black text-xs sm:text-sm text-white tracking-wide">
-                        {bar.number}. {theme.name}
+                        {bar.isTataIpl2022 ? '★ ' : `${bar.number}. `}
+                        {theme.name}
                       </span>
                       {isSelected && (
                         <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
@@ -982,18 +984,40 @@ export function SidebarToolsViews({
                       )}
                     </div>
 
-                    <ProScoreboardBar
-                      barStyle={bar}
-                      leftTeam="IND"
-                      rightTeam="AUS"
-                      strikerName={sample.striker}
-                      nonStrikerName={sample.nonStriker}
-                      scoreText="0 - 0"
-                      oversText="0.0 (0)"
-                      bowlerName={sample.bowler}
-                      secondaryRightText={sample.secondary}
-                      compact
-                    />
+                    {bar.isTataIpl2022 ? (
+                      <TataIplScoreboardBar
+                        batTeamCode="GT"
+                        bowlTeamCode="RR"
+                        scoreText="86-3"
+                        oversText="13.2"
+                        batter1Name="PAPYA"
+                        batter1Runs={0}
+                        batter1Balls={0}
+                        batter2Name="SURAJ"
+                        batter2Runs={31}
+                        batter2Balls={33}
+                        strikerIndex={1}
+                        bowlerName="CRUSHYY"
+                        bowlerFigs="1-17"
+                        bowlerOvers="3.2"
+                        targetText="TARGET 131"
+                        matchTitle="TATA IPL 2022 - THE FINAL"
+                        compact
+                      />
+                    ) : (
+                      <ProScoreboardBar
+                        barStyle={bar}
+                        leftTeam="IND"
+                        rightTeam="AUS"
+                        strikerName={sample.striker}
+                        nonStrikerName={sample.nonStriker}
+                        scoreText="0 - 0"
+                        oversText="0.0 (0)"
+                        bowlerName={sample.bowler}
+                        secondaryRightText={sample.secondary}
+                        compact
+                      />
+                    )}
                   </div>
 
                   {/* Card Footer */}

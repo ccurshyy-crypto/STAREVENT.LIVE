@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>2021-2022 TATA IPL Animated Broadcast Scoreboard Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Oswald:wght@600;700&family=Roboto+Condensed:ital,wght@0,700;0,800;0,900;1,800;1,900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bat-bg-top: #eef6ff;
+      --bat-bg-mid: #d9ebfc;
+      --bat-bg-bot: #c3def8;
+      --score-gold-top: #ffe05d;
+      --score-gold-mid: #f7c01d;
+      --score-gold-bot: #e09e04;
+      --bowl-pink-top: #f0236b;
+      --bowl-pink-mid: #d81b60;
+      --bowl-pink-bot: #9c1147;
+      --navy-ink: #081024;
+      --sub-bar-top: #141c2f;
+      --sub-bar-bot: #070b14;
+      --chrome-bright: #ffffff;
+      --chrome-mid: #cbd5e1;
+      --chrome-dark: #475569;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Pure transparent canvas for OBS Studio / vMix Browser Source */
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: transparent !important;
+      overflow: hidden;
+      font-family: 'Roboto Condensed', 'Inter', sans-serif;
+      user-select: none;
+    }
+
+    /* =========================================================
+       LOWER-THIRD BROADCAST STAGE
+    ========================================================= */
+    .broadcast-stage {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 34px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      padding: 0 28px;
+      pointer-events: none;
+    }
+
+    /* Main Scoreboard Bar ("Ek Patti Jaisa") with Center-Out Reveal */
+    .ipl-patti-wrapper {
+      width: 100%;
+      max-width: 1760px;
+      height: 64px;
+      display: flex;
+      align-items: stretch;
+      position: relative;
+      filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.78));
+      animation: pattiCenterReveal 0.85s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      will-change: transform, opacity, clip-path;
+    }
+
+    @keyframes pattiCenterReveal {
+      0% {
+        opacity: 0;
+        transform: translateY(28px) scaleX(0.45);
+        clip-path: inset(0 45% 0 45%);
+      }
+      45% {
+        opacity: 1;
+        transform: translateY(0) scaleX(1.01);
+        clip-path: inset(0 0% 0 0%);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scaleX(1);
+        clip-path: inset(0 0% 0 0%);
+      }
+    }
+
+    /* =========================================================
+       ANGLED DARK METALLIC TEAM SHIELD WINGS (LEFT & RIGHT)
+    ========================================================= */
+    .wing-shield-left,
+    .wing-shield-right {
+      width: 158px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 4;
+      overflow: hidden;
+    }
+
+    /* Outer chrome bevel frame */
+    .wing-shield-left {
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+      clip-path: polygon(0 5px, 100% 0, 86% 100%, 16% 100%);
+      margin-right: -18px;
+      padding: 2.5px 3px 2.5px 3px;
+      animation: wingSlideLeft 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+    }
+
+    .wing-shield-right {
+      background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+      clip-path: polygon(0 0, 100% 5px, 84% 100%, 14% 100%);
+      margin-left: -18px;
+      padding: 2.5px 3px 2.5px 3px;
+      animation: wingSlideRight 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.1s backwards;
+    }
+
+    @keyframes wingSlideLeft {
+      0% { transform: translateX(65px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes wingSlideRight {
+      0% { transform: translateX(-65px); opacity: 0; }
+      100% { transform: translateX(0); opacity: 1; }
+    }
+
+    .wing-inner-left {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 45% 40%, #2a3346 0%, #101522 58%, #060911 100%);
+      clip-path: polygon(1px 5px, calc(100% - 2px) 1px, calc(86% - 1px) 100%, calc(16% + 1px) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .wing-inner-right {
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 55% 40%, #2d1e3e 0%, #111524 58%, #060911 100%);
+      clip-path: polygon(2px 1px, calc(100% - 1px) 5px, calc(84% - 1px) 100%, calc(14% + 1px) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle starfield/sparkle dots inside wing panels like 2022 IPL broadcast */
+    .wing-inner-left::before,
+    .wing-inner-right::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+        radial-gradient(rgba(56, 189, 248, 0.25) 1px, transparent 1px);
+      background-size: 18px 18px, 26px 26px;
+      background-position: 0 0, 9px 11px;
+      opacity: 0.45;
+      pointer-events: none;
+    }
+
+    /* Continuous metallic sheen sweep across wings */
+    .wing-inner-left::after,
+    .wing-inner-right::after {
+      content: '';
+      position: absolute;
+      top: -20%;
+      left: -120%;
+      width: 70%;
+      height: 140%;
+      background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.24) 50%, transparent 80%);
+      transform: skewX(-22deg);
+      animation: wingSheenLoop 6.5s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .wing-inner-right::after {
+      animation-delay: 0.35s;
+    }
+
+    @keyframes wingSheenLoop {
+      0%, 68% { left: -120%; }
+      88%, 100% { left: 170%; }
+    }
+
+    .team-crest-box {
+      width: 58px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+      animation: crestFloat 4.5s ease-in-out infinite;
+    }
+
+    @keyframes crestFloat {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.035); }
+    }
+
+    .team-crest-box img {
+      max-width: 54px;
+      max-height: 48px;
+      object-fit: contain;
+      filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.75));
+    }
+
+    /* =========================================================
+       CENTRAL SINGLE-LINE PATTI CORE
+    ========================================================= */
+    .patti-core {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      z-index: 2;
+      background: #080d1a;
+      border-top: 2.5px solid #f8fafc;
+      border-bottom: 2.5px solid #94a3b8;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.85),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+      overflow: hidden;
+    }
+
+    /* Full-bar entrance & periodic broadcast light sweep */
+    .patti-core::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -45%;
+      width: 35%;
+      height: 100%;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.28) 48%,
+        rgba(255, 255, 255, 0.45) 50%,
+        rgba(255, 255, 255, 0.28) 52%,
+        transparent 100%
+      );
+      transform: skewX(-28deg);
+      pointer-events: none;
+      z-index: 15;
+      animation: barMetallicSweep 7s cubic-bezier(0.4, 0, 0.2, 1) 0.45s infinite;
+    }
+
+    @keyframes barMetallicSweep {
+      0% { left: -45%; opacity: 0; }
+      4% { opacity: 1; }
+      18% { left: 135%; opacity: 1; }
+      20%, 100% { left: 135%; opacity: 0; }
+    }
+
+    /* Upper Primary Row (Height: 39px) */
+    .patti-top-band {
+      height: 39px;
+      display: flex;
+      align-items: stretch;
+      width: 100%;
+      position: relative;
+    }
+
+    /* ---------------------------------------------------------
+       1. LEFT-CENTER: BATTING TEAM & GOLD SCORE BOX
+    --------------------------------------------------------- */
+    .seg-team-score {
+      width: 29%;
+      background: linear-gradient(180deg, var(--bat-bg-top) 0%, var(--bat-bg-mid) 55%, var(--bat-bg-bot) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px 0 26px;
+      border-right: 1.5px solid #93c5fd;
+      position: relative;
+    }
+
+    .bat-team-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    /* Animated Live Broadcast Dot */
+    .live-pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #e11d48;
+      box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75);
+      animation: liveDotPulse 2s infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes liveDotPulse {
+      0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
+      100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+    }
+
+    .bat-team-code {
+      font-family: 'Oswald', 'Roboto Condensed', sans-serif;
+      font-weight: 700;
+      font-size: 26px;
+      color: var(--navy-ink);
+      letter-spacing: 0.7px;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .score-gold-box {
+      background: linear-gradient(180deg, var(--score-gold-top) 0%, var(--score-gold-mid) 52%, var(--score-gold-bot) 100%);
+      color: var(--navy-ink);
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 26px;
+      padding: 1px 18px;
+      border-radius: 2px;
+      line-height: 1.08;
+      letter-spacing: 0.5px;
+      border-top: 1px solid rgba(255, 255, 255, 0.8);
+      border-bottom: 1px solid rgba(146, 64, 14, 0.45);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+      position: relative;
+      overflow: hidden;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 96px;
+    }
+
+    .score-gold-box.digit-flip {
+      animation: scoreFlipPop 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes scoreFlipPop {
+      0% { transform: perspective(300px) rotateX(0deg) scale(1); }
+      40% { transform: perspective(300px) rotateX(-24deg) scale(1.1); filter: brightness(1.18); }
+      100% { transform: perspective(300px) rotateX(0deg) scale(1); filter: brightness(1); }
+    }
+
+    .overs-display {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 18px;
+      color: var(--navy-ink);
+      letter-spacing: 0.3px;
+      transition: transform 0.25s ease;
+    }
+
+    /* ---------------------------------------------------------
+       2. CENTER: BATSMEN (PAPYA & SURAJ)
+    --------------------------------------------------------- */
+    .seg-batsmen {
+      width: 35%;
+      background: linear-gradient(180deg, #f5faff 0%, #e1effd 55%, #cde3fa 100%);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      border-right: 1.5px solid #93c5fd;
+    }
+
+    .batter-line {
+      height: 19.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px 0 13px;
+      color: var(--navy-ink);
+      transition: background-color 0.25s ease;
+    }
+
+    .batter-line:first-child {
+      border-bottom: 1px solid rgba(14, 116, 144, 0.2);
+    }
+
+    .batter-line.is-striker {
+      background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+    }
+
+    .batter-left {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    /* Glowing Pulsing Striker Triangle (▷) */
+    .strike-arrow {
+      font-size: 11px;
+      font-weight: 900;
+      color: var(--navy-ink);
+      width: 12px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      animation: strikerTrianglePulse 1.35s ease-in-out infinite;
+    }
+
+    @keyframes strikerTrianglePulse {
+      0%, 100% {
+        transform: translateX(0) scale(1);
+        color: #081024;
+        text-shadow: 0 0 0 transparent;
+      }
+      50% {
+        transform: translateX(2.5px) scale(1.18);
+        color: #0284c7;
+        text-shadow: 0 0 8px rgba(2, 132, 199, 0.65);
+      }
+    }
+
+    .strike-arrow.inactive {
+      opacity: 0;
+      animation: none;
+    }
+
+    .batter-name {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 0.45px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .batter-line.is-striker .batter-name {
+      font-weight: 900;
+      color: #040916;
+    }
+
+    .batter-stats {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      font-family: 'Roboto Condensed', sans-serif;
+    }
+
+    .batter-runs {
+      font-weight: 900;
+      font-size: 17px;
+      color: var(--navy-ink);
+      min-width: 20px;
+      text-align: right;
+      display: inline-block;
+    }
+
+    .batter-balls {
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #334155;
+      min-width: 18px;
+      text-align: right;
+      display: inline-block;
+    }
+
+    .num-bump {
+      animation: numPop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes numPop {
+      0% { transform: translateY(4px) scale(0.88); opacity: 0.6; }
+      55% { transform: translateY(-2px) scale(1.15); opacity: 1; }
+      100% { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    /* ---------------------------------------------------------
+       3. RIGHT-CENTER: BOWLER BAR (CRUSHYY - MAGENTA/PINK)
+    --------------------------------------------------------- */
+    .seg-bowler {
+      width: 36%;
+      background: linear-gradient(90deg, var(--bowl-pink-top) 0%, var(--bowl-pink-mid) 54%, var(--bowl-pink-bot) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 26px 0 16px;
+      color: #ffffff;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle gloss highlight on top half of pink bowler strip */
+    .seg-bowler::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 48%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.02) 100%);
+      pointer-events: none;
+    }
+
+    .bowler-info-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      position: relative;
+      z-index: 2;
+    }
+
+    .bowler-name {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 18px;
+      letter-spacing: 0.55px;
+      text-transform: uppercase;
+      color: #ffffff;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+      white-space: nowrap;
+    }
+
+    /* Optional Over Balls Timeline Dots */
+    .over-balls-strip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .over-balls-strip.hidden {
+      display: none;
+    }
+
+    .ball-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      color: #ffffff;
+      font-size: 10.5px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      animation: dotEnter 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    @keyframes dotEnter {
+      0% { transform: scale(0); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .ball-dot.boundary {
+      background: #facc15;
+      color: #081024;
+      border-color: #fef08a;
+    }
+
+    .ball-dot.wicket {
+      background: #080d1a;
+      color: #ff4d6d;
+      border-color: #ffccd5;
+    }
+
+    .bowler-figures-box {
+      display: flex;
+      align-items: baseline;
+      gap: 9px;
+      font-family: 'Roboto Condensed', sans-serif;
+      position: relative;
+      z-index: 2;
+    }
+
+    .bowler-figs {
+      font-weight: 900;
+      font-size: 20px;
+      color: #ffffff;
+      letter-spacing: 0.4px;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.42);
+    }
+
+    .bowler-overs {
+      font-weight: 800;
+      font-size: 14.5px;
+      color: #fce7f3;
+    }
+
+    /* ---------------------------------------------------------
+       4. LOWER SLIM DARK NAVY SUB-BAR (HEIGHT: 20px)
+    --------------------------------------------------------- */
+    .patti-bottom-band {
+      height: 20px;
+      background: linear-gradient(180deg, var(--sub-bar-top) 0%, var(--sub-bar-bot) 100%);
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 26px;
+      color: #f8fafc;
+      font-family: 'Roboto Condensed', sans-serif;
+      font-size: 12.5px;
+      font-weight: 800;
+      letter-spacing: 0.55px;
+      text-transform: uppercase;
+      position: relative;
+    }
+
+    .sub-left {
+      display: flex;
+      align-items: center;
+      gap: 44px;
+    }
+
+    .sub-vs {
+      color: #e2e8f0;
+      font-weight: 800;
+    }
+
+    .sub-target {
+      color: #ffffff;
+      font-weight: 900;
+      letter-spacing: 0.6px;
+    }
+
+    .sub-right {
+      color: #f8fafc;
+      font-weight: 900;
+      letter-spacing: 0.65px;
+    }
+
+    /* =========================================================
+       FULL-WIDTH BROADCAST EVENT STINGER BANNER
+       (FOUR!, SIX!, WICKET!, FREE HIT, TARGET CHASED)
+    ========================================================= */
+    .event-banner-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: scaleX(0.05);
+      transition: transform 0.36s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+    }
+
+    .event-banner-overlay.active {
+      opacity: 1;
+      transform: scaleX(1);
+    }
+
+    /* Theme variations for Broadcast Events */
+    .event-banner-overlay.theme-four {
+      background: linear-gradient(90deg, #0284c7 0%, #0ea5e9 25%, #38bdf8 50%, #0ea5e9 75%, #0284c7 100%);
+      border-top: 2px solid #e0f2fe;
+      border-bottom: 2px solid #0369a1;
+    }
+
+    .event-banner-overlay.theme-six {
+      background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 25%, #f59e0b 50%, #8b5cf6 75%, #6d28d9 100%);
+      border-top: 2px solid #fef08a;
+      border-bottom: 2px solid #4c1d95;
+    }
+
+    .event-banner-overlay.theme-wicket {
+      background: linear-gradient(90deg, #991b1b 0%, #dc2626 28%, #ef4444 50%, #dc2626 72%, #991b1b 100%);
+      border-top: 2px solid #fecaca;
+      border-bottom: 2px solid #7f1d1d;
+    }
+
+    .event-banner-overlay.theme-freehit {
+      background: linear-gradient(90deg, #b45309 0%, #f59e0b 28%, #fde047 50%, #f59e0b 72%, #b45309 100%);
+      border-top: 2px solid #fef9c3;
+      border-bottom: 2px solid #78350f;
+    }
+
+    .event-banner-overlay.theme-chased {
+      background: linear-gradient(90deg, #065f46 0%, #10b981 28%, #facc15 50%, #10b981 72%, #065f46 100%);
+      border-top: 2px solid #fef08a;
+      border-bottom: 2px solid #064e3b;
+    }
+
+    /* Animated diagonal light rays behind event text */
+    .event-banner-overlay::before {
+      content: '';
+      position: absolute;
+      inset: -50%;
+      background: repeating-linear-gradient(
+        -55deg,
+        rgba(255, 255, 255, 0.14) 0px,
+        rgba(255, 255, 255, 0.14) 18px,
+        transparent 18px,
+        transparent 36px
+      );
+      animation: eventStripesMove 1.2s linear infinite;
+    }
+
+    @keyframes eventStripesMove {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(50px); }
+    }
+
+    .event-content-box {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 0 36px;
+    }
+
+    .event-badge-pill {
+      background: #081024;
+      color: #facc15;
+      font-family: 'Oswald', sans-serif;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: 1.5px;
+      padding: 3px 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+    }
+
+    .event-main-headline {
+      font-family: 'Oswald', 'Roboto Condensed', sans-serif;
+      font-weight: 700;
+      font-style: italic;
+      font-size: 38px;
+      letter-spacing: 2.5px;
+      color: #ffffff;
+      text-transform: uppercase;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+      animation: eventHeadlineZoom 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .theme-freehit .event-main-headline,
+    .theme-chased .event-main-headline {
+      color: #081024;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .event-sub-caption {
+      font-family: 'Roboto Condensed', sans-serif;
+      font-weight: 900;
+      font-size: 16px;
+      letter-spacing: 1px;
+      color: rgba(255, 255, 255, 0.95);
+      background: rgba(8, 16, 36, 0.45);
+      padding: 4px 12px;
+      border-radius: 3px;
+      text-transform: uppercase;
+    }
+
+    @keyframes eventHeadlineZoom {
+      0% { transform: scale(1.65); letter-spacing: 8px; opacity: 0; }
+      100% { transform: scale(1); letter-spacing: 2.5px; opacity: 1; }
+    }
+
+    /* =========================================================
+       RESPONSIVE SCALING FOR NON-1080P PREVIEWS
+    ========================================================= */
+    @media (max-width: 1180px) {
+      .wing-shield-left,
+      .wing-shield-right {
+        width: 105px;
+      }
+      .bat-team-code,
+      .score-gold-box {
+        font-size: 21px;
+      }
+      .overs-display {
+        font-size: 15px;
+      }
+      .batter-name {
+        font-size: 13.5px;
+      }
+      .bowler-name {
+        font-size: 15px;
+      }
+      .bowler-figs {
+        font-size: 16.5px;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .broadcast-stage {
+        padding: 0 8px;
+        bottom: 14px;
+      }
+      .ipl-patti-wrapper {
+        height: 52px;
+      }
+      .wing-shield-left,
+      .wing-shield-right {
+        width: 66px;
+        margin-right: -10px;
+        margin-left: -10px;
+      }
+      .team-crest-box {
+        width: 36px;
+        height: 34px;
+      }
+      .patti-top-band {
+        height: 32px;
+      }
+      .seg-team-score {
+        padding: 0 8px 0 14px;
+      }
+      .bat-team-code,
+      .score-gold-box {
+        font-size: 15px;
+        padding: 1px 8px;
+        min-width: auto;
+      }
+      .overs-display {
+        font-size: 12px;
+      }
+      .batter-line {
+        height: 16px;
+        padding: 0 8px;
+      }
+      .batter-name {
+        font-size: 11px;
+      }
+      .batter-runs {
+        font-size: 12px;
+      }
+      .batter-balls {
+        font-size: 10px;
+      }
+      .seg-bowler {
+        padding: 0 14px 0 8px;
+      }
+      .bowler-name {
+        font-size: 12px;
+      }
+      .bowler-figs {
+        font-size: 13px;
+      }
+      .bowler-overs {
+        font-size: 10.5px;
+      }
+      .patti-bottom-band {
+        height: 16px;
+        font-size: 9.5px;
+        padding: 0 14px;
+      }
+      .sub-left {
+        gap: 14px;
+      }
+      .event-main-headline {
+        font-size: 22px;
+      }
+      .event-badge-pill,
+      .event-sub-caption {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================
+       2021-2022 TATA IPL SINGLE-LINE ANIMATED BROADCAST PATTI
+       (Zero UI clutter — Pure Transparent OBS/vMix Overlay)
+  ========================================================= -->
+  <div class="broadcast-stage">
+    <div class="ipl-patti-wrapper" id="scoreboardPatti">
+
+      <!-- Left Dark Metallic Angled Wing with GT-Style Shield Crest -->
+      <div class="wing-shield-left">
+        <div class="wing-inner-left">
+          <div class="team-crest-box" id="leftCrestContainer">
+            <svg width="54" height="48" viewBox="0 0 64 56" aria-label="Batting Team Crest">
+              <defs>
+                <linearGradient id="gtShieldGrad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#1e293b"/>
+                  <stop offset="100%" stop-color="#070b14"/>
+                </linearGradient>
+                <linearGradient id="gtGoldGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stop-color="#fef08a"/>
+                  <stop offset="50%" stop-color="#eab308"/>
+                  <stop offset="100%" stop-color="#a16207"/>
+                </linearGradient>
+              </defs>
+              <polygon points="32,3 57,14 50,44 32,53 14,44 7,14" fill="url(#gtShieldGrad)" stroke="url(#gtGoldGrad)" stroke-width="2.6"/>
+              <path d="M16,19 L32,11 L48,19" fill="none" stroke="#38bdf8" stroke-width="2.2"/>
+              <text x="32" y="34" text-anchor="middle" fill="#ffffff" font-family="Oswald, sans-serif" font-weight="700" font-size="13.5" letter-spacing="0.6" id="svgLeftText">TITANS</text>
+              <path d="M17,40 L47,40" stroke="url(#gtGoldGrad)" stroke-width="2.2"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Central Single-Line Scoreboard Bar -->
+      <div class="patti-core">
+
+        <!-- Full-Width Animated Broadcast Event Stinger (Hidden until triggered) -->
+        <div class="event-banner-overlay" id="eventBanner">
+          <div class="event-content-box">
+            <span class="event-badge-pill" id="eventBadge">TATA IPL</span>
+            <span class="event-main-headline" id="eventHeadline">FOUR!</span>
+            <span class="event-sub-caption" id="eventCaption">BOUNDARY</span>
+          </div>
+        </div>
+
+        <!-- Upper Primary Row -->
+        <div class="patti-top-band">
+
+          <!-- 1. Left-Center: Batting Team, Gold Score Pill & Overs -->
+          <div class="seg-team-score">
+            <div class="bat-team-wrap">
+              <span class="live-pulse-dot" title="Live"></span>
+              <span class="bat-team-code" id="dispBatTeam">GT</span>
+            </div>
+            <div class="score-gold-box" id="dispScoreBox">86-3</div>
+            <span class="overs-display" id="dispOvers">13.2</span>
+          </div>
+
+          <!-- 2. Center: Striker (PAPYA) & Non-Striker (SURAJ) -->
+          <div class="seg-batsmen">
+            <div class="batter-line is-striker" id="rowBatter1">
+              <div class="batter-left">
+                <span class="strike-arrow" id="arrowBatter1">▷</span>
+                <span class="batter-name" id="dispBatter1Name">PAPYA</span>
+              </div>
+              <div class="batter-stats">
+                <span class="batter-runs" id="dispBatter1Runs">0</span>
+                <span class="batter-balls" id="dispBatter1Balls">0</span>
+              </div>
+            </div>
+
+            <div class="batter-line" id="rowBatter2">
+              <div class="batter-left">
+                <span class="strike-arrow inactive" id="arrowBatter2">▷</span>
+                <span class="batter-name" id="dispBatter2Name">SURAJ</span>
+              </div>
+              <div class="batter-stats">
+                <span class="batter-runs" id="dispBatter2Runs">31</span>
+                <span class="batter-balls" id="dispBatter2Balls">33</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Right-Center: Magenta/Pink Bowler Bar (CRUSHYY) -->
+          <div class="seg-bowler">
+            <div class="bowler-info-left">
+              <span class="bowler-name" id="dispBowlerName">CRUSHYY</span>
+              <div class="over-balls-strip hidden" id="dispOverBalls"></div>
+            </div>
+            <div class="bowler-figures-box">
+              <span class="bowler-figs" id="dispBowlerFigs">1-17</span>
+              <span class="bowler-overs" id="dispBowlerOvers">3.2</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Lower Dark Navy Sub-Bar -->
+        <div class="patti-bottom-band">
+          <div class="sub-left">
+            <span class="sub-vs" id="dispVsTeam">v RR</span>
+            <span class="sub-target" id="dispTargetText">TARGET 131</span>
+          </div>
+          <div class="sub-right" id="dispMatchTitle">TATA IPL 2022 - THE FINAL</div>
+        </div>
+
+      </div>
+
+      <!-- Right Dark Metallic Angled Wing with RR-Style Royal Crest -->
+      <div class="wing-shield-right">
+        <div class="wing-inner-right">
+          <div class="team-crest-box" id="rightCrestContainer">
+            <svg width="52" height="50" viewBox="0 0 60 60" aria-label="Bowling Team Crest">
+              <defs>
+                <linearGradient id="rrGold" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#fef08a"/>
+                  <stop offset="50%" stop-color="#facc15"/>
+                  <stop offset="100%" stop-color="#ca8a04"/>
+                </linearGradient>
+              </defs>
+              <circle cx="30" cy="30" r="25.5" fill="#172554" stroke="url(#rrGold)" stroke-width="2.8"/>
+              <circle cx="30" cy="30" r="20.5" fill="none" stroke="#ec4899" stroke-width="1.3"/>
+              <text x="30" y="32" text-anchor="middle" fill="#facc15" font-family="Oswald, sans-serif" font-weight="700" font-size="18.5" letter-spacing="0.5" id="svgRightText">RR</text>
+              <text x="30" y="43.5" text-anchor="middle" fill="#ffffff" font-family="Inter, sans-serif" font-weight="800" font-size="6.5" letter-spacing="0.7">ROYALS</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /**
+     * 2021-2022 TATA IPL Animated Broadcast Scoreboard Overlay
+     * Pure transparent OBS / vMix Browser Source build with:
+     * - window.updateScoreboard(data) API
+     * - window.triggerEvent(type, customCaption) API
+     * - URL Query Parameter configuration (?bat=GT&bowl=RR&score=86-3...)
+     * - postMessage listener for external controller dashboards
+     * - Silent keyboard hotkeys (1, 2, 3, 4, 6, W, S, R, F, C)
+     */
+    const DEFAULT_STATE = {
+      bat: 'GT',
+      bowl: 'RR',
+      score: '86-3',
+      overs: '13.2',
+      target: 'TARGET 131',
+      p1: 'PAPYA',
+      p1r: 0,
+      p1b: 0,
+      p2: 'SURAJ',
+      p2r: 31,
+      p2b: 33,
+      striker: 1, // 1 = top batsman on strike, 2 = bottom batsman on strike
+      bowler: 'CRUSHYY',
+      bfig: '1-17',
+      bov: '3.2',
+      tour: 'TATA IPL 2022 - THE FINAL',
+      balls: [],
+      showBalls: false,
+      leftLogo: '',
+      rightLogo: ''
+    };
+
+    let state = { ...DEFAULT_STATE };
+    let eventTimer = null;
+
+    // Parse initial URL query parameters
+    function parseQueryParams() {
+      const params = new URLSearchParams(window.location.search);
+      const updates = {};
+
+      if (params.has('bat')) updates.bat = params.get('bat').toUpperCase();
+      if (params.has('bowl')) updates.bowl = params.get('bowl').toUpperCase();
+      if (params.has('score')) updates.score = params.get('score');
+      if (params.has('overs')) updates.overs = params.get('overs');
+
+      if (params.has('target')) {
+        const rawT = params.get('target').trim();
+        updates.target = /^\d+$/.test(rawT) ? `TARGET ${rawT}` : rawT.toUpperCase();
+      }
+
+      if (params.has('p1')) updates.p1 = params.get('p1').toUpperCase();
+      if (params.has('p1r')) updates.p1r = parseInt(params.get('p1r'), 10) || 0;
+      if (params.has('p1b')) updates.p1b = parseInt(params.get('p1b'), 10) || 0;
+
+      if (params.has('p2')) updates.p2 = params.get('p2').toUpperCase();
+      if (params.has('p2r')) updates.p2r = parseInt(params.get('p2r'), 10) || 0;
+      if (params.has('p2b')) updates.p2b = parseInt(params.get('p2b'), 10) || 0;
+
+      if (params.has('striker')) {
+        updates.striker = parseInt(params.get('striker'), 10) === 2 ? 2 : 1;
+      }
+
+      if (params.has('bowler')) updates.bowler = params.get('bowler').toUpperCase();
+      if (params.has('bfig')) updates.bfig = params.get('bfig');
+      if (params.has('bov')) updates.bov = params.get('bov');
+      if (params.has('tour')) updates.tour = params.get('tour').toUpperCase();
+
+      if (params.has('balls')) {
+        const bStr = params.get('balls').trim();
+        updates.balls = bStr ? bStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+        updates.showBalls = updates.balls.length > 0;
+      }
+
+      if (params.has('leftLogo')) updates.leftLogo = params.get('leftLogo');
+      if (params.has('rightLogo')) updates.rightLogo = params.get('rightLogo');
+
+      return updates;
+    }
+
+    // Trigger CSS animation reflow cleanly on any element
+    function animateElement(el, className) {
+      if (!el) return;
+      el.classList.remove(className);
+      void el.offsetWidth;
+      el.classList.add(className);
+    }
+
+    // Render left & right team crests (custom image URL or vector shield)
+    function renderCrests() {
+      const leftBox = document.getElementById('leftCrestContainer');
+      const rightBox = document.getElementById('rightCrestContainer');
+
+      if (state.leftLogo) {
+        leftBox.innerHTML = `<img src="${state.leftLogo}" alt="${state.bat}" />`;
+      } else {
+        const label = state.bat === 'GT' ? 'TITANS' : state.bat;
+        leftBox.innerHTML = `
+          <svg width="54" height="48" viewBox="0 0 64 56">
+            <polygon points="32,3 57,14 50,44 32,53 14,44 7,14" fill="#121a2b" stroke="#eab308" stroke-width="2.6"/>
+            <path d="M16,19 L32,11 L48,19" fill="none" stroke="#38bdf8" stroke-width="2.2"/>
+            <text x="32" y="34" text-anchor="middle" fill="#ffffff" font-family="Oswald, sans-serif" font-weight="700" font-size="13.5" letter-spacing="0.6">${label}</text>
+            <path d="M17,40 L47,40" stroke="#eab308" stroke-width="2.2"/>
+          </svg>
+        `;
+      }
+
+      if (state.rightLogo) {
+        rightBox.innerHTML = `<img src="${state.rightLogo}" alt="${state.bowl}" />`;
+      } else {
+        const shortCode = state.bowl;
+        const subLabel = shortCode === 'RR' ? 'ROYALS' : 'IPL';
+        rightBox.innerHTML = `
+          <svg width="52" height="50" viewBox="0 0 60 60">
+            <circle cx="30" cy="30" r="25.5" fill="#172554" stroke="#facc15" stroke-width="2.8"/>
+            <circle cx="30" cy="30" r="20.5" fill="none" stroke="#ec4899" stroke-width="1.3"/>
+            <text x="30" y="32" text-anchor="middle" fill="#facc15" font-family="Oswald, sans-serif" font-weight="700" font-size="18.5" letter-spacing="0.5">${shortCode}</text>
+            <text x="30" y="43.5" text-anchor="middle" fill="#ffffff" font-family="Inter, sans-serif" font-weight="800" font-size="6.5" letter-spacing="0.7">${subLabel}</text>
+          </svg>
+        `;
+      }
+    }
+
+    // Update DOM with smooth digit flip/pop transitions when values change
+    function renderScoreboard(prevState) {
+      document.getElementById('dispBatTeam').textContent = state.bat;
+      document.getElementById('dispVsTeam').textContent = `v ${state.bowl}`;
+      document.getElementById('dispTargetText').textContent = state.target;
+      document.getElementById('dispMatchTitle').textContent = state.tour;
+
+      const scoreEl = document.getElementById('dispScoreBox');
+      if (!prevState || prevState.score !== state.score) {
+        scoreEl.textContent = state.score;
+        if (prevState) animateElement(scoreEl, 'digit-flip');
+      }
+
+      const oversEl = document.getElementById('dispOvers');
+      if (!prevState || prevState.overs !== state.overs) {
+        oversEl.textContent = state.overs;
+        if (prevState) animateElement(oversEl, 'num-bump');
+      }
+
+      // Batsman 1 (Top)
+      document.getElementById('dispBatter1Name').textContent = state.p1;
+      const p1rEl = document.getElementById('dispBatter1Runs');
+      const p1bEl = document.getElementById('dispBatter1Balls');
+      if (!prevState || prevState.p1r !== state.p1r) {
+        p1rEl.textContent = state.p1r;
+        if (prevState) animateElement(p1rEl, 'num-bump');
+      }
+      if (!prevState || prevState.p1b !== state.p1b) {
+        p1bEl.textContent = state.p1b;
+        if (prevState) animateElement(p1bEl, 'num-bump');
+      }
+
+      // Batsman 2 (Bottom)
+      document.getElementById('dispBatter2Name').textContent = state.p2;
+      const p2rEl = document.getElementById('dispBatter2Runs');
+      const p2bEl = document.getElementById('dispBatter2Balls');
+      if (!prevState || prevState.p2r !== state.p2r) {
+        p2rEl.textContent = state.p2r;
+        if (prevState) animateElement(p2rEl, 'num-bump');
+      }
+      if (!prevState || prevState.p2b !== state.p2b) {
+        p2bEl.textContent = state.p2b;
+        if (prevState) animateElement(p2bEl, 'num-bump');
+      }
+
+      // Striker Indicator Arrow (▷)
+      const row1 = document.getElementById('rowBatter1');
+      const row2 = document.getElementById('rowBatter2');
+      const arr1 = document.getElementById('arrowBatter1');
+      const arr2 = document.getElementById('arrowBatter2');
+
+      if (state.striker === 1) {
+        row1.classList.add('is-striker');
+        row2.classList.remove('is-striker');
+        arr1.classList.remove('inactive');
+        arr2.classList.add('inactive');
+      } else {
+        row1.classList.remove('is-striker');
+        row2.classList.add('is-striker');
+        arr1.classList.add('inactive');
+        arr2.classList.remove('inactive');
+      }
+
+      // Bowler
+      document.getElementById('dispBowlerName').textContent = state.bowler;
+      const bfigEl = document.getElementById('dispBowlerFigs');
+      const bovEl = document.getElementById('dispBowlerOvers');
+      if (!prevState || prevState.bfig !== state.bfig) {
+        bfigEl.textContent = state.bfig;
+        if (prevState) animateElement(bfigEl, 'num-bump');
+      }
+      if (!prevState || prevState.bov !== state.bov) {
+        bovEl.textContent = state.bov;
+        if (prevState) animateElement(bovEl, 'num-bump');
+      }
+
+      // Optional Over Ball Dots
+      const ballsWrap = document.getElementById('dispOverBalls');
+      if (state.showBalls && Array.isArray(state.balls) && state.balls.length > 0) {
+        ballsWrap.classList.remove('hidden');
+        ballsWrap.innerHTML = state.balls.slice(-6).map(b => {
+          const up = String(b).toUpperCase();
+          let cls = 'ball-dot';
+          if (up === '4' || up === '6') cls += ' boundary';
+          else if (up === 'W') cls += ' wicket';
+          return `<span class="${cls}">${b}</span>`;
+        }).join('');
+      } else {
+        ballsWrap.classList.add('hidden');
+      }
+
+      if (!prevState || prevState.bat !== state.bat || prevState.bowl !== state.bowl || prevState.leftLogo !== state.leftLogo || prevState.rightLogo !== state.rightLogo) {
+        renderCrests();
+      }
+    }
+
+    /**
+     * Public API: window.updateScoreboard(data)
+     * Accepts partial or full scoreboard updates from OBS scripts, vMix, or postMessage
+     */
+    window.updateScoreboard = function (data) {
+      if (!data || typeof data !== 'object') return;
+      const prevState = { ...state };
+      state = { ...state, ...data };
+      if (typeof state.bat === 'string') state.bat = state.bat.toUpperCase();
+      if (typeof state.bowl === 'string') state.bowl = state.bowl.toUpperCase();
+      if (typeof state.p1 === 'string') state.p1 = state.p1.toUpperCase();
+      if (typeof state.p2 === 'string') state.p2 = state.p2.toUpperCase();
+      if (typeof state.bowler === 'string') state.bowler = state.bowler.toUpperCase();
+      renderScoreboard(prevState);
+    };
+
+    /**
+     * Public API: window.triggerEvent(type, customCaption)
+     * Supported types: 'FOUR', 'SIX', 'WICKET', 'FREEHIT', 'CHASED'
+     */
+    window.triggerEvent = function (type, customCaption) {
+      const banner = document.getElementById('eventBanner');
+      const badge = document.getElementById('eventBadge');
+      const headline = document.getElementById('eventHeadline');
+      const caption = document.getElementById('eventCaption');
+
+      const normalized = String(type || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const strikerName = state.striker === 1 ? state.p1 : state.p2;
+
+      const presets = {
+        FOUR: {
+          theme: 'theme-four',
+          badge: state.bat,
+          headline: 'FOUR!',
+          caption: customCaption || `${strikerName} • CRACKING BOUNDARY`
+        },
+        '4': {
+          theme: 'theme-four',
+          badge: state.bat,
+          headline: 'FOUR!',
+          caption: customCaption || `${strikerName} • CRACKING BOUNDARY`
+        },
+        SIX: {
+          theme: 'theme-six',
+          badge: state.bat,
+          headline: 'MAXIMUM SIX!',
+          caption: customCaption || `${strikerName} • OUT OF THE PARK`
+        },
+        '6': {
+          theme: 'theme-six',
+          badge: state.bat,
+          headline: 'MAXIMUM SIX!',
+          caption: customCaption || `${strikerName} • OUT OF THE PARK`
+        },
+        WICKET: {
+          theme: 'theme-wicket',
+          badge: state.bowl,
+          headline: 'WICKET! OUT!',
+          caption: customCaption || `${state.bowler} STRIKES • ${state.score}`
+        },
+        W: {
+          theme: 'theme-wicket',
+          badge: state.bowl,
+          headline: 'WICKET! OUT!',
+          caption: customCaption || `${state.bowler} STRIKES • ${state.score}`
+        },
+        FREEHIT: {
+          theme: 'theme-freehit',
+          badge: 'NO BALL',
+          headline: 'FREE HIT!',
+          caption: customCaption || `${strikerName} ON STRIKE`
+        },
+        CHASED: {
+          theme: 'theme-chased',
+          badge: `${state.bat} WIN`,
+          headline: 'TARGET CHASED!',
+          caption: customCaption || `${state.bat} DEFEAT ${state.bowl}`
+        }
+      };
+
+      const cfg = presets[normalized];
+      if (!cfg) return;
+
+      if (eventTimer) clearTimeout(eventTimer);
+
+      banner.className = `event-banner-overlay ${cfg.theme}`;
+      badge.textContent = cfg.badge;
+      headline.textContent = cfg.headline;
+      caption.textContent = cfg.caption;
+
+      // Re-trigger zoom animation on headline
+      animateElement(headline, 'event-main-headline');
+
+      requestAnimationFrame(() => {
+        banner.classList.add('active');
+      });
+
+      eventTimer = setTimeout(() => {
+        banner.classList.remove('active');
+      }, 3200);
+    };
+
+    // Helper for silent quick-scoring hotkeys
+    function incrementOvers(ovStr) {
+      const parts = String(ovStr).split('.');
+      let whole = parseInt(parts[0] || '0', 10) || 0;
+      let balls = parseInt(parts[1] || '0', 10) || 0;
+      balls += 1;
+      if (balls >= 6) {
+        whole += 1;
+        balls = 0;
+      }
+      return `${whole}.${balls}`;
+    }
+
+    function applyQuickBall(runs, isWicket = false) {
+      const prevState = { ...state };
+      const [curRunsStr, curWktsStr] = String(state.score).split('-');
+      const curRuns = (parseInt(curRunsStr, 10) || 0) + runs;
+      const curWkts = Math.min(10, (parseInt(curWktsStr, 10) || 0) + (isWicket ? 1 : 0));
+      state.score = `${curRuns}-${curWkts}`;
+      state.overs = incrementOvers(state.overs);
+
+      const [bWktsStr, bRunsStr] = String(state.bfig).split('-');
+      const bWkts = (parseInt(bWktsStr, 10) || 0) + (isWicket ? 1 : 0);
+      const bRuns = (parseInt(bRunsStr, 10) || 0) + runs;
+      state.bfig = `${bWkts}-${bRuns}`;
+      state.bov = incrementOvers(state.bov);
+
+      if (state.striker === 1) {
+        state.p1r += runs;
+        state.p1b += 1;
+      } else {
+        state.p2r += runs;
+        state.p2b += 1;
+      }
+
+      if (runs % 2 === 1) {
+        state.striker = state.striker === 1 ? 2 : 1;
+      }
+
+      renderScoreboard(prevState);
+
+      if (isWicket) window.triggerEvent('WICKET');
+      else if (runs === 4) window.triggerEvent('FOUR');
+      else if (runs === 6) window.triggerEvent('SIX');
+    }
+
+    // Listen to window.postMessage for external studio control panels
+    window.addEventListener('message', (event) => {
+      const msg = event.data;
+      if (!msg || typeof msg !== 'object') return;
+      if (msg.type === 'UPDATE_SCOREBOARD' && msg.payload) {
+        window.updateScoreboard(msg.payload);
+      } else if (msg.type === 'TRIGGER_EVENT' && msg.event) {
+        window.triggerEvent(msg.event, msg.caption);
+      }
+    });
+
+    // Silent Keyboard Hotkeys (when Browser Source is interacted with in OBS/vMix)
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const key = e.key.toUpperCase();
+      if (key === '0') applyQuickBall(0, false);
+      else if (key === '1') applyQuickBall(1, false);
+      else if (key === '2') applyQuickBall(2, false);
+      else if (key === '3') applyQuickBall(3, false);
+      else if (key === '4') applyQuickBall(4, false);
+      else if (key === '6') applyQuickBall(6, false);
+      else if (key === 'W') applyQuickBall(0, true);
+      else if (key === 'F') window.triggerEvent('FREEHIT');
+      else if (key === 'C') window.triggerEvent('CHASED');
+      else if (key === 'S') {
+        const prev = { ...state };
+        state.striker = state.striker === 1 ? 2 : 1;
+        renderScoreboard(prev);
+      } else if (key === 'R') {
+        const prev = { ...state };
+        state = { ...DEFAULT_STATE, ...parseQueryParams() };
+        renderScoreboard(prev);
+      }
+    });
+
+    // Boot overlay immediately on load
+    window.addEventListener('DOMContentLoaded', () => {
+      state = { ...DEFAULT_STATE, ...parseQueryParams() };
+      renderScoreboard(null);
+
+      // Optional auto-event trigger via ?event=FOUR or ?event=SIX
+      const initialEvent = new URLSearchParams(window.location.search).get('event');
+      if (initialEvent) {
+        setTimeout(() => window.triggerEvent(initialEvent), 950);
+      }
+    });
+  </script>
+</body>
+</html>

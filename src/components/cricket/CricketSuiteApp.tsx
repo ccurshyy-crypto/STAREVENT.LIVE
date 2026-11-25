@@ -88,6 +88,26 @@ export function CricketSuiteApp({
     };
   }, []);
 
+  useEffect(() => {
+    if (loadStatus !== 'ready' || typeof window === 'undefined') return;
+    const flagKey = `cricket_suite_tata_ipl_2022_v1_${uid}`;
+    if (window.localStorage.getItem(flagKey) === '1') return;
+    window.localStorage.setItem(flagKey, '1');
+    if (state.user.userTheme !== 'tata-ipl-2022' || state.user.customThemeColors?.enabled) {
+      updateState((prev) => ({
+        ...prev,
+        user: {
+          ...prev.user,
+          userTheme: 'tata-ipl-2022',
+          customThemeColors: {
+            ...prev.user.customThemeColors,
+            enabled: false,
+          },
+        },
+      }));
+    }
+  }, [loadStatus, uid, state.user.userTheme, state.user.customThemeColors?.enabled, updateState]);
+
   const activeTournament = useMemo(
     () =>
       state.tournaments.find((t) => t.id === state.activeTournamentId) ??
