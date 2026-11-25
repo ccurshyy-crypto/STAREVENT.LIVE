@@ -1,5 +1,9 @@
 import { FormEvent, useMemo, useState } from 'react';
 import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  Coins,
   Edit3,
   Play,
   Plus,
@@ -59,6 +63,7 @@ export function MatchListView({
 }: MatchListViewProps) {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2>(1);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -78,6 +83,10 @@ export function MatchListView({
   const [totalOvers, setTotalOvers] = useState('6');
   const [ballType, setBallType] = useState<BallType>('Tennis');
 
+  // Step 2: Toss Won & Decision Fields
+  const [tossWinnerId, setTossWinnerId] = useState('');
+  const [tossDecision, setTossDecision] = useState<'Bat' | 'Bowl'>('Bat');
+
   const selectedTour = state.tournaments.find((t) => t.id === tournamentId);
   const tourGroups = useMemo(
     () => state.groups.filter((g) => g.tournamentId === tournamentId),
@@ -88,6 +97,9 @@ export function MatchListView({
     [state.teams, tournamentId]
   );
 
+  const selectedTeam1 = tourTeams.find((t) => t.id === team1Id) ?? state.teams.find((t) => t.id === team1Id);
+  const selectedTeam2 = tourTeams.find((t) => t.id === team2Id) ?? state.teams.find((t) => t.id === team2Id);
+
   const openCreateMatch = () => {
     const defaultTour =
       state.tournaments.find((t) => t.id === state.activeTournamentId) ??
@@ -96,6 +108,7 @@ export function MatchListView({
     const availableTeams = state.teams.filter((tm) => tm.tournamentId === tid);
 
     setEditingId(null);
+    setCreateStep(1);
     setFormError(null);
     setTournamentId(tid);
     setGroupId('');
@@ -108,11 +121,14 @@ export function MatchListView({
     setVenue(defaultTour?.location || '');
     setTotalOvers(String(defaultTour?.oversPerInnings || state.user.defaultOvers || 6));
     setBallType(defaultTour?.ballType || 'Tennis');
+    setTossWinnerId('');
+    setTossDecision('Bat');
     setModalOpen(true);
   };
 
   const openEditMatch = (m: CricketMatch) => {
     setEditingId(m.id);
+    setCreateStep(1);
     setFormError(null);
     setTournamentId(m.tournamentId);
     setGroupId(m.groupId || '');
@@ -125,6 +141,8 @@ export function MatchListView({
     setVenue(m.venue || '');
     setTotalOvers(String(m.oversPerInnings));
     setBallType(m.ballType || 'Tennis');
+    setTossWinnerId(m.tossWinnerId || m.team1Id);
+    setTossDecision(m.tossDecision || 'Bat');
     setModalOpen(true);
   };
 
@@ -135,6 +153,7 @@ export function MatchListView({
     const nextTeams = state.teams.filter((tm) => tm.tournamentId === nextTid);
     setTeam1Id(nextTeams[0]?.id || '');
     setTeam2Id(nextTeams[1]?.id || '');
+    setTossWinnerId('');
     if (nextTour) {
       setVenue(nextTour.location || '');
       setTotalOvers(String(nextTour.oversPerInnings || 6));
@@ -142,20 +161,47 @@ export function MatchListView({
     }
   };
 
+  const validateStep1 = (): boolean => {
+    setFormError(null);
+    if (!tournamentId) {
+      setFormError('Please select a tournament first.');
+      return false;
+    }
+    if (!team1Id || !team2Id) {
+      setFormError('Please select both Team A and Team B.');
+      return false;
+    }
+    if (team1Id === team2Id) {
+      setFormError('Team A and Team B cannot be the same team.');
+      return false;
+    }
+    return true;
+  };
+
+  const handleProceedToToss = () => {
+    if (!validateStep1()) return;
+    if (tossWinnerId !== team1Id && tossWinnerId !== team2Id) {
+      setTossWinnerId('');
+    }
+    setCreateStep(2);
+  };
+
   const handleSaveMatch = (e: FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    if (!tournamentId) {
-      setFormError('Please select a tournament first.');
+    if (!editingId && createStep === 1) {
+      handleProceedToToss();
       return;
     }
-    if (!team1Id || !team2Id) {
-      setFormError('Please select both Team A and Team B.');
-      return;
-    }
-    if (team1Id === team2Id) {
-      setFormError('Team A and Team B cannot be the same team.');
+
+    if (!validateStep1()) return;
+
+    const effectiveTossWinnerId =
+      tossWinnerId === team1Id || tossWinnerId === team2Id ? tossWinnerId : '';
+
+    if (!editingId && !effectiveTossWinnerId) {
+      setFormError('Please select which team won the toss before creating the match.');
       return;
     }
 
@@ -164,34 +210,76 @@ export function MatchListView({
     const t1 = state.teams.find((t) => t.id === team1Id);
     const t2 = state.teams.find((t) => t.id === team2Id);
 
+    const winnerId = effectiveTossWinnerId || team1Id;
+    const loserId = winnerId === team1Id ? team2Id : team1Id;
+    const batFirstId = tossDecision === 'Bat' ? winnerId : loserId;
+    const bowlFirstId = batFirstId === team1Id ? team2Id : team1Id;
+    const batFirstTeam = state.teams.find((t) => t.id === batFirstId);
+    const bowlFirstTeam = state.teams.find((t) => t.id === bowlFirstId);
+    const winnerTeam = state.teams.find((t) => t.id === winnerId);
+    const tossResultSummary = `${winnerTeam?.shortName || 'Team'} won the toss & elected to ${tossDecision.toLowerCase()}`;
+
     if (editingId) {
       updateState((prev) => ({
         ...prev,
-        matches: prev.matches.map((m) =>
-          m.id === editingId
-            ? {
-                ...m,
-                tournamentId,
-                groupId: groupId || undefined,
-                team1Id,
-                team2Id,
-                matchLabel: cleanMatchName,
-                stageBadge,
-                dateLabel: matchDate,
-                startsAt: matchTime,
-                venue: venue.trim(),
-                oversPerInnings: oversNum,
-                ballType,
-              }
-            : m
-        ),
+        matches: prev.matches.map((m) => {
+          if (m.id !== editingId) return m;
+          const canUpdateInningsOrder =
+            m.innings[0].balls.length === 0 && m.innings[1].balls.length === 0;
+          const nextInnings = [
+            structuredClone(m.innings[0]),
+            structuredClone(m.innings[1]),
+          ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+          if (canUpdateInningsOrder) {
+            nextInnings[0].battingTeamId = batFirstId;
+            nextInnings[0].bowlingTeamId = bowlFirstId;
+            nextInnings[0].maxOvers = oversNum;
+            nextInnings[0].strikerId = batFirstTeam?.players[0]?.id || '';
+            nextInnings[0].nonStrikerId = batFirstTeam?.players[1]?.id || '';
+            nextInnings[0].bowlerId = bowlFirstTeam?.players[0]?.id || '';
+            nextInnings[0].battingOrder = [
+              nextInnings[0].strikerId,
+              nextInnings[0].nonStrikerId,
+            ].filter(Boolean);
+
+            nextInnings[1].battingTeamId = bowlFirstId;
+            nextInnings[1].bowlingTeamId = batFirstId;
+            nextInnings[1].maxOvers = oversNum;
+            nextInnings[1].strikerId = bowlFirstTeam?.players[0]?.id || '';
+            nextInnings[1].nonStrikerId = bowlFirstTeam?.players[1]?.id || '';
+            nextInnings[1].bowlerId = batFirstTeam?.players[0]?.id || '';
+            nextInnings[1].battingOrder = [
+              nextInnings[1].strikerId,
+              nextInnings[1].nonStrikerId,
+            ].filter(Boolean);
+          }
+          return {
+            ...m,
+            tournamentId,
+            groupId: groupId || undefined,
+            team1Id,
+            team2Id,
+            matchLabel: cleanMatchName,
+            stageBadge,
+            dateLabel: matchDate,
+            startsAt: matchTime,
+            venue: venue.trim(),
+            oversPerInnings: oversNum,
+            ballType,
+            tossWinnerId: winnerId,
+            tossDecision,
+            tossCompleted: true,
+            resultText: m.status === 'not_started' ? tossResultSummary : m.resultText,
+            innings: nextInnings,
+          };
+        }),
       }));
       setModalOpen(false);
       onToast(`Match "${cleanMatchName}" updated.`);
       return;
     }
 
-    // Generate unique Match ID and initialize at 0/0, 0.0 overs, Innings 1, Not Started
+    // Generate unique Match ID and initialize innings according to Toss Won & Decision
     const uniqueMatchId = `M-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
     const newMatch: CricketMatch = {
       id: uniqueMatchId,
@@ -207,44 +295,50 @@ export function MatchListView({
       endsAt: '',
       venue: venue.trim() || selectedTour?.location || 'Main Ground',
       ballType,
-      tossWinnerId: team1Id,
-      tossDecision: 'Bat',
-      tossCompleted: false,
+      tossWinnerId: winnerId,
+      tossDecision,
+      tossCompleted: true,
       oversPerInnings: oversNum,
       status: 'not_started',
-      resultText: 'Not Started',
+      resultText: tossResultSummary,
       currentInningsIndex: 0,
       innings: [
         {
-          battingTeamId: team1Id,
-          bowlingTeamId: team2Id,
+          battingTeamId: batFirstId,
+          bowlingTeamId: bowlFirstId,
           runs: 0,
           wickets: 0,
           legalBalls: 0,
           maxOvers: oversNum,
           target: null,
           extras: { wd: 0, nb: 0, lb: 0, bye: 0, penalty: 0 },
-          strikerId: t1?.players[0]?.id || '',
-          nonStrikerId: t1?.players[1]?.id || '',
-          bowlerId: t2?.players[0]?.id || '',
-          battingOrder: [t1?.players[0]?.id, t1?.players[1]?.id].filter(Boolean) as string[],
+          strikerId: batFirstTeam?.players[0]?.id || '',
+          nonStrikerId: batFirstTeam?.players[1]?.id || '',
+          bowlerId: bowlFirstTeam?.players[0]?.id || '',
+          battingOrder: [
+            batFirstTeam?.players[0]?.id,
+            batFirstTeam?.players[1]?.id,
+          ].filter(Boolean) as string[],
           balls: [],
           fallOfWickets: [],
           completed: false,
         },
         {
-          battingTeamId: team2Id,
-          bowlingTeamId: team1Id,
+          battingTeamId: bowlFirstId,
+          bowlingTeamId: batFirstId,
           runs: 0,
           wickets: 0,
           legalBalls: 0,
           maxOvers: oversNum,
           target: null,
           extras: { wd: 0, nb: 0, lb: 0, bye: 0, penalty: 0 },
-          strikerId: t2?.players[0]?.id || '',
-          nonStrikerId: t2?.players[1]?.id || '',
-          bowlerId: t1?.players[0]?.id || '',
-          battingOrder: [t2?.players[0]?.id, t2?.players[1]?.id].filter(Boolean) as string[],
+          strikerId: bowlFirstTeam?.players[0]?.id || '',
+          nonStrikerId: bowlFirstTeam?.players[1]?.id || '',
+          bowlerId: batFirstTeam?.players[0]?.id || '',
+          battingOrder: [
+            bowlFirstTeam?.players[0]?.id,
+            bowlFirstTeam?.players[1]?.id,
+          ].filter(Boolean) as string[],
           balls: [],
           fallOfWickets: [],
           completed: false,
@@ -264,7 +358,8 @@ export function MatchListView({
     }));
 
     setModalOpen(false);
-    onToast(`Match ${cleanMatchName} created (${uniqueMatchId}). Opening Scoring Dashboard...`);
+    setCreateStep(1);
+    onToast(`Match ${cleanMatchName} created! ${tossResultSummary}.`);
     // Automatically open Scoring Dashboard for this exact match
     onOpenScoring(uniqueMatchId);
   };
@@ -298,6 +393,30 @@ export function MatchListView({
       m.matchLabel.toLowerCase().includes(q)
     );
   });
+
+  // Preview batting & bowling order for Toss step
+  const previewBatFirstTeam =
+    tossWinnerId && (tossWinnerId === team1Id || tossWinnerId === team2Id)
+      ? tossDecision === 'Bat'
+        ? tossWinnerId === team1Id
+          ? selectedTeam1
+          : selectedTeam2
+        : tossWinnerId === team1Id
+          ? selectedTeam2
+          : selectedTeam1
+      : undefined;
+  const previewBowlFirstTeam =
+    previewBatFirstTeam && selectedTeam1 && selectedTeam2
+      ? previewBatFirstTeam.id === selectedTeam1.id
+        ? selectedTeam2
+        : selectedTeam1
+      : undefined;
+  const previewWinnerTeam =
+    tossWinnerId === team1Id
+      ? selectedTeam1
+      : tossWinnerId === team2Id
+        ? selectedTeam2
+        : undefined;
 
   return (
     <div className="space-y-4">
@@ -334,7 +453,7 @@ export function MatchListView({
             No Matches Created Yet
           </h2>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-            Create a match between two teams in your tournament. Once saved, the Scoring Dashboard opens automatically for that exact match.
+            Create a match between two teams in your tournament. Select teams, set Toss Won &amp; Decision, and the Scoring Dashboard opens automatically.
           </p>
           <button
             type="button"
@@ -382,6 +501,11 @@ export function MatchListView({
                         <p className="text-xs text-slate-500">
                           {m.oversPerInnings} Overs · {m.ballType} · {m.venue || 'Ground'}
                         </p>
+                        {m.tossCompleted && m.tossWinnerId && (
+                          <p className="text-[11px] font-semibold text-[#E87500] mt-0.5">
+                            Toss: {teamMap.get(m.tossWinnerId)?.shortName || 'Team'} won &amp; chose {m.tossDecision}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-600 tabular-nums">
                         <div>{m.dateLabel}</div>
@@ -478,15 +602,75 @@ export function MatchListView({
             className="w-full max-w-xl rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto"
           >
             <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
-              <h3 className="font-display font-bold text-base">
-                {editingId ? 'Edit Match' : 'Create Match'}
-              </h3>
+              <div>
+                <h3 className="font-display font-bold text-base">
+                  {editingId
+                    ? 'Edit Match'
+                    : createStep === 1
+                      ? 'Create Match — Step 1: Select Teams'
+                      : 'Create Match — Step 2: Toss Won'}
+                </h3>
+                {!editingId && (
+                  <p className="text-[11px] text-orange-100 mt-0.5">
+                    {createStep === 1
+                      ? 'Select teams & match details, then choose Toss Won'
+                      : 'Select Toss Winner & Bat/Bowl decision to create match'}
+                  </p>
+                )}
+              </div>
               <button type="button" onClick={() => setModalOpen(false)}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
+            {/* 2-Step Progress Bar for New Match */}
+            {!editingId && (
+              <div className="grid grid-cols-2 border-b border-slate-200 bg-slate-50 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormError(null);
+                    setCreateStep(1);
+                  }}
+                  className={`py-2.5 px-3 flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+                    createStep === 1
+                      ? 'border-[#FF8C00] text-[#FF8C00] bg-white'
+                      : 'border-transparent text-emerald-700 bg-emerald-50/40'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full text-[11px] inline-flex items-center justify-center ${
+                      createStep === 1
+                        ? 'bg-[#FF8C00] text-white'
+                        : 'bg-emerald-600 text-white'
+                    }`}
+                  >
+                    {createStep === 2 ? '✓' : '1'}
+                  </span>
+                  <span>Teams &amp; Details</span>
+                </button>
+                <div
+                  className={`py-2.5 px-3 flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
+                    createStep === 2
+                      ? 'border-[#FF8C00] text-[#FF8C00] bg-white'
+                      : 'border-transparent text-slate-400'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full text-[11px] inline-flex items-center justify-center ${
+                      createStep === 2
+                        ? 'bg-[#FF8C00] text-white'
+                        : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    2
+                  </span>
+                  <span>Toss Won</span>
+                </div>
+              </div>
+            )}
+
+            <div className="p-5 space-y-4 max-h-[72vh] overflow-y-auto">
               {formError && (
                 <div
                   role="alert"
@@ -500,7 +684,130 @@ export function MatchListView({
                 <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-xs text-amber-800">
                   No tournaments created yet. Please create a Tournament and at least 2 Teams first.
                 </div>
+              ) : !editingId && createStep === 2 ? (
+                /* ================= STEP 2: TOSS WON & DECISION ================= */
+                <div className="space-y-5">
+                  {/* Matchup Summary Banner */}
+                  <div className="rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 p-3.5 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#E87500]">
+                        {matchName.trim() || `MATCH ${state.matches.length + 1}`} · {stageBadge} · {totalOvers} Overs
+                      </p>
+                      <p className="font-display font-bold text-sm sm:text-base text-slate-900 truncate mt-0.5">
+                        {selectedTeam1?.name || 'Team A'}{' '}
+                        <span className="text-[#FF8C00] font-black mx-1">VS</span>{' '}
+                        {selectedTeam2?.name || 'Team B'}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-full bg-[#FF8C00] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Coins className="w-5 h-5" aria-hidden="true" />
+                    </div>
+                  </div>
+
+                  {/* Direct Toss Won Team Buttons */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Toss Won By *
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[selectedTeam1, selectedTeam2].filter(Boolean).map((tm) => {
+                        if (!tm) return null;
+                        const isWinner = tossWinnerId === tm.id;
+                        return (
+                          <button
+                            key={tm.id}
+                            type="button"
+                            onClick={() => {
+                              setTossWinnerId(tm.id);
+                              setFormError(null);
+                            }}
+                            className={`p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
+                              isWinner
+                                ? 'bg-[#FFF3E0] border-[#FF8C00] shadow-xs ring-2 ring-[#FF8C00]/20'
+                                : 'bg-white border-slate-200 hover:border-[#FF8C00]/50 hover:bg-orange-50/30'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <span className="inline-block px-2 py-0.5 rounded bg-[#FF8C00]/15 text-[#E87500] text-[10px] font-black uppercase tracking-wider mb-1">
+                                {tm.shortName}
+                              </span>
+                              <p className="font-display font-bold text-sm text-slate-900 truncate">
+                                {tm.name}
+                              </p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                {tm.players.length} Players
+                              </p>
+                            </div>
+                            <span
+                              className={`w-6 h-6 rounded-full inline-flex items-center justify-center shrink-0 ${
+                                isWinner
+                                  ? 'bg-[#FF8C00] text-white'
+                                  : 'border-2 border-slate-300'
+                              }`}
+                            >
+                              {isWinner && <CheckCircle2 className="w-4 h-4" aria-hidden="true" />}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Direct Elected To (Bat / Bowl) Buttons */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                      Elected To *
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(
+                        [
+                          { value: 'Bat', label: 'BAT FIRST', sub: 'Start Batting in 1st Innings' },
+                          { value: 'Bowl', label: 'BOWL FIRST', sub: 'Start Bowling in 1st Innings' },
+                        ] as const
+                      ).map((opt) => {
+                        const isActive = tossDecision === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setTossDecision(opt.value)}
+                            className={`p-3.5 rounded-xl border-2 text-center transition-all ${
+                              isActive
+                                ? 'bg-[#FF8C00] text-white border-[#E87500] shadow-xs'
+                                : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-[#FFF3E0] hover:border-[#FF8C00]/40'
+                            }`}
+                          >
+                            <span className="block font-display font-black text-sm tracking-wide">
+                              {opt.label}
+                            </span>
+                            <span
+                              className={`block text-[11px] mt-0.5 ${
+                                isActive ? 'text-orange-100' : 'text-slate-500'
+                              }`}
+                            >
+                              {opt.sub}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Live Toss Preview */}
+                  {previewWinnerTeam && previewBatFirstTeam && previewBowlFirstTeam && (
+                    <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3.5 text-xs space-y-1">
+                      <p className="font-bold text-emerald-900">
+                        ✓ {previewWinnerTeam.name} won the toss &amp; elected to {tossDecision.toLowerCase()}
+                      </p>
+                      <p className="text-emerald-800">
+                        1st Innings Batting: <strong>{previewBatFirstTeam.name}</strong> · Bowling:{' '}
+                        <strong>{previewBowlFirstTeam.name}</strong>
+                      </p>
+                    </div>
+                  )}
+                </div>
               ) : (
+                /* ================= STEP 1 (OR EDIT MODE): TEAMS & MATCH DETAILS ================= */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="space-y-1">
                     <label className="block text-xs font-semibold text-slate-700">
@@ -546,7 +853,10 @@ export function MatchListView({
                     <select
                       required
                       value={team1Id}
-                      onChange={(e) => setTeam1Id(e.target.value)}
+                      onChange={(e) => {
+                        setTeam1Id(e.target.value);
+                        setTossWinnerId('');
+                      }}
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
                     >
                       <option value="">Select Team A</option>
@@ -565,7 +875,10 @@ export function MatchListView({
                     <select
                       required
                       value={team2Id}
-                      onChange={(e) => setTeam2Id(e.target.value)}
+                      onChange={(e) => {
+                        setTeam2Id(e.target.value);
+                        setTossWinnerId('');
+                      }}
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
                     >
                       <option value="">Select Team B</option>
@@ -580,6 +893,48 @@ export function MatchListView({
                   {tourTeams.length < 2 && (
                     <div className="sm:col-span-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
                       This tournament needs at least 2 teams. Go to TEAM and create teams assigned to this tournament.
+                    </div>
+                  )}
+
+                  {/* Inline Toss Won section when editing an existing match */}
+                  {editingId && selectedTeam1 && selectedTeam2 && (
+                    <div className="sm:col-span-2 rounded-xl bg-[#FFF3E0]/70 border border-[#FF8C00]/30 p-3.5 space-y-3">
+                      <p className="text-xs font-bold text-[#E87500] uppercase tracking-wider flex items-center gap-1.5">
+                        <Coins className="w-3.5 h-3.5" aria-hidden="true" />
+                        Toss Won &amp; Decision
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[selectedTeam1, selectedTeam2].map((tm) => (
+                          <button
+                            key={tm.id}
+                            type="button"
+                            onClick={() => setTossWinnerId(tm.id)}
+                            className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors truncate ${
+                              tossWinnerId === tm.id
+                                ? 'bg-[#FF8C00] text-white border-[#E87500]'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-orange-50'
+                            }`}
+                          >
+                            {tm.name}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['Bat', 'Bowl'] as const).map((dec) => (
+                          <button
+                            key={dec}
+                            type="button"
+                            onClick={() => setTossDecision(dec)}
+                            className={`py-2 rounded-lg text-xs font-bold border transition-colors ${
+                              tossDecision === dec
+                                ? 'bg-[#FF8C00] text-white border-[#E87500]'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-orange-50'
+                            }`}
+                          >
+                            Elected to {dec}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -686,21 +1041,56 @@ export function MatchListView({
               )}
             </div>
 
-            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={tourTeams.length < 2}
-                className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-semibold"
-              >
-                {editingId ? 'Save Match' : 'Create & Open Scoring'}
-              </button>
+            <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-2">
+              {!editingId && createStep === 2 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormError(null);
+                    setCreateStep(1);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-700"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Back</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-white hover:bg-slate-100 border border-slate-300 text-xs font-semibold text-slate-700"
+                >
+                  Cancel
+                </button>
+              )}
+
+              {editingId ? (
+                <button
+                  type="submit"
+                  disabled={tourTeams.length < 2}
+                  className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-semibold"
+                >
+                  Save Match
+                </button>
+              ) : createStep === 1 ? (
+                <button
+                  type="submit"
+                  disabled={tourTeams.length < 2}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-bold shadow-xs"
+                >
+                  <span>Next: Toss Won</span>
+                  <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={!tossWinnerId}
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-bold shadow-xs"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Create Match &amp; Open Scoring</span>
+                </button>
+              )}
             </div>
           </form>
         </div>
