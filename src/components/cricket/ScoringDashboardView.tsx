@@ -1336,9 +1336,11 @@ export function ScoringDashboardView({
               { id: 'overlay', label: 'OVERLAY' },
             ] as const
           ).map((tab) => (
-            <button
+            <motion.button
               key={tab.id}
               type="button"
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-1 text-[11px] sm:text-sm font-bold tracking-wide transition-colors border-b-2 truncate ${
                 activeTab === tab.id
@@ -1347,80 +1349,162 @@ export function ScoringDashboardView({
               }`}
             >
               {tab.label}
-            </button>
+            </motion.button>
           ))}
         </div>
       </div>
 
       {/* ================= TAB 1: SCORING PANEL ================= */}
       {activeTab === 'scoring' && (
-        <div className="space-y-4">
-          {/* Dual Innings Score Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {([0, 1] as const).map((idx) => {
-              const inn = match.innings[idx];
-              const batTeam = idx === 0 ? inn1Team : inn2Team;
-              const isCurrent = innIdx === idx;
-              return (
-                <div
-                  key={idx}
-                  className={`rounded-xl bg-white border p-4 shadow-xs transition-all ${
-                    isCurrent
-                      ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/15'
-                      : 'border-slate-200'
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                          {idx === 0 ? '1st Innings' : '2nd Innings'}
-                        </span>
-                        {isCurrent && !inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase">
-                            Batting
-                          </span>
-                        )}
-                        {inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
-                            Closed
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-display font-bold text-base text-slate-900 truncate mt-0.5">
-                        {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
-                      </h3>
-                    </div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.22 }}
+          className="space-y-4"
+        >
+          {/* Centered Animated Top Box: 1ST INNINGS & 2ND INNINGS SCOREBOARD */}
+          <div className="flex justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: -16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 310, damping: 24 }}
+              className="relative w-full max-w-4xl rounded-2xl overflow-hidden text-white border-2 border-[#FFE600] suite-top-box-glow shadow-2xl"
+              style={{
+                background:
+                  'linear-gradient(110deg, #1E030B 0%, #6B0410 38%, #9B0A16 58%, #0E153A 100%)',
+              }}
+            >
+              {/* Animated Golden Shimmer Sweep */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-y-0 w-1/3 suite-top-box-sheen"
+                style={{
+                  background:
+                    'linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)',
+                }}
+              />
 
-                    <button
-                      type="button"
-                      onClick={() => openEditScoreModal(idx)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold"
+              {/* Centered Header Pill */}
+              <div className="relative z-10 px-4 py-1.5 bg-black/30 border-b border-white/15 flex items-center justify-center gap-2 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em] text-[#FFE600]">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
+                <span>1ST INNINGS &amp; 2ND INNINGS LIVE SCOREBOARD</span>
+              </div>
+
+              <div className="relative z-10 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-stretch divide-y md:divide-y-0 md:divide-x divide-white/15">
+                {([0, 1] as const).map((idx) => {
+                  const inn = match.innings[idx];
+                  const batTeam = idx === 0 ? inn1Team : inn2Team;
+                  const isCurrent = innIdx === idx && match.status !== 'completed';
+                  const innStarted =
+                    idx === 0 ||
+                    innIdx === 1 ||
+                    inn.balls.length > 0 ||
+                    inn.runs > 0 ||
+                    inn.wickets > 0;
+                  const computedTarget = inn2.target ?? inn1.runs + 1;
+
+                  const panelContent = (
+                    <div
+                      key={idx}
+                      className={`p-4 sm:p-5 transition-all ${
+                        isCurrent
+                          ? 'bg-gradient-to-br from-[#FF8C00]/25 via-[#FFE600]/10 to-transparent'
+                          : 'bg-black/15'
+                      }`}
                     >
-                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Edit</span>
-                    </button>
-                  </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            {isCurrent && (
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_8px_#34D399]" />
+                            )}
+                            <span
+                              className={`text-[11px] font-black uppercase tracking-[0.16em] ${
+                                isCurrent ? 'text-[#FFE600]' : 'text-white/75'
+                              }`}
+                            >
+                              {idx === 0 ? '1ST INNINGS' : '2ND INNINGS'}
+                            </span>
+                            {isCurrent && !inn.completed && (
+                              <span className="px-2 py-0.5 rounded bg-emerald-500/25 border border-emerald-400/50 text-emerald-200 text-[10px] font-bold uppercase">
+                                Batting
+                              </span>
+                            )}
+                            {inn.completed && (
+                              <span className="px-2 py-0.5 rounded bg-white/15 text-white/85 text-[10px] font-bold uppercase">
+                                Closed
+                              </span>
+                            )}
+                          </div>
+                          <h3 className="font-display font-extrabold text-base sm:text-lg text-white truncate mt-0.5">
+                            {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
+                          </h3>
+                        </div>
 
-                  <div className="mt-3 flex items-baseline justify-between gap-3">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-display font-black text-3xl text-[#FF8C00] tabular-nums">
-                        {inn.runs}/{inn.wickets}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-600 tabular-nums">
-                        ({formatOvers(inn.legalBalls)} / {inn.maxOvers} ov)
-                      </span>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.06 }}
+                          whileTap={{ scale: 0.94 }}
+                          onClick={() => openEditScoreModal(idx)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/15 hover:bg-white/25 border border-white/25 text-white text-xs font-bold shrink-0"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+                          <span>Edit</span>
+                        </motion.button>
+                      </div>
+
+                      <div className="mt-3 flex items-baseline justify-between gap-3">
+                        <div className="flex items-baseline gap-2">
+                          {innStarted ? (
+                            <>
+                              <motion.span
+                                key={`dash-inn-${idx}-${inn.runs}-${inn.wickets}`}
+                                initial={{ scale: 1.2, color: '#FFFFFF' }}
+                                animate={{ scale: 1, color: '#FFE600' }}
+                                transition={{ type: 'spring', stiffness: 420, damping: 20 }}
+                                className="font-display font-black text-3xl sm:text-4xl tabular-nums drop-shadow-sm"
+                              >
+                                {inn.runs}/{inn.wickets}
+                              </motion.span>
+                              <span className="text-xs sm:text-sm font-bold text-white/80 tabular-nums">
+                                ({formatOvers(inn.legalBalls)} / {inn.maxOvers} ov)
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-display font-black text-lg sm:text-xl uppercase tracking-wider text-amber-200">
+                              YET TO BAT
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right text-xs text-white/75">
+                          CRR:{' '}
+                          <span className="font-black text-white tabular-nums">
+                            {calcRunRate(inn.runs, inn.legalBalls)}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right text-xs text-slate-500">
-                      CRR:{' '}
-                      <span className="font-bold text-slate-900 tabular-nums">
-                        {calcRunRate(inn.runs, inn.legalBalls)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+                  );
+
+                  if (idx === 0) {
+                    return (
+                      <div key="inn-0-wrap" className="contents">
+                        {panelContent}
+                        <div className="px-3.5 py-2.5 md:py-4 flex md:flex-col items-center justify-center gap-1.5 bg-black/30 shrink-0">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-white/70">
+                            {inn1.completed || innIdx === 1 ? 'TARGET' : 'MATCH'}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-lg bg-[#FFE600]/15 border border-[#FFE600]/45 font-display font-black text-sm sm:text-base text-[#FFE600] tabular-nums">
+                            {inn1.completed || innIdx === 1 ? computedTarget : 'VS'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return panelContent;
+                })}
+              </div>
+            </motion.div>
           </div>
 
           {/* Match Status / Chase / Innings Break Bar */}
@@ -2148,168 +2232,207 @@ export function ScoringDashboardView({
             )}
           </AnimatePresence>
 
-          {/* Exact Color-Coded Scoring Keypad */}
-          <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs space-y-3">
+          {/* Exact Color-Coded Animated Scoring Keypad */}
+          <div className="rounded-xl bg-white/95 backdrop-blur-sm border border-slate-200 p-4 shadow-md space-y-3">
             {/* Row 1: Runs (Orange: 0,1,2,3,5; Yellow: 4; Purple: 6) */}
             <div className="grid grid-cols-4 sm:grid-cols-7 gap-2.5">
               {[0, 1, 2, 3].map((r) => (
-                <button
+                <motion.button
                   key={r}
                   type="button"
                   disabled={isScoringLocked}
+                  whileHover={isScoringLocked ? undefined : { scale: 1.05, y: -2 }}
+                  whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                   onClick={() => recordDelivery({ runsOffBat: r })}
-                  className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-xs transition-colors"
+                  className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
                 >
                   {r}
-                </button>
+                </motion.button>
               ))}
-              <button
+              <motion.button
                 type="button"
                 disabled={isScoringLocked}
+                whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={() =>
                   recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
                 }
-                className="h-14 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] border border-yellow-500 disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-xs transition-colors"
+                className="h-14 rounded-xl bg-[#FACC15] hover:bg-[#EAB308] border border-yellow-500 disabled:opacity-45 text-slate-950 font-display font-black text-xl shadow-sm"
               >
                 4
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
                 disabled={isScoringLocked}
+                whileHover={isScoringLocked ? undefined : { scale: 1.05, y: -2 }}
+                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={() => recordDelivery({ runsOffBat: 5 }, '+5 Runs')}
-                className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-xs transition-colors"
+                className="h-14 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
               >
                 5
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
                 disabled={isScoringLocked}
+                whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
+                whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={() =>
                   recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
                 }
-                className="h-14 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-45 text-white font-display font-black text-xl shadow-xs transition-colors"
+                className="h-14 rounded-xl bg-[#7C3AED] hover:bg-[#6D28D9] disabled:opacity-45 text-white font-display font-black text-xl shadow-sm"
               >
                 6
-              </button>
+              </motion.button>
             </div>
 
             {/* Row 2: Extras (Green: DCL, NB, WD, LB, BYE) */}
             <div className="grid grid-cols-5 gap-2.5">
               {(['DCL', 'NB', 'WD', 'LB', 'BYE'] as const).map((ex) => (
-                <button
+                <motion.button
                   key={ex}
                   type="button"
                   disabled={isScoringLocked}
+                  whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -2 }}
+                  whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
+                  transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                   onClick={() => openExtraModal(ex)}
-                  className="h-12 rounded-xl bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-45 text-white font-bold text-xs sm:text-sm tracking-wide shadow-xs transition-colors"
+                  className="h-12 rounded-xl bg-[#16A34A] hover:bg-[#15803D] disabled:opacity-45 text-white font-bold text-xs sm:text-sm tracking-wide shadow-sm"
                 >
                   {ex}
-                </button>
+                </motion.button>
               ))}
             </div>
 
             {/* Row 3: OUT (Red), MORE (Teal), EDIT & UNDO (Orange) */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              <button
+              <motion.button
                 type="button"
                 disabled={isScoringLocked}
+                whileHover={isScoringLocked ? undefined : { scale: 1.04, y: -2 }}
+                whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={openWicketModal}
-                className="h-12 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-xs transition-colors"
+                className="h-12 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-sm"
               >
                 OUT
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.04, y: -2 }}
+                whileTap={{ scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={() => setShowMoreDrawer((prev) => !prev)}
-                className="h-12 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] text-white font-display font-black text-sm tracking-wider shadow-xs transition-colors"
+                className="h-12 rounded-xl bg-[#0D9488] hover:bg-[#0F766E] text-white font-display font-black text-sm tracking-wider shadow-sm"
               >
                 MORE {showMoreDrawer ? '▲' : '▼'}
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
+                whileHover={{ scale: 1.04, y: -2 }}
+                whileTap={{ scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={() => openEditScoreModal(innIdx)}
-                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-display font-black text-sm tracking-wider shadow-xs transition-colors"
+                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] text-white font-display font-black text-sm tracking-wider shadow-sm"
               >
                 EDIT
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
                 disabled={!match.undoStack.length}
+                whileHover={!match.undoStack.length ? undefined : { scale: 1.04, y: -2 }}
+                whileTap={!match.undoStack.length ? undefined : { scale: 0.93 }}
+                transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                 onClick={handleUndo}
-                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-xs transition-colors inline-flex items-center justify-center gap-1.5"
+                className="h-12 rounded-xl bg-[#EA580C] hover:bg-[#C2410C] disabled:opacity-45 text-white font-display font-black text-sm tracking-wider shadow-sm inline-flex items-center justify-center gap-1.5"
               >
                 <RotateCcw className="w-4 h-4" aria-hidden="true" />
                 <span>UNDO</span>
-              </button>
+              </motion.button>
             </div>
 
             {/* Expandable MORE Actions: 7 8 9 10, Penalty, End Innings, Complete Match, POM */}
-            {showMoreDrawer && (
-              <div className="pt-3 border-t border-slate-200 space-y-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold text-slate-600 mr-1">High Runs:</span>
-                  {[7, 8, 9, 10].map((r) => (
-                    <button
-                      key={r}
+            <AnimatePresence>
+              {showMoreDrawer && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0, y: -6 }}
+                  animate={{ opacity: 1, height: 'auto', y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -6 }}
+                  transition={{ duration: 0.2 }}
+                  className="pt-3 border-t border-slate-200 space-y-3 overflow-hidden"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-600 mr-1">High Runs:</span>
+                    {[7, 8, 9, 10].map((r) => (
+                      <motion.button
+                        key={r}
+                        type="button"
+                        disabled={isScoringLocked}
+                        whileHover={isScoringLocked ? undefined : { scale: 1.06 }}
+                        whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
+                        onClick={() => recordDelivery({ runsOffBat: r }, `+${r} Runs`)}
+                        className="px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white text-xs font-bold"
+                      >
+                        +{r}
+                      </motion.button>
+                    ))}
+                    <motion.button
                       type="button"
                       disabled={isScoringLocked}
-                      onClick={() => recordDelivery({ runsOffBat: r }, `+${r} Runs`)}
-                      className="px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-45 text-white text-xs font-bold"
+                      whileHover={isScoringLocked ? undefined : { scale: 1.05 }}
+                      whileTap={isScoringLocked ? undefined : { scale: 0.93 }}
+                      onClick={() =>
+                        recordDelivery(
+                          { extraType: 'PENALTY', extraRuns: 5 },
+                          'Penalty +5 Runs'
+                        )
+                      }
+                      className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-45 text-white text-xs font-bold"
                     >
-                      +{r}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    disabled={isScoringLocked}
-                    onClick={() =>
-                      recordDelivery(
-                        { extraType: 'PENALTY', extraRuns: 5 },
-                        'Penalty +5 Runs'
-                      )
-                    }
-                    className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-45 text-white text-xs font-bold"
-                  >
-                    Penalty +5
-                  </button>
-                </div>
+                      Penalty +5
+                    </motion.button>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      isPendingBowlerChange
-                        ? setOverCompleteModalOpen(true)
-                        : setPlayerPickerSlot('bowler')
-                    }
-                    className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold"
-                  >
-                    Change Bowler
-                  </button>
-                  {match.status !== 'completed' && !activeInn.completed && (
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
-                      onClick={handleCompleteInningsOrMatch}
-                      className="px-3.5 py-2 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold"
+                      onClick={() =>
+                        isPendingBowlerChange
+                          ? setOverCompleteModalOpen(true)
+                          : setPlayerPickerSlot('bowler')
+                      }
+                      className="px-3.5 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold"
                     >
-                      {innIdx === 0 ? 'End / Declare 1st Innings' : 'End & Complete Match'}
+                      Change Bowler
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedPomId(match.playerOfMatchId || '');
-                      setPomModalOpen(true);
-                    }}
-                    className="px-3.5 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 text-[#FF8C00] text-xs font-bold"
-                  >
-                    Player of the Match
-                  </button>
-                </div>
-              </div>
-            )}
+                    {match.status !== 'completed' && !activeInn.completed && (
+                      <button
+                        type="button"
+                        onClick={handleCompleteInningsOrMatch}
+                        className="px-3.5 py-2 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 text-xs font-bold"
+                      >
+                        {innIdx === 0 ? 'End / Declare 1st Innings' : 'End & Complete Match'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPomId(match.playerOfMatchId || '');
+                        setPomModalOpen(true);
+                      }}
+                      className="px-3.5 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 text-[#FF8C00] text-xs font-bold"
+                    >
+                      Player of the Match
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* ================= TAB 2: SCORECARD ================= */}

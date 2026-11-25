@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -201,34 +202,34 @@ export function CricketSuiteApp({
   }, [activeRoute, activeTournament]);
 
   const navItemClass = (isActive: boolean) =>
-    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-colors ${
+    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-all ${
       isActive
-        ? 'bg-[#FFF3E0] text-[#E87500] border border-[#FF8C00]/30 shadow-xs'
-        : 'text-slate-700 hover:text-[#FF8C00] hover:bg-[#FFF3E0]/70'
+        ? 'bg-gradient-to-r from-[#FF8C00] to-[#E87500] text-white border border-[#FFE600]/60 shadow-md shadow-orange-500/25'
+        : 'text-zinc-200 hover:text-[#FFE600] hover:bg-white/10'
     }`;
 
   const renderSidebarContent = (isMobileDrawer: boolean) => (
-    <div className="flex flex-col h-full bg-white text-slate-800">
+    <div className="flex flex-col h-full bg-[#19040C]/88 backdrop-blur-md text-zinc-100">
       {/* Brand Header */}
-      <div className="px-4 py-4 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-50">
+      <div className="px-4 py-4 border-b border-[#FFE600]/20 flex items-center justify-between gap-2 bg-black/25">
         <div className="flex items-center gap-3 min-w-0">
           {state.user.channelLogoUrl ? (
             <img
               src={state.user.channelLogoUrl}
               alt={state.user.channelTitle}
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+              className="w-10 h-10 rounded-lg object-cover border border-[#FFE600]/40 shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-[#FF8C00] flex items-center justify-center font-display font-black text-sm text-white shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF8C00] to-[#DC2626] border border-[#FFE600]/50 flex items-center justify-center font-display font-black text-sm text-white shadow-md shrink-0">
               SE
             </div>
           )}
           <div className="min-w-0">
-            <p className="font-display font-bold text-sm text-slate-900 truncate">
+            <p className="font-display font-bold text-sm text-white truncate">
               {state.user.channelTitle || 'STAR EVENT LIVE'}
             </p>
-            <p className="text-[11px] font-mono text-slate-500 truncate">
+            <p className="text-[11px] font-mono text-amber-200/80 truncate">
               UID: {uid}
             </p>
           </div>
@@ -238,7 +239,7 @@ export function CricketSuiteApp({
             type="button"
             onClick={() => setDrawerOpen(false)}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -264,12 +265,12 @@ export function CricketSuiteApp({
           <button
             type="button"
             onClick={() => setTournamentMenuOpen((prev) => !prev)}
-            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-colors ${
+            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-all ${
               activeRoute === 'tournament' ||
               activeRoute === 'tournament-groups' ||
               activeRoute === 'tournament-teams'
-                ? 'bg-[#FFF3E0] text-[#E87500]'
-                : 'text-slate-700 hover:text-[#FF8C00] hover:bg-[#FFF3E0]/70'
+                ? 'bg-white/15 text-[#FFE600] border border-[#FFE600]/30'
+                : 'text-zinc-200 hover:text-[#FFE600] hover:bg-white/10'
             }`}
           >
             <span className="flex items-center gap-3">
@@ -284,7 +285,7 @@ export function CricketSuiteApp({
           </button>
 
           {tournamentMenuOpen && (
-            <div className="ml-4 pl-3 border-l border-slate-200 space-y-1 py-0.5">
+            <div className="ml-4 pl-3 border-l border-[#FFE600]/25 space-y-1 py-0.5">
               <button
                 type="button"
                 onClick={() => navigateTo('tournament')}
@@ -391,7 +392,7 @@ export function CricketSuiteApp({
           <span>SETTING</span>
         </button>
 
-        <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
+        <div className="pt-2 mt-2 border-t border-[#FFE600]/20 space-y-1">
           <button
             type="button"
             onClick={() => navigateTo('account')}
@@ -404,7 +405,7 @@ export function CricketSuiteApp({
           <button
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide text-red-600 hover:bg-red-50 transition-colors"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide text-red-300 hover:text-white hover:bg-red-600/30 transition-all"
           >
             <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>LOGOUT</span>
@@ -417,8 +418,13 @@ export function CricketSuiteApp({
   // STEP 4: Wait until cloud data loading completes before showing or editing the dashboard
   if (loadStatus === 'loading') {
     return (
-      <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-md p-7 text-center space-y-4">
+      <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+          className="w-full max-w-md rounded-2xl bg-white/95 backdrop-blur-md border border-[#FFE600]/35 shadow-2xl p-7 text-center space-y-4"
+        >
           <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center">
             <Loader2 className="w-6 h-6 text-[#FF8C00] animate-spin" aria-hidden="true" />
           </div>
@@ -433,7 +439,7 @@ export function CricketSuiteApp({
               Fetching your saved tournaments, teams, players, live scores, and settings from the cloud database...
             </p>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
@@ -441,8 +447,12 @@ export function CricketSuiteApp({
   // STEP 7: Never interpret a network failure as an empty database
   if (loadStatus === 'error') {
     return (
-      <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md rounded-2xl bg-white border border-red-200 shadow-md p-7 text-center space-y-5">
+      <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900 flex items-center justify-center px-4 py-12">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.94, y: 12 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className="w-full max-w-md rounded-2xl bg-white/95 backdrop-blur-md border border-red-300 shadow-2xl p-7 text-center space-y-5"
+        >
           <div className="w-12 h-12 mx-auto rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
             <WifiOff className="w-6 h-6 text-red-600" aria-hidden="true" />
           </div>
@@ -476,15 +486,15 @@ export function CricketSuiteApp({
               <span>Website Home</span>
             </button>
           </div>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900">
-      {/* Orange Dashboard Header (#FF8C00) */}
-      <header className="sticky top-0 z-30 bg-[#FF8C00] text-white shadow-sm px-3 sm:px-5 py-3">
+    <div className="cricket-suite-animated min-h-[85vh] bg-transparent text-slate-900">
+      {/* Animated Home-Matched Broadcast Dashboard Header */}
+      <header className="sticky top-0 z-30 topbar-animated-bg text-white shadow-lg border-b border-[#FFE600]/30 px-3 sm:px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
@@ -534,10 +544,10 @@ export function CricketSuiteApp({
         </div>
       </header>
 
-      {/* Main Content Layout: White Left Sidebar + Light Grey Workspace */}
+      {/* Main Content Layout: Home-Matched Dark Glass Sidebar + Transparent Home Background Workspace */}
       <div className="flex min-h-[calc(85vh-60px)]">
         {desktopSidebarOpen && (
-          <aside className="hidden lg:block w-64 shrink-0 border-r border-slate-200 bg-white">
+          <aside className="hidden lg:block w-64 shrink-0 border-r border-[#FFE600]/20 bg-transparent">
             <div className="sticky top-[60px] h-[calc(100vh-60px)]">
               {renderSidebarContent(false)}
             </div>
@@ -547,9 +557,11 @@ export function CricketSuiteApp({
         <div className="flex-1 min-w-0 px-3 sm:px-6 py-5">
           <div className="max-w-7xl mx-auto">
             {(isOffline || hasPendingSync) && (
-              <div
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
                 role="alert"
-                className="mb-4 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-amber-950"
+                className="mb-4 rounded-xl bg-amber-50/95 backdrop-blur-sm border border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-md"
               >
                 <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
                   <WifiOff className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
@@ -567,172 +579,213 @@ export function CricketSuiteApp({
                   <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Sync Now</span>
                 </button>
-              </div>
-            )}
-            {activeRoute === 'home' && (
-              <CricketHomeView
-                state={state}
-                overlayUrl={overlayUrl}
-                onCopyOverlayUrl={handleCopyOverlayUrl}
-                onNavigate={navigateTo}
-              />
+              </motion.div>
             )}
 
-            {(activeRoute === 'tournament' ||
-              activeRoute === 'tournament-groups' ||
-              activeRoute === 'tournament-teams') && (
-              <TournamentManagerView
-                mode={activeRoute}
-                state={state}
-                updateState={updateState}
-                onOpenScoring={handleOpenScoring}
-                onToast={showToast}
-              />
-            )}
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeRoute}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+              >
+                {activeRoute === 'home' && (
+                  <CricketHomeView
+                    state={state}
+                    overlayUrl={overlayUrl}
+                    onCopyOverlayUrl={handleCopyOverlayUrl}
+                    onNavigate={navigateTo}
+                  />
+                )}
 
-            {activeRoute === 'team' && (
-              <TeamManagerView
-                state={state}
-                updateState={updateState}
-                onToast={showToast}
-              />
-            )}
+                {(activeRoute === 'tournament' ||
+                  activeRoute === 'tournament-groups' ||
+                  activeRoute === 'tournament-teams') && (
+                  <TournamentManagerView
+                    mode={activeRoute}
+                    state={state}
+                    updateState={updateState}
+                    onOpenScoring={handleOpenScoring}
+                    onToast={showToast}
+                  />
+                )}
 
-            {activeRoute === 'match' && (
-              <MatchListView
-                state={state}
-                updateState={updateState}
-                onOpenScoring={handleOpenScoring}
-                onToast={showToast}
-              />
-            )}
+                {activeRoute === 'team' && (
+                  <TeamManagerView
+                    state={state}
+                    updateState={updateState}
+                    onToast={showToast}
+                  />
+                )}
 
-            {activeRoute === 'scoring' && (
-              <ScoringDashboardView
-                state={state}
-                overlayUrl={overlayUrl}
-                updateState={updateState}
-                onCopyOverlayUrl={handleCopyOverlayUrl}
-                onGoToGroups={() => navigateTo('tournament-groups')}
-                onOpenOverlayController={() => navigateTo('overlay')}
-                onNavigateToMatches={() => navigateTo('match')}
-                onRequestLogout={handleRequestLogout}
-                onToast={showToast}
-              />
-            )}
+                {activeRoute === 'match' && (
+                  <MatchListView
+                    state={state}
+                    updateState={updateState}
+                    onOpenScoring={handleOpenScoring}
+                    onToast={showToast}
+                  />
+                )}
 
-            {activeRoute === 'overlay' && (
-              <TvOverlayControllerView
-                state={state}
-                overlayUrl={overlayUrl}
-                updateState={updateState}
-                onCopyOverlayUrl={handleCopyOverlayUrl}
-                onGoToGroups={() => navigateTo('tournament-groups')}
-                onToast={showToast}
-                onRequestLogout={handleRequestLogout}
-              />
-            )}
+                {activeRoute === 'scoring' && (
+                  <ScoringDashboardView
+                    state={state}
+                    overlayUrl={overlayUrl}
+                    updateState={updateState}
+                    onCopyOverlayUrl={handleCopyOverlayUrl}
+                    onGoToGroups={() => navigateTo('tournament-groups')}
+                    onOpenOverlayController={() => navigateTo('overlay')}
+                    onNavigateToMatches={() => navigateTo('match')}
+                    onRequestLogout={handleRequestLogout}
+                    onToast={showToast}
+                  />
+                )}
 
-            {(activeRoute === 'point-table' ||
-              activeRoute === 'runrate' ||
-              activeRoute === 'player-position' ||
-              activeRoute === 'theme' ||
-              activeRoute === 'statistics' ||
-              activeRoute === 'setting' ||
-              activeRoute === 'account') && (
-              <SidebarToolsViews
-                route={activeRoute}
-                state={state}
-                updateState={updateState}
-                onResetDemoData={() => {
-                  resetDemoData();
-                  showToast('Workspace reset to clean blank state.');
-                }}
-                onToast={showToast}
-              />
-            )}
+                {activeRoute === 'overlay' && (
+                  <TvOverlayControllerView
+                    state={state}
+                    overlayUrl={overlayUrl}
+                    updateState={updateState}
+                    onCopyOverlayUrl={handleCopyOverlayUrl}
+                    onGoToGroups={() => navigateTo('tournament-groups')}
+                    onToast={showToast}
+                    onRequestLogout={handleRequestLogout}
+                  />
+                )}
+
+                {(activeRoute === 'point-table' ||
+                  activeRoute === 'runrate' ||
+                  activeRoute === 'player-position' ||
+                  activeRoute === 'theme' ||
+                  activeRoute === 'statistics' ||
+                  activeRoute === 'setting' ||
+                  activeRoute === 'account') && (
+                  <SidebarToolsViews
+                    route={activeRoute}
+                    state={state}
+                    updateState={updateState}
+                    onResetDemoData={() => {
+                      resetDemoData();
+                      showToast('Workspace reset to clean blank state.');
+                    }}
+                    onToast={showToast}
+                  />
+                )}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
       </div>
 
-      {/* Mobile Slide-Out Left Drawer */}
-      {drawerOpen && (
-        <div
-          className="fixed inset-0 z-50 lg:hidden flex"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Dashboard navigation drawer"
-        >
+      {/* Animated Mobile Slide-Out Left Drawer */}
+      <AnimatePresence>
+        {drawerOpen && (
           <div
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <div className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl">
-            {renderSidebarContent(true)}
+            className="fixed inset-0 z-50 lg:hidden flex"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Dashboard navigation drawer"
+          >
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs"
+              onClick={() => setDrawerOpen(false)}
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', stiffness: 360, damping: 32 }}
+              className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl border-r border-[#FFE600]/25"
+            >
+              {renderSidebarContent(true)}
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
-      {/* Inline Logout Confirmation Modal */}
-      {showLogoutConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="logout-confirm-title"
-        >
-          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 p-5 space-y-4 shadow-xl">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-red-600" aria-hidden="true" />
+      {/* Animated Inline Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirm-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 14 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.92, y: 10 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+              className="w-full max-w-sm rounded-xl bg-white border border-slate-200 p-5 space-y-4 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-lg bg-red-50 border border-red-200 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-5 h-5 text-red-600" aria-hidden="true" />
+                </div>
+                <div className="space-y-1">
+                  <h2
+                    id="logout-confirm-title"
+                    className="font-display font-bold text-base text-slate-900"
+                  >
+                    Sign Out of Dashboard?
+                  </h2>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    All tournaments, teams, matches, and scores for{' '}
+                    <span className="font-mono font-semibold text-slate-900">{uid}</span> remain saved.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <h2
-                  id="logout-confirm-title"
-                  className="font-display font-bold text-base text-slate-900"
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
                 >
-                  Sign Out of Dashboard?
-                </h2>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  All tournaments, teams, matches, and scores for{' '}
-                  <span className="font-mono font-semibold text-slate-900">{uid}</span> remain saved.
-                </p>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowLogoutConfirm(false);
+                    onLogout();
+                  }}
+                  className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
+                >
+                  Yes, Logout
+                </button>
               </div>
-            </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowLogoutConfirm(false);
-                  onLogout();
-                }}
-                className="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-semibold text-white"
-              >
-                Yes, Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Floating Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-lg bg-slate-900 text-white shadow-xl text-xs sm:text-sm font-medium"
-        >
-          {toastMessage}
-        </div>
-      )}
+      {/* Animated Floating Toast Notification */}
+      <AnimatePresence>
+        {toastMessage && (
+          <motion.div
+            key={toastMessage}
+            initial={{ opacity: 0, y: 20, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 14, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 28 }}
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-[#19040C]/95 border border-[#FFE600]/45 text-white shadow-2xl text-xs sm:text-sm font-medium backdrop-blur-md"
+          >
+            {toastMessage}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

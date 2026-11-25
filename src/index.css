@@ -916,6 +916,75 @@ body.overlay-chroma-blue #root {
   }
 }
 
+/* Global Tactile Animations across Website & Cricket Dashboard Suite */
+@keyframes suiteSheenSweep {
+  0% {
+    transform: translateX(-140%) skewX(-22deg);
+    opacity: 0;
+  }
+  18% {
+    opacity: 0.55;
+  }
+  52% {
+    opacity: 0.35;
+  }
+  75%,
+  100% {
+    transform: translateX(340%) skewX(-22deg);
+    opacity: 0;
+  }
+}
+
+@keyframes suiteTopBoxGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.45),
+      0 0 18px rgba(250, 204, 21, 0.28);
+  }
+  50% {
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.55),
+      0 0 28px rgba(250, 204, 21, 0.52);
+  }
+}
+
+.suite-top-box-glow {
+  animation: suiteTopBoxGlow 3.2s ease-in-out infinite;
+}
+
+.suite-top-box-sheen {
+  animation: suiteSheenSweep 4.8s ease-in-out infinite;
+}
+
+.site-animated-ui button:not(:disabled),
+.cricket-suite-animated button:not(:disabled) {
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    filter 180ms ease;
+  will-change: transform;
+}
+
+.site-animated-ui button:not(:disabled):hover,
+.cricket-suite-animated button:not(:disabled):hover {
+  transform: translateY(-1.5px) scale(1.015);
+  filter: brightness(1.04);
+}
+
+.site-animated-ui button:not(:disabled):active,
+.cricket-suite-animated button:not(:disabled):active {
+  transform: translateY(0.5px) scale(0.955);
+  filter: brightness(0.97);
+}
+
+.cricket-suite-animated button:disabled {
+  transform: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

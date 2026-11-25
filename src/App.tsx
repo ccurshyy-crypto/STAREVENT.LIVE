@@ -210,7 +210,7 @@ export default function App() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#3B0207] text-white flex flex-col overflow-x-clip">
+    <div className="site-animated-ui relative min-h-screen bg-[#3B0207] text-white flex flex-col overflow-x-clip">
       <HomeAnimatedBackground />
 
       <Navbar
