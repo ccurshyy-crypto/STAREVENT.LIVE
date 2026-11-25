@@ -1192,30 +1192,6 @@ export function BroadcastOverlayCanvas({
       style={bgStyle}
       aria-label="Live Cricket Broadcast Overlay"
     >
-      {/* Top-Right Channel Bug */}
-      {overlay.showChannelLogo && (
-        <div className="absolute top-5 right-6 z-20 flex items-center gap-2 px-3.5 py-2 rounded-xl shadow-lg border border-white/25 pointer-events-none"
-          style={{ background: `${theme.primary}E6` }}
-        >
-          {state.user.channelLogoUrl ? (
-            <img
-              src={state.user.channelLogoUrl}
-              alt={state.user.channelTitle}
-              referrerPolicy="no-referrer"
-              className="w-7 h-7 rounded object-cover"
-            />
-          ) : (
-            <span
-              className="w-2.5 h-2.5 rounded-full animate-pulse"
-              style={{ background: theme.accent }}
-            />
-          )}
-          <span className="font-display font-black text-xs tracking-wider text-white uppercase">
-            {state.user.channelTitle || 'STAR EVENT LIVE'}
-          </span>
-        </div>
-      )}
-
       {/* Main Graphic Card */}
       {renderMainCard()}
 
