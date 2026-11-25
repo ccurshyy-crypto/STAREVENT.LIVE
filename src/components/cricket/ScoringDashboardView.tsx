@@ -41,7 +41,6 @@ import {
   Player,
   PlayerRole,
   TransitionOverlayType,
-  WICKET_TYPES,
   WicketType,
 } from '../../types/cricketSuite';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
@@ -102,11 +101,11 @@ export function ScoringDashboardView({
   const [extraAdditionalRuns, setExtraAdditionalRuns] = useState<number>(0);
 
   const [wicketModalOpen, setWicketModalOpen] = useState(false);
+  const [wicketStep, setWicketStep] = useState<'types' | 'runout'>('types');
   const [wicketType, setWicketType] = useState<WicketType>('Bowled');
   const [wicketDismissedId, setWicketDismissedId] = useState<string>('');
   const [wicketRunsCompleted, setWicketRunsCompleted] = useState<number>(0);
-  const [wicketFielder, setWicketFielder] = useState<string>('');
-  const [wicketNextBatterId, setWicketNextBatterId] = useState<string>('');
+  const [, setWicketNextBatterId] = useState<string>('');
 
   const [playerPickerSlot, setPlayerPickerSlot] = useState<
     'striker' | 'nonStriker' | 'bowler' | null
@@ -805,29 +804,53 @@ export function ScoringDashboardView({
   };
 
   const openWicketModal = () => {
+    setWicketStep('types');
     setWicketType('Bowled');
     setWicketDismissedId(activeInn.strikerId);
     setWicketRunsCompleted(0);
-    setWicketFielder('');
-    // Never auto-select incoming batter — scorer explicitly picks or adds next batter
     setWicketNextBatterId('');
     setWicketModalOpen(true);
   };
 
-  const submitWicketModal = () => {
+  const handleDirectWicketTap = (wt: WicketType) => {
+    if (wt === 'Run Out') {
+      setWicketType('Run Out');
+      setWicketDismissedId(activeInn.strikerId);
+      setWicketRunsCompleted(0);
+      setWicketStep('runout');
+      return;
+    }
+    const dismissedId =
+      wt === 'Mankad Runout'
+        ? activeInn.nonStrikerId || activeInn.strikerId
+        : activeInn.strikerId;
+    recordDelivery(
+      {
+        runsOffBat: 0,
+        extraType: 'none',
+        isWicket: true,
+        wicketType: wt,
+        dismissedPlayerId: dismissedId,
+      },
+      `OUT · ${wt}`
+    );
+    setWicketModalOpen(false);
+    setWicketStep('types');
+  };
+
+  const submitRunOutWicket = () => {
     recordDelivery(
       {
         runsOffBat: wicketRunsCompleted,
         extraType: 'none',
         isWicket: true,
-        wicketType,
+        wicketType: 'Run Out',
         dismissedPlayerId: wicketDismissedId || activeInn.strikerId,
-        fielderName: wicketFielder.trim() || undefined,
-        nextBatterId: wicketNextBatterId || undefined,
       },
-      `OUT · ${wicketType}`
+      `OUT · Run Out${wicketRunsCompleted > 0 ? ` (+${wicketRunsCompleted}r)` : ''}`
     );
     setWicketModalOpen(false);
+    setWicketStep('types');
   };
 
   const handleConfirmNextBatter = (batterId: string) => {
@@ -3117,268 +3140,203 @@ export function ScoringDashboardView({
         </div>
       )}
 
-      {/* ================= MODAL: WICKET / OUT (DIRECT BUTTONS) ================= */}
-      {wicketModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/55"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="w-full max-w-lg rounded-xl bg-white border border-red-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
-            <div className="bg-[#DC2626] text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-bold text-sm sm:text-base tracking-wide">
-                Record Wicket (OUT)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setWicketModalOpen(false)}
-                className="p-1 rounded hover:bg-white/20"
-              >
-                <X className="w-4 h-4" aria-hidden="true" />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-4 overflow-y-auto flex-1">
-              {/* Direct Wicket Type Buttons */}
-              <div>
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Wicket Type
-                </p>
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
-                  {WICKET_TYPES.map((wt) => {
-                    const isActive = wicketType === wt;
-                    return (
-                      <button
-                        key={wt}
-                        type="button"
-                        onClick={() => setWicketType(wt)}
-                        className={`px-2 py-2 rounded-lg text-[11px] sm:text-xs font-bold border text-center transition-colors leading-tight ${
-                          isActive
-                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
-                            : 'bg-red-50/50 text-slate-800 border-red-200 hover:bg-red-100'
-                        }`}
-                      >
-                        {wt}
-                      </button>
-                    );
-                  })}
-                </div>
+      {/* ================= MODAL: WICKET / OUT (EXACT 4-ROW DIRECT RED BUTTONS) ================= */}
+      <AnimatePresence>
+        {wicketModalOpen && (
+          <motion.div
+            key="wicket-modal-backdrop"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/60 backdrop-blur-[2px]"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Wicket"
+            onClick={() => {
+              setWicketModalOpen(false);
+              setWicketStep('types');
+            }}
+          >
+            <motion.div
+              key="wicket-modal-card"
+              initial={{ opacity: 0, scale: 0.92, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 12 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-xl rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden"
+            >
+              {/* Clean White Header: × on left + Wicket title */}
+              <div className="px-4 sm:px-5 pt-4 pb-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (wicketStep === 'runout') {
+                      setWicketStep('types');
+                    } else {
+                      setWicketModalOpen(false);
+                    }
+                  }}
+                  aria-label={wicketStep === 'runout' ? 'Back to wicket types' : 'Close wicket popup'}
+                  className="p-1.5 rounded-lg text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <X className="w-5 h-5" aria-hidden="true" />
+                </button>
+                <h3 className="font-display font-bold text-lg sm:text-xl text-slate-950 tracking-tight">
+                  {wicketStep === 'runout' ? 'Run Out' : 'Wicket'}
+                </h3>
               </div>
 
-              {/* Direct Dismissed Batter Buttons */}
-              <div>
-                <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                  Dismissed Batter
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {activeInn.strikerId && (
-                    <button
-                      type="button"
-                      onClick={() => setWicketDismissedId(activeInn.strikerId)}
-                      className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
-                        wicketDismissedId === activeInn.strikerId
-                          ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
-                          : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
-                      }`}
-                    >
-                      <span
-                        className={`block text-[10px] font-bold uppercase ${
-                          wicketDismissedId === activeInn.strikerId
-                            ? 'text-red-100'
-                            : 'text-slate-500'
-                        }`}
-                      >
-                        Striker *
-                      </span>
-                      <span className="block text-xs sm:text-sm font-bold truncate">
-                        {strikerStats?.playerName || 'Striker'}
-                      </span>
-                    </button>
-                  )}
-                  {activeInn.nonStrikerId && (
-                    <button
-                      type="button"
-                      onClick={() => setWicketDismissedId(activeInn.nonStrikerId)}
-                      className={`px-3 py-2.5 rounded-lg border text-left transition-colors ${
-                        wicketDismissedId === activeInn.nonStrikerId
-                          ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
-                          : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
-                      }`}
-                    >
-                      <span
-                        className={`block text-[10px] font-bold uppercase ${
-                          wicketDismissedId === activeInn.nonStrikerId
-                            ? 'text-red-100'
-                            : 'text-slate-500'
-                        }`}
-                      >
-                        Non-Striker
-                      </span>
-                      <span className="block text-xs sm:text-sm font-bold truncate">
-                        {nonStrikerStats?.playerName || 'Non-Striker'}
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Direct Runs Completed Buttons + Fielder */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Runs Completed
-                  </p>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[0, 1, 2, 3].map((r) => (
-                      <button
-                        key={r}
+              {wicketStep === 'types' ? (
+                <div className="px-4 sm:px-5 pb-5 pt-1">
+                  <div className="grid grid-cols-4 gap-2.5 sm:gap-3">
+                    {(
+                      [
+                        { label: 'Bowled', span: 'col-span-1' },
+                        { label: 'Caught', span: 'col-span-1' },
+                        { label: 'C & B', span: 'col-span-1' },
+                        { label: 'LBW', span: 'col-span-1' },
+                        { label: 'Run Out', span: 'col-span-1' },
+                        { label: 'Stumped', span: 'col-span-1' },
+                        { label: 'Hit Wicket', span: 'col-span-1' },
+                        { label: 'Retired Hurt', span: 'col-span-1' },
+                        { label: 'Time Out', span: 'col-span-1' },
+                        { label: 'Retired Out', span: 'col-span-1' },
+                        { label: 'Obstructing the Field', span: 'col-span-2' },
+                        { label: 'Mankad Runout', span: 'col-span-2' },
+                        { label: 'Hit Ball Twice', span: 'col-span-2' },
+                      ] as Array<{ label: WicketType; span: string }>
+                    ).map((item) => (
+                      <motion.button
+                        key={item.label}
                         type="button"
-                        onClick={() => setWicketRunsCompleted(r)}
-                        className={`py-2 rounded-lg text-xs font-black border transition-colors ${
-                          wicketRunsCompleted === r
-                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
-                            : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
-                        }`}
+                        whileHover={{ scale: 1.03, y: -1.5 }}
+                        whileTap={{ scale: 0.94 }}
+                        transition={{ type: 'spring', stiffness: 460, damping: 22 }}
+                        onClick={() => handleDirectWicketTap(item.label)}
+                        className={`${item.span} min-h-[46px] sm:min-h-[50px] px-2 sm:px-3 py-2.5 rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-semibold text-xs sm:text-[15px] text-center leading-tight shadow-[0_3px_10px_rgba(244,67,54,0.35)] flex items-center justify-center`}
                       >
-                        {r}
-                      </button>
+                        {item.label}
+                      </motion.button>
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                    Fielder (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    value={wicketFielder}
-                    onChange={(e) => setWicketFielder(e.target.value)}
-                    placeholder="Fielder name"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs sm:text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Direct Next Incoming Batter Buttons */}
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                    Next Incoming Batter
-                  </p>
-                  {wicketNextBatterId && (
-                    <button
-                      type="button"
-                      onClick={() => setWicketNextBatterId('')}
-                      className="text-[11px] font-bold text-red-600 hover:underline"
-                    >
-                      Clear (Select after OUT)
-                    </button>
-                  )}
-                </div>
-                <p className="text-[11px] text-slate-500 mb-2">
-                  Pick the next batter now, or leave unselected to pause scoring until you add/select the new batter.
-                </p>
-                <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto pr-0.5">
-                  {(battingTeam?.players ?? []).map((p) => {
-                    const isPicked = wicketNextBatterId === p.id;
-                    const isCurrentlyBatting =
-                      p.id === activeInn.strikerId || p.id === activeInn.nonStrikerId;
-                    const isAlreadyOut = activeInn.fallOfWickets.some(
-                      (f) => f.playerId === p.id
-                    );
-                    const isDisabled = isAlreadyOut || isCurrentlyBatting;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        disabled={isDisabled}
-                        onClick={() => setWicketNextBatterId(p.id)}
-                        className={`px-2.5 py-2 rounded-lg border text-left transition-colors ${
-                          isPicked
-                            ? 'bg-[#DC2626] text-white border-[#B91C1C] shadow-xs'
-                            : isDisabled
-                              ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-70'
-                              : 'bg-white text-slate-800 border-slate-200 hover:border-red-300 hover:bg-red-50/40'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-bold truncate">
-                            #{p.jerseyNo} {p.name}
-                          </span>
-                          {isAlreadyOut && (
-                            <span
-                              className="text-[9px] font-bold uppercase px-1 rounded shrink-0 bg-red-100 text-red-700"
-                            >
-                              Out
-                            </span>
-                          )}
-                          {!isAlreadyOut && isCurrentlyBatting && (
-                            <span
-                              className="text-[9px] font-bold uppercase px-1 rounded shrink-0 bg-orange-100 text-[#E87500]"
-                            >
-                              In
-                            </span>
-                          )}
-                        </div>
-                        <span
-                          className={`block text-[10px] truncate ${
-                            isPicked ? 'text-red-100' : 'text-slate-500'
+              ) : (
+                <div className="px-4 sm:px-5 pb-5 pt-1 space-y-4">
+                  {/* Direct Dismissed Batter Buttons for Run Out */}
+                  <div>
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                      Who is Run Out?
+                    </p>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {activeInn.strikerId && (
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setWicketDismissedId(activeInn.strikerId)}
+                          className={`px-3.5 py-3 rounded-xl border text-left transition-colors ${
+                            wicketDismissedId === activeInn.strikerId
+                              ? 'bg-[#F44336] text-white border-[#D32F2F] shadow-[0_3px_10px_rgba(244,67,54,0.35)]'
+                              : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
                           }`}
                         >
-                          {p.role}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
+                          <span
+                            className={`block text-[10px] font-bold uppercase ${
+                              wicketDismissedId === activeInn.strikerId
+                                ? 'text-red-100'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            Striker *
+                          </span>
+                          <span className="block text-sm font-bold truncate">
+                            {strikerStats?.playerName || 'Striker'}
+                          </span>
+                        </motion.button>
+                      )}
+                      {activeInn.nonStrikerId && (
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => setWicketDismissedId(activeInn.nonStrikerId)}
+                          className={`px-3.5 py-3 rounded-xl border text-left transition-colors ${
+                            wicketDismissedId === activeInn.nonStrikerId
+                              ? 'bg-[#F44336] text-white border-[#D32F2F] shadow-[0_3px_10px_rgba(244,67,54,0.35)]'
+                              : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
+                          }`}
+                        >
+                          <span
+                            className={`block text-[10px] font-bold uppercase ${
+                              wicketDismissedId === activeInn.nonStrikerId
+                                ? 'text-red-100'
+                                : 'text-slate-500'
+                            }`}
+                          >
+                            Non-Striker
+                          </span>
+                          <span className="block text-sm font-bold truncate">
+                            {nonStrikerStats?.playerName || 'Non-Striker'}
+                          </span>
+                        </motion.button>
+                      )}
+                    </div>
+                  </div>
 
-              {/* Quick Add Batter Inline */}
-              {battingTeam && (
-                <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-2">
-                  <p className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-                    <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-                    Quick Add Player to {battingTeam.shortName}
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={quickPlayerName}
-                      onChange={(e) => setQuickPlayerName(e.target.value)}
-                      placeholder="New player name"
-                      className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs bg-white"
-                    />
-                    <button
+                  {/* Direct Runs Completed Buttons */}
+                  <div>
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+                      Runs Completed
+                    </p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[0, 1, 2, 3, 4].map((r) => (
+                        <motion.button
+                          key={r}
+                          type="button"
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => setWicketRunsCompleted(r)}
+                          className={`py-2.5 rounded-xl text-sm font-black border transition-colors ${
+                            wicketRunsCompleted === r
+                              ? 'bg-[#F44336] text-white border-[#D32F2F] shadow-[0_3px_10px_rgba(244,67,54,0.35)]'
+                              : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-red-50'
+                          }`}
+                        >
+                          {r}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <motion.button
                       type="button"
-                      onClick={() => handleQuickAddPlayer(battingTeam.id, 'nextWicket')}
-                      className="px-3 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setWicketStep('types')}
+                      className="py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm"
                     >
-                      Add
-                    </button>
+                      Back
+                    </motion.button>
+                    <motion.button
+                      type="button"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={submitRunOutWicket}
+                      className="py-3 rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-bold text-sm shadow-[0_3px_10px_rgba(244,67,54,0.35)]"
+                    >
+                      Confirm Run Out
+                    </motion.button>
                   </div>
                 </div>
               )}
-
-              <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setWicketModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-slate-700"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={submitWicketModal}
-                  className="px-5 py-2 rounded-lg bg-[#DC2626] hover:bg-[#B91C1C] text-xs font-bold text-white shadow-xs"
-                >
-                  Confirm OUT ({wicketType})
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ================= MODAL: PICK STRIKER / NON-STRIKER / BOWLER ================= */}
       {playerPickerSlot && (
