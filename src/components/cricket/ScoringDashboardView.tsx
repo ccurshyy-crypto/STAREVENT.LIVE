@@ -250,7 +250,7 @@ export function ScoringDashboardView({
       if (lastPromptedNewBatterKeyRef.current !== newBatterPromptKey) {
         lastPromptedNewBatterKeyRef.current = newBatterPromptKey;
         setSelectedNextBatterId('');
-        setNewBatterModalOpen(true);
+        // Do NOT auto-open blocking popup — show big red "Select Batsman" button directly on the batter card
       }
     } else {
       lastPromptedNewBatterKeyRef.current = '';
@@ -264,14 +264,15 @@ export function ScoringDashboardView({
       if (lastPromptedOverKeyRef.current !== overPromptKey) {
         lastPromptedOverKeyRef.current = overPromptKey;
         setSelectedNextBowlerId('');
-        setOverCompleteModalOpen(true);
+        // Do NOT auto-open blocking popup — show big red "Select Bowler" button directly on the bowler card
+        onToast('OVER COMPLETED! Tap "Select Bowler" to choose the next bowler.');
       }
     } else {
       lastPromptedOverKeyRef.current = '';
       setOverCompleteModalOpen(false);
       setSelectedNextBowlerId('');
     }
-  }, [overPromptKey]);
+  }, [overPromptKey, onToast]);
 
   useEffect(() => {
     if (inningsBreakPromptKey && match) {
@@ -1605,111 +1606,114 @@ export function ScoringDashboardView({
           {/* Striker + SWAP + Non-Striker Cards */}
           <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-3 items-stretch">
             {/* Striker Card */}
-            <div
-              className={`rounded-xl p-4 shadow-xs transition-all ${
-                !activeInn.strikerId && isPendingNewBatter
-                  ? 'bg-red-50/60 border-2 border-[#DC2626] ring-2 ring-red-500/20'
-                  : 'bg-white border-2 border-[#FF8C00]'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                {!activeInn.strikerId && isPendingNewBatter ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#DC2626] text-white text-[10px] font-bold uppercase tracking-wider animate-pulse">
-                    <UserPlus className="w-3 h-3" aria-hidden="true" />
-                    <span>OUT — ADD NEXT BATTER</span>
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-bold uppercase tracking-wider">
-                    <CricketBatIcon className="w-3.5 h-3.5" />
-                    <span>ON STRIKE</span>
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    !activeInn.strikerId && isPendingNewBatter
-                      ? setNewBatterModalOpen(true)
-                      : setPlayerPickerSlot('striker')
-                  }
-                  className={`text-xs font-semibold hover:underline inline-flex items-center gap-1 ${
-                    !activeInn.strikerId && isPendingNewBatter
-                      ? 'text-[#DC2626] font-bold'
-                      : 'text-[#FF8C00]'
+            {(() => {
+              const needsStriker =
+                !activeInn.strikerId && !activeInn.completed && match.status !== 'completed';
+              return (
+                <div
+                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                    needsStriker
+                      ? 'border-2 border-[#DC2626]'
+                      : 'border-2 border-[#FF8C00]'
                   }`}
                 >
-                  {!activeInn.strikerId && isPendingNewBatter ? (
-                    <>
-                      <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Select / Add Batter</span>
-                    </>
-                  ) : (
-                    <>
+                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-gradient-to-r from-[#FF8C00] to-[#E87500] text-white">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider">
+                      {!needsStriker && <CricketBatIcon className="w-3.5 h-3.5" />}
+                      <span>STRIKER</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        needsStriker && isPendingNewBatter
+                          ? setNewBatterModalOpen(true)
+                          : setPlayerPickerSlot('striker')
+                      }
+                      className="text-xs font-bold text-white/95 hover:text-white inline-flex items-center gap-1"
+                    >
                       <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Edit Player</span>
-                    </>
+                      <span>{needsStriker ? 'Select' : 'Edit'}</span>
+                    </button>
+                  </div>
+
+                  {needsStriker ? (
+                    <div className="p-3 flex-1 flex">
+                      <motion.button
+                        type="button"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileHover={{ scale: 1.015 }}
+                        whileTap={{ scale: 0.96 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        onClick={() =>
+                          isPendingNewBatter
+                            ? setNewBatterModalOpen(true)
+                            : setPlayerPickerSlot('striker')
+                        }
+                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                      >
+                        Select Batsman
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {activeInn.strikerId && (
+                          <span
+                            className="w-7 h-7 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/35 text-[#E87500] inline-flex items-center justify-center shrink-0"
+                            title="Currently On Strike"
+                          >
+                            <CricketBatIcon className="w-4 h-4" />
+                          </span>
+                        )}
+                        <p className="font-display font-bold text-base text-slate-900 truncate">
+                          {strikerStats?.playerName || 'Select Striker'}
+                        </p>
+                      </div>
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-black text-slate-900 tabular-nums">
+                            {strikerStats?.runs ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">B</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {strikerStats?.balls ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">4s</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {strikerStats?.fours ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">6s</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {strikerStats?.sixes ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">SR</p>
+                          <p className="text-xs font-bold text-[#FF8C00] tabular-nums">
+                            {strikerStats?.sr ?? '0.0'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </button>
-              </div>
-              <div className="flex items-center gap-2 min-w-0">
-                {activeInn.strikerId && (
-                  <span
-                    className="w-7 h-7 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/35 text-[#E87500] inline-flex items-center justify-center shrink-0"
-                    title="Currently On Strike"
-                  >
-                    <CricketBatIcon className="w-4 h-4" />
-                  </span>
-                )}
-                <p
-                  className={`font-display font-bold text-base truncate ${
-                    !activeInn.strikerId && isPendingNewBatter
-                      ? 'text-[#B91C1C]'
-                      : 'text-slate-900'
-                  }`}
-                >
-                  {strikerStats?.playerName ||
-                    (isPendingNewBatter ? 'Waiting for Next Batter...' : 'Select Striker')}
-                </p>
-              </div>
-              <div className="mt-2 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">R</p>
-                  <p className="text-sm font-black text-slate-900 tabular-nums">
-                    {strikerStats?.runs ?? 0}
-                  </p>
                 </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">B</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {strikerStats?.balls ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">4s</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {strikerStats?.fours ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">6s</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {strikerStats?.sixes ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">SR</p>
-                  <p className="text-xs font-bold text-[#FF8C00] tabular-nums">
-                    {strikerStats?.sr ?? '0.0'}
-                  </p>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Swap Batsmen Button */}
             <div className="flex items-center justify-center">
               <button
                 type="button"
                 onClick={handleSwapBatsmen}
-                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#FFF3E0] hover:bg-orange-100 border border-[#FF8C00]/30 text-[#FF8C00] text-xs font-bold transition-colors"
+                className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-xl bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold shadow-sm transition-colors"
               >
                 <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
                 <span>SWAP BATSMEN</span>
@@ -1717,164 +1721,199 @@ export function ScoringDashboardView({
             </div>
 
             {/* Non-Striker Card */}
-            <div
-              className={`rounded-xl p-4 shadow-xs transition-all ${
-                !activeInn.nonStrikerId && isPendingNewBatter
-                  ? 'bg-red-50/60 border-2 border-[#DC2626] ring-2 ring-red-500/20'
-                  : 'bg-white border border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                {!activeInn.nonStrikerId && isPendingNewBatter ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#DC2626] text-white text-[10px] font-bold uppercase tracking-wider animate-pulse">
-                    <UserPlus className="w-3 h-3" aria-hidden="true" />
-                    <span>OUT — ADD NEXT BATTER</span>
-                  </span>
-                ) : (
-                  <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[10px] font-bold uppercase tracking-wider">
-                    NON-STRIKER
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() =>
-                    !activeInn.nonStrikerId && isPendingNewBatter
-                      ? setNewBatterModalOpen(true)
-                      : setPlayerPickerSlot('nonStriker')
-                  }
-                  className={`text-xs font-semibold hover:underline inline-flex items-center gap-1 ${
-                    !activeInn.nonStrikerId && isPendingNewBatter
-                      ? 'text-[#DC2626] font-bold'
-                      : 'text-[#FF8C00]'
+            {(() => {
+              const needsNonStriker =
+                !activeInn.nonStrikerId && !activeInn.completed && match.status !== 'completed';
+              return (
+                <div
+                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                    needsNonStriker
+                      ? 'border-2 border-[#DC2626]'
+                      : 'border border-slate-200'
                   }`}
                 >
-                  {!activeInn.nonStrikerId && isPendingNewBatter ? (
-                    <>
-                      <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Select / Add Batter</span>
-                    </>
-                  ) : (
-                    <>
+                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-slate-800 text-white">
+                    <span className="text-xs font-black uppercase tracking-wider">
+                      NON-STRIKER
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        needsNonStriker && isPendingNewBatter
+                          ? setNewBatterModalOpen(true)
+                          : setPlayerPickerSlot('nonStriker')
+                      }
+                      className="text-xs font-bold text-white/90 hover:text-white inline-flex items-center gap-1"
+                    >
                       <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Edit Player</span>
-                    </>
+                      <span>{needsNonStriker ? 'Select' : 'Edit'}</span>
+                    </button>
+                  </div>
+
+                  {needsNonStriker ? (
+                    <div className="p-3 flex-1 flex">
+                      <motion.button
+                        type="button"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileHover={{ scale: 1.015 }}
+                        whileTap={{ scale: 0.96 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        onClick={() =>
+                          isPendingNewBatter
+                            ? setNewBatterModalOpen(true)
+                            : setPlayerPickerSlot('nonStriker')
+                        }
+                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                      >
+                        Select Batsman
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <p className="font-display font-bold text-base text-slate-900 truncate">
+                        {nonStrikerStats?.playerName || 'Select Non-Striker'}
+                      </p>
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-black text-slate-900 tabular-nums">
+                            {nonStrikerStats?.runs ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">B</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {nonStrikerStats?.balls ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">4s</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {nonStrikerStats?.fours ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">6s</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {nonStrikerStats?.sixes ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">SR</p>
+                          <p className="text-xs font-bold text-slate-700 tabular-nums">
+                            {nonStrikerStats?.sr ?? '0.0'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   )}
-                </button>
-              </div>
-              <p
-                className={`font-display font-bold text-base truncate ${
-                  !activeInn.nonStrikerId && isPendingNewBatter
-                    ? 'text-[#B91C1C]'
-                    : 'text-slate-900'
-                }`}
-              >
-                {nonStrikerStats?.playerName ||
-                  (isPendingNewBatter ? 'Waiting for Next Batter...' : 'Select Non-Striker')}
-              </p>
-              <div className="mt-2 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">R</p>
-                  <p className="text-sm font-black text-slate-900 tabular-nums">
-                    {nonStrikerStats?.runs ?? 0}
-                  </p>
                 </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">B</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {nonStrikerStats?.balls ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">4s</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {nonStrikerStats?.fours ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">6s</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {nonStrikerStats?.sixes ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">SR</p>
-                  <p className="text-xs font-bold text-slate-700 tabular-nums">
-                    {nonStrikerStats?.sr ?? '0.0'}
-                  </p>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
 
           {/* Bowler Card + THIS OVER / PREV OVER */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            <div
-              className={`rounded-xl bg-white p-4 shadow-xs transition-all ${
-                isPendingBowlerChange
-                  ? 'border-2 border-[#FF8C00] ring-2 ring-[#FF8C00]/20 bg-[#FFF3E0]/30'
-                  : 'border border-slate-200'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
-                    BOWLER
-                  </span>
-                  {isPendingBowlerChange && (
-                    <span className="px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-bold uppercase tracking-wider animate-pulse">
-                      CHANGE BOWLER
-                    </span>
+            {(() => {
+              const needsNewBowler =
+                (isPendingBowlerChange || !activeInn.bowlerId) &&
+                !activeInn.completed &&
+                match.status !== 'completed';
+              return (
+                <div
+                  className={`rounded-xl bg-white shadow-xs transition-all overflow-hidden flex flex-col ${
+                    needsNewBowler
+                      ? 'border-2 border-[#DC2626]'
+                      : 'border border-slate-200'
+                  }`}
+                >
+                  <div className="px-4 py-2.5 flex items-center justify-between gap-2 bg-emerald-700 text-white">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider">
+                        BOWLER
+                      </span>
+                      {isPendingBowlerChange && (
+                        <span className="px-2 py-0.5 rounded bg-white/20 text-white text-[10px] font-bold uppercase tracking-wider">
+                          Over {completedOverNum} Done
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        isPendingBowlerChange
+                          ? setOverCompleteModalOpen(true)
+                          : setPlayerPickerSlot('bowler')
+                      }
+                      className="text-xs font-bold text-white/95 hover:text-white inline-flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{needsNewBowler ? 'Select' : 'Edit'}</span>
+                    </button>
+                  </div>
+
+                  {needsNewBowler ? (
+                    <div className="p-3 flex-1 flex">
+                      <motion.button
+                        type="button"
+                        initial={{ opacity: 0, scale: 0.96 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        whileHover={{ scale: 1.015 }}
+                        whileTap={{ scale: 0.96 }}
+                        transition={{ type: 'spring', stiffness: 420, damping: 24 }}
+                        onClick={() =>
+                          isPendingBowlerChange
+                            ? setOverCompleteModalOpen(true)
+                            : setPlayerPickerSlot('bowler')
+                        }
+                        className="w-full min-h-[88px] rounded-xl bg-[#F44336] hover:bg-[#E53935] text-white font-display font-bold text-base sm:text-lg tracking-wide shadow-[0_4px_14px_rgba(244,67,54,0.38)] flex items-center justify-center"
+                      >
+                        Select Bowler
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <div className="p-4 flex-1 flex flex-col justify-between">
+                      <p className="font-display font-bold text-base text-slate-900 truncate">
+                        {bowlerStats?.playerName || 'Select Bowler'}
+                      </p>
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">O</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
+                            {bowlerStats?.overs ?? '0.0'}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">M</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {bowlerStats?.maidens ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-bold text-slate-700 tabular-nums">
+                            {bowlerStats?.runs ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">W</p>
+                          <p className="text-sm font-black text-red-600 tabular-nums">
+                            {bowlerStats?.wickets ?? 0}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-slate-500 font-semibold">Eco</p>
+                          <p className="text-xs font-bold text-emerald-700 tabular-nums">
+                            {bowlerStats?.economy ?? '0.00'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    isPendingBowlerChange
-                      ? setOverCompleteModalOpen(true)
-                      : setPlayerPickerSlot('bowler')
-                  }
-                  className="text-xs font-semibold text-[#FF8C00] hover:underline inline-flex items-center gap-1"
-                >
-                  <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>{isPendingBowlerChange ? 'Select New Bowler' : 'Edit Bowler'}</span>
-                </button>
-              </div>
-              <p className="font-display font-bold text-base text-slate-900 truncate">
-                {bowlerStats?.playerName || 'Select Bowler'}
-              </p>
-              <div className="mt-2 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-100">
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">O</p>
-                  <p className="text-sm font-bold text-slate-900 tabular-nums">
-                    {bowlerStats?.overs ?? '0.0'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">M</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {bowlerStats?.maidens ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">R</p>
-                  <p className="text-sm font-bold text-slate-700 tabular-nums">
-                    {bowlerStats?.runs ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">W</p>
-                  <p className="text-sm font-black text-red-600 tabular-nums">
-                    {bowlerStats?.wickets ?? 0}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-slate-500 font-semibold">Eco</p>
-                  <p className="text-xs font-bold text-emerald-700 tabular-nums">
-                    {bowlerStats?.economy ?? '0.00'}
-                  </p>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             <div className="rounded-xl bg-white border border-slate-200 p-4 shadow-xs flex flex-col justify-between gap-3">
               <div>
@@ -2043,99 +2082,6 @@ export function ScoringDashboardView({
                   <ArrowLeftRight className="w-4 h-4" aria-hidden="true" />
                   <span>CONFIRM &amp; SWITCH TO 2ND INNINGS</span>
                 </button>
-              </motion.div>
-            )}
-
-            {!isFirstInningsEnded && isPendingNewBatter && (
-              <motion.div
-                key={`wicket-paused-${activeInn.wickets}-${activeInn.balls.length}`}
-                initial={{ opacity: 0, y: -12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-                className="rounded-xl bg-gradient-to-r from-[#DC2626] via-[#B91C1C] to-[#DC2626] text-white p-4 shadow-md border border-red-700 flex flex-wrap items-center justify-between gap-3"
-                role="alert"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <motion.div
-                    animate={{ scale: [1, 1.12, 1] }}
-                    transition={{ duration: 1.1, repeat: Infinity }}
-                    className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/30"
-                  >
-                    <UserPlus className="w-6 h-6 text-white" aria-hidden="true" />
-                  </motion.div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
-                        WICKET FALLEN! SELECT NEXT BATTER
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
-                        SCORING PAUSED
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-bold text-red-50">
-                      Scoring is locked until you select or add the next incoming batter for{' '}
-                      {battingTeam?.shortName || 'Batting Team'}.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setNewBatterModalOpen(true)}
-                  className="px-4 py-2.5 rounded-lg bg-white hover:bg-red-50 text-[#B91C1C] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors shrink-0"
-                >
-                  SELECT / ADD NEXT BATTER
-                </button>
-              </motion.div>
-            )}
-
-            {!isFirstInningsEnded && !isPendingNewBatter && isPendingBowlerChange && (
-              <motion.div
-                key={`over-paused-${completedOverNum}`}
-                initial={{ opacity: 0, y: -12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -8, scale: 0.98 }}
-                transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-                className="rounded-xl bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#FF8C00] text-white p-4 shadow-md border border-[#E87500] flex flex-wrap items-center justify-between gap-3"
-                role="alert"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <motion.div
-                    animate={{ rotate: [0, -14, 14, -10, 10, 0], scale: [1, 1.08, 1] }}
-                    transition={{ duration: 1.1, repeat: Infinity, repeatDelay: 1.8 }}
-                    className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center shrink-0 border border-white/30"
-                  >
-                    <BellRing className="w-6 h-6 text-white" aria-hidden="true" />
-                  </motion.div>
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
-                        OVER COMPLETED!
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
-                        OVER {completedOverNum} DONE
-                      </span>
-                    </div>
-                    <p className="text-xs sm:text-sm font-bold text-orange-50 tracking-wide">
-                      PLEASE CHANGE BOWLER — Scoring paused until next bowler is selected.
-                    </p>
-                    <p className="text-[11px] text-orange-100 mt-0.5">
-                      Strike rotated automatically · On Strike:{' '}
-                      <strong className="text-white">
-                        {strikerStats?.playerName || 'Striker'} *
-                      </strong>
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setOverCompleteModalOpen(true)}
-                    className="px-4 py-2.5 rounded-lg bg-white hover:bg-[#FFF3E0] text-[#E87500] font-display font-black text-xs sm:text-sm tracking-wide shadow-sm transition-colors"
-                  >
-                    SELECT BOWLER
-                  </button>
-                </div>
               </motion.div>
             )}
 
