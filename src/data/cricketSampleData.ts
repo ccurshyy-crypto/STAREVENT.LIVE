@@ -1604,7 +1604,8 @@ export function createInitialCricketSuiteState(
 
   return {
     version: 2,
-    updatedAt: Date.now(),
+    updatedAt: 0,
+    revision: 0,
     uid,
     user: {
       userName: userLabel || uid,

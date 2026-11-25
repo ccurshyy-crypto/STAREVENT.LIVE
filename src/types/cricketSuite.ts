@@ -430,6 +430,8 @@ export interface OverlayControlState {
 export interface CricketSuiteState {
   version: number;
   updatedAt: number;
+  revision?: number;
+  lastModifiedByDevice?: string;
   uid: string;
   user: UserAccountDetails;
   activeTournamentId: string;

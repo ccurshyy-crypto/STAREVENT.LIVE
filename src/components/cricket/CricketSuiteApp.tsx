@@ -8,16 +8,19 @@ import {
   ChevronRight,
   Crosshair,
   Home,
+  Loader2,
   LogOut,
   Menu,
   Palette,
   Radio,
+  RefreshCw,
   Settings,
   Table2,
   Trophy,
   Tv,
   UserCircle,
   Users,
+  WifiOff,
   X,
 } from 'lucide-react';
 import { UnlockedOverlaySession } from '../../context/OverlayAccessContext';
@@ -42,7 +45,18 @@ export function CricketSuiteApp({
   onLogout,
   onBackHome,
 }: CricketSuiteAppProps) {
-  const { uid, state, updateState, resetDemoData } = useCricketSuiteStore(
+  const {
+    uid,
+    state,
+    loadStatus,
+    loadError,
+    isOffline,
+    hasPendingSync,
+    updateState,
+    resetDemoData,
+    retryLoad,
+    syncNow,
+  } = useCricketSuiteStore(
     session.accessId,
     session.label || undefined
   );
@@ -400,6 +414,73 @@ export function CricketSuiteApp({
     </div>
   );
 
+  // STEP 4: Wait until cloud data loading completes before showing or editing the dashboard
+  if (loadStatus === 'loading') {
+    return (
+      <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-md p-7 text-center space-y-4">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center">
+            <Loader2 className="w-6 h-6 text-[#FF8C00] animate-spin" aria-hidden="true" />
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#E87500]">
+              Account: {uid}
+            </p>
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Loading Your Tournament Data
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600">
+              Fetching your saved tournaments, teams, players, live scores, and settings from the cloud database...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // STEP 7: Never interpret a network failure as an empty database
+  if (loadStatus === 'error') {
+    return (
+      <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900 flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-2xl bg-white border border-red-200 shadow-md p-7 text-center space-y-5">
+          <div className="w-12 h-12 mx-auto rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
+            <WifiOff className="w-6 h-6 text-red-600" aria-hidden="true" />
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-mono text-xs font-bold uppercase tracking-widest text-red-600">
+              Connection Required · {uid}
+            </p>
+            <h2 className="font-display font-bold text-lg text-slate-900">
+              Could Not Load Saved Data
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600">
+              {loadError ||
+                'Unable to reach the cloud database right now. Your existing data is safe — please check your internet connection and try again.'}
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => void retryLoad()}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs sm:text-sm font-bold transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" aria-hidden="true" />
+              <span>Retry Connection</span>
+            </button>
+            <button
+              type="button"
+              onClick={onBackHome}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs sm:text-sm font-semibold transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              <span>Website Home</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[85vh] bg-[#F3F4F6] text-slate-900">
       {/* Orange Dashboard Header (#FF8C00) */}
@@ -465,6 +546,29 @@ export function CricketSuiteApp({
 
         <div className="flex-1 min-w-0 px-3 sm:px-6 py-5">
           <div className="max-w-7xl mx-auto">
+            {(isOffline || hasPendingSync) && (
+              <div
+                role="alert"
+                className="mb-4 rounded-xl bg-amber-50 border border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-amber-950"
+              >
+                <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
+                  <WifiOff className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+                  <span>
+                    {isOffline
+                      ? 'You are currently offline. Your changes are safely queued on this device and will sync automatically when internet reconnects.'
+                      : 'Unsaved changes are waiting to sync with the cloud database.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={syncNow}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold whitespace-nowrap"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>Sync Now</span>
+                </button>
+              </div>
+            )}
             {activeRoute === 'home' && (
               <CricketHomeView
                 state={state}
