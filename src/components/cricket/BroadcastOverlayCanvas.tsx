@@ -1068,10 +1068,10 @@ export function BroadcastOverlayCanvas({
             barStyle={theme.barStyle}
             leftTeam={batTeam?.shortName || 'BAT'}
             rightTeam={bowlTeam?.shortName || 'BOWL'}
-            strikerName={striker?.playerName || 'Striker'}
-            strikerScore={`${striker?.runs ?? 0} (${striker?.balls ?? 0})`}
-            nonStrikerName={nonStriker?.playerName || 'Non-Striker'}
-            nonStrikerScore={`${nonStriker?.runs ?? 0} (${nonStriker?.balls ?? 0})`}
+            strikerName={striker?.playerName || 'Next Batter...'}
+            strikerScore={striker ? `${striker.runs} (${striker.balls})` : ''}
+            nonStrikerName={nonStriker?.playerName || 'Next Batter...'}
+            nonStrikerScore={nonStriker ? `${nonStriker.runs} (${nonStriker.balls})` : ''}
             scoreText={`${activeInn.runs} - ${activeInn.wickets}`}
             oversText={`${formatOvers(activeInn.legalBalls)} (${activeInn.maxOvers})`}
             bowlerName={bowler?.playerName || 'Bowler'}
@@ -1127,26 +1127,51 @@ export function BroadcastOverlayCanvas({
             {/* Batters Block */}
             <div className="px-4 py-2 flex flex-col justify-center gap-1 border-r border-white/15 bg-black/25">
               <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-bold truncate">
-                  <span style={{ color: theme.accent }}>▸</span>{' '}
-                  {striker?.playerName || 'Striker'}
+                <span className="font-bold truncate inline-flex items-center gap-1.5 min-w-0">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    className="w-4 h-4 shrink-0"
+                    style={{ color: theme.accent }}
+                    aria-label="On strike"
+                  >
+                    <path
+                      d="M16.5 7.5 20.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="2.6"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M14.4 6.4a1.2 1.2 0 0 1 1.7 0l1.5 1.5a1.2 1.2 0 0 1 0 1.7L9.3 17.9a2.2 2.2 0 0 1-3.1 0l-1.1-1.1a2.2 2.2 0 0 1 0-3.1l9.3-7.3Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  <span className="truncate">{striker?.playerName || 'Next Batter...'}</span>
                 </span>
-                <span className="font-black tabular-nums ml-2">
-                  {striker?.runs ?? 0}
-                  <span className="text-white/70 text-[11px] font-semibold">
-                    ({striker?.balls ?? 0})
-                  </span>
+                <span className="font-black tabular-nums ml-2 shrink-0">
+                  {striker ? (
+                    <>
+                      {striker.runs}
+                      <span className="text-white/70 text-[11px] font-semibold">
+                        ({striker.balls})
+                      </span>
+                    </>
+                  ) : null}
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs sm:text-sm text-white/80">
-                <span className="font-semibold truncate">
-                  {nonStriker?.playerName || 'Non-Striker'}
+                <span className="font-semibold truncate pl-5.5">
+                  {nonStriker?.playerName || 'Next Batter...'}
                 </span>
-                <span className="font-bold tabular-nums ml-2">
-                  {nonStriker?.runs ?? 0}
-                  <span className="text-white/60 text-[11px]">
-                    ({nonStriker?.balls ?? 0})
-                  </span>
+                <span className="font-bold tabular-nums ml-2 shrink-0">
+                  {nonStriker ? (
+                    <>
+                      {nonStriker.runs}
+                      <span className="text-white/60 text-[11px]">
+                        ({nonStriker.balls})
+                      </span>
+                    </>
+                  ) : null}
                 </span>
               </div>
             </div>

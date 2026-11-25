@@ -235,16 +235,33 @@ export function ProScoreboardBar({
           }}
         >
           <div className="flex items-center justify-between gap-1.5 font-bold">
-            <span className="truncate">
-              <span className="mr-0.5 opacity-90">▸</span>
-              {strikerName}
+            <span className="inline-flex items-center gap-1 min-w-0 truncate">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                className={`${compact ? 'w-2.5 h-2.5' : 'w-4 h-4'} shrink-0`}
+                style={{ color: accentColor }}
+                aria-label="On strike"
+              >
+                <path
+                  d="M16.5 7.5 20.5 3.5"
+                  stroke="currentColor"
+                  strokeWidth="2.6"
+                  strokeLinecap="round"
+                />
+                <path
+                  d="M14.4 6.4a1.2 1.2 0 0 1 1.7 0l1.5 1.5a1.2 1.2 0 0 1 0 1.7L9.3 17.9a2.2 2.2 0 0 1-3.1 0l-1.1-1.1a2.2 2.2 0 0 1 0-3.1l9.3-7.3Z"
+                  fill="currentColor"
+                />
+              </svg>
+              <span className="truncate">{strikerName}</span>
             </span>
             {strikerScore && (
               <span className="tabular-nums font-black shrink-0">{strikerScore}</span>
             )}
           </div>
           <div className="flex items-center justify-between gap-1.5 font-semibold opacity-85">
-            <span className="truncate pl-2">{nonStrikerName}</span>
+            <span className={`truncate ${compact ? 'pl-3.5' : 'pl-5'}`}>{nonStrikerName}</span>
             {nonStrikerScore && (
               <span className="tabular-nums font-bold shrink-0">{nonStrikerScore}</span>
             )}

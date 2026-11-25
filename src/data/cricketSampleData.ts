@@ -1148,16 +1148,24 @@ export function applyDeliveryToMatch(
       });
     }
 
-    // Do NOT auto-pick next batter silently; only assign if scorer explicitly chose incoming batter
-    const incomingId = (input.nextBatterId || '').trim();
-    if (incomingId) {
-      if (!inn.battingOrder.includes(incomingId)) {
-        inn.battingOrder.push(incomingId);
+    // Do NOT auto-pick next batter silently; only assign if scorer explicitly chose a valid, not-out incoming batter
+    const rawIncomingId = (input.nextBatterId || '').trim();
+    const alreadyOutIds = new Set(inn.fallOfWickets.map((f) => f.playerId));
+    const isValidIncoming =
+      Boolean(rawIncomingId) &&
+      rawIncomingId !== dismissedId &&
+      rawIncomingId !== inn.strikerId &&
+      rawIncomingId !== inn.nonStrikerId &&
+      !alreadyOutIds.has(rawIncomingId);
+
+    if (isValidIncoming) {
+      if (!inn.battingOrder.includes(rawIncomingId)) {
+        inn.battingOrder.push(rawIncomingId);
       }
       if (dismissedId === inn.nonStrikerId) {
-        inn.nonStrikerId = incomingId;
+        inn.nonStrikerId = rawIncomingId;
       } else {
-        inn.strikerId = incomingId;
+        inn.strikerId = rawIncomingId;
       }
     } else {
       // Clear dismissed batter slot so scoring pauses until scorer selects or adds the next batter
