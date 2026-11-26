@@ -70,7 +70,7 @@ export function CricketSuiteApp({
   const [activeRoute, setActiveRoute] = useState<SidebarRoute>('home');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
-  const [tournamentMenuOpen, setTournamentMenuOpen] = useState(true);
+  const [tournamentMenuOpen, setTournamentMenuOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const toastTimerRef = useRef<number | null>(null);

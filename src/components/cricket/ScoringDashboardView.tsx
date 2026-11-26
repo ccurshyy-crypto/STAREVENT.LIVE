@@ -1849,6 +1849,8 @@ export function ScoringDashboardView({
               return (
                 <div
                   className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
+                    slotMenuOpen === 'striker' ? 'z-30' : ''
+                  } ${
                     needsStriker
                       ? 'ring-2 ring-red-500'
                       : 'ring-1 ring-[#FF8C00]/45'
@@ -1871,34 +1873,40 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Striker"
+                        aria-expanded={slotMenuOpen === 'striker'}
                         className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
-
-                      {slotMenuOpen === 'striker' && !needsStriker && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
-                          <button
-                            type="button"
-                            onClick={() => openEditPlayerModal('striker')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
-                          >
-                            Edit Batsman
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSlotMenuOpen(null);
-                              setPlayerPickerSlot('striker');
-                            }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
-                          >
-                            Replace Batsman
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
+
+                  {slotMenuOpen === 'striker' && !needsStriker && (
+                    <div
+                      data-slot-menu="true"
+                      className="absolute right-2.5 top-[44px] z-50 w-48 rounded-lg bg-white border border-orange-200 overflow-hidden text-left shadow-2xl"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openEditPlayerModal('striker')}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200 flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Edit Batsman</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSlotMenuOpen(null);
+                          setPlayerPickerSlot('striker');
+                        }}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors flex items-center gap-2"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Replace Batsman</span>
+                      </button>
+                    </div>
+                  )}
 
                   {needsStriker ? (
                     <div className="p-2.5 flex-1 flex">
@@ -1992,6 +2000,8 @@ export function ScoringDashboardView({
               return (
                 <div
                   className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
+                    slotMenuOpen === 'nonStriker' ? 'z-30' : ''
+                  } ${
                     needsNonStriker
                       ? 'ring-2 ring-red-500'
                       : ''
@@ -2015,34 +2025,40 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Non-Striker"
+                        aria-expanded={slotMenuOpen === 'nonStriker'}
                         className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
-
-                      {slotMenuOpen === 'nonStriker' && !needsNonStriker && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
-                          <button
-                            type="button"
-                            onClick={() => openEditPlayerModal('nonStriker')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
-                          >
-                            Edit Batsman
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSlotMenuOpen(null);
-                              setPlayerPickerSlot('nonStriker');
-                            }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
-                          >
-                            Replace Batsman
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
+
+                  {slotMenuOpen === 'nonStriker' && !needsNonStriker && (
+                    <div
+                      data-slot-menu="true"
+                      className="absolute right-2.5 top-[44px] z-50 w-48 rounded-lg bg-white border border-orange-200 overflow-hidden text-left shadow-2xl"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openEditPlayerModal('nonStriker')}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200 flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Edit Batsman</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSlotMenuOpen(null);
+                          setPlayerPickerSlot('nonStriker');
+                        }}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors flex items-center gap-2"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Replace Batsman</span>
+                      </button>
+                    </div>
+                  )}
 
                   {needsNonStriker ? (
                     <div className="p-2.5 flex-1 flex">
@@ -2117,6 +2133,8 @@ export function ScoringDashboardView({
               return (
                 <div
                   className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
+                    slotMenuOpen === 'bowler' ? 'z-30' : ''
+                  } ${
                     needsNewBowler
                       ? 'ring-2 ring-red-500'
                       : ''
@@ -2145,35 +2163,41 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Bowler"
+                        aria-expanded={slotMenuOpen === 'bowler'}
                         className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
-
-                      {slotMenuOpen === 'bowler' && !needsNewBowler && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
-                          <button
-                            type="button"
-                            onClick={() => openEditPlayerModal('bowler')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
-                          >
-                            Edit Bowler
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSlotMenuOpen(null);
-                              if (isPendingBowlerChange) setOverCompleteModalOpen(true);
-                              else setPlayerPickerSlot('bowler');
-                            }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
-                          >
-                            Replace Bowler
-                          </button>
-                        </div>
-                      )}
                     </div>
                   </div>
+
+                  {slotMenuOpen === 'bowler' && !needsNewBowler && (
+                    <div
+                      data-slot-menu="true"
+                      className="absolute right-2.5 top-[44px] z-50 w-48 rounded-lg bg-white border border-orange-200 overflow-hidden text-left shadow-2xl"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openEditPlayerModal('bowler')}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200 flex items-center gap-2"
+                      >
+                        <Edit3 className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Edit Bowler</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSlotMenuOpen(null);
+                          if (isPendingBowlerChange) setOverCompleteModalOpen(true);
+                          else setPlayerPickerSlot('bowler');
+                        }}
+                        className="w-full px-3.5 py-2.5 text-left text-sm font-bold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors flex items-center gap-2"
+                      >
+                        <ArrowLeftRight className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                        <span>Replace Bowler</span>
+                      </button>
+                    </div>
+                  )}
 
                   {needsNewBowler ? (
                     <div className="p-2.5 flex-1 flex">
