@@ -34,6 +34,8 @@ import {
   DeliveryInput,
   formatOvers,
   getBallPillLabel,
+  isMatchLockedByNewerMatch,
+  MATCH_LOCKED_MESSAGE,
   undoLastDelivery,
 } from '../../data/cricketSampleData';
 import {
@@ -1590,18 +1592,27 @@ export function ScoringDashboardView({
             {state.matches.length > 1 && (
               <select
                 value={match.id}
-                onChange={(e) =>
-                  updateState((prev) => ({ ...prev, activeMatchId: e.target.value }))
-                }
+                onChange={(e) => {
+                  const target = state.matches.find((m) => m.id === e.target.value);
+                  if (target && isMatchLockedByNewerMatch(target, state.matches)) {
+                    onToast(MATCH_LOCKED_MESSAGE);
+                    return;
+                  }
+                  updateState((prev) => ({ ...prev, activeMatchId: e.target.value }));
+                }}
                 aria-label="Switch active match"
                 className="px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
               >
-                {state.matches.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.matchLabel} · {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
-                    {teamMap.get(m.team2Id)?.shortName || 'T2'}
-                  </option>
-                ))}
+                {state.matches.map((m) => {
+                  const locked = isMatchLockedByNewerMatch(m, state.matches);
+                  return (
+                    <option key={m.id} value={m.id} disabled={locked}>
+                      {m.matchLabel} · {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
+                      {teamMap.get(m.team2Id)?.shortName || 'T2'}
+                      {locked ? ' (Locked)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             )}
 

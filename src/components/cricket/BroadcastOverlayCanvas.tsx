@@ -11,6 +11,8 @@ import {
   computeTournamentStats,
   formatOvers,
   getBallPillLabel,
+  getTeamColorHex,
+  getTeamTextColorHex,
   getThemePalette,
 } from '../../data/cricketSampleData';
 import {
@@ -168,8 +170,11 @@ export function BroadcastOverlayCanvas({
     }
     return (
       <div
-        className={`${size} rounded-full flex items-center justify-center font-display font-black text-xs text-white border-2 border-white/60 shrink-0`}
-        style={{ background: theme.secondary }}
+        className={`${size} rounded-full flex items-center justify-center font-display font-black text-xs border-2 border-white/60 shrink-0`}
+        style={{
+          background: team?.customColor ? getTeamColorHex(team) : theme.secondary,
+          color: team?.customColor ? getTeamTextColorHex(team) : '#FFFFFF',
+        }}
       >
         {(team?.shortName || 'TM').slice(0, 3)}
       </div>
@@ -1158,8 +1163,12 @@ export function BroadcastOverlayCanvas({
           <TataIplScoreboardBar
             batTeamCode={batTeam?.shortName || 'BAT'}
             batTeamLogo={batTeam?.logoUrl}
+            batTeamColor={batTeam?.customColor ? getTeamColorHex(batTeam) : undefined}
+            batTeamTextColor={batTeam?.customColor ? getTeamTextColorHex(batTeam) : undefined}
             bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
             bowlTeamLogo={bowlTeam?.logoUrl}
+            bowlTeamColor={bowlTeam?.customColor ? getTeamColorHex(bowlTeam) : undefined}
+            bowlTeamTextColor={bowlTeam?.customColor ? getTeamTextColorHex(bowlTeam) : undefined}
             showTeamLogo={overlay.showTeamLogo}
             scoreText={`${activeInn.runs}-${activeInn.wickets}`}
             oversText={formatOvers(activeInn.legalBalls)}

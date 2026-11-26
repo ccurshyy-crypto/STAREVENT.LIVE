@@ -78,6 +78,93 @@ export const TEAM_COLOR_MAP: Record<
   },
 };
 
+const LEGACY_TEXT_COLOR_HEX: Record<string, string> = {
+  White: '#FFFFFF',
+  Black: '#0F172A',
+  Yellow: '#FACC15',
+  Gold: '#F59E0B',
+  Blue: '#1D4ED8',
+  Red: '#DC2626',
+};
+
+export function isValidHexColor(value?: string): value is string {
+  return typeof value === 'string' && /^#([0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})$/.test(value.trim());
+}
+
+export function normalizeHexColor(value: string, fallback = '#FF8C00'): string {
+  const trimmed = value.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(trimmed)) return trimmed.toUpperCase();
+  if (/^#[0-9A-Fa-f]{3}$/.test(trimmed)) {
+    const [, r, g, b] = trimmed;
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  return fallback;
+}
+
+export function getTeamColorHex(
+  team?: Pick<Team, 'colorTag' | 'customColor'> | null
+): string {
+  if (team && isValidHexColor(team.customColor)) {
+    return normalizeHexColor(team.customColor, '#FF8C00');
+  }
+  if (team?.colorTag && TEAM_COLOR_MAP[team.colorTag]) {
+    return TEAM_COLOR_MAP[team.colorTag].hex;
+  }
+  return '#FF8C00';
+}
+
+export function getTeamTextColorHex(
+  team?: Pick<Team, 'textColor'> | null
+): string {
+  if (team && isValidHexColor(team.textColor)) {
+    return normalizeHexColor(team.textColor, '#FFFFFF');
+  }
+  if (team?.textColor && LEGACY_TEXT_COLOR_HEX[team.textColor]) {
+    return LEGACY_TEXT_COLOR_HEX[team.textColor];
+  }
+  return '#FFFFFF';
+}
+
+export function getMatchCreatedTime(match: CricketMatch): number | null {
+  if (typeof match.createdAt === 'number' && Number.isFinite(match.createdAt)) {
+    return match.createdAt;
+  }
+  const idMatch = /^M-(\d{10,})-/.exec(match.id);
+  if (idMatch) {
+    const parsed = Number(idMatch[1]);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+export function isMatchLockedByNewerMatch(
+  match: CricketMatch,
+  allMatches: CricketMatch[]
+): boolean {
+  const isCompleted =
+    match.status === 'completed' || Boolean(match.matchCompletedConfirmed);
+  if (!isCompleted) return false;
+
+  const matchIndex = allMatches.findIndex((m) => m.id === match.id);
+  const matchTime = getMatchCreatedTime(match);
+
+  return allMatches.some((other, otherIndex) => {
+    if (other.id === match.id) return false;
+    const otherTime = getMatchCreatedTime(other);
+    if (matchTime !== null && otherTime !== null && otherTime !== matchTime) {
+      return otherTime > matchTime;
+    }
+    if (matchIndex !== -1) {
+      return otherIndex < matchIndex;
+    }
+    return false;
+  });
+}
+
+export const MATCH_LOCKED_MESSAGE =
+  'This completed match is locked while a newer match exists. Delete the newer match first to open it.';
+
+
 export interface ScoreboardBarStyle {
   number: number;
   outerBorder: string;

@@ -10,13 +10,17 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { TEAM_COLOR_MAP } from '../../data/cricketSampleData';
+import {
+  getTeamColorHex,
+  getTeamTextColorHex,
+  isValidHexColor,
+  normalizeHexColor,
+} from '../../data/cricketSampleData';
 import {
   CricketSuiteState,
   Player,
   PlayerRole,
   Team,
-  TeamColorTag,
 } from '../../types/cricketSuite';
 
 interface TeamManagerViewProps {
@@ -25,27 +29,8 @@ interface TeamManagerViewProps {
   onToast: (msg: string) => void;
 }
 
-const COLOR_OPTIONS: TeamColorTag[] = [
-  'Defoult',
-  'Blue',
-  'Light_blue',
-  'Crimson_red',
-  'Light_yellow',
-  'Metallic_gold',
-  'Emerald_green',
-  'Royal_purple',
-  'Light_brown',
-  'Light_pink',
-];
-
-const TEXT_COLOR_OPTIONS: Array<{ label: string; hex: string }> = [
-  { label: 'White', hex: '#FFFFFF' },
-  { label: 'Black', hex: '#0F172A' },
-  { label: 'Yellow', hex: '#FACC15' },
-  { label: 'Gold', hex: '#F59E0B' },
-  { label: 'Blue', hex: '#1D4ED8' },
-  { label: 'Red', hex: '#DC2626' },
-];
+const DEFAULT_TEAM_COLOR = '#FF8C00';
+const DEFAULT_TEXT_COLOR = '#FFFFFF';
 
 const ROLES: PlayerRole[] = ['Batsman', 'Bowler', 'All-Rounder', 'Wicket-Keeper'];
 
@@ -63,8 +48,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const [name, setName] = useState('');
   const [shortName, setShortName] = useState('');
   const [place, setPlace] = useState('');
-  const [colorTag, setColorTag] = useState<TeamColorTag>('Defoult');
-  const [textColor, setTextColor] = useState<string>('White');
+  const [teamColorHex, setTeamColorHex] = useState<string>(DEFAULT_TEAM_COLOR);
+  const [textColorHex, setTextColorHex] = useState<string>(DEFAULT_TEXT_COLOR);
   const [teamTourId, setTeamTourId] = useState(
     state.activeTournamentId || state.tournaments[0]?.id || ''
   );
@@ -87,8 +72,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     setName('');
     setShortName('');
     setPlace('');
-    setColorTag('Defoult');
-    setTextColor('White');
+    setTeamColorHex(DEFAULT_TEAM_COLOR);
+    setTextColorHex(DEFAULT_TEXT_COLOR);
     setTeamTourId(
       selectedTournamentId !== 'ALL'
         ? selectedTournamentId
@@ -103,8 +88,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     setName(team.name);
     setShortName(team.shortName);
     setPlace(team.place);
-    setColorTag(team.colorTag);
-    setTextColor(team.textColor || 'White');
+    setTeamColorHex(getTeamColorHex(team));
+    setTextColorHex(getTeamTextColorHex(team));
     setTeamTourId(team.tournamentId);
     setLogoUrl(team.logoUrl || '');
     setTeamModalOpen(true);
@@ -132,6 +117,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     const cleanName = name.trim();
     if (!cleanName) return;
     const cleanShort = (shortName.trim() || cleanName.slice(0, 4)).toUpperCase().slice(0, 8);
+    const resolvedTeamColor = normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR);
+    const resolvedTextColor = normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR);
 
     if (editingTeamId) {
       updateState((prev) => ({
@@ -143,8 +130,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 name: cleanName,
                 shortName: cleanShort,
                 place: place.trim(),
-                colorTag,
-                textColor,
+                customColor: resolvedTeamColor,
+                textColor: resolvedTextColor,
                 tournamentId: teamTourId,
                 logoUrl,
               }
@@ -159,8 +146,9 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         name: cleanName,
         shortName: cleanShort,
         place: place.trim(),
-        colorTag,
-        textColor,
+        colorTag: 'Defoult',
+        customColor: resolvedTeamColor,
+        textColor: resolvedTextColor,
         logoUrl,
         players: [],
       };
@@ -384,7 +372,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredTeams.map((team) => {
-                  const colorMeta = TEAM_COLOR_MAP[team.colorTag] || TEAM_COLOR_MAP.Defoult;
+                  const bgHex = getTeamColorHex(team);
+                  const fgHex = getTeamTextColorHex(team);
                   return (
                     <tr key={team.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-4 py-3">
@@ -398,12 +387,12 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                         {team.shortName}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+                        <span className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-slate-700">
                           <span
-                            className="w-3.5 h-3.5 rounded-xs border border-black/15 shrink-0"
-                            style={{ backgroundColor: colorMeta.hex }}
+                            className="w-4 h-4 rounded-xs border border-black/15 shrink-0"
+                            style={{ backgroundColor: bgHex }}
                           />
-                          <span>{colorMeta.label}</span>
+                          <span>{bgHex}</span>
                         </span>
                       </td>
                       <td className="px-4 py-3 text-xs text-slate-700">{team.place || '—'}</td>
@@ -416,13 +405,10 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                           />
                         ) : (
                           <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold"
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
                             style={{
-                              backgroundColor: colorMeta.hex,
-                              color:
-                                TEXT_COLOR_OPTIONS.find(
-                                  (opt) => opt.label === (team.textColor || 'White')
-                                )?.hex || '#FFFFFF',
+                              backgroundColor: bgHex,
+                              color: fgHex,
                             }}
                           >
                             {team.shortName.slice(0, 3)}
@@ -557,40 +543,97 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                   />
                 </div>
 
-                <div className="grid grid-cols-12 gap-5 items-end">
-                  <div className="col-span-8">
-                    <label className="block text-[11px] font-medium text-slate-400 mb-0.5">
-                      Team Color
-                    </label>
-                    <select
-                      value={colorTag}
-                      onChange={(e) => setColorTag(e.target.value as TeamColorTag)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+                  <div>
+                    <label
+                      htmlFor="custom-team-color-picker"
+                      className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5"
                     >
-                      {COLOR_OPTIONS.map((c) => (
-                        <option key={c} value={c}>
-                          {TEAM_COLOR_MAP[c].label}
-                        </option>
-                      ))}
-                    </select>
+                      Team Color (Custom)
+                    </label>
+                    <div className="flex items-center gap-2 border-b border-slate-400 focus-within:border-b-2 focus-within:border-[#FF8C00] pb-1.5">
+                      <input
+                        id="custom-team-color-picker"
+                        type="color"
+                        value={
+                          isValidHexColor(teamColorHex)
+                            ? normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR)
+                            : DEFAULT_TEAM_COLOR
+                        }
+                        onChange={(e) => setTeamColorHex(e.target.value.toUpperCase())}
+                        aria-label="Pick custom team color"
+                        className="w-9 h-8 rounded border border-slate-300 cursor-pointer bg-transparent p-0.5 shrink-0"
+                      />
+                      <input
+                        type="text"
+                        value={teamColorHex}
+                        onChange={(e) => setTeamColorHex(e.target.value.toUpperCase())}
+                        maxLength={7}
+                        placeholder="#FF8C00"
+                        aria-label="Custom team color hex code"
+                        className="w-full bg-transparent text-sm font-mono font-semibold text-slate-900 focus:outline-none uppercase"
+                      />
+                    </div>
                   </div>
 
-                  <div className="col-span-4">
-                    <label className="block text-[11px] font-medium text-slate-400 mb-0.5">
-                      Text Color
-                    </label>
-                    <select
-                      value={textColor}
-                      onChange={(e) => setTextColor(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
+                  <div>
+                    <label
+                      htmlFor="custom-text-color-picker"
+                      className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1.5"
                     >
-                      {TEXT_COLOR_OPTIONS.map((opt) => (
-                        <option key={opt.label} value={opt.label}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
+                      Text Color (Custom)
+                    </label>
+                    <div className="flex items-center gap-2 border-b border-slate-400 focus-within:border-b-2 focus-within:border-[#FF8C00] pb-1.5">
+                      <input
+                        id="custom-text-color-picker"
+                        type="color"
+                        value={
+                          isValidHexColor(textColorHex)
+                            ? normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR)
+                            : DEFAULT_TEXT_COLOR
+                        }
+                        onChange={(e) => setTextColorHex(e.target.value.toUpperCase())}
+                        aria-label="Pick custom text color"
+                        className="w-9 h-8 rounded border border-slate-300 cursor-pointer bg-transparent p-0.5 shrink-0"
+                      />
+                      <input
+                        type="text"
+                        value={textColorHex}
+                        onChange={(e) => setTextColorHex(e.target.value.toUpperCase())}
+                        maxLength={7}
+                        placeholder="#FFFFFF"
+                        aria-label="Custom text color hex code"
+                        className="w-full bg-transparent text-sm font-mono font-semibold text-slate-900 focus:outline-none uppercase"
+                      />
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Live Custom Team Color Preview */}
+              <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+                <span className="text-xs font-semibold text-slate-600">
+                  Live Team Color Preview
+                </span>
+                <div className="flex items-center gap-2.5">
+                  <span
+                    className="inline-flex items-center justify-center min-w-[44px] h-9 px-3 rounded-lg font-display font-black text-xs tracking-wider border border-black/15 shadow-xs"
+                    style={{
+                      backgroundColor: normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR),
+                      color: normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR),
+                    }}
+                  >
+                    {(shortName.trim() || name.trim().slice(0, 4) || 'TEAM').toUpperCase()}
+                  </span>
+                  <span
+                    className="inline-flex items-center px-3.5 h-9 rounded-lg font-display font-bold text-sm border border-black/15 shadow-xs"
+                    style={{
+                      backgroundColor: normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR),
+                      color: normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR),
+                    }}
+                  >
+                    {name.trim() || 'Your Team Name'}
+                  </span>
                 </div>
               </div>
 

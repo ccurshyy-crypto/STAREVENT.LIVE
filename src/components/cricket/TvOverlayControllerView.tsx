@@ -24,7 +24,11 @@ import {
   TRANSITION_OVERLAYS,
   TransitionOverlayType,
 } from '../../types/cricketSuite';
-import { BROADCAST_THEMES } from '../../data/cricketSampleData';
+import {
+  BROADCAST_THEMES,
+  isMatchLockedByNewerMatch,
+  MATCH_LOCKED_MESSAGE,
+} from '../../data/cricketSampleData';
 import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 
@@ -465,18 +469,27 @@ export function TvOverlayControllerView({
             {state.matches.length > 0 && (
               <select
                 value={activeMatch?.id || ''}
-                onChange={(e) =>
-                  updateState((prev) => ({ ...prev, activeMatchId: e.target.value }))
-                }
+                onChange={(e) => {
+                  const target = state.matches.find((m) => m.id === e.target.value);
+                  if (target && isMatchLockedByNewerMatch(target, state.matches)) {
+                    onToast(MATCH_LOCKED_MESSAGE);
+                    return;
+                  }
+                  updateState((prev) => ({ ...prev, activeMatchId: e.target.value }));
+                }}
                 aria-label="Select match for overlay"
                 className={homeSelectClass}
               >
-                {state.matches.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.matchLabel}: {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
-                    {teamMap.get(m.team2Id)?.shortName || 'T2'}
-                  </option>
-                ))}
+                {state.matches.map((m) => {
+                  const locked = isMatchLockedByNewerMatch(m, state.matches);
+                  return (
+                    <option key={m.id} value={m.id} disabled={locked}>
+                      {m.matchLabel}: {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
+                      {teamMap.get(m.team2Id)?.shortName || 'T2'}
+                      {locked ? ' (Locked)' : ''}
+                    </option>
+                  );
+                })}
               </select>
             )}
 

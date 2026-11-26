@@ -97,6 +97,7 @@ export interface Team {
   shortName: string;
   place: string;
   colorTag: TeamColorTag;
+  customColor?: string;
   textColor?: string;
   logoUrl?: string;
   players: Player[];
@@ -233,6 +234,7 @@ export interface CricketMatch {
   playingXI2: string[];
   playerOfMatchId: string;
   undoStack: MatchSnapshot[];
+  createdAt?: number;
 }
 
 export interface PointTableEntry {

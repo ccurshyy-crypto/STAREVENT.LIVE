@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Edit3,
   FolderPlus,
+  Lock,
   Play,
   Plus,
   Search,
@@ -12,7 +13,12 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { computePointTableRows, formatOvers } from '../../data/cricketSampleData';
+import {
+  computePointTableRows,
+  formatOvers,
+  isMatchLockedByNewerMatch,
+  MATCH_LOCKED_MESSAGE,
+} from '../../data/cricketSampleData';
 import {
   BallType,
   CricketSuiteState,
@@ -880,6 +886,7 @@ export function TournamentManagerView({
                       groupMatches.map((m) => {
                         const t1 = teamMap.get(m.team1Id);
                         const t2 = teamMap.get(m.team2Id);
+                        const isLocked = isMatchLockedByNewerMatch(m, state.matches);
                         return (
                           <div
                             key={m.id}
@@ -895,16 +902,27 @@ export function TournamentManagerView({
                                 {formatOvers(m.innings[0].legalBalls)}) · {m.resultText}
                               </p>
                             </div>
-                            {onOpenScoring && (
-                              <button
-                                type="button"
-                                onClick={() => onOpenScoring(m.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-primary text-[11px] font-bold shrink-0"
-                              >
-                                <Play className="w-3 h-3" />
-                                Score
-                              </button>
-                            )}
+                            {onOpenScoring &&
+                              (isLocked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onToast(MATCH_LOCKED_MESSAGE)}
+                                  title={MATCH_LOCKED_MESSAGE}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-200 text-slate-500 text-[11px] font-bold shrink-0 cursor-not-allowed"
+                                >
+                                  <Lock className="w-3 h-3" aria-hidden="true" />
+                                  Locked
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenScoring(m.id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-primary text-[11px] font-bold shrink-0"
+                                >
+                                  <Play className="w-3 h-3" />
+                                  Score
+                                </button>
+                              ))}
                           </div>
                         );
                       })

@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   Coins,
   Edit3,
+  Lock,
   Play,
   Plus,
   Radio,
@@ -12,7 +13,11 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { formatOvers } from '../../data/cricketSampleData';
+import {
+  formatOvers,
+  isMatchLockedByNewerMatch,
+  MATCH_LOCKED_MESSAGE,
+} from '../../data/cricketSampleData';
 import {
   BallType,
   CricketMatch,
@@ -121,6 +126,10 @@ export function MatchListView({
   };
 
   const openEditMatch = (m: CricketMatch) => {
+    if (isMatchLockedByNewerMatch(m, state.matches)) {
+      onToast(MATCH_LOCKED_MESSAGE);
+      return;
+    }
     setEditingId(m.id);
     setCreateStep(1);
     setFormError(null);
@@ -328,6 +337,7 @@ export function MatchListView({
       playingXI2: t2?.players.slice(0, 11).map((p) => p.id) || [],
       playerOfMatchId: '',
       undoStack: [],
+      createdAt: Date.now(),
     };
 
     updateState((prev) => ({
@@ -465,12 +475,28 @@ export function MatchListView({
                   const tour = tourMap.get(m.tournamentId);
                   const inn1 = m.innings[0];
                   const inn2 = m.innings[1];
+                  const isLocked = isMatchLockedByNewerMatch(m, state.matches);
                   return (
-                    <tr key={m.id} className="hover:bg-slate-50/70 transition-colors">
+                    <tr
+                      key={m.id}
+                      className={
+                        isLocked
+                          ? 'bg-slate-50/80 opacity-85 transition-colors'
+                          : 'hover:bg-slate-50/70 transition-colors'
+                      }
+                    >
                       <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900">
-                          {m.matchLabel} · {m.stageBadge}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-slate-900">
+                            {m.matchLabel} · {m.stageBadge}
+                          </p>
+                          {isLocked && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                              <Lock className="w-3 h-3" aria-hidden="true" />
+                              Locked
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">{tour?.name || 'Tournament'}</p>
                       </td>
                       <td className="px-4 py-3">
@@ -516,18 +542,34 @@ export function MatchListView({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => onOpenScoring(m.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
-                          >
-                            <Play className="w-3.5 h-3.5" />
-                            OPEN SCORING
-                          </button>
+                          {isLocked ? (
+                            <button
+                              type="button"
+                              onClick={() => onToast(MATCH_LOCKED_MESSAGE)}
+                              title={MATCH_LOCKED_MESSAGE}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-200 text-slate-500 text-xs font-bold whitespace-nowrap cursor-not-allowed"
+                            >
+                              <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                              LOCKED
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => onOpenScoring(m.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
+                            >
+                              <Play className="w-3.5 h-3.5" />
+                              OPEN SCORING
+                            </button>
+                          )}
                           <button
                             type="button"
                             onClick={() => openEditMatch(m)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-soft text-xs font-bold"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold ${
+                              isLocked
+                                ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                                : 'wo-btn-soft'
+                            }`}
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             EDIT

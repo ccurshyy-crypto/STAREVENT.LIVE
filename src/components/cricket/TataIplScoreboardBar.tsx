@@ -16,8 +16,12 @@ export interface TataIplWinnerInfo {
 export interface TataIplScoreboardBarProps {
   batTeamCode: string;
   batTeamLogo?: string;
+  batTeamColor?: string;
+  batTeamTextColor?: string;
   bowlTeamCode: string;
   bowlTeamLogo?: string;
+  bowlTeamColor?: string;
+  bowlTeamTextColor?: string;
   showTeamLogo?: boolean;
   scoreText: string;
   oversText: string;
@@ -129,8 +133,12 @@ function resolveEventPreset(
 export function TataIplScoreboardBar({
   batTeamCode,
   batTeamLogo,
+  batTeamColor,
+  batTeamTextColor,
   bowlTeamCode,
   bowlTeamLogo,
+  bowlTeamColor,
+  bowlTeamTextColor,
   showTeamLogo = true,
   scoreText,
   oversText,
@@ -205,8 +213,8 @@ export function TataIplScoreboardBar({
                 >
                   <defs>
                     <linearGradient id={`gtShieldGrad-${uid}`} x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#99040b" />
-                      <stop offset="55%" stopColor="#4a0208" />
+                      <stop offset="0%" stopColor={batTeamColor || '#99040b'} />
+                      <stop offset="55%" stopColor={batTeamColor || '#4a0208'} />
                       <stop offset="100%" stopColor="#070b28" />
                     </linearGradient>
                     <linearGradient id={`gtGoldGrad-${uid}`} x1="0" y1="0" x2="0" y2="1">
@@ -224,14 +232,14 @@ export function TataIplScoreboardBar({
                   <path
                     d="M16,19 L32,11 L48,19"
                     fill="none"
-                    stroke="#ef1a1a"
+                    stroke={batTeamColor || '#ef1a1a'}
                     strokeWidth="2.2"
                   />
                   <text
                     x="32"
                     y="34"
                     textAnchor="middle"
-                    fill="#ffffff"
+                    fill={batTeamTextColor || '#ffffff'}
                     fontFamily="Oswald, sans-serif"
                     fontWeight="700"
                     fontSize={leftShieldLabel.length > 4 ? '11.5' : '13.5'}
@@ -471,7 +479,7 @@ export function TataIplScoreboardBar({
                     cx="30"
                     cy="30"
                     r="25.5"
-                    fill="#3b0207"
+                    fill={bowlTeamColor || '#3b0207'}
                     stroke={`url(#rrGold-${uid})`}
                     strokeWidth="2.8"
                   />
@@ -479,15 +487,15 @@ export function TataIplScoreboardBar({
                     cx="30"
                     cy="30"
                     r="20.5"
-                    fill="#070b28"
-                    stroke="#ef1a1a"
+                    fill={bowlTeamColor || '#070b28'}
+                    stroke="#ffe600"
                     strokeWidth="1.5"
                   />
                   <text
                     x="30"
                     y="32"
                     textAnchor="middle"
-                    fill="#facc15"
+                    fill={bowlTeamTextColor || '#facc15'}
                     fontFamily="Oswald, sans-serif"
                     fontWeight="700"
                     fontSize={rightShieldLabel.length > 3 ? '13.5' : '18.5'}

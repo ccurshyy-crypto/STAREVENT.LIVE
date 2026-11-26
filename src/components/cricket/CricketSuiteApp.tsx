@@ -25,6 +25,10 @@ import {
   X,
 } from 'lucide-react';
 import { UnlockedOverlaySession } from '../../context/OverlayAccessContext';
+import {
+  isMatchLockedByNewerMatch,
+  MATCH_LOCKED_MESSAGE,
+} from '../../data/cricketSampleData';
 import { useCricketSuiteStore } from '../../hooks/useCricketSuiteStore';
 import { SidebarRoute } from '../../types/cricketSuite';
 import { CricketHomeView } from './CricketHomeView';
@@ -171,6 +175,11 @@ export function CricketSuiteApp({
 
   const handleOpenScoring = useCallback(
     (matchId: string) => {
+      const targetMatch = state.matches.find((m) => m.id === matchId);
+      if (targetMatch && isMatchLockedByNewerMatch(targetMatch, state.matches)) {
+        showToast(MATCH_LOCKED_MESSAGE);
+        return;
+      }
       updateState((prev) => ({
         ...prev,
         activeMatchId: matchId,
@@ -178,7 +187,7 @@ export function CricketSuiteApp({
       setActiveRoute('scoring');
       setDrawerOpen(false);
     },
-    [updateState]
+    [state.matches, showToast, updateState]
   );
 
   const handleRequestLogout = useCallback(() => {
@@ -569,16 +578,18 @@ export function CricketSuiteApp({
               </button>
             )}
 
-            {activeMatch && activeRoute !== 'scoring' && (
-              <button
-                type="button"
-                onClick={() => navigateTo('scoring')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
-              >
-                <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                <span>Open Scoring ({activeMatch.matchLabel})</span>
-              </button>
-            )}
+            {activeMatch &&
+              activeRoute !== 'scoring' &&
+              !isMatchLockedByNewerMatch(activeMatch, state.matches) && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenScoring(activeMatch.id)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
+                >
+                  <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  <span>Open Scoring ({activeMatch.matchLabel})</span>
+                </button>
+              )}
 
             <button
               type="button"
