@@ -65,10 +65,7 @@ function hasMeaningfulUserData(state: CricketSuiteState | null | undefined): boo
     state.matches.length > 0 ||
     state.groups.length > 0 ||
     state.pointTableOverrides.length > 0 ||
-    Boolean(state.user?.channelLogoUrl?.trim()) ||
-    (Boolean(state.user?.userTheme) &&
-      state.user.userTheme !== 'ipl-2023-dynamic' &&
-      state.user.userTheme !== 'tata-ipl-2022')
+    Boolean(state.user?.channelLogoUrl?.trim())
   );
 }
 
@@ -132,6 +129,7 @@ function normalizeLoadedState(
     user: {
       ...base.user,
       ...(raw.user || {}),
+      userTheme: 'tata-ipl-2022',
       customThemeColors: {
         ...base.user.customThemeColors,
         ...(raw.user?.customThemeColors || {}),

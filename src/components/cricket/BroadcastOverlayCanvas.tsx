@@ -84,9 +84,7 @@ export function BroadcastOverlayCanvas({
   const theme = getThemePalette(state.user.userTheme, state.user.customThemeColors);
   const useTataIplPatti =
     !state.user.customThemeColors?.enabled &&
-    (theme.id === 'tata-ipl-2022' ||
-      Boolean(theme.barStyle?.isTataIpl2022) ||
-      theme.id === 'ipl-2023-dynamic');
+    (theme.id === 'tata-ipl-2022' || Boolean(theme.barStyle?.isTataIpl2022));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
 
