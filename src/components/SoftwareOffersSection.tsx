@@ -49,7 +49,7 @@ const SOFTWARE_OFFERS: readonly SoftwareOfferItem[] = [
   {
     id: 'after-effects',
     name: 'Adobe After Effects',
-    imagePath: '/assets/aistudio/image_43ea3424.png',
+    imagePath: '/assets/aistudio/image_e99b191c.png',
     originalPrice: 5000,
     offerPrice: 2999,
     savingsPercent: 40,
