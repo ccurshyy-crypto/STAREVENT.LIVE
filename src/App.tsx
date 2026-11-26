@@ -17,6 +17,8 @@ import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSe
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { OwnerAdminPage } from './components/OwnerAdminPage';
 import { StandaloneOverlayPage } from './components/cricket/StandaloneOverlayPage';
+import { KabaddiControlDashboard } from './components/kabaddi/KabaddiControlDashboard';
+import { StandaloneKabaddiOverlayPage } from './components/kabaddi/StandaloneKabaddiOverlayPage';
 import { useOverlayAccess } from './context/OverlayAccessContext';
 import { EventCategoryId, Language } from './data/content';
 
@@ -25,6 +27,11 @@ type PageRoute = MainPageRoute;
 function isStandaloneOverlayRoute(): boolean {
   if (typeof window === 'undefined') return false;
   return /^\/overlay\/?$/i.test(window.location.pathname);
+}
+
+function isStandaloneKabaddiOverlayRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return /^\/kabaddi-overlay\/?$/i.test(window.location.pathname);
 }
 
 function isOwnerAdminRoute(): boolean {
@@ -48,6 +55,7 @@ function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
   if (window.location.pathname.startsWith('/services')) return 'services';
   if (window.location.pathname.startsWith('/overlays')) return 'overlays';
+  if (window.location.pathname.startsWith('/kabaddi')) return 'kabaddi';
   if (window.location.pathname.startsWith('/packages')) return 'packages';
   if (window.location.pathname.startsWith('/booking')) return 'booking';
   return 'home';
@@ -56,6 +64,9 @@ function getInitialPage(): PageRoute {
 export default function App() {
   const [standaloneOverlay, setStandaloneOverlay] = useState<boolean>(() =>
     isStandaloneOverlayRoute()
+  );
+  const [standaloneKabaddiOverlay, setStandaloneKabaddiOverlay] = useState<boolean>(() =>
+    isStandaloneKabaddiOverlayRoute()
   );
   const [ownerAdminRoute, setOwnerAdminRoute] = useState<boolean>(() =>
     isOwnerAdminRoute()
@@ -71,7 +82,7 @@ export default function App() {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
   const [accessModalOpen, setAccessModalOpen] = useState(false);
-  const { isUnlocked } = useOverlayAccess();
+  const { session, isUnlocked } = useOverlayAccess();
   const isDashboardFullscreen = currentPage === 'overlays' && isUnlocked;
 
   useEffect(() => {
@@ -81,6 +92,7 @@ export default function App() {
   useEffect(() => {
     const handlePopState = () => {
       setStandaloneOverlay(isStandaloneOverlayRoute());
+      setStandaloneKabaddiOverlay(isStandaloneKabaddiOverlayRoute());
       setOwnerAdminRoute(isOwnerAdminRoute());
       setOverlayUid(getOverlayUidFromUrl());
       setOverlayMatchId(getOverlayMatchIdFromUrl());
@@ -103,6 +115,17 @@ export default function App() {
       window.history.pushState({}, '', '/overlays');
     }
     setCurrentPage('overlays');
+    if (isPageChange) {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
+  const navigateToKabaddi = () => {
+    const isPageChange = currentPage !== 'kabaddi';
+    if (window.location.pathname !== '/kabaddi') {
+      window.history.pushState({}, '', '/kabaddi');
+    }
+    setCurrentPage('kabaddi');
     if (isPageChange) {
       window.scrollTo({ top: 0, behavior: 'auto' });
     }
@@ -144,7 +167,12 @@ export default function App() {
   const navigateHome = (sectionId?: string) => {
     setOwnerAdminRoute(false);
     setStandaloneOverlay(false);
-    const wasOnHome = currentPage === 'home' && !ownerAdminRoute && !standaloneOverlay;
+    setStandaloneKabaddiOverlay(false);
+    const wasOnHome =
+      currentPage === 'home' &&
+      !ownerAdminRoute &&
+      !standaloneOverlay &&
+      !standaloneKabaddiOverlay;
     const targetUrl = sectionId && sectionId !== 'top' ? `/#${sectionId}` : '/';
     if (
       window.location.pathname !== '/' ||
@@ -219,6 +247,10 @@ export default function App() {
     );
   }
 
+  if (standaloneKabaddiOverlay) {
+    return <StandaloneKabaddiOverlayPage uid={overlayUid || 'STAR-KABADDI'} />;
+  }
+
   if (ownerAdminRoute) {
     return <OwnerAdminPage onBackHome={() => navigateHome('top')} />;
   }
@@ -235,6 +267,7 @@ export default function App() {
           onNavigateHome={navigateHome}
           onNavigateServices={navigateToServices}
           onNavigateOverlays={navigateToOverlays}
+          onNavigateKabaddi={navigateToKabaddi}
           onNavigatePackages={navigateToPackages}
           onNavigateBooking={navigateToBooking}
           onOpenAccessModal={handleOpenAccessModal}
@@ -252,6 +285,11 @@ export default function App() {
           ) : currentPage === 'overlays' ? (
             <OverlaysPage
               lang={lang}
+              onBackHome={() => navigateHome('top')}
+            />
+          ) : currentPage === 'kabaddi' ? (
+            <KabaddiControlDashboard
+              uid={session?.accessId || 'STAR-KABADDI'}
               onBackHome={() => navigateHome('top')}
             />
           ) : currentPage === 'packages' ? (

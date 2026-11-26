@@ -34,6 +34,7 @@ import { SidebarToolsViews } from './SidebarToolsViews';
 import { TeamManagerView } from './TeamManagerView';
 import { TournamentManagerView } from './TournamentManagerView';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
+import { KabaddiControlDashboard } from '../kabaddi/KabaddiControlDashboard';
 
 interface CricketSuiteAppProps {
   session: UnlockedOverlaySession;
@@ -188,6 +189,8 @@ export function CricketSuiteApp({
     switch (activeRoute) {
       case 'home':
         return 'Home';
+      case 'kabaddi':
+        return 'Kabaddi Scoreboard & Control';
       case 'tournament':
         return 'Tournament Management';
       case 'tournament-groups':
@@ -278,6 +281,15 @@ export function CricketSuiteApp({
         >
           <Home className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>HOME</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => navigateTo('kabaddi')}
+          className={navItemClass(activeRoute === 'kabaddi')}
+        >
+          <Tv className="w-4 h-4 shrink-0 text-[#FFE600]" aria-hidden="true" />
+          <span>KABADDI SCOREBOARD</span>
         </button>
 
         {/* Expandable TOURNAMENT Menu */}
@@ -541,6 +553,17 @@ export function CricketSuiteApp({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {activeRoute !== 'kabaddi' && (
+              <button
+                type="button"
+                onClick={() => navigateTo('kabaddi')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-gold-pro text-xs font-black text-[#070B28] transition-colors whitespace-nowrap"
+              >
+                <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                <span>Kabaddi Scoreboard</span>
+              </button>
+            )}
+
             {activeMatch && activeRoute !== 'scoring' && (
               <button
                 type="button"
@@ -616,6 +639,14 @@ export function CricketSuiteApp({
                     overlayUrl={overlayUrl}
                     onCopyOverlayUrl={handleCopyOverlayUrl}
                     onNavigate={navigateTo}
+                  />
+                )}
+
+                {activeRoute === 'kabaddi' && (
+                  <KabaddiControlDashboard
+                    uid={uid}
+                    embedded
+                    onToast={showToast}
                   />
                 )}
 

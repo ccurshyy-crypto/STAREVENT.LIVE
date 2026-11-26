@@ -464,6 +464,7 @@ export interface CricketSuiteState {
 
 export type SidebarRoute =
   | 'home'
+  | 'kabaddi'
   | 'tournament'
   | 'tournament-groups'
   | 'tournament-teams'

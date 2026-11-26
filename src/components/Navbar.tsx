@@ -4,7 +4,7 @@ import { useOverlayAccess } from '../context/OverlayAccessContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-export type MainPageRoute = 'home' | 'services' | 'overlays' | 'packages' | 'booking';
+export type MainPageRoute = 'home' | 'services' | 'overlays' | 'kabaddi' | 'packages' | 'booking';
 
 interface NavbarProps {
   lang: Language;
@@ -13,6 +13,7 @@ interface NavbarProps {
   onNavigateHome: (sectionId?: string) => void;
   onNavigateServices: () => void;
   onNavigateOverlays: () => void;
+  onNavigateKabaddi: () => void;
   onNavigatePackages: () => void;
   onNavigateBooking: () => void;
   onOpenAccessModal: () => void;
@@ -25,6 +26,7 @@ export function Navbar({
   onNavigateHome,
   onNavigateServices,
   onNavigateOverlays,
+  onNavigateKabaddi,
   onNavigatePackages,
   onNavigateBooking,
   onOpenAccessModal,
@@ -41,6 +43,12 @@ export function Navbar({
     { id: 'top', href: '/', label: UI_COPY.nav.home[lang], page: 'home' },
     { id: 'services', href: '/services', label: UI_COPY.nav.services[lang], page: 'services' },
     { id: 'overlays', href: '/overlays', label: UI_COPY.nav.studio[lang], page: 'overlays' },
+    {
+      id: 'kabaddi',
+      href: '/kabaddi',
+      label: lang === 'mr' ? 'कबड्डी' : lang === 'hi' ? 'कबड्डी' : lang === 'gu' ? 'કબડ્ડી' : 'Kabaddi',
+      page: 'kabaddi',
+    },
     { id: 'packages', href: '/packages', label: UI_COPY.nav.packages[lang], page: 'packages' },
     { id: 'book', href: '/booking', label: UI_COPY.nav.book[lang], page: 'booking' },
   ];
@@ -57,6 +65,8 @@ export function Navbar({
       onNavigateServices();
     } else if (item.page === 'overlays') {
       onNavigateOverlays();
+    } else if (item.page === 'kabaddi') {
+      onNavigateKabaddi();
     } else if (item.page === 'packages') {
       onNavigatePackages();
     } else if (item.page === 'booking') {
