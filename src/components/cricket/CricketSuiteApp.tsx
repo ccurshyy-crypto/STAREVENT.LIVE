@@ -227,7 +227,7 @@ export function CricketSuiteApp({
   const navItemClass = (isActive: boolean) =>
     `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-all ${
       isActive
-        ? 'bg-gradient-to-r from-[#FF8C00] to-[#E87500] text-white border border-[#FFE600]/60 shadow-md shadow-orange-500/25'
+        ? 'overlay-home-btn-active text-white'
         : 'text-zinc-200 hover:text-[#FFE600] hover:bg-white/10'
     }`;
 
@@ -504,7 +504,7 @@ export function CricketSuiteApp({
             <button
               type="button"
               onClick={() => void retryLoad()}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs sm:text-sm font-bold transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg btn-primary-pro text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider"
             >
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
               <span>Retry Connection</span>
@@ -617,7 +617,7 @@ export function CricketSuiteApp({
                 <button
                   type="button"
                   onClick={syncNow}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-bold whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-primary-pro text-white text-xs font-bold whitespace-nowrap"
                 >
                   <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Sync Now</span>

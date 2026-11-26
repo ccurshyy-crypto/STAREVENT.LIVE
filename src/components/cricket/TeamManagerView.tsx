@@ -332,7 +332,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search team by name, short name, or place..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none text-sm"
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#D4080F] focus:bg-white focus:outline-none text-sm"
             />
           </div>
         </div>
@@ -340,7 +340,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         <button
           type="button"
           onClick={openCreateTeam}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap shadow-xs"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           <span>CREATE TEAM</span>
@@ -350,8 +350,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
       {/* Blank State or Table */}
       {filteredTeams.length === 0 ? (
         <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] flex items-center justify-center">
-            <Users className="w-6 h-6 text-[#FF8C00]" />
+          <div className="w-12 h-12 mx-auto rounded-xl overlay-home-header flex items-center justify-center">
+            <Users className="w-6 h-6 text-[#FFE600]" />
           </div>
           <h2 className="font-display font-bold text-base text-slate-900">
             No Teams Created Yet
@@ -362,7 +362,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
           <button
             type="button"
             onClick={openCreateTeam}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE TEAM</span>
@@ -434,7 +434,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                           <button
                             type="button"
                             onClick={() => openEditTeam(team)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#E87500] hover:bg-[#D06600] text-white text-xs font-semibold"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md overlay-home-btn text-xs font-bold"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             Edit
@@ -445,7 +445,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                               setPlayersModalTeamId(team.id);
                               resetPlayerForm();
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold whitespace-nowrap"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md btn-primary-pro text-white text-xs font-bold whitespace-nowrap"
                           >
                             <UserPlus className="w-3.5 h-3.5" />
                             Add Players ({team.players.length})
@@ -500,18 +500,18 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             animate={{ opacity: 1, scale: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 420, damping: 32 }}
             onSubmit={handleSaveTeam}
-            className="w-full max-w-[820px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
+            className="w-full max-w-[820px] rounded-xl bg-white overflow-hidden shadow-2xl my-auto border border-[#FACC15]/35"
           >
-            {/* Top Blue Header */}
-            <div className="relative px-6 py-4 bg-[#1696F3] text-white flex items-center justify-center">
-              <h3 className="font-display font-bold text-xl tracking-wide text-center">
+            {/* Animated Home Theme Header */}
+            <div className="relative px-6 py-4 overlay-home-header flex items-center justify-center">
+              <h3 className="font-display font-black text-xl tracking-wide text-[#FFE600] uppercase text-center">
                 {editingTeamId ? 'Edit Team' : 'Create Team'}
               </h3>
               <button
                 type="button"
                 onClick={() => setTeamModalOpen(false)}
                 aria-label="Close modal"
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/95 hover:text-white transition-transform hover:scale-110"
+                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-[#FFE600] hover:text-white transition-transform hover:scale-110"
               >
                 <X className="w-5 h-5 stroke-[2.5]" />
               </button>
@@ -528,7 +528,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Name"
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -540,7 +540,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     value={shortName}
                     onChange={(e) => setShortName(e.target.value.toUpperCase())}
                     placeholder="Short Name (Max. 8 Chars)"
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors uppercase"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors uppercase"
                   />
                 </div>
               </div>
@@ -553,7 +553,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     value={place}
                     onChange={(e) => setPlace(e.target.value)}
                     placeholder="Place"
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-2 text-[15px] text-slate-900 placeholder:text-slate-400 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -565,7 +565,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     <select
                       value={colorTag}
                       onChange={(e) => setColorTag(e.target.value as TeamColorTag)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
                     >
                       {COLOR_OPTIONS.map((c) => (
                         <option key={c} value={c}>
@@ -582,7 +582,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     <select
                       value={textColor}
                       onChange={(e) => setTextColor(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#009688] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-2 pr-6 text-[15px] text-slate-900 focus:outline-none cursor-pointer transition-colors"
                     >
                       {TEXT_COLOR_OPTIONS.map((opt) => (
                         <option key={opt.label} value={opt.label}>
@@ -594,13 +594,13 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 </div>
               </div>
 
-              {/* Centered Blue SUBMIT Button */}
+              {/* Centered Home Theme SUBMIT Button */}
               <div className="pt-3 flex justify-center">
                 <motion.button
                   type="submit"
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.96 }}
-                  className="px-7 py-2.5 rounded-[3px] bg-[#1696F3] hover:bg-[#0D83DB] text-white text-xs font-semibold uppercase tracking-wider shadow-md transition-colors cursor-pointer"
+                  className="px-8 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
                 >
                   SUBMIT
                 </motion.button>
@@ -617,13 +617,13 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-3xl rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl my-auto">
-            <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
+          <div className="w-full max-w-3xl rounded-xl bg-white border border-[#FACC15]/35 overflow-hidden shadow-2xl my-auto">
+            <div className="px-5 py-4 overlay-home-header text-white flex items-center justify-between">
               <div>
-                <h3 className="font-display font-bold text-base">
+                <h3 className="font-display font-black text-base text-[#FFE600] uppercase tracking-wide">
                   Squad Players · {activePlayersTeam.name}
                 </h3>
-                <p className="text-xs text-orange-100">
+                <p className="text-xs text-rose-100/85">
                   {activePlayersTeam.players.length} players registered
                 </p>
               </div>
@@ -633,6 +633,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                   setPlayersModalTeamId(null);
                   resetPlayerForm();
                 }}
+                className="p-1 text-[#FFE600] hover:text-white transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -783,7 +784,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
 
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>{editingPlayerId ? 'Update Player' : 'Add Player'}</span>

@@ -131,12 +131,10 @@ export function ObsVmixLinkPanel({
                 onClick={() => setResolution(preset.id)}
                 className={`px-2 py-0.5 rounded-md transition-colors ${
                   resolution === preset.id
-                    ? homeTheme
-                      ? 'btn-primary-pro text-white'
-                      : 'bg-[#FF8C00] text-white'
+                    ? 'btn-primary-pro text-white'
                     : homeTheme
                       ? 'text-rose-100/80 hover:text-[#FFE600]'
-                      : 'text-slate-600 hover:text-[#FF8C00]'
+                      : 'text-slate-600 hover:text-[#B91C1C]'
                 }`}
               >
                 {preset.label}
@@ -152,7 +150,7 @@ export function ObsVmixLinkPanel({
           className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap shadow-xs ${
             homeTheme
               ? 'btn-gold-pro text-[#070B28]'
-              : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
+              : 'btn-primary-pro text-white'
           }`}
         >
           <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
@@ -178,13 +176,9 @@ export function ObsVmixLinkPanel({
             type="button"
             onClick={() => setSelectedTarget('obs')}
             className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shrink-0 transition-colors sm:min-w-[116px] ${
-              homeTheme
-                ? selectedTarget === 'obs'
-                  ? 'overlay-home-btn-active'
-                  : 'overlay-home-btn'
-                : selectedTarget === 'obs'
-                  ? 'bg-[#FF8C00] text-white shadow-xs'
-                  : 'bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] border border-[#FF8C00]/30'
+              selectedTarget === 'obs'
+                ? 'overlay-home-btn-active text-white'
+                : 'overlay-home-btn'
             }`}
           >
             <MonitorPlay className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -211,11 +205,7 @@ export function ObsVmixLinkPanel({
             type="button"
             onClick={() => handleCopy('obs')}
             aria-label="Copy OBS Overlay Link"
-            className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 ${
-              homeTheme
-                ? 'btn-primary-pro text-white'
-                : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
-            }`}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 btn-primary-pro text-white"
           >
             {copiedTarget === 'obs' ? (
               <>
@@ -247,13 +237,9 @@ export function ObsVmixLinkPanel({
             type="button"
             onClick={() => setSelectedTarget('vmix')}
             className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shrink-0 transition-colors sm:min-w-[116px] ${
-              homeTheme
-                ? selectedTarget === 'vmix'
-                  ? 'overlay-home-btn-active'
-                  : 'overlay-home-btn'
-                : selectedTarget === 'vmix'
-                  ? 'bg-[#FF8C00] text-white shadow-xs'
-                  : 'bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] border border-[#FF8C00]/30'
+              selectedTarget === 'vmix'
+                ? 'overlay-home-btn-active text-white'
+                : 'overlay-home-btn'
             }`}
           >
             <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
@@ -280,11 +266,7 @@ export function ObsVmixLinkPanel({
             type="button"
             onClick={() => handleCopy('vmix')}
             aria-label="Copy vMix Overlay Link"
-            className={`inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 ${
-              homeTheme
-                ? 'btn-primary-pro text-white'
-                : 'bg-[#FF8C00] hover:bg-[#E87500] text-white'
-            }`}
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 btn-primary-pro text-white"
           >
             {copiedTarget === 'vmix' ? (
               <>

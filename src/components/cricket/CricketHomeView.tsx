@@ -152,7 +152,7 @@ export function CricketHomeView({
           <button
             type="button"
             onClick={() => onNavigate('overlay')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <Tv className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Scoreboard Overlay Control</span>
@@ -167,7 +167,7 @@ export function CricketHomeView({
             >
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono font-bold text-[#FF8C00]">Step {s.step}</span>
+                  <span className="font-mono font-bold text-[#B91C1C]">Step {s.step}</span>
                   <span
                     className={`font-semibold ${
                       s.done ? 'text-emerald-600' : 'text-slate-400'
@@ -181,7 +181,7 @@ export function CricketHomeView({
               <button
                 type="button"
                 onClick={() => onNavigate(s.route)}
-                className="inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-[#FFF3E0] border border-slate-200 text-xs font-semibold text-[#FF8C00] transition-colors"
+                className="inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-md overlay-home-btn text-xs font-bold"
               >
                 <span>{s.cta}</span>
                 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />

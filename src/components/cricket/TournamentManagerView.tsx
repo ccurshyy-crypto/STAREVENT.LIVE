@@ -246,14 +246,14 @@ export function TournamentManagerView({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search tournament by name or venue..."
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none text-sm text-slate-900"
+              className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#D4080F] focus:bg-white focus:outline-none text-sm text-slate-900"
             />
           </div>
 
           <button
             type="button"
             onClick={openCreateTournament}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold transition-colors whitespace-nowrap shadow-xs"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE TOURNAMENT</span>
@@ -262,8 +262,8 @@ export function TournamentManagerView({
 
         {filtered.length === 0 ? (
           <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] flex items-center justify-center">
-              <Trophy className="w-6 h-6 text-[#FF8C00]" />
+            <div className="w-12 h-12 mx-auto rounded-xl overlay-home-header flex items-center justify-center">
+              <Trophy className="w-6 h-6 text-[#FFE600]" />
             </div>
             <h2 className="font-display font-bold text-base text-slate-900">
               No Tournaments Created Yet
@@ -274,7 +274,7 @@ export function TournamentManagerView({
             <button
               type="button"
               onClick={openCreateTournament}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
             >
               <Plus className="w-4 h-4" />
               <span>Create First Tournament</span>
@@ -405,16 +405,16 @@ export function TournamentManagerView({
           >
             <form
               onSubmit={handleSaveTournament}
-              className="w-full max-w-xl rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden my-auto"
+              className="w-full max-w-xl rounded-xl bg-white border border-[#FACC15]/35 shadow-2xl overflow-hidden my-auto"
             >
-              <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
-                <h3 className="font-display font-bold text-base">
+              <div className="px-5 py-4 overlay-home-header text-white flex items-center justify-between">
+                <h3 className="font-display font-black text-base text-[#FFE600] uppercase tracking-wide">
                   {editingId ? 'Edit Tournament' : 'Create Tournament'}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="p-1 rounded hover:bg-white/15"
+                  className="p-1 rounded text-[#FFE600] hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -607,7 +607,7 @@ export function TournamentManagerView({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] text-white text-xs font-semibold"
+                  className="px-5 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
                 >
                   {editingId ? 'Save Changes' : 'Save Tournament'}
                 </button>
@@ -726,7 +726,7 @@ export function TournamentManagerView({
             type="button"
             disabled={!effectiveTourId}
             onClick={openCreateGroup}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-50 text-white text-xs font-semibold whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4" />
             <span>CREATE GROUP</span>
@@ -745,7 +745,7 @@ export function TournamentManagerView({
             <button
               type="button"
               onClick={openCreateGroup}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FF8C00] text-white text-xs font-semibold"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
             >
               <Plus className="w-4 h-4" />
               <span>Create First Group</span>
@@ -899,7 +899,7 @@ export function TournamentManagerView({
                               <button
                                 type="button"
                                 onClick={() => onOpenScoring(m.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FF8C00] text-white text-[11px] font-semibold shrink-0"
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md btn-primary-pro text-white text-[11px] font-bold shrink-0"
                               >
                                 <Play className="w-3 h-3" />
                                 Score
@@ -924,13 +924,17 @@ export function TournamentManagerView({
           >
             <form
               onSubmit={handleSaveGroup}
-              className="w-full max-w-md rounded-xl bg-white border border-slate-200 overflow-hidden shadow-2xl"
+              className="w-full max-w-md rounded-xl bg-white border border-[#FACC15]/35 overflow-hidden shadow-2xl"
             >
-              <div className="px-5 py-4 bg-[#FF8C00] text-white flex items-center justify-between">
-                <h3 className="font-display font-bold text-base">
+              <div className="px-5 py-4 overlay-home-header text-white flex items-center justify-between">
+                <h3 className="font-display font-black text-base text-[#FFE600] uppercase tracking-wide">
                   {editingGroupId ? 'Edit Group' : 'Create Group'}
                 </h3>
-                <button type="button" onClick={() => setGroupModalOpen(false)}>
+                <button
+                  type="button"
+                  onClick={() => setGroupModalOpen(false)}
+                  className="p-1 text-[#FFE600] hover:text-white"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -987,7 +991,7 @@ export function TournamentManagerView({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg bg-[#FF8C00] text-white text-xs font-semibold"
+                  className="px-5 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
                 >
                   Save Group
                 </button>
