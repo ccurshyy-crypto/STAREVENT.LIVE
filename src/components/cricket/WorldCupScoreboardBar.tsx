@@ -51,7 +51,7 @@ function resolveWorldCupEvent(type: string): { label: string; bg: string; border
   if (normalized === 'FOUR' || normalized === '4') {
     return {
       label: 'FOUR',
-      bg: 'linear-gradient(180deg, #0052CC 0%, #003399 58%, #001B5E 100%)',
+      bg: 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 58%, #1E3A8A 100%)',
       border: '#93C5FD',
       text: '#FFFFFF',
     };
@@ -59,9 +59,9 @@ function resolveWorldCupEvent(type: string): { label: string; bg: string; border
   if (normalized === 'SIX' || normalized === '6') {
     return {
       label: 'SIX',
-      bg: 'linear-gradient(180deg, #D97706 0%, #B45309 55%, #78350F 100%)',
-      border: '#FDE047',
-      text: '#FFFFFF',
+      bg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 55%, #CA8A04 100%)',
+      border: '#FEF9C3',
+      text: '#09090B',
     };
   }
   if (normalized === 'NOBALL' || normalized === 'NB' || normalized === 'FREEHIT') {
@@ -75,8 +75,8 @@ function resolveWorldCupEvent(type: string): { label: string; bg: string; border
   if (normalized === 'WIDE' || normalized === 'WD') {
     return {
       label: 'WIDE',
-      bg: 'linear-gradient(180deg, #1E293B 0%, #0F172A 60%, #020617 100%)',
-      border: '#CBD5E1',
+      bg: 'linear-gradient(180deg, #22C55E 0%, #16A34A 58%, #14532D 100%)',
+      border: '#86EFAC',
       text: '#FFFFFF',
     };
   }
@@ -275,7 +275,7 @@ export function WorldCupScoreboardBar({
                   borderLeft: `1.5px solid ${eventPreset.border}`,
                   borderRight: `1.5px solid ${eventPreset.border}`,
                   fontSize: '20px',
-                  textShadow: '0 2px 4px rgba(0,0,0,0.6)',
+                  textShadow: eventPreset.text === '#09090B' ? '0 1px 0 rgba(255,255,255,0.45)' : '0 2px 4px rgba(0,0,0,0.6)',
                 }}
               >
                 {eventPreset.label}
@@ -293,14 +293,51 @@ export function WorldCupScoreboardBar({
                 {visibleBalls.map((b) => {
                   const raw = String(b.label || '0').trim().toUpperCase();
                   const isDot = raw === '•' || raw === '0' || raw === '.';
-                  const isRedTile =
-                    b.isWicket ||
+                  const isWicketTile =
+                    Boolean(b.isWicket) ||
                     raw === 'W' ||
+                    raw.startsWith('W+') ||
                     raw === 'OUT' ||
-                    raw === 'RO' ||
-                    raw === 'NB' ||
-                    raw === 'NO' ||
-                    raw.startsWith('NB');
+                    raw === 'RO';
+                  const isWideTile =
+                    !isWicketTile &&
+                    (raw === 'WD' || raw.startsWith('WD') || raw.includes('WD'));
+                  const isSixTile =
+                    !isWicketTile && !isWideTile && (Boolean(b.isBoundary6) || raw === '6');
+                  const isFourTile =
+                    !isWicketTile && !isWideTile && !isSixTile && (Boolean(b.isBoundary4) || raw === '4');
+                  const isNoBallTile =
+                    !isWicketTile &&
+                    !isWideTile &&
+                    !isSixTile &&
+                    !isFourTile &&
+                    (raw === 'NB' || raw === 'NO' || raw.startsWith('NB'));
+
+                  let tileBg = '#050505';
+                  let tileBorder = '1.5px solid #E5E7EB';
+                  let tileColor = '#FFFFFF';
+
+                  if (isWicketTile) {
+                    tileBg = 'linear-gradient(180deg, #EF4444 0%, #DC2626 55%, #991B1B 100%)';
+                    tileBorder = '1.6px solid #FCA5A5';
+                    tileColor = '#FFFFFF';
+                  } else if (isWideTile) {
+                    tileBg = 'linear-gradient(180deg, #22C55E 0%, #16A34A 55%, #15803D 100%)';
+                    tileBorder = '1.6px solid #86EFAC';
+                    tileColor = '#FFFFFF';
+                  } else if (isSixTile) {
+                    tileBg = 'linear-gradient(180deg, #FEF08A 0%, #FACC15 52%, #CA8A04 100%)';
+                    tileBorder = '1.6px solid #FEF9C3';
+                    tileColor = '#09090B';
+                  } else if (isFourTile) {
+                    tileBg = 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 55%, #1E3A8A 100%)';
+                    tileBorder = '1.6px solid #93C5FD';
+                    tileColor = '#FFFFFF';
+                  } else if (isNoBallTile) {
+                    tileBg = '#050505';
+                    tileBorder = '1.6px solid #EF4444';
+                    tileColor = '#FF3B3B';
+                  }
 
                   return (
                     <span
@@ -310,9 +347,9 @@ export function WorldCupScoreboardBar({
                         minWidth: '25px',
                         height: '25px',
                         padding: '0 4px',
-                        background: '#050505',
-                        border: isRedTile ? '1.6px solid #EF4444' : '1.5px solid #E5E7EB',
-                        color: isRedTile ? '#FF2A2A' : '#FFFFFF',
+                        background: tileBg,
+                        border: tileBorder,
+                        color: tileColor,
                         fontSize: raw.length > 2 ? '10px' : raw.length === 2 ? '11px' : '14px',
                       }}
                     >
