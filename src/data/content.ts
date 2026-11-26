@@ -97,6 +97,7 @@ export const STUDIO_CONTACT = {
   whatsappNumber: '919890175727',
   bannerPath: '/assets/optimized/hero-banner.webp',
   promoPosterPath: '/assets/optimized/promo-poster.webp',
+  logoImagePath: '/assets/aistudio/STAR_EVENT_2.0_LOGO_PNG_0ff1b333.png',
   logoVideoPath: '/assets/optimized/logo-rotation.mp4',
   stingerVideoPath: '/assets/optimized/stinger-web.mp4',
   youtubeUrl: 'https://youtube.com/@stareventlive01?si=-IocoxT5fJemBNPu',

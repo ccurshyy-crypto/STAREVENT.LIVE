@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { ArrowRight, ExternalLink, Instagram, Phone, Play, Video, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
-import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface HeroSectionProps {
   lang: Language;
@@ -75,11 +74,15 @@ export function HeroSection({ lang, onOpenOverlays }: HeroSectionProps) {
         {/* BIG STAR EVENT LIVE LOGO + NAME HERO HEADER (Banner-Matched Colors) */}
         <div className="flex flex-col items-center text-center space-y-5">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-6">
-            <SpinningLogoVideo
-              className="w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36"
-              resolution={156}
-              label="Star Event Live official 3D rotating logo"
-            />
+            <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36 rounded-full bg-black p-[2px] ring-2 ring-[#FFE600]/90 shadow-[0_0_32px_rgba(255,230,0,0.45)] overflow-hidden shrink-0">
+              <img
+                src={STUDIO_CONTACT.logoImagePath}
+                alt="Star Event Live Official Logo — Bharat Nirguda 9890175727"
+                loading="eager"
+                decoding="async"
+                className="w-full h-full object-cover rounded-full"
+              />
+            </div>
             <div className="space-y-1.5 text-center sm:text-left">
               <h1 className="font-display text-3xl sm:text-5xl md:text-6xl font-black tracking-tight leading-none flex flex-wrap items-center justify-center sm:justify-start gap-2 sm:gap-3">
                 <span className="text-[#FFE600] drop-shadow-[0_4px_16px_rgba(0,0,0,0.65)]">

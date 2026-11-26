@@ -1,7 +1,6 @@
 import { Instagram, ShieldCheck, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { ScrollReveal } from './ScrollReveal';
-import { SpinningLogoVideo } from './SpinningLogoVideo';
 
 interface FooterProps {
   lang: Language;
@@ -28,11 +27,15 @@ export function Footer({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <SpinningLogoVideo
-              className="w-16 h-16 sm:w-20 sm:h-20"
-              resolution={128}
-              label="Star Event Live 3D logo"
-            />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-black p-[2px] ring-2 ring-[#FFE600]/80 shadow-[0_0_22px_rgba(255,230,0,0.35)] overflow-hidden shrink-0">
+              <img
+                src={STUDIO_CONTACT.logoImagePath}
+                alt="Star Event Live Official Logo"
+                loading="lazy"
+                decoding="async"
+                className="w-full h-full object-cover rounded-full"
+              />
+            </div>
             <div className="space-y-1">
               <a
                 href="/"

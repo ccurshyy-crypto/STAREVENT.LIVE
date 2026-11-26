@@ -87,16 +87,14 @@ export function Navbar({
           }}
           className="inline-flex items-center gap-2 sm:gap-3 min-w-0 shrink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] rounded-xl"
         >
-          <span
-            aria-hidden="true"
-            className="w-9 h-9 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#FFE600] via-[#E11D1D] to-[#7F040A] p-[2px] shadow-[0_0_18px_rgba(255,230,0,0.45)] flex items-center justify-center shrink-0"
-          >
-            <span className="w-full h-full rounded-full bg-[#3A0208] flex flex-col items-center justify-center leading-none">
-              <span className="text-[#FFE600] text-sm sm:text-lg leading-none">★</span>
-              <span className="font-display text-[6.5px] sm:text-[8px] font-black tracking-wider text-white">
-                LIVE
-              </span>
-            </span>
+          <span className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black p-[1.5px] ring-2 ring-[#FFE600]/85 shadow-[0_0_18px_rgba(255,230,0,0.45)] flex items-center justify-center shrink-0 overflow-hidden">
+            <img
+              src={STUDIO_CONTACT.logoImagePath}
+              alt="Star Event Live Official Logo"
+              loading="eager"
+              decoding="async"
+              className="w-full h-full object-cover rounded-full"
+            />
           </span>
           <span className="flex flex-col leading-none min-w-0">
             <span className="font-display text-[15px] min-[380px]:text-base sm:text-2xl font-black tracking-tight flex items-center gap-1.5 truncate">
