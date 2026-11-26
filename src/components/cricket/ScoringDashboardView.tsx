@@ -1588,7 +1588,7 @@ export function ScoringDashboardView({
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {state.matches.length > 1 && (
               <select
                 value={match.id}
@@ -1601,7 +1601,7 @@ export function ScoringDashboardView({
                   updateState((prev) => ({ ...prev, activeMatchId: e.target.value }));
                 }}
                 aria-label="Switch active match"
-                className="px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
+                className="w-full sm:w-auto max-w-full px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
               >
                 {state.matches.map((m) => {
                   const locked = isMatchLockedByNewerMatch(m, state.matches);
@@ -1619,7 +1619,7 @@ export function ScoringDashboardView({
             <button
               type="button"
               onClick={openTossModal}
-              className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-white text-xs font-bold"
+              className="flex-1 sm:flex-initial px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-white text-xs font-bold text-center"
             >
               Toss Setup
             </button>
@@ -1627,7 +1627,7 @@ export function ScoringDashboardView({
             <button
               type="button"
               onClick={() => setActiveTab('overlay')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all shadow-xs ${
+              className={`flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all shadow-xs ${
                 activeTab === 'overlay'
                   ? 'bg-slate-900 text-white'
                   : 'bg-white text-[#E87500] hover:bg-orange-50'
@@ -1643,13 +1643,14 @@ export function ScoringDashboardView({
         <div className="grid grid-cols-4 border-t border-slate-200 bg-white">
           {(
             [
-              { id: 'scoring', label: 'SCORING PANEL' },
-              { id: 'scorecard', label: 'SCORECARD' },
+              { id: 'scoring', label: 'SCORING PANEL', mobileLabel: 'SCORING' },
+              { id: 'scorecard', label: 'SCORECARD', mobileLabel: 'SCORECARD' },
               {
                 id: 'overs',
                 label: match.status === 'completed' ? 'OVERS & SUMMARY' : 'OVERS',
+                mobileLabel: 'OVERS',
               },
-              { id: 'overlay', label: 'OVERLAY' },
+              { id: 'overlay', label: 'OVERLAY', mobileLabel: 'OVERLAY' },
             ] as const
           ).map((tab) => (
             <motion.button
@@ -1658,13 +1659,14 @@ export function ScoringDashboardView({
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.97 }}
               onClick={() => setActiveTab(tab.id)}
-              className={`py-3 px-1 text-[11px] sm:text-sm font-extrabold tracking-wide transition-all border-b-2 truncate ${
+              className={`py-2.5 sm:py-3 px-1 text-[11px] sm:text-sm font-extrabold tracking-wide transition-all border-b-2 text-center ${
                 activeTab === tab.id
                   ? 'border-[#FF8C00] text-[#E87500] bg-[#FFF3E0]/70'
                   : 'border-transparent text-slate-600 hover:text-[#FF8C00] hover:bg-orange-50/40'
               }`}
             >
-              {tab.label}
+              <span className="sm:hidden">{tab.mobileLabel}</span>
+              <span className="hidden sm:inline">{tab.label}</span>
             </motion.button>
           ))}
         </div>
@@ -2477,7 +2479,7 @@ export function ScoringDashboardView({
           </AnimatePresence>
 
           {/* White & Orange Animated Scoring Keypad + Inline Sub-Panels */}
-          <div className="rounded-xl wo-card text-slate-900 p-4 sm:p-5">
+          <div className="rounded-xl wo-card text-slate-900 p-3 sm:p-5">
             <AnimatePresence mode="wait">
               {keypadPanel === 'main' && (
                 <motion.div
@@ -2486,10 +2488,10 @@ export function ScoringDashboardView({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
                   transition={{ duration: 0.14 }}
-                  className="space-y-3.5"
+                  className="space-y-2.5 sm:space-y-3.5"
                 >
                   {/* Row 1: 0, DCL, 1, 2, 3, 4 (Boundary), 6 (Boundary), 4 (Run), 5 */}
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="grid grid-cols-5 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
                     {/* 0 */}
                     <motion.button
                       type="button"
@@ -2498,7 +2500,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => recordDelivery({ runsOffBat: 0 })}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       0
                     </motion.button>
@@ -2511,7 +2513,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('DCL')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
                     >
                       DCL
                     </motion.button>
@@ -2526,7 +2528,7 @@ export function ScoringDashboardView({
                         whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                         transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                         onClick={() => recordDelivery({ runsOffBat: r })}
-                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
+                        className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                       >
                         {r}
                       </motion.button>
@@ -2543,7 +2545,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                     >
                       4
                     </motion.button>
@@ -2559,7 +2561,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                     >
                       6
                     </motion.button>
@@ -2575,7 +2577,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 4, isBoundary4: false }, '+4 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       4
                     </motion.button>
@@ -2588,14 +2590,11 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => recordDelivery({ runsOffBat: 5 }, '+5 Runs')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       5
                     </motion.button>
-                  </div>
 
-                  {/* Row 2: 6 (Run), NB, WD, LB, BYE, OUT, More, 7 8 9 10.. */}
-                  <div className="flex flex-wrap items-center gap-3">
                     {/* 6 (Running / Non-boundary) */}
                     <motion.button
                       type="button"
@@ -2607,11 +2606,14 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 6, isBoundary6: false }, '+6 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       6
                     </motion.button>
+                  </div>
 
+                  {/* Row 2: NB, WD, LB, BYE, OUT, More, 7 8 9 10.. */}
+                  <div className="grid grid-cols-5 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
                     {/* NB, WD, LB, BYE */}
                     {(['NB', 'WD', 'LB', 'BYE'] as const).map((ex) => (
                       <motion.button
@@ -2622,7 +2624,7 @@ export function ScoringDashboardView({
                         whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                         transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                         onClick={() => setKeypadPanel(ex)}
-                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
+                        className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
                       >
                         {ex}
                       </motion.button>
@@ -2636,7 +2638,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={openWicketModal}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#DC2626] hover:bg-[#B91C1C] shadow-sm disabled:opacity-45 text-white font-display font-black text-sm tracking-wide transition-colors"
+                      className="w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] bg-[#DC2626] hover:bg-[#B91C1C] shadow-sm disabled:opacity-45 text-white font-display font-black text-sm tracking-wide transition-colors"
                     >
                       OUT
                     </motion.button>
@@ -2648,7 +2650,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('MORE')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-active font-display font-extrabold text-sm"
+                      className="col-span-2 sm:col-span-1 w-full sm:w-[58px] h-[46px] sm:h-[48px] rounded-[12px] wo-btn-active font-display font-extrabold text-sm"
                     >
                       More
                     </motion.button>
@@ -2661,25 +2663,26 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('MORE_RUNS')}
-                      className="h-[46px] sm:h-[48px] px-4 sm:px-5 rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm tracking-wide"
+                      className="col-span-3 sm:col-span-1 h-[46px] sm:h-[48px] px-3 sm:px-5 rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm tracking-wide"
                     >
                       7 8 9 10..
                     </motion.button>
                   </div>
 
                   {/* Row 3: Soft Orange Edit (Pencil) & Undo Icon Buttons */}
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 sm:gap-3">
                     <motion.button
                       type="button"
                       title="Edit Score"
                       aria-label="Edit Score"
-                      whileHover={{ scale: 1.06, y: -2 }}
-                      whileTap={{ scale: 0.92 }}
+                      whileHover={{ scale: 1.04, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => openEditScoreModal(innIdx)}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-soft inline-flex items-center justify-center"
+                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[12px] wo-btn-soft inline-flex items-center justify-center gap-2 text-xs font-bold"
                     >
-                      <Pencil className="w-5 h-5 fill-current" aria-hidden="true" />
+                      <Pencil className="w-4 h-4 sm:w-5 sm:h-5 fill-current" aria-hidden="true" />
+                      <span className="sm:hidden">Edit Score</span>
                     </motion.button>
 
                     <motion.button
@@ -2687,13 +2690,14 @@ export function ScoringDashboardView({
                       title="Undo Last Ball"
                       aria-label="Undo Last Ball"
                       disabled={!match.undoStack.length}
-                      whileHover={!match.undoStack.length ? undefined : { scale: 1.06, y: -2 }}
-                      whileTap={!match.undoStack.length ? undefined : { scale: 0.92 }}
+                      whileHover={!match.undoStack.length ? undefined : { scale: 1.04, y: -1 }}
+                      whileTap={!match.undoStack.length ? undefined : { scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={handleUndo}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-soft disabled:opacity-45 inline-flex items-center justify-center"
+                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[12px] wo-btn-soft disabled:opacity-45 inline-flex items-center justify-center gap-2 text-xs font-bold"
                     >
-                      <Undo2 className="w-5 h-5 stroke-[2.6]" aria-hidden="true" />
+                      <Undo2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.6]" aria-hidden="true" />
+                      <span className="sm:hidden">Undo Ball</span>
                     </motion.button>
                   </div>
                 </motion.div>

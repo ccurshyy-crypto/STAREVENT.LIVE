@@ -244,8 +244,8 @@ export function TournamentManagerView({
 
     return (
       <div className="space-y-4">
-        <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-          <div className="relative flex-1 min-w-[220px]">
+        <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
+          <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -259,7 +259,7 @@ export function TournamentManagerView({
           <button
             type="button"
             onClick={openCreateTournament}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE TOURNAMENT</span>
@@ -287,117 +287,220 @@ export function TournamentManagerView({
             </button>
           </div>
         ) : (
-          <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Tournament</th>
-                    <th className="px-4 py-3">Venue</th>
-                    <th className="px-4 py-3">Format &amp; Overs</th>
-                    <th className="px-4 py-3">Dates</th>
-                    <th className="px-4 py-3">Status</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filtered.map((t) => {
-                    const isActive = t.id === state.activeTournamentId;
-                    const teamCount = state.teams.filter((tm) => tm.tournamentId === t.id).length;
-                    const matchCount = state.matches.filter((m) => m.tournamentId === t.id).length;
-                    return (
-                      <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            {t.logoUrl ? (
-                              <img
-                                src={t.logoUrl}
-                                alt={t.name}
-                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center font-display font-bold text-xs text-[#FF8C00] shrink-0">
-                                {t.shortName.slice(0, 3).toUpperCase()}
-                              </div>
-                            )}
-                            <div>
-                              <p className="font-semibold text-slate-900">{t.name}</p>
-                              <p className="text-xs text-slate-500">
-                                {t.tournamentType} · {teamCount} Teams · {matchCount} Matches
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-700">{t.location}</td>
-                        <td className="px-4 py-3 text-xs text-slate-700 tabular-nums">
-                          {t.matchFormat} · {t.oversPerInnings} Overs · {t.ballType}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-600 tabular-nums">
-                          {t.startDate} – {t.endDate}
-                        </td>
-                        <td className="px-4 py-3 text-xs">
+          <div className="space-y-3">
+            {/* Mobile Tournament Cards */}
+            <div className="md:hidden space-y-3">
+              {filtered.map((t) => {
+                const isActive = t.id === state.activeTournamentId;
+                const teamCount = state.teams.filter((tm) => tm.tournamentId === t.id).length;
+                const matchCount = state.matches.filter((m) => m.tournamentId === t.id).length;
+                return (
+                  <div
+                    key={`mobile-${t.id}`}
+                    className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-3 shadow-xs"
+                  >
+                    <div className="flex items-start gap-3">
+                      {t.logoUrl ? (
+                        <img
+                          src={t.logoUrl}
+                          alt={t.name}
+                          className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center font-display font-bold text-xs text-[#FF8C00] shrink-0">
+                          {t.shortName.slice(0, 3).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-display font-bold text-sm text-slate-900 truncate">
+                            {t.name}
+                          </p>
                           <span
-                            className={`font-semibold ${
-                              isActive ? 'text-emerald-700' : 'text-slate-600'
+                            className={`text-[11px] font-bold uppercase shrink-0 ${
+                              isActive ? 'text-emerald-700' : 'text-slate-500'
                             }`}
                           >
                             {isActive ? 'Active' : t.status}
                           </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {!isActive && (
-                              <button
-                                type="button"
-                                onClick={() => handleSetActiveTournament(t.id)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold"
-                              >
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                Set Active
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => openEditTournament(t)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-semibold"
-                            >
-                              <Edit3 className="w-3.5 h-3.5" />
-                              Edit
-                            </button>
-                            {deleteConfirmId !== t.id ? (
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirmId(t.id)}
-                                className="p-1.5 rounded-md bg-red-50 hover:bg-red-100 text-red-600"
-                                aria-label={`Delete ${t.name}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            ) : (
-                              <div className="inline-flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteTournament(t.id)}
-                                  className="px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setDeleteConfirmId(null)}
-                                  className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-semibold"
-                                >
-                                  Cancel
-                                </button>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {t.location} · {teamCount} Teams · {matchCount} Matches
+                        </p>
+                        <p className="text-[11px] text-slate-600 tabular-nums mt-0.5">
+                          {t.matchFormat} · {t.oversPerInnings} Overs · {t.ballType}
+                        </p>
+                        <p className="text-[11px] text-slate-500 tabular-nums">
+                          {t.startDate} – {t.endDate}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                      {!isActive && (
+                        <button
+                          type="button"
+                          onClick={() => handleSetActiveTournament(t.id)}
+                          className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold whitespace-nowrap"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          Set Active
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openEditTournament(t)}
+                        className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-bold"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        Edit
+                      </button>
+                      {deleteConfirmId !== t.id ? (
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(t.id)}
+                          className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600"
+                          aria-label={`Delete ${t.name}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      ) : (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteTournament(t.id)}
+                            className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteConfirmId(null)}
+                            className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table */}
+            <div className="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+                    <tr>
+                      <th className="px-4 py-3">Tournament</th>
+                      <th className="px-4 py-3">Venue</th>
+                      <th className="px-4 py-3">Format &amp; Overs</th>
+                      <th className="px-4 py-3">Dates</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filtered.map((t) => {
+                      const isActive = t.id === state.activeTournamentId;
+                      const teamCount = state.teams.filter((tm) => tm.tournamentId === t.id).length;
+                      const matchCount = state.matches.filter((m) => m.tournamentId === t.id).length;
+                      return (
+                        <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              {t.logoUrl ? (
+                                <img
+                                  src={t.logoUrl}
+                                  alt={t.name}
+                                  className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center font-display font-bold text-xs text-[#FF8C00] shrink-0">
+                                  {t.shortName.slice(0, 3).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold text-slate-900">{t.name}</p>
+                                <p className="text-xs text-slate-500">
+                                  {t.tournamentType} · {teamCount} Teams · {matchCount} Matches
+                                </p>
                               </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-700">{t.location}</td>
+                          <td className="px-4 py-3 text-xs text-slate-700 tabular-nums">
+                            {t.matchFormat} · {t.oversPerInnings} Overs · {t.ballType}
+                          </td>
+                          <td className="px-4 py-3 text-xs text-slate-600 tabular-nums">
+                            {t.startDate} – {t.endDate}
+                          </td>
+                          <td className="px-4 py-3 text-xs">
+                            <span
+                              className={`font-semibold ${
+                                isActive ? 'text-emerald-700' : 'text-slate-600'
+                              }`}
+                            >
+                              {isActive ? 'Active' : t.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!isActive && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetActiveTournament(t.id)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  Set Active
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => openEditTournament(t)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-semibold"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                                Edit
+                              </button>
+                              {deleteConfirmId !== t.id ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirmId(t.id)}
+                                  className="p-1.5 rounded-md bg-red-50 hover:bg-red-100 text-red-600"
+                                  aria-label={`Delete ${t.name}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              ) : (
+                                <div className="inline-flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteTournament(t.id)}
+                                    className="px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirmId(null)}
+                                    className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-semibold"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -711,13 +814,13 @@ export function TournamentManagerView({
 
     return (
       <div className="space-y-5">
-        <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <label className="text-xs font-semibold text-slate-600">Tournament:</label>
+        <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-2.5 w-full sm:w-auto">
+            <label className="text-xs font-semibold text-slate-600 shrink-0">Tournament:</label>
             <select
               value={effectiveTourId}
               onChange={(e) => setSelectedTourId(e.target.value)}
-              className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-900 min-w-[220px]"
+              className="w-full sm:w-auto sm:min-w-[220px] max-w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-900"
             >
               {state.tournaments.length === 0 && <option value="">No tournaments created</option>}
               {state.tournaments.map((t) => (
@@ -732,7 +835,7 @@ export function TournamentManagerView({
             type="button"
             disabled={!effectiveTourId}
             onClick={openCreateGroup}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4" />
             <span>CREATE GROUP</span>
@@ -1053,12 +1156,12 @@ export function TournamentManagerView({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
+      <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 flex-1 w-full">
           <select
             value={effectiveTourId}
             onChange={(e) => setSelectedTourId(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-900 min-w-[200px]"
+            className="w-full sm:w-auto sm:min-w-[200px] max-w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm font-medium text-slate-900"
           >
             {state.tournaments.length === 0 && <option value="">No tournaments created</option>}
             {state.tournaments.map((t) => (
@@ -1068,7 +1171,7 @@ export function TournamentManagerView({
             ))}
           </select>
 
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -1092,50 +1195,93 @@ export function TournamentManagerView({
           </p>
         </div>
       ) : (
-        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Team</th>
-                  <th className="px-4 py-3">Short Name</th>
-                  <th className="px-4 py-3">Place</th>
-                  <th className="px-4 py-3">Squad Size</th>
-                  <th className="px-4 py-3">Assigned Group</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {tourTeams.map((tm) => {
-                  const currentGrp = tourGroups.find((g) => g.teamIds.includes(tm.id));
-                  return (
-                    <tr key={tm.id} className="hover:bg-slate-50/70">
-                      <td className="px-4 py-3 font-semibold text-slate-900">{tm.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-600">
-                        {tm.shortName}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-600">{tm.place || '—'}</td>
-                      <td className="px-4 py-3 text-xs font-mono tabular-nums text-slate-700">
-                        {tm.players.length} players
-                      </td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={currentGrp?.id || ''}
-                          onChange={(e) => assignTeamToGroup(tm.id, e.target.value)}
-                          className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800"
-                        >
-                          <option value="">Unassigned</option>
-                          {tourGroups.map((g) => (
-                            <option key={g.id} value={g.id}>
-                              {g.name}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+        <div className="space-y-3">
+          {/* Mobile Tournament Teams Cards */}
+          <div className="md:hidden space-y-2.5">
+            {tourTeams.map((tm) => {
+              const currentGrp = tourGroups.find((g) => g.teamIds.includes(tm.id));
+              return (
+                <div
+                  key={`mobile-${tm.id}`}
+                  className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-2.5 shadow-xs"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-display font-bold text-sm text-slate-900 truncate">
+                      {tm.name}
+                    </p>
+                    <span className="font-mono text-xs font-bold text-slate-600 shrink-0">
+                      {tm.shortName}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 tabular-nums">
+                    {tm.place || 'No venue'} · {tm.players.length} players
+                  </p>
+                  <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-600">Assigned Group</span>
+                    <select
+                      value={currentGrp?.id || ''}
+                      onChange={(e) => assignTeamToGroup(tm.id, e.target.value)}
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 max-w-[180px]"
+                    >
+                      <option value="">Unassigned</option>
+                      {tourGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Table */}
+          <div className="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Team</th>
+                    <th className="px-4 py-3">Short Name</th>
+                    <th className="px-4 py-3">Place</th>
+                    <th className="px-4 py-3">Squad Size</th>
+                    <th className="px-4 py-3">Assigned Group</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {tourTeams.map((tm) => {
+                    const currentGrp = tourGroups.find((g) => g.teamIds.includes(tm.id));
+                    return (
+                      <tr key={tm.id} className="hover:bg-slate-50/70">
+                        <td className="px-4 py-3 font-semibold text-slate-900">{tm.name}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                          {tm.shortName}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600">{tm.place || '—'}</td>
+                        <td className="px-4 py-3 text-xs font-mono tabular-nums text-slate-700">
+                          {tm.players.length} players
+                        </td>
+                        <td className="px-4 py-3">
+                          <select
+                            value={currentGrp?.id || ''}
+                            onChange={(e) => assignTeamToGroup(tm.id, e.target.value)}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800"
+                          >
+                            <option value="">Unassigned</option>
+                            {tourGroups.map((g) => (
+                              <option key={g.id} value={g.id}>
+                                {g.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

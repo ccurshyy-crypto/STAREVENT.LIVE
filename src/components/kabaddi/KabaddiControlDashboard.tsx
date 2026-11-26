@@ -755,8 +755,8 @@ export function KabaddiControlDashboard({
     <div
       className={
         embedded
-          ? 'space-y-5 text-slate-900'
-          : 'min-h-screen py-5 sm:py-8 px-3 sm:px-6 lg:px-8 text-slate-900'
+          ? 'space-y-5 text-slate-900 overflow-x-clip'
+          : 'min-h-screen py-4 sm:py-8 px-2.5 sm:px-6 lg:px-8 text-slate-900 overflow-x-clip'
       }
     >
       <div className="max-w-7xl mx-auto space-y-5">
@@ -823,11 +823,11 @@ export function KabaddiControlDashboard({
           </div>
 
           {/* vMix / OBS Overlay Link Bar */}
-          <div className="p-3.5 sm:px-6 sm:py-3.5 bg-[#FFF8F0] border-t border-[#FF8C00]/20 flex flex-wrap items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
+          <div className="p-3 sm:px-6 sm:py-3.5 bg-[#FFF8F0] border-t border-[#FF8C00]/20 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto sm:flex-1">
               <Tv className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
               <span className="text-xs font-bold text-slate-700 shrink-0">vMix / OBS URL:</span>
-              <code className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-mono text-[11px] text-[#E87500] truncate max-w-full">
+              <code className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-mono text-[11px] text-[#E87500] truncate min-w-0 flex-1">
                 {overlayUrl}
               </code>
             </div>

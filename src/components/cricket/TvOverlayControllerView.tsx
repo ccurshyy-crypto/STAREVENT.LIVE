@@ -64,6 +64,8 @@ export function TvOverlayControllerView({
   // Controller UI State
   const [showPreviewMonitor, setShowPreviewMonitor] = useState(true);
   const [previewGreenBg, setPreviewGreenBg] = useState(false);
+  const [previewScale, setPreviewScale] = useState(0.5);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
   const [autoHideSeconds, setAutoHideSeconds] = useState<number>(8);
   const [autoHideRemaining, setAutoHideRemaining] = useState<number | null>(null);
   const [activeTransitionType, setActiveTransitionType] =
@@ -124,6 +126,23 @@ export function TvOverlayControllerView({
       cancelAutoHide();
     };
   }, [cancelAutoHide]);
+
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el || !showPreviewMonitor) return;
+    const updateScale = () => {
+      const w = el.clientWidth;
+      if (w > 0) setPreviewScale(w / 1280);
+    };
+    updateScale();
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateScale);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [showPreviewMonitor]);
 
   const activeMatch = useMemo(
     () =>
@@ -465,7 +484,7 @@ export function TvOverlayControllerView({
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             {state.matches.length > 0 && (
               <select
                 value={activeMatch?.id || ''}
@@ -478,7 +497,7 @@ export function TvOverlayControllerView({
                   updateState((prev) => ({ ...prev, activeMatchId: e.target.value }));
                 }}
                 aria-label="Select match for overlay"
-                className={homeSelectClass}
+                className={`${homeSelectClass} w-full sm:w-auto max-w-full`}
               >
                 {state.matches.map((m) => {
                   const locked = isMatchLockedByNewerMatch(m, state.matches);
@@ -512,7 +531,7 @@ export function TvOverlayControllerView({
                 onToast(`Scoreboard theme: ${found?.name || nextThemeId}`);
               }}
               aria-label="Select scoreboard theme"
-              className={homeSelectClass}
+              className={`${homeSelectClass} w-full sm:w-auto max-w-full`}
             >
               {BROADCAST_THEMES.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -645,6 +664,7 @@ export function TvOverlayControllerView({
             </label>
           </div>
           <div
+            ref={previewContainerRef}
             className="w-full aspect-video relative overflow-hidden"
             style={{
               background: previewGreenBg
@@ -652,11 +672,21 @@ export function TvOverlayControllerView({
                 : 'radial-gradient(circle at center, #3A040C 0%, #070B28 100%)',
             }}
           >
-            <BroadcastOverlayCanvas
-              state={state}
-              matchId={activeMatch?.id}
-              bgMode={previewGreenBg ? 'green' : 'transparent'}
-            />
+            <div
+              className="relative overflow-hidden"
+              style={{
+                width: '1280px',
+                height: '720px',
+                transform: `scale(${previewScale})`,
+                transformOrigin: 'top left',
+              }}
+            >
+              <BroadcastOverlayCanvas
+                state={state}
+                matchId={activeMatch?.id}
+                bgMode={previewGreenBg ? 'green' : 'transparent'}
+              />
+            </div>
           </div>
         </div>
       )}

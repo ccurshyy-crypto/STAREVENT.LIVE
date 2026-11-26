@@ -298,12 +298,12 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <div className="rounded-xl bg-white border border-slate-200 p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
-        <div className="flex flex-wrap items-center gap-3 flex-1">
+      <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 flex-1 w-full">
           <select
             value={selectedTournamentId}
             onChange={(e) => setSelectedTournamentId(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-900 min-w-[180px]"
+            className="w-full sm:w-auto sm:min-w-[180px] max-w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-900"
           >
             <option value="ALL">All Tournaments</option>
             {state.tournaments.map((t) => (
@@ -313,7 +313,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             ))}
           </select>
 
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative w-full sm:flex-1 sm:min-w-[200px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -328,7 +328,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         <button
           type="button"
           onClick={openCreateTeam}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           <span>CREATE TEAM</span>
@@ -357,119 +357,223 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
           </button>
         </div>
       ) : (
-        <div className="rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
-                <tr>
-                  <th className="px-4 py-3">Team Name</th>
-                  <th className="px-4 py-3">Short Name</th>
-                  <th className="px-4 py-3">Color</th>
-                  <th className="px-4 py-3">Place</th>
-                  <th className="px-4 py-3">Logo</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredTeams.map((team) => {
-                  const bgHex = getTeamColorHex(team);
-                  const fgHex = getTeamTextColorHex(team);
-                  return (
-                    <tr key={team.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900">{team.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
-                          {team.players.length} Players
+        <div className="space-y-3">
+          {/* Mobile Team Cards */}
+          <div className="md:hidden space-y-3">
+            {filteredTeams.map((team) => {
+              const bgHex = getTeamColorHex(team);
+              const fgHex = getTeamTextColorHex(team);
+              return (
+                <div
+                  key={`mobile-${team.id}`}
+                  className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-3 shadow-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    {team.logoUrl ? (
+                      <img
+                        src={team.logoUrl}
+                        alt={team.name}
+                        className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0"
+                      />
+                    ) : (
+                      <div
+                        className="w-11 h-11 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10 shrink-0"
+                        style={{ backgroundColor: bgHex, color: fgHex }}
+                      >
+                        {team.shortName.slice(0, 3)}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="font-display font-bold text-sm text-slate-900 truncate">
+                          {team.name}
                         </p>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700">
-                        {team.shortName}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-slate-700">
-                          <span
-                            className="w-4 h-4 rounded-xs border border-black/15 shrink-0"
-                            style={{ backgroundColor: bgHex }}
-                          />
-                          <span>{bgHex}</span>
+                        <span className="font-mono text-[11px] font-bold text-slate-600 shrink-0">
+                          {team.shortName}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-700">{team.place || '—'}</td>
-                      <td className="px-4 py-3">
-                        {team.logoUrl ? (
-                          <img
-                            src={team.logoUrl}
-                            alt={team.name}
-                            className="w-9 h-9 rounded-lg object-cover border border-slate-200"
-                          />
-                        ) : (
-                          <div
-                            className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
-                            style={{
-                              backgroundColor: bgHex,
-                              color: fgHex,
-                            }}
-                          >
-                            {team.shortName.slice(0, 3)}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => openEditTeam(team)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-soft text-xs font-bold"
-                          >
-                            <Edit3 className="w-3.5 h-3.5" />
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPlayersModalTeamId(team.id);
-                              resetPlayerForm();
-                            }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
-                          >
-                            <UserPlus className="w-3.5 h-3.5" />
-                            Add Players ({team.players.length})
-                          </button>
-                          {deleteConfirmId !== team.id ? (
-                            <button
-                              type="button"
-                              onClick={() => setDeleteConfirmId(team.id)}
-                              className="p-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white"
-                              aria-label={`Delete ${team.name}`}
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
+                        {team.players.length} Players{team.place ? ` · ${team.place}` : ''}
+                      </p>
+                      <div className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-mono font-semibold text-slate-600">
+                        <span
+                          className="w-3.5 h-3.5 rounded-xs border border-black/15 shrink-0"
+                          style={{ backgroundColor: bgHex }}
+                        />
+                        <span>{bgHex}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlayersModalTeamId(team.id);
+                        resetPlayerForm();
+                      }}
+                      className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg wo-btn-primary text-xs font-bold whitespace-nowrap"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      Add Players ({team.players.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openEditTeam(team)}
+                      className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg wo-btn-soft text-xs font-bold"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      Edit
+                    </button>
+                    {deleteConfirmId !== team.id ? (
+                      <button
+                        type="button"
+                        onClick={() => setDeleteConfirmId(team.id)}
+                        className="p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white"
+                        aria-label={`Delete ${team.name}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTeam(team.id)}
+                          className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-semibold"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop Team Table */}
+          <div className="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-4 py-3">Team Name</th>
+                    <th className="px-4 py-3">Short Name</th>
+                    <th className="px-4 py-3">Color</th>
+                    <th className="px-4 py-3">Place</th>
+                    <th className="px-4 py-3">Logo</th>
+                    <th className="px-4 py-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredTeams.map((team) => {
+                    const bgHex = getTeamColorHex(team);
+                    const fgHex = getTeamTextColorHex(team);
+                    return (
+                      <tr key={team.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-slate-900">{team.name}</p>
+                          <p className="text-xs text-slate-500">
+                            {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
+                            {team.players.length} Players
+                          </p>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700">
+                          {team.shortName}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center gap-2 text-xs font-mono font-semibold text-slate-700">
+                            <span
+                              className="w-4 h-4 rounded-xs border border-black/15 shrink-0"
+                              style={{ backgroundColor: bgHex }}
+                            />
+                            <span>{bgHex}</span>
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-700">{team.place || '—'}</td>
+                        <td className="px-4 py-3">
+                          {team.logoUrl ? (
+                            <img
+                              src={team.logoUrl}
+                              alt={team.name}
+                              className="w-9 h-9 rounded-lg object-cover border border-slate-200"
+                            />
                           ) : (
-                            <div className="inline-flex items-center gap-1">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteTeam(team.id)}
-                                className="px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold"
-                              >
-                                Delete
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDeleteConfirmId(null)}
-                                className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-semibold"
-                              >
-                                Cancel
-                              </button>
+                            <div
+                              className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
+                              style={{
+                                backgroundColor: bgHex,
+                                color: fgHex,
+                              }}
+                            >
+                              {team.shortName.slice(0, 3)}
                             </div>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => openEditTeam(team)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-soft text-xs font-bold"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPlayersModalTeamId(team.id);
+                                resetPlayerForm();
+                              }}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              Add Players ({team.players.length})
+                            </button>
+                            {deleteConfirmId !== team.id ? (
+                              <button
+                                type="button"
+                                onClick={() => setDeleteConfirmId(team.id)}
+                                className="p-1.5 rounded-md bg-red-600 hover:bg-red-700 text-white"
+                                aria-label={`Delete ${team.name}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            ) : (
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTeam(team.id)}
+                                  className="px-2 py-1 rounded bg-red-600 text-white text-xs font-semibold"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirmId(null)}
+                                  className="px-2 py-1 rounded bg-slate-200 text-slate-700 text-xs font-semibold"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
