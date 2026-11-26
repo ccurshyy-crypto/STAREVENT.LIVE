@@ -50,6 +50,11 @@ import {
   WicketType,
 } from '../../types/cricketSuite';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
+import { WorldCupUnlockModal } from './WorldCupUnlockModal';
+import {
+  isWorldCupUnlocked,
+  WORLDCUP_OFFER_PRICE_INR,
+} from '../../lib/worldCupUnlock';
 
 interface ScoringDashboardViewProps {
   state: CricketSuiteState;
@@ -99,6 +104,7 @@ export function ScoringDashboardView({
   onToast,
 }: ScoringDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
+  const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
   const [scorecardInningsTab, setScorecardInningsTab] = useState<0 | 1>(0);
   const [keypadPanel, setKeypadPanel] = useState<
     | 'main'
@@ -1619,9 +1625,17 @@ export function ScoringDashboardView({
             )}
 
             <select
-              value={state.user.userTheme}
+              value={
+                state.user.userTheme === 'worldcup' && !isWorldCupUnlocked(state.user)
+                  ? 'tata-ipl-2022'
+                  : state.user.userTheme
+              }
               onChange={(e) => {
                 const nextThemeId = e.target.value as OverlayThemeId;
+                if (nextThemeId === 'worldcup' && !isWorldCupUnlocked(state.user)) {
+                  setWorldCupPayModalOpen(true);
+                  return;
+                }
                 const found = BROADCAST_THEMES.find((t) => t.id === nextThemeId);
                 updateState((prev) => ({
                   ...prev,
@@ -1646,11 +1660,15 @@ export function ScoringDashboardView({
               aria-label="Change live scoreboard theme"
               className="w-full sm:w-auto max-w-full px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-bold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
             >
-              {BROADCAST_THEMES.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Theme: {t.name}
-                </option>
-              ))}
+              {BROADCAST_THEMES.map((t) => {
+                const locked = t.id === 'worldcup' && !isWorldCupUnlocked(state.user);
+                return (
+                  <option key={t.id} value={t.id}>
+                    Theme: {t.name}
+                    {locked ? ` (Unlock ₹${WORLDCUP_OFFER_PRICE_INR} · 2 Days)` : ''}
+                  </option>
+                );
+              })}
             </select>
 
             <button
@@ -6183,6 +6201,34 @@ export function ScoringDashboardView({
           </motion.div>
         )}
       </AnimatePresence>
+
+      <WorldCupUnlockModal
+        open={worldCupPayModalOpen}
+        onClose={() => setWorldCupPayModalOpen(false)}
+        onUnlockSuccess={({ expiresAt, utr }) => {
+          updateState((prev) => ({
+            ...prev,
+            user: {
+              ...prev.user,
+              userTheme: 'worldcup',
+              worldcupUnlockExpiresAt: expiresAt,
+              worldcupLastPaymentRef: utr,
+              customThemeColors: {
+                ...prev.user.customThemeColors,
+                enabled: false,
+              },
+            },
+            overlay: {
+              ...prev.overlay,
+              bottomScoreMode:
+                prev.overlay.bottomScoreMode === 'EMPTY'
+                  ? 'Score'
+                  : prev.overlay.bottomScoreMode,
+            },
+          }));
+          onToast('WorldCup Scoreboard unlocked for 2 Days and activated live!');
+        }}
+      />
     </div>
   );
 }

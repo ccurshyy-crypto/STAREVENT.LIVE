@@ -76,6 +76,8 @@ export interface UserAccountDetails {
   channelLogoUrl: string;
   defaultOvers: number;
   watermarkText: string;
+  worldcupUnlockExpiresAt?: string | null;
+  worldcupLastPaymentRef?: string;
 }
 
 export interface Player {

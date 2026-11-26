@@ -24,6 +24,7 @@ import {
 import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
+import { isWorldCupUnlocked } from '../../lib/worldCupUnlock';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
@@ -84,12 +85,18 @@ export function BroadcastOverlayCanvas({
   }
 
   const { overlay } = state;
-  const theme = getThemePalette(state.user.userTheme, state.user.customThemeColors);
+  const worldCupUnlocked = isWorldCupUnlocked(state.user);
+  const effectiveThemeId =
+    state.user.userTheme === 'worldcup' && !worldCupUnlocked
+      ? 'tata-ipl-2022'
+      : state.user.userTheme;
+  const theme = getThemePalette(effectiveThemeId, state.user.customThemeColors);
   const useTataIplPatti =
     !state.user.customThemeColors?.enabled &&
     (theme.id === 'tata-ipl-2022' || Boolean(theme.barStyle?.isTataIpl2022));
   const useWorldCupPatti =
     !state.user.customThemeColors?.enabled &&
+    worldCupUnlocked &&
     (theme.id === 'worldcup' || Boolean(theme.barStyle?.isWorldCup));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;

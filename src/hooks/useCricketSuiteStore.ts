@@ -67,6 +67,7 @@ function hasMeaningfulUserData(state: CricketSuiteState | null | undefined): boo
     state.pointTableOverrides.length > 0 ||
     Boolean(state.user?.channelLogoUrl?.trim()) ||
     state.user?.userTheme === 'worldcup' ||
+    Boolean(state.user?.worldcupUnlockExpiresAt) ||
     Boolean(state.user?.customThemeColors?.enabled)
   );
 }
@@ -1182,7 +1183,11 @@ export function useCricketOverlayListener(rawUid: string) {
           if (nextRev === prevRev && getUpdatedAt(remoteState) >= getUpdatedAt(prev)) {
             return remoteState;
           }
-          if (remoteState.user.userTheme !== prev.user.userTheme && getUpdatedAt(remoteState) > getUpdatedAt(prev)) {
+          if (
+            (remoteState.user.userTheme !== prev.user.userTheme ||
+              remoteState.user.worldcupUnlockExpiresAt !== prev.user.worldcupUnlockExpiresAt) &&
+            getUpdatedAt(remoteState) > getUpdatedAt(prev)
+          ) {
             return remoteState;
           }
           // Always allow cloud to replace an empty state

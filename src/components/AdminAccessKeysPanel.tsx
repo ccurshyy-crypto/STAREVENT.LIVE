@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import QRCode from 'qrcode';
 import {
   Check,
   Copy,
@@ -8,7 +9,9 @@ import {
   Lock,
   MessageCircle,
   Plus,
+  QrCode,
   RefreshCw,
+  Save,
   ShieldCheck,
   Trash2,
 } from 'lucide-react';
@@ -17,6 +20,15 @@ import {
   getSupabaseClient,
   SUPABASE_ACCESS_KEYS_TABLE,
 } from '../lib/supabaseClient';
+import {
+  buildWorldCupUpiUri,
+  fetchOwnerUpiConfig,
+  getLocalOwnerUpiConfig,
+  isValidUpiId,
+  saveOwnerUpiConfigRemote,
+  WORLDCUP_OFFER_PRICE_INR,
+  WORLDCUP_ORIGINAL_PRICE_INR,
+} from '../lib/worldCupUnlock';
 
 interface AdminAccessKeysPanelProps {
   onLockAdmin: () => void;
@@ -86,6 +98,13 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
   const [passwordInput, setPasswordInput] = useState(() => generateRandomPassword());
   const [justCreated, setJustCreated] = useState<OverlayAccessKeyRow | null>(null);
 
+  // Owner UPI QR settings (WorldCup ₹99 / 2 Days Unlock)
+  const [upiIdInput, setUpiIdInput] = useState(() => getLocalOwnerUpiConfig().upiId);
+  const [upiPayeeInput, setUpiPayeeInput] = useState(() => getLocalOwnerUpiConfig().payeeName);
+  const [upiSaving, setUpiSaving] = useState(false);
+  const [upiStatusMsg, setUpiStatusMsg] = useState<string | null>(null);
+  const [upiPreviewQr, setUpiPreviewQr] = useState<string>('');
+
   const fetchKeys = useCallback(async () => {
     setLoadingKeys(true);
     setErrorMsg(null);
@@ -116,7 +135,60 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
 
   useEffect(() => {
     void fetchKeys();
+    void fetchOwnerUpiConfig().then((cfg) => {
+      setUpiIdInput(cfg.upiId);
+      setUpiPayeeInput(cfg.payeeName);
+    });
   }, [fetchKeys]);
+
+  useEffect(() => {
+    let active = true;
+    const uri = buildWorldCupUpiUri({
+      upiId: upiIdInput,
+      payeeName: upiPayeeInput,
+      amountInr: WORLDCUP_OFFER_PRICE_INR,
+      orderId: 'PREVIEW99',
+    });
+    QRCode.toDataURL(uri, {
+      width: 160,
+      margin: 1,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    })
+      .then((url) => {
+        if (active) setUpiPreviewQr(url);
+      })
+      .catch(() => {
+        if (active) setUpiPreviewQr('');
+      });
+    return () => {
+      active = false;
+    };
+  }, [upiIdInput, upiPayeeInput]);
+
+  const handleSaveUpiConfig = async (e: FormEvent) => {
+    e.preventDefault();
+    setUpiStatusMsg(null);
+    if (!isValidUpiId(upiIdInput)) {
+      setUpiStatusMsg('Please enter a valid UPI ID (e.g. 9890175727@ybl or name@okaxis).');
+      return;
+    }
+    setUpiSaving(true);
+    try {
+      const res = await saveOwnerUpiConfigRemote({
+        upiId: upiIdInput,
+        payeeName: upiPayeeInput,
+      });
+      setUpiIdInput(res.saved.upiId);
+      setUpiPayeeInput(res.saved.payeeName);
+      setUpiStatusMsg(
+        res.syncedCloud
+          ? 'UPI QR saved & synced live for all users!'
+          : 'UPI QR saved locally on this device.'
+      );
+    } finally {
+      setUpiSaving(false);
+    }
+  };
 
   const handleRandomize = () => {
     setAccessIdInput(generateRandomAccessId());
@@ -569,6 +641,95 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
             })}
           </div>
         )}
+      </div>
+
+      {/* Owner UPI QR Payment Configuration (WorldCup ₹149 -> ₹99 · 2 Days) */}
+      <div className="rounded-2xl border border-[#FFE600]/25 bg-black/45 p-4 sm:p-5 space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+            <div>
+              <h4 className="font-display font-bold text-sm text-white">
+                WorldCup Scoreboard UPI QR Settings
+              </h4>
+              <p className="text-[11px] text-zinc-400">
+                Clients scan this QR to pay{' '}
+                <span className="line-through text-zinc-500">
+                  ₹{WORLDCUP_ORIGINAL_PRICE_INR}
+                </span>{' '}
+                <span className="text-[#FFE600] font-bold">₹{WORLDCUP_OFFER_PRICE_INR}</span> for
+                2-Day WorldCup Unlock.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form
+          onSubmit={handleSaveUpiConfig}
+          className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4 items-center"
+        >
+          <div className="space-y-3">
+            <div>
+              <label
+                htmlFor="admin-owner-upi-id"
+                className="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1"
+              >
+                Your UPI ID (GPay / PhonePe / Paytm)
+              </label>
+              <input
+                id="admin-owner-upi-id"
+                type="text"
+                value={upiIdInput}
+                onChange={(e) => setUpiIdInput(e.target.value)}
+                placeholder="e.g. 9890175727@ybl"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-950/90 border border-white/15 text-xs font-mono text-white placeholder:text-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="admin-owner-payee-name"
+                className="block text-[11px] font-bold uppercase tracking-wider text-zinc-300 mb-1"
+              >
+                Payee Display Name
+              </label>
+              <input
+                id="admin-owner-payee-name"
+                type="text"
+                value={upiPayeeInput}
+                onChange={(e) => setUpiPayeeInput(e.target.value)}
+                placeholder="STAR EVENT LIVE"
+                className="w-full px-3 py-2 rounded-lg bg-zinc-950/90 border border-white/15 text-xs text-white placeholder:text-zinc-500 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]"
+              />
+            </div>
+
+            {upiStatusMsg && (
+              <p className="text-[11px] font-semibold text-[#FFE600]">{upiStatusMsg}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={upiSaving}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FFE600] hover:bg-yellow-300 text-slate-950 text-xs font-black uppercase tracking-wider disabled:opacity-60"
+            >
+              <Save className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{upiSaving ? 'Saving...' : 'Save My UPI QR'}</span>
+            </button>
+          </div>
+
+          {upiPreviewQr && (
+            <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white border border-white/20 shrink-0 mx-auto sm:mx-0">
+              <img
+                src={upiPreviewQr}
+                alt="Preview ₹99 Owner UPI QR"
+                className="w-28 h-28 block"
+              />
+              <span className="text-[10px] font-black text-slate-900 uppercase">
+                ₹{WORLDCUP_OFFER_PRICE_INR} Live QR
+              </span>
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );
