@@ -886,6 +886,13 @@ export function SidebarToolsViews({
             enabled: false,
           },
         },
+        overlay: {
+          ...prev.overlay,
+          bottomScoreMode:
+            prev.overlay.bottomScoreMode === 'EMPTY'
+              ? 'Score'
+              : prev.overlay.bottomScoreMode,
+        },
       }));
       onToast(`Theme active: ${themeName} (live on OBS / vMix overlay).`);
     };

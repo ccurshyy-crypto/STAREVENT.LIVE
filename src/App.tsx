@@ -379,7 +379,14 @@ export default function App() {
         />
       )}
 
-      <ScrollDotNav pageKey={currentPage} />
+      <ScrollDotNav
+        pageKey={`${currentPage}-${isDashboardFullscreen ? 'suite' : 'site'}`}
+        variant={
+          isDashboardFullscreen || currentPage === 'kabaddi'
+            ? 'orange-suite'
+            : 'crimson-gold'
+        }
+      />
 
       <OverlayAccessModal
         open={accessModalOpen}

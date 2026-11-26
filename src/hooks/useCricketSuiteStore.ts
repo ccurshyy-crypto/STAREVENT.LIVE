@@ -65,7 +65,9 @@ function hasMeaningfulUserData(state: CricketSuiteState | null | undefined): boo
     state.matches.length > 0 ||
     state.groups.length > 0 ||
     state.pointTableOverrides.length > 0 ||
-    Boolean(state.user?.channelLogoUrl?.trim())
+    Boolean(state.user?.channelLogoUrl?.trim()) ||
+    state.user?.userTheme === 'worldcup' ||
+    Boolean(state.user?.customThemeColors?.enabled)
   );
 }
 
@@ -1171,17 +1173,21 @@ export function useCricketOverlayListener(rawUid: string) {
         setResolvedRoomId(res.canonicalMatchId);
       }
       if (res.state) {
+        const remoteState = res.state;
         setState((prev) => {
-          if (!prev) return res.state;
-          const nextRev = getRevision(res.state);
+          if (!prev) return remoteState;
+          const nextRev = getRevision(remoteState);
           const prevRev = getRevision(prev);
-          if (nextRev > prevRev) return res.state;
-          if (nextRev === prevRev && getUpdatedAt(res.state) >= getUpdatedAt(prev)) {
-            return res.state;
+          if (nextRev > prevRev) return remoteState;
+          if (nextRev === prevRev && getUpdatedAt(remoteState) >= getUpdatedAt(prev)) {
+            return remoteState;
+          }
+          if (remoteState.user.userTheme !== prev.user.userTheme && getUpdatedAt(remoteState) > getUpdatedAt(prev)) {
+            return remoteState;
           }
           // Always allow cloud to replace an empty state
-          if (!hasMeaningfulUserData(prev) && hasMeaningfulUserData(res.state)) {
-            return res.state;
+          if (!hasMeaningfulUserData(prev) && hasMeaningfulUserData(remoteState)) {
+            return remoteState;
           }
           return prev;
         });

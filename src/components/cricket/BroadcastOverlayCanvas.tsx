@@ -1009,6 +1009,74 @@ export function BroadcastOverlayCanvas({
     if (mode === 'EMPTY') return null;
 
     if (!match || !activeInn) {
+      if (useWorldCupPatti) {
+        return (
+          <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+            <WorldCupScoreboardBar
+              batTeamCode="IND"
+              bowlTeamCode="AUS"
+              showTeamLogo={overlay.showTeamLogo}
+              runs={0}
+              wickets={0}
+              oversText="0.0"
+              batter1Name="PAPYA"
+              batter1Runs={0}
+              batter1Balls={0}
+              batter2Name="SURAJ"
+              batter2Runs={0}
+              batter2Balls={0}
+              strikerIndex={1}
+              bowlerName="CRUSHYY"
+              bowlerFigs="0/0"
+              bowlerOvers="0.0"
+              balls={[]}
+              showBalls={false}
+              rateLabel="RUN RATE"
+              rateValue="0.00"
+              tickerText={(tournament?.name || 'LIVE SCORE WORLD CUP').toUpperCase()}
+              activeEvent={
+                showTransition && activeTransition
+                  ? { id: activeTransition.id, type: activeTransition.type }
+                  : null
+              }
+            />
+          </div>
+        );
+      }
+
+      if (useTataIplPatti) {
+        return (
+          <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+            <TataIplScoreboardBar
+              batTeamCode="GT"
+              bowlTeamCode="RR"
+              showTeamLogo={overlay.showTeamLogo}
+              scoreText="0-0"
+              oversText="0.0"
+              batter1Name="PAPYA"
+              batter1Runs={0}
+              batter1Balls={0}
+              batter2Name="SURAJ"
+              batter2Runs={0}
+              batter2Balls={0}
+              strikerIndex={1}
+              bowlerName="CRUSHYY"
+              bowlerFigs="0-0"
+              bowlerOvers="0.0"
+              balls={[]}
+              showBalls={false}
+              targetText="CRR 0.00"
+              matchTitle={(tournament?.name || state.user.channelTitle || 'LIVE CRICKET').toUpperCase()}
+              activeEvent={
+                showTransition && activeTransition
+                  ? { id: activeTransition.id, type: activeTransition.type }
+                  : null
+              }
+            />
+          </div>
+        );
+      }
+
       return (
         <div className="absolute bottom-5 inset-x-8 pointer-events-none">
           <div

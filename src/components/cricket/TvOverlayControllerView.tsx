@@ -527,6 +527,13 @@ export function TvOverlayControllerView({
                       enabled: false,
                     },
                   },
+                  overlay: {
+                    ...prev.overlay,
+                    bottomScoreMode:
+                      prev.overlay.bottomScoreMode === 'EMPTY'
+                        ? 'Score'
+                        : prev.overlay.bottomScoreMode,
+                  },
                 }));
                 onToast(`Scoreboard theme: ${found?.name || nextThemeId}`);
               }}

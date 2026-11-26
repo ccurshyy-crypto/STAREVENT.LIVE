@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
-import { Check, Copy, ExternalLink, MonitorPlay, Tv } from 'lucide-react';
+import { Check, Copy, ExternalLink, Tv } from 'lucide-react';
 
 type OverlayResolution = 'auto' | '1920x1080' | '1280x720';
-type OverlayTarget = 'obs' | 'vmix';
 
 interface ObsVmixLinkPanelProps {
   baseOverlayUrl: string;
@@ -11,9 +10,8 @@ interface ObsVmixLinkPanelProps {
   homeTheme?: boolean;
 }
 
-function buildPlatformUrl(
+function buildUnifiedOverlayUrl(
   baseUrl: string,
-  target: OverlayTarget,
   resolution: OverlayResolution
 ): string {
   try {
@@ -26,11 +24,7 @@ function buildPlatformUrl(
           ? window.location.origin
           : 'http://localhost:3000'
     );
-    if (target === 'obs') {
-      parsed.searchParams.set('source', 'obs');
-    } else {
-      parsed.searchParams.delete('source');
-    }
+    parsed.searchParams.delete('source');
     if (resolution === '1920x1080') {
       parsed.searchParams.set('w', '1920');
       parsed.searchParams.set('h', '1080');
@@ -44,15 +38,13 @@ function buildPlatformUrl(
     return isAbsolute ? parsed.toString() : `${parsed.pathname}${parsed.search}`;
   } catch {
     const sep = baseUrl.includes('?') ? '&' : '?';
-    const srcQuery = target === 'obs' ? `${sep}source=obs` : '';
-    const nextSep = srcQuery || baseUrl.includes('?') ? '&' : '?';
     const resQuery =
       resolution === '1920x1080'
-        ? `${nextSep}w=1920&h=1080`
+        ? `${sep}w=1920&h=1080`
         : resolution === '1280x720'
-          ? `${nextSep}w=1280&h=720`
+          ? `${sep}w=1280&h=720`
           : '';
-    return `${baseUrl}${srcQuery}${resQuery}`;
+    return `${baseUrl}${resQuery}`;
   }
 }
 
@@ -62,30 +54,19 @@ export function ObsVmixLinkPanel({
   compact = false,
   homeTheme = false,
 }: ObsVmixLinkPanelProps) {
-  const [selectedTarget, setSelectedTarget] = useState<OverlayTarget>('obs');
   const [resolution, setResolution] = useState<OverlayResolution>('auto');
-  const [copiedTarget, setCopiedTarget] = useState<OverlayTarget | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  const obsUrl = useMemo(
-    () => buildPlatformUrl(baseOverlayUrl, 'obs', resolution),
+  const unifiedUrl = useMemo(
+    () => buildUnifiedOverlayUrl(baseOverlayUrl, resolution),
     [baseOverlayUrl, resolution]
   );
 
-  const vmixUrl = useMemo(
-    () => buildPlatformUrl(baseOverlayUrl, 'vmix', resolution),
-    [baseOverlayUrl, resolution]
-  );
-
-  const previewUrl = selectedTarget === 'obs' ? obsUrl : vmixUrl;
-
-  const handleCopy = (target: OverlayTarget) => {
-    const url = target === 'obs' ? obsUrl : vmixUrl;
-    const label = target === 'obs' ? 'OBS Overlay Link' : 'vMix Overlay Link';
-    setSelectedTarget(target);
-    onCopyUrl(url, label);
-    setCopiedTarget(target);
+  const handleCopy = () => {
+    onCopyUrl(unifiedUrl, 'OBS & vMix Overlay Link');
+    setCopied(true);
     window.setTimeout(() => {
-      setCopiedTarget((prev) => (prev === target ? null : prev));
+      setCopied(false);
     }, 1800);
   };
 
@@ -97,11 +78,11 @@ export function ObsVmixLinkPanel({
           : 'space-y-3'
       }
     >
-      {/* Top Bar: Label, Resolution Presets, and Open Preview */}
+      {/* Top Bar: Unified Label, Resolution Presets, and Open Preview */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs sm:text-sm font-bold text-[#E87500]">
-            OBS / vMix Overlay Link
+            OBS &amp; vMix Overlay Link
           </span>
           <div
             role="group"
@@ -132,7 +113,7 @@ export function ObsVmixLinkPanel({
         </div>
 
         <a
-          href={previewUrl}
+          href={unifiedUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg wo-btn-primary text-xs font-bold transition-colors whitespace-nowrap"
@@ -142,117 +123,44 @@ export function ObsVmixLinkPanel({
         </a>
       </div>
 
-      {/* Two Separate Links: OBS Link & vMix Link with Dedicated Copy Buttons */}
-      <div className="grid grid-cols-1 gap-2">
-        {/* OBS Link Row */}
-        <div
-          className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-lg border transition-colors ${
-            selectedTarget === 'obs'
-              ? 'bg-[#FFF3E0]/75 border-[#FF8C00]/55'
-              : 'bg-white border-slate-200'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => setSelectedTarget('obs')}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shrink-0 transition-colors sm:min-w-[116px] ${
-              selectedTarget === 'obs'
-                ? 'wo-btn-active text-white'
-                : 'wo-btn-secondary'
-            }`}
-          >
-            <MonitorPlay className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>OBS Link</span>
-          </button>
-
-          <input
-            type="text"
-            readOnly
-            value={obsUrl}
-            onFocus={(e) => {
-              setSelectedTarget('obs');
-              e.currentTarget.select();
-            }}
-            aria-label="OBS Studio Browser Source Overlay Link"
-            className="flex-1 min-w-0 px-3 py-1.5 rounded-md border bg-white border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs font-mono text-slate-800"
-          />
-
-          <button
-            type="button"
-            onClick={() => handleCopy('obs')}
-            aria-label="Copy OBS Overlay Link"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 wo-btn-primary"
-          >
-            {copiedTarget === 'obs' ? (
-              <>
-                <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
+      {/* Single Unified Link for both OBS Studio & vMix */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-lg border bg-[#FFF3E0]/75 border-[#FF8C00]/55">
+        <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shrink-0 wo-btn-active text-white sm:min-w-[126px]">
+          <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+          <span>OBS / vMix</span>
         </div>
 
-        {/* vMix Link Row */}
-        <div
-          className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2 rounded-lg border transition-colors ${
-            selectedTarget === 'vmix'
-              ? 'bg-[#FFF3E0]/75 border-[#FF8C00]/55'
-              : 'bg-white border-slate-200'
-          }`}
+        <input
+          type="text"
+          readOnly
+          value={unifiedUrl}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label="Unified OBS Studio and vMix Overlay Link"
+          className="flex-1 min-w-0 px-3 py-1.5 rounded-md border bg-white border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs font-mono text-slate-800"
+        />
+
+        <button
+          type="button"
+          onClick={handleCopy}
+          aria-label="Copy OBS and vMix Overlay Link"
+          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 wo-btn-primary"
         >
-          <button
-            type="button"
-            onClick={() => setSelectedTarget('vmix')}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold shrink-0 transition-colors sm:min-w-[116px] ${
-              selectedTarget === 'vmix'
-                ? 'wo-btn-active text-white'
-                : 'wo-btn-secondary'
-            }`}
-          >
-            <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span>vMix Link</span>
-          </button>
-
-          <input
-            type="text"
-            readOnly
-            value={vmixUrl}
-            onFocus={(e) => {
-              setSelectedTarget('vmix');
-              e.currentTarget.select();
-            }}
-            aria-label="vMix Web Browser Input Overlay Link"
-            className="flex-1 min-w-0 px-3 py-1.5 rounded-md border bg-white border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs font-mono text-slate-800"
-          />
-
-          <button
-            type="button"
-            onClick={() => handleCopy('vmix')}
-            aria-label="Copy vMix Overlay Link"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-md text-xs font-bold transition-colors shrink-0 wo-btn-primary"
-          >
-            {copiedTarget === 'vmix' ? (
-              <>
-                <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Copied</span>
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Copy</span>
-              </>
-            )}
-          </button>
-        </div>
+          {copied ? (
+            <>
+              <Check className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Copied</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>Copy Link</span>
+            </>
+          )}
+        </button>
       </div>
 
       <p className="text-[11px] text-slate-500">
-        Transparent public output · Supports 1920×1080, 1280×720, and custom OBS / vMix sizes with automatic real-time sync.
+        Single universal link for both OBS Studio &amp; vMix · Transparent real-time sync for 1920×1080, 1280×720, and custom sizes.
       </p>
     </div>
   );

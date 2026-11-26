@@ -843,20 +843,7 @@ export function KabaddiControlDashboard({
                 ) : (
                   <Copy className="w-3.5 h-3.5" aria-hidden="true" />
                 )}
-                <span>{copiedType === 'normal' ? 'Copied!' : 'Copy Overlay Link'}</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => void handleCopyLink('green')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs shadow-xs"
-              >
-                {copiedType === 'green' ? (
-                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                ) : (
-                  <Copy className="w-3.5 h-3.5" aria-hidden="true" />
-                )}
-                <span>Green Screen Link</span>
+                <span>{copiedType === 'normal' ? 'Copied!' : 'Copy OBS / vMix Link'}</span>
               </button>
 
               <a

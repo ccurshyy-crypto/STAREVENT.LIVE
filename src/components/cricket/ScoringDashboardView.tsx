@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import {
   applyDeliveryToMatch,
+  BROADCAST_THEMES,
   calcRunRate,
   computeBattingCard,
   computeBowlingCard,
@@ -42,6 +43,7 @@ import {
   BallEvent,
   CricketMatch,
   CricketSuiteState,
+  OverlayThemeId,
   Player,
   PlayerRole,
   TransitionOverlayType,
@@ -1615,6 +1617,41 @@ export function ScoringDashboardView({
                 })}
               </select>
             )}
+
+            <select
+              value={state.user.userTheme}
+              onChange={(e) => {
+                const nextThemeId = e.target.value as OverlayThemeId;
+                const found = BROADCAST_THEMES.find((t) => t.id === nextThemeId);
+                updateState((prev) => ({
+                  ...prev,
+                  user: {
+                    ...prev.user,
+                    userTheme: nextThemeId,
+                    customThemeColors: {
+                      ...prev.user.customThemeColors,
+                      enabled: false,
+                    },
+                  },
+                  overlay: {
+                    ...prev.overlay,
+                    bottomScoreMode:
+                      prev.overlay.bottomScoreMode === 'EMPTY'
+                        ? 'Score'
+                        : prev.overlay.bottomScoreMode,
+                  },
+                }));
+                onToast(`Live Theme changed: ${found?.name || nextThemeId}`);
+              }}
+              aria-label="Change live scoreboard theme"
+              className="w-full sm:w-auto max-w-full px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-bold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
+            >
+              {BROADCAST_THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Theme: {t.name}
+                </option>
+              ))}
+            </select>
 
             <button
               type="button"
