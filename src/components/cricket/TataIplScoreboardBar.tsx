@@ -197,13 +197,14 @@ export function TataIplScoreboardBar({
                 >
                   <defs>
                     <linearGradient id={`gtShieldGrad-${uid}`} x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#1e293b" />
-                      <stop offset="100%" stopColor="#070b14" />
+                      <stop offset="0%" stopColor="#99040b" />
+                      <stop offset="55%" stopColor="#4a0208" />
+                      <stop offset="100%" stopColor="#070b28" />
                     </linearGradient>
                     <linearGradient id={`gtGoldGrad-${uid}`} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#fef08a" />
-                      <stop offset="50%" stopColor="#eab308" />
-                      <stop offset="100%" stopColor="#a16207" />
+                      <stop offset="0%" stopColor="#fff04d" />
+                      <stop offset="50%" stopColor="#ffe600" />
+                      <stop offset="100%" stopColor="#d97706" />
                     </linearGradient>
                   </defs>
                   <polygon
@@ -215,7 +216,7 @@ export function TataIplScoreboardBar({
                   <path
                     d="M16,19 L32,11 L48,19"
                     fill="none"
-                    stroke="#38bdf8"
+                    stroke="#ef1a1a"
                     strokeWidth="2.2"
                   />
                   <text
@@ -430,16 +431,16 @@ export function TataIplScoreboardBar({
                 >
                   <defs>
                     <linearGradient id={`rrGold-${uid}`} x1="0" y1="0" x2="1" y2="1">
-                      <stop offset="0%" stopColor="#fef08a" />
-                      <stop offset="50%" stopColor="#facc15" />
-                      <stop offset="100%" stopColor="#ca8a04" />
+                      <stop offset="0%" stopColor="#fff04d" />
+                      <stop offset="50%" stopColor="#ffe600" />
+                      <stop offset="100%" stopColor="#d97706" />
                     </linearGradient>
                   </defs>
                   <circle
                     cx="30"
                     cy="30"
                     r="25.5"
-                    fill="#172554"
+                    fill="#3b0207"
                     stroke={`url(#rrGold-${uid})`}
                     strokeWidth="2.8"
                   />
@@ -447,9 +448,9 @@ export function TataIplScoreboardBar({
                     cx="30"
                     cy="30"
                     r="20.5"
-                    fill="none"
-                    stroke="#ec4899"
-                    strokeWidth="1.3"
+                    fill="#070b28"
+                    stroke="#ef1a1a"
+                    strokeWidth="1.5"
                   />
                   <text
                     x="30"

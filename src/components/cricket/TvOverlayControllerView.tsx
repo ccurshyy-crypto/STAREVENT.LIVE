@@ -203,29 +203,29 @@ export function TvOverlayControllerView({
   if (!isUnlocked || !session) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center py-6 px-3">
-        <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-lg overflow-hidden">
-          <div className="bg-[#FF8C00] px-6 py-6 text-center text-white space-y-2">
-            <div className="w-12 h-12 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center mx-auto">
-              <Tv className="w-6 h-6 text-white" aria-hidden="true" />
+        <div className="w-full max-w-md rounded-2xl overlay-home-card overflow-hidden">
+          <div className="overlay-home-header px-6 py-6 text-center text-white space-y-2">
+            <div className="w-12 h-12 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center mx-auto shadow-[0_0_20px_rgba(255,230,0,0.28)]">
+              <Tv className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
             </div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-orange-100">
+            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#FFE600]">
               STAR EVENT LIVE
             </p>
-            <h2 className="font-display font-black text-xl tracking-wide">
+            <h2 className="font-display font-black text-xl tracking-wide text-white">
               SCOREBOARD OVERLAY CONTROL
             </h2>
           </div>
 
           <form onSubmit={handleOverlayLoginSubmit} className="p-6 space-y-4">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold">
-              <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" aria-hidden="true" />
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#6B0208]/60 border border-[#FACC15]/35 text-amber-100 text-xs font-semibold">
+              <ShieldCheck className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
               <span>Sign in with your Star Event Live Access ID and Password.</span>
             </div>
 
             {loginError && (
               <div
                 role="alert"
-                className="px-3.5 py-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-semibold"
+                className="px-3.5 py-2.5 rounded-lg bg-red-950/80 border border-red-400/50 text-red-100 text-xs font-semibold"
               >
                 {loginError}
               </div>
@@ -234,7 +234,7 @@ export function TvOverlayControllerView({
             <div>
               <label
                 htmlFor="overlay-login-id"
-                className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5"
+                className="block text-xs font-bold text-[#FFE600] uppercase tracking-wide mb-1.5"
               >
                 Login ID
               </label>
@@ -245,14 +245,14 @@ export function TvOverlayControllerView({
                 value={loginId}
                 onChange={(e) => setLoginId(e.target.value)}
                 placeholder="e.g. STAREVENTLIVE35484"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm font-mono text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00]"
+                className="w-full px-3.5 py-2.5 rounded-lg bg-[#140412]/90 border border-[#FACC15]/35 text-sm font-mono text-white placeholder:text-rose-200/45 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]"
               />
             </div>
 
             <div>
               <label
                 htmlFor="overlay-login-password"
-                className="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1.5"
+                className="block text-xs font-bold text-[#FFE600] uppercase tracking-wide mb-1.5"
               >
                 Password
               </label>
@@ -264,13 +264,13 @@ export function TvOverlayControllerView({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter Password"
-                  className="w-full pl-3.5 pr-10 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00]"
+                  className="w-full pl-3.5 pr-10 py-2.5 rounded-lg bg-[#140412]/90 border border-[#FACC15]/35 text-sm text-white placeholder:text-rose-200/45 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-slate-800"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-amber-200/75 hover:text-[#FFE600]"
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" aria-hidden="true" />
@@ -284,12 +284,12 @@ export function TvOverlayControllerView({
             <button
               type="submit"
               disabled={loginLoading}
-              className="w-full py-3 rounded-lg bg-[#FF8C00] hover:bg-[#E87500] disabled:opacity-60 text-white font-display font-bold text-sm tracking-wider shadow-xs transition-colors"
+              className="w-full py-3 rounded-lg btn-primary-pro disabled:opacity-60 text-white font-display font-bold text-sm tracking-wider"
             >
               {loginLoading ? 'VERIFYING...' : 'LOGIN'}
             </button>
 
-            <p className="text-[11px] text-center text-slate-500 pt-1">
+            <p className="text-[11px] text-center text-rose-100/70 pt-1">
               Note: Public OBS &amp; vMix browser source links continue running live without requiring login.
             </p>
           </form>
@@ -432,27 +432,31 @@ export function TvOverlayControllerView({
   };
 
   const chipBtn = (active: boolean) =>
-    `px-3 py-2 rounded-lg text-xs font-bold border transition-colors text-center ${
-      active
-        ? 'bg-[#FF8C00] text-white border-[#FF8C00] shadow-xs'
-        : 'bg-white text-slate-700 border-slate-200 hover:border-[#FF8C00] hover:text-[#FF8C00] hover:bg-[#FFF3E0]'
+    `px-3 py-2 rounded-lg text-xs font-bold tracking-wide transition-all text-center ${
+      active ? 'overlay-home-btn-active' : 'overlay-home-btn'
     }`;
+
+  const homeSelectClass =
+    'px-3 py-2 rounded-lg bg-[#140412]/90 border border-[#FACC15]/35 text-xs font-semibold text-white focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]';
+
+  const homeInputClass =
+    'w-full px-3 py-2 rounded-lg bg-[#140412]/90 border border-[#FACC15]/35 text-xs text-white placeholder:text-rose-200/45 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]';
 
   return (
     <div className="space-y-4">
       {/* Top Bar: VMix Link, Toggles, Match Switcher, Lock */}
-      <div className="rounded-xl bg-white border border-slate-200 shadow-xs p-4 space-y-3">
+      <div className="rounded-xl overlay-home-card p-4 space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
+              <span className="px-2 py-0.5 rounded bg-[#FFE600]/15 border border-[#FFE600]/45 text-[#FFE600] font-mono text-[10px] font-bold uppercase tracking-wider">
                 ROOM ID: {session.accessId}
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-rose-100/75">
                 {session.label ? `${session.label} · ` : ''}Isolated Live OBS / vMix Control Panel
               </span>
             </div>
-            <h2 className="font-display font-bold text-base text-slate-900 mt-0.5">
+            <h2 className="font-display font-black text-base text-white tracking-wide mt-0.5">
               Scoreboard Overlay Control
             </h2>
           </div>
@@ -465,10 +469,10 @@ export function TvOverlayControllerView({
                   updateState((prev) => ({ ...prev, activeMatchId: e.target.value }))
                 }
                 aria-label="Select match for overlay"
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-800"
+                className={homeSelectClass}
               >
                 {state.matches.map((m) => (
-                  <option key={m.id} value={m.id}>
+                  <option key={m.id} value={m.id} className="bg-[#140412] text-white">
                     {m.matchLabel}: {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
                     {teamMap.get(m.team2Id)?.shortName || 'T2'}
                   </option>
@@ -495,10 +499,10 @@ export function TvOverlayControllerView({
                 onToast(`Scoreboard theme: ${found?.name || nextThemeId}`);
               }}
               aria-label="Select scoreboard theme"
-              className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-800"
+              className={homeSelectClass}
             >
               {BROADCAST_THEMES.map((t) => (
-                <option key={t.id} value={t.id}>
+                <option key={t.id} value={t.id} className="bg-[#140412] text-white">
                   Theme: {t.name}
                 </option>
               ))}
@@ -507,7 +511,7 @@ export function TvOverlayControllerView({
             <button
               type="button"
               onClick={() => setShowPreviewMonitor((p) => !p)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg btn-gold-pro text-[#070B28] text-xs font-extrabold"
             >
               <Monitor className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{showPreviewMonitor ? 'Hide Monitor' : 'Live Monitor'}</span>
@@ -516,7 +520,7 @@ export function TvOverlayControllerView({
             <button
               type="button"
               onClick={handleClearOverlay}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg btn-primary-pro text-white text-xs font-bold"
             >
               <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Clear Screen</span>
@@ -525,9 +529,9 @@ export function TvOverlayControllerView({
             <button
               type="button"
               onClick={() => (onRequestLogout ? onRequestLogout() : lockAndLogout())}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg btn-glass-pro text-white text-xs font-bold"
             >
-              <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+              <LogOut className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
               <span>Logout</span>
             </button>
           </div>
@@ -538,6 +542,7 @@ export function TvOverlayControllerView({
           baseOverlayUrl={overlayUrl}
           onCopyUrl={(url, label) => onCopyOverlayUrl(url, label)}
           compact
+          homeTheme
         />
 
         {/* Visibility Toggles + Auto-Hide Timer */}
@@ -553,7 +558,7 @@ export function TvOverlayControllerView({
             ).map((item) => (
               <label
                 key={item.key}
-                className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer"
+                className="inline-flex items-center gap-2 text-xs font-bold text-rose-50 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -564,7 +569,7 @@ export function TvOverlayControllerView({
                       overlay: { ...prev.overlay, [item.key]: e.target.checked },
                     }))
                   }
-                  className="w-4 h-4 rounded accent-[#FF8C00]"
+                  className="w-4 h-4 rounded accent-[#FFE600]"
                 />
                 <span>{item.label}</span>
               </label>
@@ -572,8 +577,8 @@ export function TvOverlayControllerView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-700">
-              <Timer className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+            <label className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-50">
+              <Timer className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
               <span>Auto Hide:</span>
               <select
                 value={autoHideSeconds}
@@ -583,23 +588,23 @@ export function TvOverlayControllerView({
                   if (next === 0) cancelAutoHide();
                 }}
                 aria-label="Auto hide duration"
-                className="px-2 py-1 rounded-md border border-slate-300 bg-white text-xs font-bold text-slate-800"
+                className="px-2 py-1 rounded-md bg-[#140412]/90 border border-[#FACC15]/35 text-xs font-bold text-[#FFE600]"
               >
-                <option value={5}>5 sec</option>
-                <option value={8}>8 sec</option>
-                <option value={12}>12 sec</option>
-                <option value={15}>15 sec</option>
-                <option value={0}>Off (Manual)</option>
+                <option value={5} className="bg-[#140412] text-white">5 sec</option>
+                <option value={8} className="bg-[#140412] text-white">8 sec</option>
+                <option value={12} className="bg-[#140412] text-white">12 sec</option>
+                <option value={15} className="bg-[#140412] text-white">15 sec</option>
+                <option value={0} className="bg-[#140412] text-white">Off (Manual)</option>
               </select>
             </label>
 
             {autoHideRemaining !== null && (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-50 border border-orange-200 text-[#E65100] text-[11px] font-extrabold tabular-nums">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-[#6B0208]/85 border border-[#FFE600]/55 text-[#FFE600] text-[11px] font-extrabold tabular-nums">
                 <span>Auto-off in {autoHideRemaining}s</span>
                 <button
                   type="button"
                   onClick={cancelAutoHide}
-                  className="underline text-slate-600 hover:text-slate-900 ml-1"
+                  className="underline text-white hover:text-[#FFE600] ml-1"
                 >
                   Hold
                 </button>
@@ -611,17 +616,17 @@ export function TvOverlayControllerView({
 
       {/* Collapsible Live 16:9 Broadcast Preview Monitor */}
       {showPreviewMonitor && (
-        <div className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-slate-900 text-white flex items-center justify-between text-xs">
-            <span className="font-bold tracking-wide">
+        <div className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-white flex items-center justify-between text-xs">
+            <span className="font-display font-bold tracking-wider text-[#FFE600]">
               LIVE 16:9 OBS / vMix PREVIEW MONITOR
             </span>
-            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px]">
+            <label className="inline-flex items-center gap-1.5 cursor-pointer text-[11px] font-semibold text-white">
               <input
                 type="checkbox"
                 checked={previewGreenBg}
                 onChange={(e) => setPreviewGreenBg(e.target.checked)}
-                className="accent-emerald-500"
+                className="accent-[#FFE600]"
               />
               <span>Chroma Green Screen</span>
             </label>
@@ -631,7 +636,7 @@ export function TvOverlayControllerView({
             style={{
               background: previewGreenBg
                 ? '#00B140'
-                : 'radial-gradient(circle at center, #1E293B 0%, #090D16 100%)',
+                : 'radial-gradient(circle at center, #3A040C 0%, #070B28 100%)',
             }}
           >
             <BroadcastOverlayCanvas
@@ -644,8 +649,8 @@ export function TvOverlayControllerView({
       )}
 
       {/* 1. BOTTOM SCORE (All 19 Modes) */}
-      <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+      <section className="rounded-xl overlay-home-card overflow-hidden">
+        <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
           BOTTOM SCORE
         </div>
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
@@ -673,14 +678,14 @@ export function TvOverlayControllerView({
       </section>
 
       {/* 2. MATCH STATS (All 18 Modes) */}
-      <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-        <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
+      <section className="rounded-xl overlay-home-card overflow-hidden">
+        <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
           <span>MATCH STATS</span>
           {overlay.mainCard.kind !== 'NONE' && (
             <button
               type="button"
               onClick={() => setMainCard({ kind: 'NONE' }, 'Main card hidden')}
-              className="px-2.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[10px] font-bold"
+              className="px-2.5 py-0.5 rounded btn-gold-pro text-[#070B28] text-[10px] font-extrabold"
             >
               HIDE CARD
             </button>
@@ -709,8 +714,8 @@ export function TvOverlayControllerView({
 
       {/* 3 & 4. BATSMAN STATS & BOWLER STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             BATSMAN STATS
           </div>
           <div className="p-4 space-y-3">
@@ -722,13 +727,13 @@ export function TvOverlayControllerView({
                   overlay: { ...prev.overlay, selectedBatsmanId: e.target.value },
                 }))
               }
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
+              className={`w-full ${homeSelectClass}`}
             >
               {allMatchBatters.length === 0 ? (
-                <option value="">No batters available in active match</option>
+                <option value="" className="bg-[#140412] text-white">No batters available in active match</option>
               ) : (
                 allMatchBatters.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={p.id} className="bg-[#140412] text-white">
                     #{p.jerseyNo} {p.name}
                   </option>
                 ))
@@ -761,8 +766,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             BOWLER STATS
           </div>
           <div className="p-4 space-y-3">
@@ -774,13 +779,13 @@ export function TvOverlayControllerView({
                   overlay: { ...prev.overlay, selectedBowlerId: e.target.value },
                 }))
               }
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
+              className={`w-full ${homeSelectClass}`}
             >
               {allMatchBowlers.length === 0 ? (
-                <option value="">No bowlers available in active match</option>
+                <option value="" className="bg-[#140412] text-white">No bowlers available in active match</option>
               ) : (
                 allMatchBowlers.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={p.id} className="bg-[#140412] text-white">
                     #{p.jerseyNo} {p.name}
                   </option>
                 ))
@@ -816,13 +821,13 @@ export function TvOverlayControllerView({
 
       {/* 5. TRANSITION OVERLAY + 6. GRAPHS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <section className="lg:col-span-2 rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
+        <section className="lg:col-span-2 rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5" aria-hidden="true" />
+              <Sparkles className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
               TRANSITION OVERLAY
             </span>
-            <label className="inline-flex items-center gap-1.5 text-[11px] cursor-pointer">
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-white cursor-pointer">
               <input
                 type="checkbox"
                 checked={overlay.autoTransition}
@@ -832,7 +837,7 @@ export function TvOverlayControllerView({
                     overlay: { ...prev.overlay, autoTransition: e.target.checked },
                   }))
                 }
-                className="accent-amber-400"
+                className="accent-[#FFE600]"
               />
               <span>Auto</span>
             </label>
@@ -845,10 +850,10 @@ export function TvOverlayControllerView({
                   key={t}
                   type="button"
                   onClick={() => triggerTransition(t)}
-                  className={`px-3 py-2.5 rounded-lg border text-xs font-bold transition-colors ${
+                  className={`px-3 py-2.5 rounded-lg text-xs font-extrabold tracking-wide transition-all ${
                     isTransActive
-                      ? 'bg-[#FF8C00] text-white border-[#FF8C00] shadow-xs'
-                      : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-950'
+                      ? 'overlay-home-trans-btn-active'
+                      : 'overlay-home-trans-btn'
                   }`}
                 >
                   {t}
@@ -858,8 +863,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             GRAPHS
           </div>
           <div className="p-4 grid grid-cols-2 gap-2">
@@ -895,13 +900,13 @@ export function TvOverlayControllerView({
 
       {/* 7. POINTS TABLE + 8. HIGHLIGHTS + 9. DAYWISE STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase flex items-center justify-between">
             <span>POINTS TABLE</span>
             <button
               type="button"
               onClick={onGoToGroups}
-              className="text-[10px] underline text-orange-100"
+              className="text-[10px] underline text-amber-100 hover:text-[#FFE600]"
             >
               Groups
             </button>
@@ -950,8 +955,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             HIGHLIGHTS
           </div>
           <div className="p-4 grid grid-cols-2 gap-2">
@@ -975,8 +980,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             DAYWISE STATS
           </div>
           <div className="p-4 grid grid-cols-2 gap-2">
@@ -1003,8 +1008,8 @@ export function TvOverlayControllerView({
 
       {/* 10. CUSTOM MESSAGE + 11. TOURNAMENT STATS */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             CUSTOM MESSAGE
           </div>
           <div className="p-4 space-y-2.5">
@@ -1018,7 +1023,7 @@ export function TvOverlayControllerView({
                 }))
               }
               placeholder="Message Heading (e.g., SPONSOR ANNOUNCEMENT)"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+              className={homeInputClass}
             />
             <textarea
               rows={2}
@@ -1030,7 +1035,7 @@ export function TvOverlayControllerView({
                 }))
               }
               placeholder="Message description text..."
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs"
+              className={homeInputClass}
             />
             <div className="grid grid-cols-2 gap-2">
               {(['CUSTOM MSG', 'OTHER'] as const).map((tab) => {
@@ -1063,8 +1068,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             TOURNAMENT STATS
           </div>
           <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1091,8 +1096,8 @@ export function TvOverlayControllerView({
 
       {/* 12. TEAMWISE PLAYER STATS + 13. PLAYER OF THE MATCH */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             TEAMWISE PLAYER STATS
           </div>
           <div className="p-4 space-y-2.5">
@@ -1109,13 +1114,13 @@ export function TvOverlayControllerView({
                     },
                   }))
                 }
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
+                className={homeSelectClass}
               >
                 {state.teams.length === 0 ? (
-                  <option value="">No teams yet</option>
+                  <option value="" className="bg-[#140412] text-white">No teams yet</option>
                 ) : (
                   state.teams.map((t) => (
-                    <option key={t.id} value={t.id}>
+                    <option key={t.id} value={t.id} className="bg-[#140412] text-white">
                       {t.name}
                     </option>
                   ))
@@ -1133,13 +1138,13 @@ export function TvOverlayControllerView({
                     overlay: { ...prev.overlay, selectedTeamPlayerId: e.target.value },
                   }))
                 }
-                className="px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
+                className={homeSelectClass}
               >
                 {(selectedTeamForStats?.players ?? []).length === 0 ? (
-                  <option value="">No players</option>
+                  <option value="" className="bg-[#140412] text-white">No players</option>
                 ) : (
                   (selectedTeamForStats?.players ?? []).map((p) => (
-                    <option key={p.id} value={p.id}>
+                    <option key={p.id} value={p.id} className="bg-[#140412] text-white">
                       {p.name}
                     </option>
                   ))
@@ -1187,8 +1192,8 @@ export function TvOverlayControllerView({
           </div>
         </section>
 
-        <section className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
-          <div className="px-4 py-2.5 bg-[#FF8C00] text-white font-display font-bold text-xs tracking-wider uppercase">
+        <section className="rounded-xl overlay-home-card overflow-hidden">
+          <div className="px-4 py-2.5 overlay-home-header text-[#FFE600] font-display font-bold text-xs tracking-wider uppercase">
             PLAYER OF THE MATCH
           </div>
           <div className="p-4 space-y-2.5">
@@ -1205,13 +1210,13 @@ export function TvOverlayControllerView({
                   overlay: { ...prev.overlay, selectedPomPlayerId: e.target.value },
                 }))
               }
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs font-semibold bg-white"
+              className={`w-full ${homeSelectClass}`}
             >
               {allMatchPlayers.length === 0 ? (
-                <option value="">No players in active match</option>
+                <option value="" className="bg-[#140412] text-white">No players in active match</option>
               ) : (
                 allMatchPlayers.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={p.id} className="bg-[#140412] text-white">
                     {p.name}
                   </option>
                 ))

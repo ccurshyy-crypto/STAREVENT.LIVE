@@ -1616,10 +1616,10 @@ export function ScoringDashboardView({
             <button
               type="button"
               onClick={() => setActiveTab('overlay')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
                 activeTab === 'overlay'
-                  ? 'bg-white text-[#E87500]'
-                  : 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+                  ? 'overlay-home-btn-active text-white'
+                  : 'btn-gold-pro text-[#070B28]'
               }`}
             >
               <Tv className="w-3.5 h-3.5" aria-hidden="true" />

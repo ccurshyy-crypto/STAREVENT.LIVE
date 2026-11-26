@@ -987,20 +987,21 @@ body.overlay-chroma-blue #root {
 
 /* =========================================================
    2021-2022 TATA IPL ANIMATED BROADCAST SCOREBOARD PATTI
+   (Star Event Live Home Page Crimson · Royal Navy · Gold Theme)
 ========================================================= */
 .ipl-patti-stage {
-  --ipl-bat-bg-top: #eef6ff;
-  --ipl-bat-bg-mid: #d9ebfc;
-  --ipl-bat-bg-bot: #c3def8;
-  --ipl-score-gold-top: #ffe05d;
-  --ipl-score-gold-mid: #f7c01d;
-  --ipl-score-gold-bot: #e09e04;
-  --ipl-bowl-pink-top: #f0236b;
-  --ipl-bowl-pink-mid: #d81b60;
-  --ipl-bowl-pink-bot: #9c1147;
-  --ipl-navy-ink: #081024;
-  --ipl-sub-bar-top: #141c2f;
-  --ipl-sub-bar-bot: #070b14;
+  --ipl-bat-bg-top: #1a0720;
+  --ipl-bat-bg-mid: #100826;
+  --ipl-bat-bg-bot: #070b28;
+  --ipl-score-gold-top: #fff04d;
+  --ipl-score-gold-mid: #ffe600;
+  --ipl-score-gold-bot: #f5b800;
+  --ipl-bowl-pink-top: #ef1a1a;
+  --ipl-bowl-pink-mid: #c4070d;
+  --ipl-bowl-pink-bot: #6b0208;
+  --ipl-navy-ink: #070b28;
+  --ipl-sub-bar-top: #1f030b;
+  --ipl-sub-bar-bot: #070b28;
   font-family: 'Roboto Condensed', 'DM Sans', 'Noto Sans Devanagari', sans-serif;
   user-select: none;
   container-type: inline-size;
@@ -1061,7 +1062,7 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-wing-shield-left {
-  background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+  background: linear-gradient(180deg, #fff04d 0%, #facc15 48%, #a16207 100%);
   clip-path: polygon(0 5px, 100% 0, 86% 100%, 16% 100%);
   margin-right: -16px;
   padding: 2.5px 3px;
@@ -1069,7 +1070,7 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-wing-shield-right {
-  background: linear-gradient(180deg, #f8fafc 0%, #94a3b8 48%, #334155 100%);
+  background: linear-gradient(180deg, #fff04d 0%, #facc15 48%, #a16207 100%);
   clip-path: polygon(0 0, 100% 5px, 84% 100%, 14% 100%);
   margin-left: -16px;
   padding: 2.5px 3px;
@@ -1101,7 +1102,7 @@ body.overlay-chroma-blue #root {
 .ipl-wing-inner-left {
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 45% 40%, #2a3346 0%, #101522 58%, #060911 100%);
+  background: radial-gradient(circle at 45% 38%, #8f0812 0%, #44030b 54%, #070b28 100%);
   clip-path: polygon(1px 5px, calc(100% - 2px) 1px, calc(86% - 1px) 100%, calc(16% + 1px) 100%);
   display: flex;
   align-items: center;
@@ -1113,7 +1114,7 @@ body.overlay-chroma-blue #root {
 .ipl-wing-inner-right {
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle at 55% 40%, #2d1e3e 0%, #111524 58%, #060911 100%);
+  background: radial-gradient(circle at 55% 38%, #8f0812 0%, #3d030d 54%, #070b28 100%);
   clip-path: polygon(2px 1px, calc(100% - 1px) 5px, calc(84% - 1px) 100%, calc(14% + 1px) 100%);
   display: flex;
   align-items: center;
@@ -1128,11 +1129,11 @@ body.overlay-chroma-blue #root {
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(rgba(255, 255, 255, 0.35) 1px, transparent 1px),
-    radial-gradient(rgba(56, 189, 248, 0.25) 1px, transparent 1px);
+    radial-gradient(rgba(255, 230, 0, 0.45) 1px, transparent 1px),
+    radial-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px);
   background-size: 18px 18px, 26px 26px;
   background-position: 0 0, 9px 11px;
-  opacity: 0.45;
+  opacity: 0.55;
   pointer-events: none;
 }
 
@@ -1200,12 +1201,13 @@ body.overlay-chroma-blue #root {
   flex-direction: column;
   position: relative;
   z-index: 2;
-  background: #080d1a;
-  border-top: 2.5px solid #f8fafc;
-  border-bottom: 2.5px solid #94a3b8;
+  background: #140208;
+  border-top: 2.5px solid #ffe600;
+  border-bottom: 2.5px solid #d4a017;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.35);
+    inset 0 1px 0 rgba(255, 252, 209, 0.85),
+    inset 0 -1px 0 rgba(250, 204, 21, 0.45),
+    0 0 22px rgba(220, 38, 38, 0.42);
   overflow: hidden;
 }
 
@@ -1251,13 +1253,15 @@ body.overlay-chroma-blue #root {
 
 .ipl-seg-team-score {
   width: 29%;
-  background: linear-gradient(180deg, var(--ipl-bat-bg-top) 0%, var(--ipl-bat-bg-mid) 55%, var(--ipl-bat-bg-bot) 100%);
+  background: linear-gradient(110deg, #6b0208 0%, #3d030d 46%, #0a1033 100%);
+  background-size: 200% 200%;
+  animation: broadcastGradientShift 10s ease-in-out infinite;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
   padding: 0 14px 0 22px;
-  border-right: 1.5px solid #93c5fd;
+  border-right: 1.5px solid rgba(255, 230, 0, 0.45);
   position: relative;
   min-width: 0;
 }
@@ -1277,23 +1281,24 @@ body.overlay-chroma-blue #root {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #e11d48;
-  box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75);
-  animation: iplLiveDotPulse 2s infinite;
+  background: #ffe600;
+  box-shadow: 0 0 0 0 rgba(255, 230, 0, 0.85);
+  animation: iplLiveDotPulse 1.8s infinite;
   flex-shrink: 0;
 }
 
 @keyframes iplLiveDotPulse {
-  0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.75); }
-  70% { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); }
-  100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(225, 29, 72, 0); }
+  0% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(255, 230, 0, 0.85); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 7px rgba(255, 230, 0, 0); }
+  100% { transform: scale(0.92); box-shadow: 0 0 0 0 rgba(255, 230, 0, 0); }
 }
 
 .ipl-bat-team-code {
   font-family: 'Oswald', 'Roboto Condensed', sans-serif;
   font-weight: 700;
   font-size: 24px;
-  color: var(--ipl-navy-ink);
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
   letter-spacing: 0.6px;
   line-height: 1;
   text-transform: uppercase;
@@ -1313,12 +1318,12 @@ body.overlay-chroma-blue #root {
   font-weight: 900;
   font-size: 24px;
   padding: 1px 14px;
-  border-radius: 2px;
+  border-radius: 3px;
   line-height: 1.08;
   letter-spacing: 0.4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.8);
-  border-bottom: 1px solid rgba(146, 64, 14, 0.45);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.24);
+  border-top: 1px solid rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid rgba(146, 64, 14, 0.55);
+  box-shadow: 0 2px 10px rgba(255, 230, 0, 0.4);
   position: relative;
   overflow: hidden;
   display: inline-flex;
@@ -1348,7 +1353,8 @@ body.overlay-chroma-blue #root {
   font-family: 'Roboto Condensed', sans-serif;
   font-weight: 900;
   font-size: 17px;
-  color: var(--ipl-navy-ink);
+  color: #ffe600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
   letter-spacing: 0.3px;
   flex-shrink: 0;
 }
@@ -1359,11 +1365,11 @@ body.overlay-chroma-blue #root {
 
 .ipl-seg-batsmen {
   width: 35%;
-  background: linear-gradient(180deg, #f5faff 0%, #e1effd 55%, #cde3fa 100%);
+  background: linear-gradient(180deg, #1b0518 0%, #0d0d2e 55%, #070b28 100%);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-right: 1.5px solid #93c5fd;
+  border-right: 1.5px solid rgba(255, 230, 0, 0.45);
   min-width: 0;
 }
 
@@ -1373,7 +1379,7 @@ body.overlay-chroma-blue #root {
   align-items: center;
   justify-content: space-between;
   padding: 0 14px 0 11px;
-  color: var(--ipl-navy-ink);
+  color: #ffffff;
   transition: background-color 0.25s ease;
   min-width: 0;
 }
@@ -1384,11 +1390,11 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-batter-line:first-child {
-  border-bottom: 1px solid rgba(14, 116, 144, 0.2);
+  border-bottom: 1px solid rgba(255, 230, 0, 0.18);
 }
 
 .ipl-batter-line.is-striker {
-  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16) 0%, rgba(255, 255, 255, 0.35) 50%, transparent 100%);
+  background: linear-gradient(90deg, rgba(239, 26, 26, 0.32) 0%, rgba(255, 230, 0, 0.12) 55%, transparent 100%);
 }
 
 .ipl-batter-left {
@@ -1402,7 +1408,7 @@ body.overlay-chroma-blue #root {
 .ipl-strike-arrow {
   font-size: 11px;
   font-weight: 900;
-  color: var(--ipl-navy-ink);
+  color: #ffe600;
   width: 12px;
   display: inline-flex;
   align-items: center;
@@ -1419,13 +1425,13 @@ body.overlay-chroma-blue #root {
 @keyframes iplStrikerTrianglePulse {
   0%, 100% {
     transform: translateX(0) scale(1);
-    color: #081024;
-    text-shadow: 0 0 0 transparent;
+    color: #ffe600;
+    text-shadow: 0 0 6px rgba(255, 230, 0, 0.55);
   }
   50% {
-    transform: translateX(2.5px) scale(1.18);
-    color: #0284c7;
-    text-shadow: 0 0 8px rgba(2, 132, 199, 0.65);
+    transform: translateX(2.5px) scale(1.2);
+    color: #ffffff;
+    text-shadow: 0 0 12px rgba(255, 230, 0, 0.95);
   }
 }
 
@@ -1443,6 +1449,7 @@ body.overlay-chroma-blue #root {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #f8fafc;
 }
 
 .ipl-patti-wrapper.is-compact .ipl-batter-name {
@@ -1451,7 +1458,7 @@ body.overlay-chroma-blue #root {
 
 .ipl-batter-line.is-striker .ipl-batter-name {
   font-weight: 900;
-  color: #040916;
+  color: #ffffff;
 }
 
 .ipl-batter-stats {
@@ -1470,7 +1477,7 @@ body.overlay-chroma-blue #root {
 .ipl-batter-runs {
   font-weight: 900;
   font-size: 16.5px;
-  color: var(--ipl-navy-ink);
+  color: #ffe600;
   min-width: 18px;
   text-align: right;
   display: inline-block;
@@ -1479,7 +1486,7 @@ body.overlay-chroma-blue #root {
 .ipl-batter-balls {
   font-weight: 700;
   font-size: 13px;
-  color: #334155;
+  color: #fecdd3;
   min-width: 16px;
   text-align: right;
   display: inline-block;
@@ -1507,7 +1514,9 @@ body.overlay-chroma-blue #root {
 
 .ipl-seg-bowler {
   width: 36%;
-  background: linear-gradient(90deg, var(--ipl-bowl-pink-top) 0%, var(--ipl-bowl-pink-mid) 54%, var(--ipl-bowl-pink-bot) 100%);
+  background: linear-gradient(105deg, var(--ipl-bowl-pink-top) 0%, var(--ipl-bowl-pink-mid) 48%, var(--ipl-bowl-pink-bot) 100%);
+  background-size: 200% 200%;
+  animation: broadcastGradientShift 9s ease-in-out infinite;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1645,8 +1654,8 @@ body.overlay-chroma-blue #root {
 
 .ipl-patti-bottom-band {
   height: 20px;
-  background: linear-gradient(180deg, var(--ipl-sub-bar-top) 0%, var(--ipl-sub-bar-bot) 100%);
-  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(95deg, #2b020a 0%, #140519 48%, #070b28 100%);
+  border-top: 1px solid rgba(255, 230, 0, 0.45);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1680,14 +1689,14 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-sub-vs {
-  color: #e2e8f0;
+  color: #fecdd3;
   font-weight: 800;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .ipl-sub-target {
-  color: #ffffff;
+  color: #ffe600;
   font-weight: 900;
   letter-spacing: 0.55px;
   white-space: nowrap;
@@ -1696,7 +1705,7 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-sub-right {
-  color: #f8fafc;
+  color: #ffffff;
   font-weight: 900;
   letter-spacing: 0.6px;
   white-space: nowrap;
@@ -1913,6 +1922,261 @@ body.overlay-chroma-blue #root {
     font-size: 11px;
     padding: 2px 8px;
   }
+}
+
+/* =========================================================
+   HOME PAGE ANIMATED CRIMSON · ROYAL NAVY · GOLD THEME
+   FOR OVERLAY CONTROL PANEL, BUTTONS & BROADCAST OVERLAYS
+========================================================= */
+@keyframes overlayHomeActivePulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 252, 209, 0.45),
+      0 6px 18px -4px rgba(239, 26, 26, 0.72),
+      0 0 14px rgba(255, 230, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      inset 0 1px 0 rgba(255, 252, 209, 0.65),
+      0 8px 24px -4px rgba(239, 26, 26, 0.9),
+      0 0 22px rgba(255, 230, 0, 0.78);
+  }
+}
+
+.overlay-home-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    rgba(62, 4, 12, 0.9) 0%,
+    rgba(30, 3, 12, 0.92) 52%,
+    rgba(8, 12, 42, 0.94) 100%
+  );
+  border: 1px solid rgba(250, 204, 21, 0.32);
+  box-shadow:
+    0 16px 38px -12px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(255, 230, 0, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.overlay-home-header {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    110deg,
+    rgba(132, 6, 14, 0.96) 0%,
+    rgba(86, 3, 12, 0.96) 36%,
+    rgba(10, 16, 51, 0.96) 72%,
+    rgba(116, 4, 12, 0.96) 100%
+  );
+  background-size: 240% 240%;
+  animation: broadcastGradientShift 9s ease-in-out infinite;
+  border-bottom: 1.5px solid rgba(250, 204, 21, 0.42);
+}
+
+.overlay-home-header::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 42%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 230, 0, 0.18) 50%,
+    transparent 100%
+  );
+  transform: skewX(-24deg);
+  animation: bannerSheenGlide 6.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay-home-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    165deg,
+    rgba(107, 4, 14, 0.78) 0%,
+    rgba(48, 3, 12, 0.88) 54%,
+    rgba(10, 14, 45, 0.92) 100%
+  );
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  color: #fff6ee;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 12px -6px rgba(0, 0, 0, 0.65);
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 160ms ease,
+    filter 160ms ease;
+}
+
+.overlay-home-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 230, 0, 0.16),
+    transparent
+  );
+  transform: translateX(-160%) skewX(-24deg);
+  animation: ctaGlossSweep 6.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay-home-btn:hover {
+  border-color: rgba(255, 230, 0, 0.78);
+  color: #ffe600;
+  filter: brightness(1.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 0, 0.28),
+    0 8px 20px -6px rgba(220, 38, 38, 0.55),
+    0 0 12px rgba(255, 230, 0, 0.28);
+}
+
+.overlay-home-btn-active {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    115deg,
+    #ef1a1a 0%,
+    #d4080f 45%,
+    #a8040a 75%,
+    #ef1a1a 100%
+  );
+  background-size: 220% 220%;
+  border: 1.5px solid #ffe600;
+  color: #ffffff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  animation:
+    broadcastGradientShift 4.5s ease-in-out infinite,
+    overlayHomeActivePulse 2.2s ease-in-out infinite;
+}
+
+.overlay-home-btn-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 44%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 240, 120, 0.42),
+    transparent
+  );
+  transform: translateX(-150%) skewX(-24deg);
+  animation: ctaGlossSweep 3.4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay-home-trans-btn {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    rgba(138, 12, 16, 0.88) 0%,
+    rgba(72, 4, 12, 0.92) 52%,
+    rgba(18, 10, 42, 0.94) 100%
+  );
+  border: 1px solid rgba(255, 230, 0, 0.52);
+  color: #ffe600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 230, 0, 0.2),
+    0 6px 16px -8px rgba(239, 26, 26, 0.65);
+}
+
+.overlay-home-trans-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 42%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 230, 0, 0.25),
+    transparent
+  );
+  transform: translateX(-150%) skewX(-24deg);
+  animation: ctaGlossSweep 4.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay-home-trans-btn:hover {
+  border-color: #ffe600;
+  color: #ffffff;
+  background: linear-gradient(180deg, #ef1a1a 0%, #c4070d 55%, #8f040b 100%);
+  box-shadow:
+    0 8px 20px -6px rgba(239, 26, 26, 0.78),
+    0 0 14px rgba(255, 230, 0, 0.4);
+}
+
+.overlay-home-trans-btn-active {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fff04d 0%, #ffe600 54%, #f5c400 100%);
+  border: 1.5px solid #fffcd1;
+  color: #070b28;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    0 0 22px rgba(255, 230, 0, 0.78);
+}
+
+.overlay-home-trans-btn-active::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 46%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  transform: translateX(-150%) skewX(-24deg);
+  animation: ctaGlossSweep 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.overlay-canvas-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    145deg,
+    rgba(88, 3, 12, 0.95) 0%,
+    rgba(36, 3, 14, 0.96) 50%,
+    rgba(7, 11, 40, 0.97) 100%
+  );
+  background-size: 200% 200%;
+  animation: broadcastGradientShift 12s ease-in-out infinite;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.75),
+    0 0 28px rgba(220, 38, 38, 0.42),
+    inset 0 1px 0 rgba(255, 230, 0, 0.45);
+}
+
+.overlay-canvas-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -130%;
+  width: 34%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 230, 0, 0.14) 50%,
+    transparent 100%
+  );
+  transform: skewX(-24deg);
+  animation: bannerSheenGlide 7.2s ease-in-out infinite;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

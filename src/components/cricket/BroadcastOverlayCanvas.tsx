@@ -282,34 +282,60 @@ export function BroadcastOverlayCanvas({
           initial={{ opacity: 0, y: 18, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ type: 'spring', stiffness: 310, damping: 25 }}
-          className={`${wide ? 'w-full max-w-4xl' : 'w-full max-w-2xl'} rounded-2xl overflow-hidden shadow-2xl border-2`}
+          className={`${wide ? 'w-full max-w-4xl' : 'w-full max-w-2xl'} rounded-2xl overflow-hidden shadow-2xl border-2 ${
+            useTataIplPatti ? 'overlay-canvas-card' : ''
+          }`}
           style={{
-            background: `${theme.surface}F2`,
-            borderColor: theme.accent,
+            background: useTataIplPatti ? undefined : `${theme.surface}F2`,
+            borderColor: useTataIplPatti ? '#FFE600' : theme.accent,
           }}
         >
           <div
-            className="px-6 py-3.5 flex items-center justify-between gap-4"
-            style={{
-              background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary})`,
-            }}
+            className={`relative overflow-hidden px-6 py-3.5 flex items-center justify-between gap-4 ${
+              useTataIplPatti ? 'studio-strip-animated-bg border-b border-[#FFE600]/45' : ''
+            }`}
+            style={
+              useTataIplPatti
+                ? undefined
+                : {
+                    background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary})`,
+                  }
+            }
           >
-            <div>
-              <h2 className="font-display font-black text-lg sm:text-xl text-white uppercase tracking-wide">
+            {useTataIplPatti && (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#FFE600]/80 to-transparent"
+                />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
+                >
+                  <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#EF1A1A] to-[#FFE600] opacity-90 topbar-beam-sweep" />
+                </div>
+              </>
+            )}
+            <div className="relative z-10">
+              <h2 className="font-display font-black text-lg sm:text-xl text-white uppercase tracking-wide drop-shadow-[0_2px_6px_rgba(0,0,0,0.6)]">
                 {title}
               </h2>
               {subtitle && (
-                <p className="text-xs font-semibold text-white/80">{subtitle}</p>
+                <p className="text-xs font-semibold text-amber-100/85">{subtitle}</p>
               )}
             </div>
             <span
-              className="px-3 py-1 rounded-md text-[11px] font-black uppercase tracking-wider text-slate-950"
-              style={{ background: theme.accent }}
+              className="relative z-10 px-3 py-1 rounded-md text-[11px] font-black uppercase tracking-wider text-[#070B28] shadow-sm"
+              style={{
+                background: useTataIplPatti
+                  ? 'linear-gradient(180deg, #FFF04D 0%, #FFE600 55%, #F5B800 100%)'
+                  : theme.accent,
+              }}
             >
               {tournament?.shortName || state.user.channelTitle || 'LIVE'}
             </span>
           </div>
-          <div className="p-5 text-white">{children}</div>
+          <div className="relative z-10 p-5 text-white">{children}</div>
         </motion.div>
       </div>
     );
@@ -1147,14 +1173,36 @@ export function BroadcastOverlayCanvas({
       return (
         <div className="absolute bottom-5 inset-x-8 pointer-events-none">
           <div
-            className="rounded-xl px-6 py-3.5 flex items-center justify-center gap-4 text-white shadow-2xl border-2"
+            className={`relative overflow-hidden rounded-xl px-6 py-3.5 flex items-center justify-center gap-4 text-white shadow-2xl border-2 ${
+              useTataIplPatti ? 'studio-strip-animated-bg suite-top-box-glow' : ''
+            }`}
             style={{
-              background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})`,
-              borderColor: theme.accent,
+              background: useTataIplPatti
+                ? undefined
+                : `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})`,
+              borderColor: useTataIplPatti ? '#FFE600' : theme.accent,
             }}
           >
+            {useTataIplPatti && (
+              <>
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-[#FFE600]/25 to-transparent banner-sheen-animated"
+                />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
+                >
+                  <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#EF1A1A] to-[#FFE600] opacity-90 topbar-beam-sweep" />
+                </div>
+              </>
+            )}
             {mode === 'Versus With Logo' && renderTeamBadge(team1, 'w-10 h-10')}
-            <span className="font-display font-black text-base sm:text-xl tracking-wide text-center">
+            <span
+              className={`relative z-10 font-display font-black text-base sm:text-xl tracking-wide text-center drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)] ${
+                useTataIplPatti ? 'text-[#FFE600]' : 'text-white'
+              }`}
+            >
               {centerText}
             </span>
             {mode === 'Versus With Logo' && renderTeamBadge(team2, 'w-10 h-10')}
@@ -1437,26 +1485,31 @@ export function BroadcastOverlayCanvas({
           !(match?.status === 'completed' && overlay.bottomScoreMode === 'Score')
         ) && (
         <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
-          <div
-            className="px-14 py-6 rounded-2xl border-4 shadow-2xl text-center animate-bounce"
+          <motion.div
+            key={activeTransition.id}
+            initial={{ opacity: 0, scale: 0.72, y: 18 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 360, damping: 22 }}
+            className="relative overflow-hidden px-14 py-6 rounded-2xl border-4 shadow-2xl text-center studio-strip-animated-bg suite-top-box-glow"
             style={{
               background:
                 activeTransition.type === 'Wicket'
-                  ? 'linear-gradient(135deg, #991B1B, #DC2626)'
-                  : `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
-              borderColor: theme.accent,
+                  ? 'linear-gradient(120deg, #7F030A 0%, #DC2626 48%, #450208 100%)'
+                  : undefined,
+              borderColor: '#FFE600',
             }}
           >
-            <p className="text-xs font-bold uppercase tracking-[0.3em] text-white/85">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-[#FFE600]/30 to-transparent banner-sheen-animated"
+            />
+            <p className="relative z-10 text-xs font-bold uppercase tracking-[0.3em] text-amber-100/90">
               {state.user.channelTitle || 'STAR EVENT LIVE'}
             </p>
-            <p
-              className="font-display font-black text-5xl sm:text-6xl uppercase tracking-wider drop-shadow-md mt-1"
-              style={{ color: theme.accent }}
-            >
+            <p className="relative z-10 font-display font-black text-5xl sm:text-6xl uppercase tracking-wider drop-shadow-[0_4px_14px_rgba(0,0,0,0.75)] mt-1 text-[#FFE600]">
               {activeTransition.type}
             </p>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>
