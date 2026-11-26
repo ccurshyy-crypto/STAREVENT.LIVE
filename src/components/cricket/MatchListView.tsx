@@ -409,14 +409,14 @@ export function MatchListView({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search match by tournament, team name, or match name..."
-            className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#D4080F] focus:bg-white focus:outline-none text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none text-sm"
           />
         </div>
 
         <button
           type="button"
           onClick={openCreateMatch}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
           <span>CREATE MATCH</span>
@@ -426,8 +426,8 @@ export function MatchListView({
       {/* Clean Blank Match List or Table */}
       {filteredMatches.length === 0 ? (
         <div className="rounded-xl bg-white border border-slate-200 p-12 text-center space-y-3 shadow-xs">
-          <div className="w-12 h-12 mx-auto rounded-xl overlay-home-header flex items-center justify-center">
-            <Radio className="w-6 h-6 text-[#FFE600]" />
+          <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center">
+            <Radio className="w-6 h-6 text-[#FF8C00]" />
           </div>
           <h2 className="font-display font-bold text-base text-slate-900">
             No Matches Created Yet
@@ -438,7 +438,7 @@ export function MatchListView({
           <button
             type="button"
             onClick={openCreateMatch}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
           >
             <Plus className="w-4 h-4" />
             <span>CREATE MATCH</span>
@@ -519,7 +519,7 @@ export function MatchListView({
                           <button
                             type="button"
                             onClick={() => onOpenScoring(m.id)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md btn-primary-pro text-white text-xs font-bold whitespace-nowrap"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
                           >
                             <Play className="w-3.5 h-3.5" />
                             OPEN SCORING
@@ -527,7 +527,7 @@ export function MatchListView({
                           <button
                             type="button"
                             onClick={() => openEditMatch(m)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md overlay-home-btn text-xs font-bold"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-soft text-xs font-bold"
                           >
                             <Edit3 className="w-3.5 h-3.5" />
                             EDIT
@@ -579,11 +579,11 @@ export function MatchListView({
         >
           <form
             onSubmit={handleSaveMatch}
-            className="w-full max-w-xl rounded-xl bg-white border border-[#FACC15]/35 overflow-hidden shadow-2xl my-auto"
+            className="w-full max-w-xl rounded-xl bg-white border border-orange-200 overflow-hidden shadow-2xl my-auto"
           >
-            <div className="px-5 py-4 overlay-home-header text-white flex items-center justify-between">
+            <div className="px-5 py-4 wo-header text-white flex items-center justify-between">
               <div>
-                <h3 className="font-display font-black text-base text-[#FFE600] uppercase tracking-wide">
+                <h3 className="font-display font-bold text-base text-white tracking-wide">
                   {editingId
                     ? 'Edit Match'
                     : createStep === 1
@@ -591,7 +591,7 @@ export function MatchListView({
                       : 'Create Match — Step 2: Toss Won'}
                 </h3>
                 {!editingId && (
-                  <p className="text-[11px] text-rose-100/85 mt-0.5">
+                  <p className="text-[11px] text-orange-100 mt-0.5">
                     {createStep === 1
                       ? 'Select teams & match details, then choose Toss Won'
                       : 'Select Toss Winner & Bat/Bowl decision to create match'}
@@ -601,7 +601,7 @@ export function MatchListView({
               <button
                 type="button"
                 onClick={() => setModalOpen(false)}
-                className="p-1 text-[#FFE600] hover:text-white"
+                className="p-1 text-white/90 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -618,14 +618,14 @@ export function MatchListView({
                   }}
                   className={`py-2.5 px-3 flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
                     createStep === 1
-                      ? 'border-[#D4080F] text-[#B91C1C] bg-white'
+                      ? 'border-[#FF8C00] text-[#E87500] bg-white'
                       : 'border-transparent text-emerald-700 bg-emerald-50/40'
                   }`}
                 >
                   <span
                     className={`w-5 h-5 rounded-full text-[11px] inline-flex items-center justify-center ${
                       createStep === 1
-                        ? 'bg-[#D4080F] text-white'
+                        ? 'bg-[#FF8C00] text-white'
                         : 'bg-emerald-600 text-white'
                     }`}
                   >
@@ -636,14 +636,14 @@ export function MatchListView({
                 <div
                   className={`py-2.5 px-3 flex items-center justify-center gap-1.5 border-b-2 transition-colors ${
                     createStep === 2
-                      ? 'border-[#D4080F] text-[#B91C1C] bg-white'
+                      ? 'border-[#FF8C00] text-[#E87500] bg-white'
                       : 'border-transparent text-slate-400'
                   }`}
                 >
                   <span
                     className={`w-5 h-5 rounded-full text-[11px] inline-flex items-center justify-center ${
                       createStep === 2
-                        ? 'bg-[#D4080F] text-white'
+                        ? 'bg-[#FF8C00] text-white'
                         : 'bg-slate-200 text-slate-500'
                     }`}
                   >
@@ -672,18 +672,18 @@ export function MatchListView({
                 /* ================= STEP 2: TOSS WON & DECISION ================= */
                 <div className="space-y-5">
                   {/* Matchup Summary Banner */}
-                  <div className="rounded-xl overlay-home-card p-3.5 flex items-center justify-between gap-3">
+                  <div className="rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/35 p-3.5 flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#FFE600]">
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#E87500]">
                         {matchName.trim() || `MATCH ${state.matches.length + 1}`} · {stageBadge} · {totalOvers} Overs
                       </p>
-                      <p className="font-display font-bold text-sm sm:text-base text-white truncate mt-0.5">
+                      <p className="font-display font-bold text-sm sm:text-base text-slate-900 truncate mt-0.5">
                         {selectedTeam1?.name || 'Team A'}{' '}
-                        <span className="text-[#FFE600] font-black mx-1">VS</span>{' '}
+                        <span className="text-[#FF8C00] font-black mx-1">VS</span>{' '}
                         {selectedTeam2?.name || 'Team B'}
                       </p>
                     </div>
-                    <div className="w-10 h-10 rounded-full btn-primary-pro text-white flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-full wo-btn-primary flex items-center justify-center shrink-0">
                       <Coins className="w-5 h-5" aria-hidden="true" />
                     </div>
                   </div>
@@ -707,16 +707,16 @@ export function MatchListView({
                             }}
                             className={`p-4 rounded-xl border-2 text-left transition-all flex items-center justify-between gap-3 ${
                               isWinner
-                                ? 'overlay-home-btn-active text-white'
-                                : 'bg-white border-slate-200 hover:border-[#D4080F]/50 hover:bg-rose-50/40'
+                                ? 'wo-btn-active text-white'
+                                : 'bg-white border-slate-200 hover:border-[#FF8C00]/60 hover:bg-[#FFF3E0]/50'
                             }`}
                           >
                             <div className="min-w-0">
                               <span
                                 className={`inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider mb-1 ${
                                   isWinner
-                                    ? 'bg-[#FFE600] text-[#070B28]'
-                                    : 'bg-rose-100 text-[#B91C1C]'
+                                    ? 'bg-white text-[#E87500]'
+                                    : 'bg-[#FFF3E0] text-[#E87500]'
                                 }`}
                               >
                                 {tm.shortName}
@@ -730,7 +730,7 @@ export function MatchListView({
                               </p>
                               <p
                                 className={`text-[11px] mt-0.5 ${
-                                  isWinner ? 'text-rose-100' : 'text-slate-500'
+                                  isWinner ? 'text-orange-100' : 'text-slate-500'
                                 }`}
                               >
                                 {tm.players.length} Players
@@ -739,7 +739,7 @@ export function MatchListView({
                             <span
                               className={`w-6 h-6 rounded-full inline-flex items-center justify-center shrink-0 ${
                                 isWinner
-                                  ? 'bg-[#FFE600] text-[#070B28]'
+                                  ? 'bg-white text-[#FF8C00]'
                                   : 'border-2 border-slate-300'
                               }`}
                             >
@@ -771,8 +771,8 @@ export function MatchListView({
                             onClick={() => setTossDecision(opt.value)}
                             className={`p-3.5 rounded-xl border-2 text-center transition-all ${
                               isActive
-                                ? 'overlay-home-btn-active text-white'
-                                : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-rose-50 hover:border-[#D4080F]/40'
+                                ? 'wo-btn-active text-white'
+                                : 'bg-white text-slate-800 border-slate-200 hover:bg-[#FFF3E0]/60 hover:border-[#FF8C00]/60'
                             }`}
                           >
                             <span className="block font-display font-black text-sm tracking-wide">
@@ -780,7 +780,7 @@ export function MatchListView({
                             </span>
                             <span
                               className={`block text-[11px] mt-0.5 ${
-                                isActive ? 'text-amber-100' : 'text-slate-500'
+                                isActive ? 'text-orange-100' : 'text-slate-500'
                               }`}
                             >
                               {opt.sub}
@@ -878,8 +878,8 @@ export function MatchListView({
 
                   {/* Inline Toss Won section when editing an existing match */}
                   {editingId && selectedTeam1 && selectedTeam2 && (
-                    <div className="sm:col-span-2 rounded-xl bg-rose-50/70 border border-rose-200 p-3.5 space-y-3">
-                      <p className="text-xs font-bold text-[#B91C1C] uppercase tracking-wider flex items-center gap-1.5">
+                    <div className="sm:col-span-2 rounded-xl bg-[#FFF3E0]/60 border border-[#FF8C00]/35 p-3.5 space-y-3">
+                      <p className="text-xs font-bold text-[#E87500] uppercase tracking-wider flex items-center gap-1.5">
                         <Coins className="w-3.5 h-3.5" aria-hidden="true" />
                         Toss Won &amp; Decision
                       </p>
@@ -891,8 +891,8 @@ export function MatchListView({
                             onClick={() => setTossWinnerId(tm.id)}
                             className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors truncate ${
                               tossWinnerId === tm.id
-                                ? 'overlay-home-btn-active text-white'
-                                : 'bg-white text-slate-700 border-slate-200 hover:bg-rose-50'
+                                ? 'wo-btn-active text-white'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-[#FFF3E0] hover:border-[#FF8C00]/50'
                             }`}
                           >
                             {tm.name}
@@ -907,8 +907,8 @@ export function MatchListView({
                             onClick={() => setTossDecision(dec)}
                             className={`py-2 rounded-lg text-xs font-bold border transition-colors ${
                               tossDecision === dec
-                                ? 'overlay-home-btn-active text-white'
-                                : 'bg-white text-slate-700 border-slate-200 hover:bg-rose-50'
+                                ? 'wo-btn-active text-white'
+                                : 'bg-white text-slate-700 border-slate-200 hover:bg-[#FFF3E0] hover:border-[#FF8C00]/50'
                             }`}
                           >
                             Elected to {dec}
@@ -1007,7 +1007,7 @@ export function MatchListView({
                 <button
                   type="submit"
                   disabled={tourTeams.length < 2}
-                  className="px-5 py-2 rounded-lg btn-primary-pro disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider"
+                  className="px-5 py-2 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider"
                 >
                   Save Match
                 </button>
@@ -1015,7 +1015,7 @@ export function MatchListView({
                 <button
                   type="submit"
                   disabled={tourTeams.length < 2}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg btn-primary-pro disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider"
                 >
                   <span>Next: Toss Won</span>
                   <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1024,7 +1024,7 @@ export function MatchListView({
                 <button
                   type="submit"
                   disabled={!tossWinnerId}
-                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg btn-primary-pro disabled:opacity-50 text-white text-xs font-extrabold uppercase tracking-wider"
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Create Match &amp; Open Scoring</span>

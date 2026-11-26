@@ -250,7 +250,7 @@ export function SidebarToolsViews({
         <div className="rounded-xl bg-white border border-slate-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="overlay-home-header text-[#FFE600] text-[11px] uppercase">
+              <thead className="wo-header text-white text-[11px] uppercase">
                 <tr>
                   <th className="px-4 py-3">#</th>
                   <th className="px-4 py-3">Team</th>
@@ -305,7 +305,7 @@ export function SidebarToolsViews({
                             setEditingPtRow({ ...row });
                             setPtReason('');
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md overlay-home-btn text-xs font-bold"
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md wo-btn-soft text-xs font-bold"
                         >
                           <Edit3 className="w-3.5 h-3.5" aria-hidden="true" />
                           <span>Edit</span>
@@ -362,15 +362,15 @@ export function SidebarToolsViews({
             role="dialog"
             aria-modal="true"
           >
-            <div className="w-full max-w-md rounded-xl bg-white border border-[#FACC15]/35 shadow-2xl overflow-hidden">
-              <div className="overlay-home-header text-white px-4 py-3 flex items-center justify-between">
-                <h3 className="font-display font-black text-sm text-[#FFE600] uppercase tracking-wide">
+            <div className="w-full max-w-md rounded-xl bg-white border border-orange-200 shadow-2xl overflow-hidden">
+              <div className="wo-header text-white px-4 py-3 flex items-center justify-between">
+                <h3 className="font-display font-bold text-sm text-white tracking-wide">
                   Edit Standings — {editingPtRow.teamName}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setEditingPtRow(null)}
-                  className="p-1 rounded text-[#FFE600] hover:text-white"
+                  className="p-1 rounded text-white/90 hover:text-white"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -445,7 +445,7 @@ export function SidebarToolsViews({
                   <button
                     type="button"
                     onClick={handleSavePtEdit}
-                    className="px-4 py-2 rounded-lg btn-primary-pro text-xs font-extrabold uppercase tracking-wider text-white"
+                    className="px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
                   >
                     Save Override
                   </button>
@@ -689,8 +689,8 @@ export function SidebarToolsViews({
               onClick={() => setPosTab('batting')}
               className={`px-3.5 py-2 rounded-lg text-xs font-bold ${
                 posTab === 'batting'
-                  ? 'overlay-home-btn-active text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'wo-btn-active text-white'
+                  : 'wo-btn-secondary'
               }`}
             >
               Batting Positions
@@ -700,8 +700,8 @@ export function SidebarToolsViews({
               onClick={() => setPosTab('fielding')}
               className={`px-3.5 py-2 rounded-lg text-xs font-bold ${
                 posTab === 'fielding'
-                  ? 'overlay-home-btn-active text-white'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  ? 'wo-btn-active text-white'
+                  : 'wo-btn-secondary'
               }`}
             >
               Fielding Chart
@@ -730,7 +730,7 @@ export function SidebarToolsViews({
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm">
-                <thead className="overlay-home-header text-[#FFE600] text-[11px] uppercase">
+                <thead className="wo-header text-white text-[11px] uppercase">
                   <tr>
                     <th className="px-4 py-3">Team</th>
                     <th className="px-4 py-3">Player</th>
@@ -1031,7 +1031,7 @@ export function SidebarToolsViews({
                       className={`px-4 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 shrink-0 ${
                         isSelected
                           ? 'bg-emerald-600 text-white'
-                          : 'btn-primary-pro text-white'
+                          : 'wo-btn-primary'
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
@@ -1142,7 +1142,7 @@ export function SidebarToolsViews({
                       className={`w-full py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 ${
                         isSelected
                           ? 'bg-emerald-600 text-white'
-                          : 'btn-primary-pro text-white'
+                          : 'wo-btn-primary'
                       }`}
                     >
                       {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
@@ -1398,7 +1398,7 @@ export function SidebarToolsViews({
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="overlay-home-header text-[#FFE600] text-[11px] uppercase">
+              <thead className="wo-header text-white text-[11px] uppercase">
                 <tr>
                   <th className="px-4 py-2.5">Player</th>
                   <th className="px-3 py-2.5">Team</th>
@@ -1586,7 +1586,7 @@ export function SidebarToolsViews({
             <button
               type="button"
               onClick={() => onToast('Settings saved and synced to overlay.')}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
             >
               <Save className="w-3.5 h-3.5" aria-hidden="true" />
               <span>Save Settings</span>
@@ -1662,7 +1662,7 @@ export function SidebarToolsViews({
   return (
     <div className="max-w-3xl rounded-xl bg-white border border-slate-200 shadow-xs p-5 space-y-5">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-xl overlay-home-header text-[#FFE600] flex items-center justify-center">
+        <div className="w-12 h-12 rounded-xl wo-header text-white flex items-center justify-center">
           <UserCircle className="w-7 h-7" aria-hidden="true" />
         </div>
         <div>
@@ -1761,7 +1761,7 @@ export function SidebarToolsViews({
       <button
         type="button"
         onClick={() => onToast('Account details saved.')}
-        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
       >
         <Save className="w-3.5 h-3.5" aria-hidden="true" />
         <span>Save Profile</span>

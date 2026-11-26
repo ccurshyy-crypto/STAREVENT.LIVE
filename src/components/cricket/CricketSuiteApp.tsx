@@ -225,26 +225,26 @@ export function CricketSuiteApp({
   }, [activeRoute, activeTournament]);
 
   const navItemClass = (isActive: boolean) =>
-    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-all ${
+    `w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-bold tracking-wide transition-all ${
       isActive
-        ? 'overlay-home-btn-active text-white'
-        : 'text-zinc-200 hover:text-[#FFE600] hover:bg-white/10'
+        ? 'wo-btn-active text-white'
+        : 'text-slate-700 hover:text-[#E87500] hover:bg-[#FFF3E0]'
     }`;
 
   const renderSidebarContent = (isMobileDrawer: boolean) => (
-    <div className="flex flex-col h-full bg-[#19040C]/88 backdrop-blur-md text-zinc-100">
+    <div className="flex flex-col h-full bg-white text-slate-800 shadow-lg">
       {/* Brand Header */}
-      <div className="px-4 py-4 border-b border-[#FFE600]/20 flex items-center justify-between gap-2 bg-black/25">
+      <div className="px-4 py-4 wo-header flex items-center justify-between gap-2">
         <div className="flex items-center gap-3 min-w-0">
           {state.user.channelLogoUrl ? (
             <img
               src={state.user.channelLogoUrl}
               alt={state.user.channelTitle}
               referrerPolicy="no-referrer"
-              className="w-10 h-10 rounded-lg object-cover border border-[#FFE600]/40 shrink-0"
+              className="w-10 h-10 rounded-lg object-cover border-2 border-white/70 shrink-0"
             />
           ) : (
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#FF8C00] to-[#DC2626] border border-[#FFE600]/50 flex items-center justify-center font-display font-black text-sm text-white shadow-md shrink-0">
+            <div className="w-10 h-10 rounded-lg bg-white text-[#FF8C00] border border-white/80 flex items-center justify-center font-display font-black text-sm shadow-sm shrink-0">
               SE
             </div>
           )}
@@ -252,7 +252,7 @@ export function CricketSuiteApp({
             <p className="font-display font-bold text-sm text-white truncate">
               {state.user.channelTitle || 'STAR EVENT LIVE'}
             </p>
-            <p className="text-[11px] font-mono text-amber-200/80 truncate">
+            <p className="text-[11px] font-mono text-orange-100 truncate">
               UID: {uid}
             </p>
           </div>
@@ -262,7 +262,7 @@ export function CricketSuiteApp({
             type="button"
             onClick={() => setDrawerOpen(false)}
             aria-label="Close navigation menu"
-            className="p-1.5 rounded-lg text-zinc-300 hover:text-white hover:bg-white/15"
+            className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/20"
           >
             <X className="w-5 h-5" aria-hidden="true" />
           </button>
@@ -272,7 +272,7 @@ export function CricketSuiteApp({
       {/* 13 Exact Navigation Links */}
       <nav
         aria-label="Cricket Tournament Navigation"
-        className="flex-1 overflow-y-auto px-3 py-3 space-y-1"
+        className="flex-1 overflow-y-auto px-3 py-3 space-y-1 bg-white"
       >
         <button
           type="button"
@@ -288,7 +288,12 @@ export function CricketSuiteApp({
           onClick={() => navigateTo('kabaddi')}
           className={navItemClass(activeRoute === 'kabaddi')}
         >
-          <Tv className="w-4 h-4 shrink-0 text-[#FFE600]" aria-hidden="true" />
+          <Tv
+            className={`w-4 h-4 shrink-0 ${
+              activeRoute === 'kabaddi' ? 'text-white' : 'text-[#FF8C00]'
+            }`}
+            aria-hidden="true"
+          />
           <span>KABADDI SCOREBOARD</span>
         </button>
 
@@ -297,12 +302,12 @@ export function CricketSuiteApp({
           <button
             type="button"
             onClick={() => setTournamentMenuOpen((prev) => !prev)}
-            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide transition-all ${
+            className={`w-full flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-lg text-left text-xs font-bold tracking-wide transition-all ${
               activeRoute === 'tournament' ||
               activeRoute === 'tournament-groups' ||
               activeRoute === 'tournament-teams'
-                ? 'bg-white/15 text-[#FFE600] border border-[#FFE600]/30'
-                : 'text-zinc-200 hover:text-[#FFE600] hover:bg-white/10'
+                ? 'bg-[#FFF3E0] text-[#E87500] border border-[#FF8C00]/40'
+                : 'text-slate-700 hover:text-[#E87500] hover:bg-[#FFF3E0]'
             }`}
           >
             <span className="flex items-center gap-3">
@@ -317,7 +322,7 @@ export function CricketSuiteApp({
           </button>
 
           {tournamentMenuOpen && (
-            <div className="ml-4 pl-3 border-l border-[#FFE600]/25 space-y-1 py-0.5">
+            <div className="ml-4 pl-3 border-l-2 border-[#FF8C00]/30 space-y-1 py-0.5">
               <button
                 type="button"
                 onClick={() => navigateTo('tournament')}
@@ -424,7 +429,7 @@ export function CricketSuiteApp({
           <span>SETTING</span>
         </button>
 
-        <div className="pt-2 mt-2 border-t border-[#FFE600]/20 space-y-1">
+        <div className="pt-2 mt-2 border-t border-slate-200 space-y-1">
           <button
             type="button"
             onClick={() => navigateTo('account')}
@@ -437,7 +442,7 @@ export function CricketSuiteApp({
           <button
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
-            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-semibold tracking-wide text-red-300 hover:text-white hover:bg-red-600/30 transition-all"
+            className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-bold tracking-wide text-red-600 hover:text-white hover:bg-red-600 transition-all"
           >
             <LogOut className="w-4 h-4 shrink-0" aria-hidden="true" />
             <span>LOGOUT</span>
@@ -504,7 +509,7 @@ export function CricketSuiteApp({
             <button
               type="button"
               onClick={() => void retryLoad()}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg btn-primary-pro text-white text-xs sm:text-sm font-extrabold uppercase tracking-wider"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg wo-btn-primary text-xs sm:text-sm font-extrabold uppercase tracking-wider"
             >
               <RefreshCw className="w-4 h-4" aria-hidden="true" />
               <span>Retry Connection</span>
@@ -525,15 +530,15 @@ export function CricketSuiteApp({
 
   return (
     <div className="cricket-suite-animated min-h-screen bg-transparent text-slate-900">
-      {/* Animated Home-Matched Broadcast Dashboard Header */}
-      <header className="sticky top-0 z-40 topbar-animated-bg text-white shadow-lg border-b border-[#FFE600]/30 px-3 sm:px-5 py-3">
+      {/* White & Orange Overlay Dashboard Header */}
+      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md text-slate-900 shadow-md border-b-2 border-[#FF8C00] px-3 sm:px-5 py-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Open menu drawer"
-              className="lg:hidden p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="lg:hidden p-2 rounded-lg bg-[#FFF3E0] hover:bg-[#FFE4BD] text-[#E87500] border border-[#FF8C00]/30 transition-colors"
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
@@ -542,12 +547,12 @@ export function CricketSuiteApp({
               type="button"
               onClick={() => setDesktopSidebarOpen((prev) => !prev)}
               aria-label="Toggle sidebar"
-              className="hidden lg:inline-flex p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+              className="hidden lg:inline-flex p-2 rounded-lg bg-[#FFF3E0] hover:bg-[#FFE4BD] text-[#E87500] border border-[#FF8C00]/30 transition-colors"
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </button>
 
-            <h1 className="font-display font-bold text-base sm:text-lg text-white truncate">
+            <h1 className="font-display font-bold text-base sm:text-lg text-slate-900 truncate">
               {headerTitle}
             </h1>
           </div>
@@ -557,7 +562,7 @@ export function CricketSuiteApp({
               <button
                 type="button"
                 onClick={() => navigateTo('kabaddi')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-gold-pro text-xs font-black text-[#070B28] transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-primary text-xs font-extrabold whitespace-nowrap"
               >
                 <Tv className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Kabaddi Scoreboard</span>
@@ -568,7 +573,7 @@ export function CricketSuiteApp({
               <button
                 type="button"
                 onClick={() => navigateTo('scoring')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
               >
                 <Radio className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                 <span>Open Scoring ({activeMatch.matchLabel})</span>
@@ -578,7 +583,7 @@ export function CricketSuiteApp({
             <button
               type="button"
               onClick={onBackHome}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white transition-colors whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold whitespace-nowrap"
             >
               <ArrowLeft className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">Website Home</span>
@@ -587,10 +592,10 @@ export function CricketSuiteApp({
         </div>
       </header>
 
-      {/* Main Content Layout: Home-Matched Dark Glass Sidebar + Transparent Home Background Workspace */}
+      {/* Main Content Layout: Crisp White Sidebar + Crimson Animated Page Background Behind White Cards */}
       <div className="flex min-h-[calc(100vh-60px)]">
         {desktopSidebarOpen && (
-          <aside className="hidden lg:block w-64 shrink-0 border-r border-[#FFE600]/20 bg-transparent">
+          <aside className="hidden lg:block w-64 shrink-0 border-r border-slate-200 bg-white">
             <div className="sticky top-[60px] h-[calc(100vh-60px)]">
               {renderSidebarContent(false)}
             </div>
@@ -604,10 +609,10 @@ export function CricketSuiteApp({
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 role="alert"
-                className="mb-4 rounded-xl bg-amber-50/95 backdrop-blur-sm border border-amber-300 px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-amber-950 shadow-md"
+                className="mb-4 rounded-xl bg-white border-2 border-[#FF8C00] px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-slate-900 shadow-md"
               >
                 <div className="flex items-center gap-2.5 text-xs sm:text-sm font-semibold">
-                  <WifiOff className="w-4 h-4 text-amber-700 shrink-0" aria-hidden="true" />
+                  <WifiOff className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
                   <span>
                     {isOffline
                       ? 'You are currently offline. Your changes are safely queued on this device and will sync automatically when internet reconnects.'
@@ -617,7 +622,7 @@ export function CricketSuiteApp({
                 <button
                   type="button"
                   onClick={syncNow}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-primary-pro text-white text-xs font-bold whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-primary text-xs font-bold whitespace-nowrap"
                 >
                   <RefreshCw className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Sync Now</span>
@@ -751,7 +756,7 @@ export function CricketSuiteApp({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', stiffness: 360, damping: 32 }}
-              className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl border-r border-[#FFE600]/25"
+              className="relative z-10 w-72 max-w-[85vw] h-full shadow-2xl border-r border-slate-200 bg-white"
             >
               {renderSidebarContent(true)}
             </motion.div>
@@ -831,7 +836,7 @@ export function CricketSuiteApp({
             transition={{ type: 'spring', stiffness: 420, damping: 28 }}
             role="status"
             aria-live="polite"
-            className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-[#19040C]/95 border border-[#FFE600]/45 text-white shadow-2xl text-xs sm:text-sm font-medium backdrop-blur-md"
+            className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-white border-2 border-[#FF8C00] text-slate-900 shadow-2xl text-xs sm:text-sm font-bold"
           >
             {toastMessage}
           </motion.div>

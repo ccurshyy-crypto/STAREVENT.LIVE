@@ -152,7 +152,7 @@ export function CricketHomeView({
           <button
             type="button"
             onClick={() => onNavigate('overlay')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-bold whitespace-nowrap"
           >
             <Tv className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Scoreboard Overlay Control</span>
@@ -163,11 +163,11 @@ export function CricketHomeView({
           {steps.map((s) => (
             <div
               key={s.step}
-              className="rounded-lg border border-slate-200 bg-slate-50 p-3.5 flex flex-col justify-between gap-3"
+              className="rounded-lg border border-slate-200 bg-slate-50/70 p-3.5 flex flex-col justify-between gap-3"
             >
               <div className="space-y-1">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-mono font-bold text-[#B91C1C]">Step {s.step}</span>
+                  <span className="font-mono font-bold text-[#FF8C00]">Step {s.step}</span>
                   <span
                     className={`font-semibold ${
                       s.done ? 'text-emerald-600' : 'text-slate-400'
@@ -181,7 +181,7 @@ export function CricketHomeView({
               <button
                 type="button"
                 onClick={() => onNavigate(s.route)}
-                className="inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-md overlay-home-btn text-xs font-bold"
+                className="inline-flex items-center justify-between gap-1.5 px-3 py-1.5 rounded-md bg-white hover:bg-[#FFF3E0] border border-slate-200 hover:border-[#FF8C00]/60 text-xs font-bold text-[#FF8C00] transition-colors"
               >
                 <span>{s.cta}</span>
                 <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
