@@ -23,6 +23,7 @@ import {
 } from '../../types/cricketSuite';
 import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
+import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
@@ -87,6 +88,9 @@ export function BroadcastOverlayCanvas({
   const useTataIplPatti =
     !state.user.customThemeColors?.enabled &&
     (theme.id === 'tata-ipl-2022' || Boolean(theme.barStyle?.isTataIpl2022));
+  const useWorldCupPatti =
+    !state.user.customThemeColors?.enabled &&
+    (theme.id === 'worldcup' || Boolean(theme.barStyle?.isWorldCup));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
 
@@ -1197,6 +1201,67 @@ export function BroadcastOverlayCanvas({
       );
     }
 
+    if (useWorldCupPatti) {
+      const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
+        id: b.id,
+        label: getBallPillLabel(b),
+        isBoundary4: b.isBoundary4,
+        isBoundary6: b.isBoundary6,
+        isWicket: b.isWicket,
+        isExtra: b.extraType !== 'none',
+      }));
+
+      const isChasing = match.currentInningsIndex === 1 && target !== null && needRuns !== null;
+      const wcRateLabel = isChasing ? 'REQ RUN RATE' : 'RUN RATE';
+      const wcRateValue = isChasing ? rrr : crr;
+      const wcTickerText =
+        mode === 'Score'
+          ? isChasing
+            ? `${(batTeam?.shortName || 'BAT').toUpperCase()} NEED ${needRuns} RUNS FROM ${remBalls} BALLS`
+            : (tournament?.name || 'LIVE SCORE WORLD CUP').toUpperCase()
+          : infoStrip;
+
+      return (
+        <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+          <WorldCupScoreboardBar
+            batTeamCode={batTeam?.shortName || 'BAT'}
+            batTeamLogo={batTeam?.logoUrl}
+            batTeamColor={batTeam?.customColor ? getTeamColorHex(batTeam) : undefined}
+            batTeamTextColor={batTeam?.customColor ? getTeamTextColorHex(batTeam) : undefined}
+            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={bowlTeam?.logoUrl}
+            bowlTeamColor={bowlTeam?.customColor ? getTeamColorHex(bowlTeam) : undefined}
+            bowlTeamTextColor={bowlTeam?.customColor ? getTeamTextColorHex(bowlTeam) : undefined}
+            showTeamLogo={overlay.showTeamLogo}
+            runs={activeInn.runs}
+            wickets={activeInn.wickets}
+            oversText={formatOvers(activeInn.legalBalls)}
+            batter1Name={striker?.playerName || 'NEXT BATTER'}
+            batter1Runs={striker ? striker.runs : 0}
+            batter1Balls={striker ? striker.balls : 0}
+            batter2Name={nonStriker?.playerName || 'NEXT BATTER'}
+            batter2Runs={nonStriker ? nonStriker.runs : 0}
+            batter2Balls={nonStriker ? nonStriker.balls : 0}
+            strikerIndex={1}
+            bowlerName={bowler?.playerName || 'BOWLER'}
+            bowlerFigs={`${bowler?.wickets ?? 0}/${bowler?.runs ?? 0}`}
+            bowlerOvers={bowler?.overs ?? '0.0'}
+            balls={ballList}
+            showBalls={ballList.length > 0}
+            rateLabel={wcRateLabel}
+            rateValue={wcRateValue}
+            tickerText={wcTickerText}
+            winnerInfo={winnerInfo}
+            activeEvent={
+              showTransition && activeTransition
+                ? { id: activeTransition.id, type: activeTransition.type }
+                : null
+            }
+          />
+        </div>
+      );
+    }
+
     if (theme.barStyle) {
       const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
         id: b.id,
@@ -1369,11 +1434,11 @@ export function BroadcastOverlayCanvas({
       {/* Bottom Broadcast Scorebug */}
       {renderBottomBar()}
 
-      {/* Transition Overlay Stinger Banner (for non-IPL Patti themes or when bar is hidden) */}
+      {/* Transition Overlay Stinger Banner (for non-inline-stinger themes or when bar is hidden) */}
       {showTransition &&
         activeTransition &&
         !(
-          useTataIplPatti &&
+          (useTataIplPatti || useWorldCupPatti) &&
           overlay.bottomScoreMode !== 'EMPTY' &&
           overlay.bottomScoreMode !== 'Versus' &&
           overlay.bottomScoreMode !== 'Versus With Logo' &&

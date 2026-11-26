@@ -186,6 +186,7 @@ export interface ScoreboardBarStyle {
   sunburstRight?: boolean;
   isWidescreen?: boolean;
   isTataIpl2022?: boolean;
+  isWorldCup?: boolean;
 }
 
 export interface BroadcastThemeConfig {
@@ -231,6 +232,37 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
       ballMode: 'colored',
       isWidescreen: true,
       isTataIpl2022: true,
+    },
+  },
+  // ================= WORLD CUP METALLIC SILVER & ROYAL BLUE PATTI =================
+  {
+    id: 'worldcup',
+    name: 'WorldCup',
+    subtitle: 'Classic Broadcast Metallic Silver · Royal Blue · World Cup Live Scoreboard Patti',
+    primary: '#0035A0',
+    secondary: '#B91C1C',
+    accent: '#FACC15',
+    surface: '#0B1221',
+    textOnPrimary: '#FFFFFF',
+    category: 'pro-scoreboard',
+    barStyle: {
+      number: 1,
+      outerBorder: '#E5E7EB',
+      outerGlow: 'rgba(0, 53, 160, 0.45)',
+      leftBadgeBg: 'linear-gradient(180deg, #FFFFFF, #CBD5E1)',
+      leftBadgeText: '#09090B',
+      batterPanelBg: 'linear-gradient(180deg, #0046C7, #001A5C)',
+      batterPanelText: '#FFFFFF',
+      scorePillBg: 'linear-gradient(180deg, #F8FAFC, #CBD5E1)',
+      scorePillText: '#09090B',
+      scorePillBorder: '#FFFFFF',
+      bowlerPanelBg: 'linear-gradient(180deg, #F8FAFC, #CBD5E1)',
+      bowlerPanelText: '#09090B',
+      rightBadgeBg: 'linear-gradient(180deg, #FFFFFF, #CBD5E1)',
+      rightBadgeText: '#09090B',
+      ballMode: 'outline',
+      isWidescreen: true,
+      isWorldCup: true,
     },
   },
 ];

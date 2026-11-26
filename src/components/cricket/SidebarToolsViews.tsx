@@ -34,6 +34,7 @@ import {
   PointTableEntry,
 } from '../../types/cricketSuite';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
+import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 
 interface SidebarToolsViewsProps {
   route:
@@ -869,12 +870,10 @@ export function SidebarToolsViews({
     );
   }
 
-  // ================= 4. THEME SETUP (TATA IPL 2022 ANIMATED PATTI ONLY) =================
+  // ================= 4. THEME SETUP (BROADCAST SCOREBOARD THEMES) =================
   if (route === 'theme') {
     const customColors = state.user.customThemeColors;
     const activePalette = getThemePalette(state.user.userTheme, customColors);
-    const theme = BROADCAST_THEMES[0];
-    const isSelected = state.user.userTheme === theme.id && !customColors.enabled;
 
     const handleSelectTheme = (themeId: OverlayThemeId, themeName: string) => {
       updateState((prev) => ({
@@ -891,6 +890,15 @@ export function SidebarToolsViews({
       onToast(`Theme active: ${themeName} (live on OBS / vMix overlay).`);
     };
 
+    const previewZeroBalls = [
+      { id: 'wc-b1', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+      { id: 'wc-b2', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+      { id: 'wc-b3', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+      { id: 'wc-b4', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+      { id: 'wc-b5', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+      { id: 'wc-b6', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+    ];
+
     return (
       <div className="space-y-5">
         <div className="rounded-xl bg-white border border-slate-200 shadow-xs p-5 flex flex-wrap items-center justify-between gap-3">
@@ -903,7 +911,7 @@ export function SidebarToolsViews({
                 Broadcast Theme Setup
               </h2>
               <p className="text-xs text-slate-500">
-                Official TATA IPL 2022 Animated Patti live broadcast scoreboard theme. Updates OBS &amp; vMix overlay instantly.
+                Choose a live broadcast scoreboard theme. Updates OBS &amp; vMix overlay instantly.
               </p>
             </div>
           </div>
@@ -913,81 +921,120 @@ export function SidebarToolsViews({
           </span>
         </div>
 
-        {/* Single Official Broadcast Scoreboard Theme */}
-        <div className="space-y-3">
+        {/* Official Broadcast Scoreboard Themes */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-sm text-slate-900 uppercase tracking-wide">
-              Official Scoreboard Theme
+              Official Scoreboard Themes ({BROADCAST_THEMES.length})
             </h3>
             <span className="text-[11px] font-semibold text-slate-500">
               Instant Live OBS &amp; vMix Sync
             </span>
           </div>
 
-          <div
-            className={`rounded-xl bg-white border-2 shadow-xs overflow-hidden flex flex-col transition-all ${
-              isSelected
-                ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/25'
-                : 'border-slate-200 hover:border-slate-300'
-            }`}
-          >
-            {/* Broadcast Blue Stage Preview */}
-            <div
-              className="p-3.5 sm:p-4 space-y-2.5"
-              style={{
-                background:
-                  'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
-              }}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-display font-black text-xs sm:text-sm text-white tracking-wide">
-                  ★ {theme.name}
-                </span>
-                {isSelected && (
-                  <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
-                    Active Live
-                  </span>
-                )}
-              </div>
+          {BROADCAST_THEMES.map((theme) => {
+            const isSelected = state.user.userTheme === theme.id && !customColors.enabled;
+            const isWorldCup = theme.id === 'worldcup';
 
-              <TataIplScoreboardBar
-                batTeamCode="GT"
-                bowlTeamCode="RR"
-                scoreText="86-3"
-                oversText="13.2"
-                batter1Name="PAPYA"
-                batter1Runs={0}
-                batter1Balls={0}
-                batter2Name="SURAJ"
-                batter2Runs={31}
-                batter2Balls={33}
-                strikerIndex={1}
-                bowlerName="CRUSHYY"
-                bowlerFigs="1-17"
-                bowlerOvers="3.2"
-                targetText="TARGET 131"
-                matchTitle="TATA IPL 2022 - THE FINAL"
-                compact
-              />
-            </div>
-
-            {/* Card Footer */}
-            <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-white">
-              <div className="min-w-0">
-                <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleSelectTheme(theme.id, theme.name)}
-                className={`px-4 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 shrink-0 ${
-                  isSelected ? 'bg-emerald-600 text-white' : 'wo-btn-primary'
+            return (
+              <div
+                key={theme.id}
+                className={`rounded-xl bg-white border-2 shadow-xs overflow-hidden flex flex-col transition-all ${
+                  isSelected
+                    ? 'border-[#FF8C00] ring-2 ring-[#FF8C00]/25'
+                    : 'border-slate-200 hover:border-slate-300'
                 }`}
               >
-                {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
-                <span>{isSelected ? 'SELECTED THEME' : 'SELECT THEME'}</span>
-              </button>
-            </div>
-          </div>
+                {/* Theme Preview Stage */}
+                <div
+                  className="p-3.5 sm:p-4 space-y-2.5"
+                  style={{
+                    background: isWorldCup
+                      ? 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 55%, #CBD5E1 100%)'
+                      : 'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`font-display font-black text-xs sm:text-sm tracking-wide ${
+                        isWorldCup ? 'text-slate-900' : 'text-white'
+                      }`}
+                    >
+                      ★ {theme.name}
+                    </span>
+                    {isSelected && (
+                      <span className="px-2 py-0.5 rounded bg-emerald-500 text-white text-[10px] font-bold uppercase tracking-wider">
+                        Active Live
+                      </span>
+                    )}
+                  </div>
+
+                  {isWorldCup ? (
+                    <WorldCupScoreboardBar
+                      batTeamCode="IND"
+                      bowlTeamCode="AUS"
+                      runs={0}
+                      wickets={0}
+                      oversText="0.0"
+                      batter1Name="PAPYA"
+                      batter1Runs={0}
+                      batter1Balls={0}
+                      batter2Name="SURAJ"
+                      batter2Runs={0}
+                      batter2Balls={0}
+                      strikerIndex={1}
+                      bowlerName="CRUSHYY"
+                      bowlerFigs="0/0"
+                      bowlerOvers="0.0"
+                      balls={previewZeroBalls}
+                      showBalls
+                      rateLabel="RUN RATE"
+                      rateValue="0.00"
+                      tickerText="LIVE SCORE WORLD CUP"
+                      compact
+                    />
+                  ) : (
+                    <TataIplScoreboardBar
+                      batTeamCode="GT"
+                      bowlTeamCode="RR"
+                      scoreText="0-0"
+                      oversText="0.0"
+                      batter1Name="PAPYA"
+                      batter1Runs={0}
+                      batter1Balls={0}
+                      batter2Name="SURAJ"
+                      batter2Runs={0}
+                      batter2Balls={0}
+                      strikerIndex={1}
+                      bowlerName="CRUSHYY"
+                      bowlerFigs="0-0"
+                      bowlerOvers="0.0"
+                      targetText="CRR 0.00"
+                      matchTitle="TATA IPL 2022 - THE FINAL"
+                      compact
+                    />
+                  )}
+                </div>
+
+                {/* Card Footer */}
+                <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-white">
+                  <div className="min-w-0">
+                    <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectTheme(theme.id, theme.name)}
+                    className={`px-4 py-2 rounded-lg text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-1.5 shrink-0 ${
+                      isSelected ? 'bg-emerald-600 text-white' : 'wo-btn-primary'
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3.5 h-3.5" aria-hidden="true" />}
+                    <span>{isSelected ? 'SELECTED THEME' : 'SELECT THEME'}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         {/* Custom Theme Color Selection */}

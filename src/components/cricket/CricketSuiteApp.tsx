@@ -98,12 +98,14 @@ export function CricketSuiteApp({
     const flagKey = `cricket_suite_tata_ipl_2022_v1_${uid}`;
     if (window.localStorage.getItem(flagKey) === '1') return;
     window.localStorage.setItem(flagKey, '1');
-    if (state.user.userTheme !== 'tata-ipl-2022' || state.user.customThemeColors?.enabled) {
+    const isValidTheme =
+      state.user.userTheme === 'tata-ipl-2022' || state.user.userTheme === 'worldcup';
+    if (!isValidTheme || state.user.customThemeColors?.enabled) {
       updateState((prev) => ({
         ...prev,
         user: {
           ...prev.user,
-          userTheme: 'tata-ipl-2022',
+          userTheme: isValidTheme ? prev.user.userTheme : 'tata-ipl-2022',
           customThemeColors: {
             ...prev.user.customThemeColors,
             enabled: false,

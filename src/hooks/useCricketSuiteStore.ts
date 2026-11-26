@@ -4,7 +4,7 @@ import {
   getSupabaseClient,
   SUPABASE_SCOREBOARD_TABLE,
 } from '../lib/supabaseClient';
-import { CricketSuiteState } from '../types/cricketSuite';
+import { CricketSuiteState, OverlayThemeId } from '../types/cricketSuite';
 
 const CACHE_STORAGE_PREFIX = 'starevent_cricket_suite_v2:';
 const PENDING_STORAGE_PREFIX = 'starevent_cricket_pending_v2:';
@@ -129,7 +129,10 @@ function normalizeLoadedState(
     user: {
       ...base.user,
       ...(raw.user || {}),
-      userTheme: 'tata-ipl-2022',
+      userTheme:
+        raw.user?.userTheme === 'worldcup' || raw.user?.userTheme === 'tata-ipl-2022'
+          ? (raw.user.userTheme as OverlayThemeId)
+          : 'tata-ipl-2022',
       customThemeColors: {
         ...base.user.customThemeColors,
         ...(raw.user?.customThemeColors || {}),
