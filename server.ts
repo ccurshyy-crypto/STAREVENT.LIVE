@@ -320,10 +320,10 @@ async function startServer() {
     }
 
     const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
-    if (password.length < 8 || password.length > 128) {
+    if (password.length < 4 || password.length > 128) {
       res.status(400).json({
         ok: false,
-        error: 'Owner password must be between 8 and 128 characters.',
+        error: 'Owner PIN / password must be between 4 and 128 characters.',
       });
       return;
     }
@@ -407,6 +407,44 @@ async function startServer() {
     }
     next();
   };
+
+  app.post('/api/admin/change-password', requireOwnerAdmin, (req, res) => {
+    const ip = getClientIp(req);
+    if (isRateLimited(ip)) {
+      res.status(429).json({ ok: false, error: 'Too many attempts. Please wait and retry.' });
+      return;
+    }
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (getConfiguredPasscode().length > 0) {
+      res.status(409).json({
+        ok: false,
+        error: 'Owner passcode is managed by the ADMIN_PASSCODE environment secret. Update it in Settings -> Secrets.',
+      });
+      return;
+    }
+
+    const currentPassword =
+      typeof req.body?.currentPassword === 'string' ? req.body.currentPassword.trim() : '';
+    const newPassword =
+      typeof req.body?.newPassword === 'string' ? req.body.newPassword.trim() : '';
+
+    if (!currentPassword || !claimedAdminCredential || !verifyScryptPassword(currentPassword, claimedAdminCredential)) {
+      res.status(401).json({ ok: false, error: 'Current owner PIN / password is incorrect.' });
+      return;
+    }
+    if (newPassword.length < 4 || newPassword.length > 128) {
+      res.status(400).json({
+        ok: false,
+        error: 'New owner PIN / password must be between 4 and 128 characters.',
+      });
+      return;
+    }
+
+    claimedAdminCredential = hashPasswordScrypt(newPassword);
+    resetRateLimit(ip);
+    res.json({ ok: true });
+  });
 
   app.get('/api/admin/overlay-accounts', requireOwnerAdmin, (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');

@@ -543,6 +543,11 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [changePinOpen, setChangePinOpen] = useState(false);
+  const [currentPinInput, setCurrentPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinFeedback, setPinFeedback] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -571,12 +576,12 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
     e.preventDefault();
     setErrorMsg(null);
     const trimmed = password.trim();
-    if (trimmed.length < 8) {
-      setErrorMsg('Choose an owner password of at least 8 characters.');
+    if (trimmed.length < 4) {
+      setErrorMsg('Choose an owner PIN or password of at least 4 characters.');
       return;
     }
     if (trimmed !== confirmPassword.trim()) {
-      setErrorMsg('Passwords do not match.');
+      setErrorMsg('PIN / Passwords do not match.');
       return;
     }
 
@@ -636,6 +641,8 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
   const handleLockAdmin = async () => {
     const token = adminToken;
     setAdminToken(null);
+    setChangePinOpen(false);
+    setPinFeedback(null);
     if (token) {
       try {
         await fetch('/api/admin/logout', {
@@ -645,6 +652,43 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
       } catch {
         // Ignore network errors on logout
       }
+    }
+  };
+
+  const handleChangeOwnerPin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!adminToken) return;
+    setPinFeedback(null);
+    const trimmedNext = newPinInput.trim();
+    if (trimmedNext.length < 4) {
+      setPinFeedback({ type: 'err', text: 'New PIN / password must be at least 4 characters.' });
+      return;
+    }
+    setPinSaving(true);
+    try {
+      const res = await fetch('/api/admin/change-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          currentPassword: currentPinInput.trim(),
+          newPassword: trimmedNext,
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok || !data.ok) {
+        setPinFeedback({ type: 'err', text: data.error || 'Could not update owner PIN.' });
+        return;
+      }
+      setCurrentPinInput('');
+      setNewPinInput('');
+      setPinFeedback({ type: 'ok', text: 'Owner Admin PIN updated successfully.' });
+    } catch {
+      setPinFeedback({ type: 'err', text: 'Network error while updating owner PIN.' });
+    } finally {
+      setPinSaving(false);
     }
   };
 
@@ -713,7 +757,79 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   >
                     Email Auth Users
                   </button>
+                  {!authStatus.configured && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setChangePinOpen((v) => !v);
+                        setPinFeedback(null);
+                      }}
+                      className="px-3.5 py-2.5 rounded-lg overlay-home-btn text-xs font-bold whitespace-nowrap inline-flex items-center gap-1.5"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                      <span>Change PIN</span>
+                    </button>
+                  )}
                 </div>
+
+                {changePinOpen && !authStatus.configured && (
+                  <form
+                    onSubmit={handleChangeOwnerPin}
+                    className="rounded-xl bg-[#0B0618]/90 border border-[#FFE600]/35 p-4 space-y-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#FFE600]">
+                        Update Owner Admin PIN / Password
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setChangePinOpen(false)}
+                        className="p-1 text-zinc-400 hover:text-white"
+                        aria-label="Close change PIN form"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    {pinFeedback && (
+                      <div
+                        role={pinFeedback.type === 'err' ? 'alert' : 'status'}
+                        className={`rounded-lg px-3 py-2 text-xs font-semibold ${
+                          pinFeedback.type === 'ok'
+                            ? 'bg-emerald-950/70 border border-emerald-500/45 text-emerald-200'
+                            : 'bg-red-950/75 border border-red-500/50 text-red-100'
+                        }`}
+                      >
+                        {pinFeedback.text}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <input
+                        type="password"
+                        required
+                        value={currentPinInput}
+                        onChange={(e) => setCurrentPinInput(e.target.value)}
+                        placeholder="Current Owner PIN / Password"
+                        className="w-full px-3 py-2 rounded-lg bg-[#15151C] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs text-white"
+                      />
+                      <input
+                        type="password"
+                        required
+                        value={newPinInput}
+                        onChange={(e) => setNewPinInput(e.target.value)}
+                        placeholder="New Owner PIN (min 4 chars)"
+                        className="w-full px-3 py-2 rounded-lg bg-[#15151C] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs text-white"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={pinSaving}
+                      className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-xs uppercase tracking-wide"
+                    >
+                      <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{pinSaving ? 'Updating...' : 'Save New Owner PIN'}</span>
+                    </button>
+                  </form>
+                )}
 
                 {activeTab === 'access-keys' ? (
                   <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
@@ -761,7 +877,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                       htmlFor="owner-claim-password"
                       className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                     >
-                      New Owner Password (min 8 chars)
+                      New Owner PIN / Password (min 4 chars)
                     </label>
                     <div className="relative">
                       <input
@@ -770,7 +886,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                         autoComplete="new-password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Create strong owner password"
+                        placeholder="Enter 4+ digit PIN or password"
                         className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
                       />
                       <button
@@ -789,7 +905,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                       htmlFor="owner-claim-confirm"
                       className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                     >
-                      Confirm Owner Password
+                      Confirm Owner PIN / Password
                     </label>
                     <input
                       id="owner-claim-confirm"
@@ -797,7 +913,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                       autoComplete="new-password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Re-enter owner password"
+                      placeholder="Re-enter PIN or password"
                       className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
                     />
                   </div>
@@ -805,10 +921,10 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#FFE600] hover:bg-[#FEF08A] disabled:opacity-60 text-[#09090D] font-display font-black text-sm uppercase tracking-wide transition-colors"
+                    className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-sm uppercase tracking-wide transition-colors"
                   >
                     <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
-                    <span>{submitting ? 'Claiming...' : 'Set Password & Open Admin Panel'}</span>
+                    <span>{submitting ? 'Saving...' : 'Set PIN & Open Admin Panel'}</span>
                   </button>
                 </form>
               </div>
@@ -844,7 +960,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                       htmlFor="owner-admin-password"
                       className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
                     >
-                      Owner Admin Password
+                      Owner Admin PIN / Password
                     </label>
                     <div className="relative">
                       <input
@@ -853,7 +969,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                         autoComplete="current-password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter owner admin password"
+                        placeholder="Enter owner admin PIN / password"
                         className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
                       />
                       <button
@@ -870,7 +986,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#FFE600] hover:bg-[#FEF08A] disabled:opacity-60 text-[#09090D] font-display font-black text-sm uppercase tracking-wide transition-colors"
+                    className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-sm uppercase tracking-wide transition-colors"
                   >
                     <Lock className="w-4 h-4 shrink-0" aria-hidden="true" />
                     <span>{submitting ? 'Verifying...' : 'Open Admin Panel'}</span>
