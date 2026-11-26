@@ -144,37 +144,6 @@ export function KabaddiOverlayCanvas({
       className="relative w-[1280px] h-[720px] overflow-hidden select-none font-sans"
       style={bgStyle}
     >
-      {/* TOP-LEFT COMPACT LIVE TOURNAMENT WATERMARK BADGE */}
-      {state.showScoreboard && (
-        <div className="absolute top-6 left-7 z-20 flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#3B0207]/95 via-[#1C030C]/95 to-[#070B28]/95 border border-[#FFE600]/65 shadow-[0_10px_28px_rgba(0,0,0,0.65)]">
-          <img
-            src={STUDIO_CONTACT.logoImagePath}
-            alt="Star Event Live"
-            className="w-9 h-9 rounded-full object-cover ring-2 ring-[#FFE600]"
-          />
-          <div className="leading-tight">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#EF1A1A] animate-pulse" />
-              <span className="font-display text-xs font-black tracking-wider text-[#FFE600] uppercase">
-                STAR EVENT LIVE · KABADDI
-              </span>
-            </div>
-            <p className="text-[11px] font-bold text-white/90 truncate max-w-[340px]">
-              {state.tournamentName}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* TOP-RIGHT MATCH STAGE BADGE */}
-      {state.showScoreboard && state.matchLabel.trim() && (
-        <div className="absolute top-6 right-7 z-20 px-4 py-2 rounded-xl bg-[#070B28]/92 border border-[#FFE600]/60 shadow-[0_10px_24px_rgba(0,0,0,0.6)]">
-          <span className="font-mono text-xs font-black uppercase tracking-widest text-[#FFE600]">
-            {state.matchLabel}
-          </span>
-        </div>
-      )}
-
       {/* CENTER-STAGE ANIMATED BROADCAST ALERT (SUPER RAID / SUPER TACKLE / ALL OUT / BONUS / DO OR DIE) */}
       {activeAlert && (
         <div

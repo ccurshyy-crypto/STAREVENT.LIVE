@@ -19,6 +19,7 @@ import { OwnerAdminPage } from './components/OwnerAdminPage';
 import { StandaloneOverlayPage } from './components/cricket/StandaloneOverlayPage';
 import { KabaddiControlDashboard } from './components/kabaddi/KabaddiControlDashboard';
 import { StandaloneKabaddiOverlayPage } from './components/kabaddi/StandaloneKabaddiOverlayPage';
+import { ScrollDotNav } from './components/ScrollDotNav';
 import { useOverlayAccess } from './context/OverlayAccessContext';
 import { EventCategoryId, Language } from './data/content';
 
@@ -377,6 +378,8 @@ export default function App() {
           onOpenOwnerAdmin={navigateToOwnerAdmin}
         />
       )}
+
+      <ScrollDotNav pageKey={currentPage} />
 
       <OverlayAccessModal
         open={accessModalOpen}

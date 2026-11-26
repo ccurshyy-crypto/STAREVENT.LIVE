@@ -401,7 +401,7 @@ export function ScoringDashboardView({
           <button
             type="button"
             onClick={onNavigateToMatches}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider"
           >
             <Plus className="w-4 h-4" aria-hidden="true" />
             <span>GO TO MATCH LIST</span>
@@ -1544,17 +1544,17 @@ export function ScoringDashboardView({
   return (
     <div className="space-y-4">
       {/* Top Bar: Match Context + Quick Switcher + Overlay Control */}
-      <div className="rounded-xl overlay-home-card overflow-hidden">
-        <div className="overlay-home-header text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-xl wo-card overflow-hidden">
+        <div className="wo-header text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5 min-w-0">
             {onNavigateToMatches && (
               <button
                 type="button"
                 onClick={onNavigateToMatches}
                 aria-label="Back to match list"
-                className="p-1.5 rounded-lg overlay-home-btn transition-all"
+                className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 transition-all"
               >
-                <ArrowLeft className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+                <ArrowLeft className="w-4 h-4 text-white" aria-hidden="true" />
               </button>
             )}
             <div className="min-w-0">
@@ -1562,24 +1562,24 @@ export function ScoringDashboardView({
                 <span className="font-display font-black text-sm sm:text-base text-white truncate">
                   {team1?.name || 'Team 1'} vs {team2?.name || 'Team 2'}
                 </span>
-                <span className="px-2 py-0.5 rounded bg-[#FFE600]/15 border border-[#FFE600]/40 text-[#FFE600] text-[10px] font-bold uppercase tracking-wider">
+                <span className="px-2 py-0.5 rounded bg-white/20 border border-white/35 text-white text-[10px] font-bold uppercase tracking-wider">
                   {match.stageBadge}
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
                     match.status === 'live'
-                      ? 'bg-[#FFE600] text-[#070B28]'
+                      ? 'bg-white text-[#E87500]'
                       : match.status === 'completed'
-                        ? 'bg-white/15 text-white'
+                        ? 'bg-emerald-600 text-white'
                         : match.status === 'innings_break'
-                          ? 'bg-amber-300 text-[#070B28]'
-                          : 'bg-[#6B0208] text-[#FFE600] border border-[#FFE600]/40'
+                          ? 'bg-amber-100 text-[#B45309]'
+                          : 'bg-white/20 text-white border border-white/35'
                   }`}
                 >
                   {match.status.replace('_', ' ')}
                 </span>
               </div>
-              <p className="text-[11px] text-rose-100/80 truncate">
+              <p className="text-[11px] text-orange-100 truncate">
                 {tournament?.name || 'Tournament'} · {match.matchLabel} · {match.oversPerInnings}{' '}
                 Overs ({match.ballType}) · ID: {match.id}
               </p>
@@ -1594,10 +1594,10 @@ export function ScoringDashboardView({
                   updateState((prev) => ({ ...prev, activeMatchId: e.target.value }))
                 }
                 aria-label="Switch active match"
-                className="px-2.5 py-1.5 rounded-lg bg-[#140412]/90 text-white text-xs font-semibold border border-[#FACC15]/35 focus:outline-hidden focus:ring-2 focus:ring-[#FFE600]"
+                className="px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
               >
                 {state.matches.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-[#140412] text-white">
+                  <option key={m.id} value={m.id}>
                     {m.matchLabel} · {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
                     {teamMap.get(m.team2Id)?.shortName || 'T2'}
                   </option>
@@ -1608,7 +1608,7 @@ export function ScoringDashboardView({
             <button
               type="button"
               onClick={openTossModal}
-              className="px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold"
+              className="px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-white text-xs font-bold"
             >
               Toss Setup
             </button>
@@ -1616,10 +1616,10 @@ export function ScoringDashboardView({
             <button
               type="button"
               onClick={() => setActiveTab('overlay')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all shadow-xs ${
                 activeTab === 'overlay'
-                  ? 'overlay-home-btn-active text-white'
-                  : 'btn-gold-pro text-[#070B28]'
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-white text-[#E87500] hover:bg-orange-50'
               }`}
             >
               <Tv className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1629,7 +1629,7 @@ export function ScoringDashboardView({
         </div>
 
         {/* 4 Main Tabs: SCORING PANEL | SCORECARD | OVERS | OVERLAY */}
-        <div className="grid grid-cols-4 border-t border-[#FACC15]/25 bg-[#0B0618]/90">
+        <div className="grid grid-cols-4 border-t border-slate-200 bg-white">
           {(
             [
               { id: 'scoring', label: 'SCORING PANEL' },
@@ -1649,8 +1649,8 @@ export function ScoringDashboardView({
               onClick={() => setActiveTab(tab.id)}
               className={`py-3 px-1 text-[11px] sm:text-sm font-extrabold tracking-wide transition-all border-b-2 truncate ${
                 activeTab === tab.id
-                  ? 'border-[#FFE600] text-[#FFE600] bg-gradient-to-b from-[#6B0208]/85 to-[#2A030E]/90'
-                  : 'border-transparent text-rose-100/75 hover:text-[#FFE600] hover:bg-white/5'
+                  ? 'border-[#FF8C00] text-[#E87500] bg-[#FFF3E0]/70'
+                  : 'border-transparent text-slate-600 hover:text-[#FF8C00] hover:bg-orange-50/40'
               }`}
             >
               {tab.label}
@@ -1676,30 +1676,30 @@ export function ScoringDashboardView({
               return (
                 <div
                   key={idx}
-                  className={`rounded-xl overlay-home-card p-4 transition-all ${
+                  className={`rounded-xl wo-card p-4 transition-all text-slate-900 ${
                     isCurrent
-                      ? 'ring-2 ring-[#FFE600]/80 shadow-[0_0_24px_rgba(255,230,0,0.22)]'
+                      ? 'ring-2 ring-[#FF8C00]'
                       : ''
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-rose-200/80">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                           {idx === 0 ? '1st Innings' : '2nd Innings'}
                         </span>
                         {isCurrent && !inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-[#FFE600] text-[#070B28] text-[10px] font-extrabold uppercase">
+                          <span className="px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-extrabold uppercase">
                             Batting
                           </span>
                         )}
                         {inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-white/10 text-rose-100 text-[10px] font-bold uppercase">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
                             Closed
                           </span>
                         )}
                       </div>
-                      <h3 className="font-display font-black text-base text-white truncate mt-0.5">
+                      <h3 className="font-display font-black text-base text-slate-900 truncate mt-0.5">
                         {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
                       </h3>
                     </div>
@@ -1707,9 +1707,9 @@ export function ScoringDashboardView({
                     <button
                       type="button"
                       onClick={() => openEditScoreModal(idx)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg overlay-home-btn text-xs font-bold"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
                     >
-                      <Edit3 className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                      <Edit3 className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                       <span>Edit</span>
                     </button>
                   </div>
@@ -1721,17 +1721,17 @@ export function ScoringDashboardView({
                         initial={{ scale: 1.18 }}
                         animate={{ scale: 1 }}
                         transition={{ type: 'spring', stiffness: 420, damping: 20 }}
-                        className="font-display font-black text-3xl text-[#FFE600] tabular-nums drop-shadow-[0_2px_10px_rgba(255,230,0,0.3)]"
+                        className="font-display font-black text-3xl text-[#FF8C00] tabular-nums"
                       >
                         {inn.runs}/{inn.wickets}
                       </motion.span>
-                      <span className="text-sm font-semibold text-rose-100/85 tabular-nums">
+                      <span className="text-sm font-semibold text-slate-600 tabular-nums">
                         ({formatOvers(inn.legalBalls)} / {inn.maxOvers} ov)
                       </span>
                     </div>
-                    <div className="text-right text-xs text-rose-200/80">
+                    <div className="text-right text-xs text-slate-500">
                       CRR:{' '}
-                      <span className="font-bold text-[#FFE600] tabular-nums">
+                      <span className="font-bold text-[#E87500] tabular-nums">
                         {calcRunRate(inn.runs, inn.legalBalls)}
                       </span>
                     </div>
@@ -1742,35 +1742,35 @@ export function ScoringDashboardView({
           </div>
 
           {/* Match Status / Chase / Innings Break Bar */}
-          <div className="rounded-xl overlay-home-card px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="rounded-xl wo-card px-4 py-3 flex flex-wrap items-center justify-between gap-3 text-slate-900">
             <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm">
               <div>
-                <span className="text-rose-200/75">Status: </span>
-                <span className="font-bold text-white">{match.resultText}</span>
+                <span className="text-slate-500">Status: </span>
+                <span className="font-bold text-slate-900">{match.resultText}</span>
               </div>
               {target !== null && (
                 <>
-                  <span className="text-[#FFE600]/35">|</span>
+                  <span className="text-slate-300">|</span>
                   <div>
-                    <span className="text-rose-200/75">Target: </span>
-                    <span className="font-bold text-[#FFE600] tabular-nums">{target}</span>
+                    <span className="text-slate-500">Target: </span>
+                    <span className="font-bold text-[#E87500] tabular-nums">{target}</span>
                   </div>
                   <div>
-                    <span className="text-rose-200/75">Need: </span>
-                    <span className="font-bold text-rose-200 tabular-nums">
+                    <span className="text-slate-500">Need: </span>
+                    <span className="font-bold text-slate-900 tabular-nums">
                       {runsRequired} off {remainingBalls}b
                     </span>
                   </div>
                   <div>
-                    <span className="text-rose-200/75">RRR: </span>
-                    <span className="font-bold text-[#FFE600] tabular-nums">{rrr}</span>
+                    <span className="text-slate-500">RRR: </span>
+                    <span className="font-bold text-[#E87500] tabular-nums">{rrr}</span>
                   </div>
                 </>
               )}
-              <span className="text-[#FFE600]/35 hidden sm:inline">|</span>
+              <span className="text-slate-300 hidden sm:inline">|</span>
               <div>
-                <span className="text-rose-200/75">Partnership: </span>
-                <span className="font-bold text-[#FFE600] tabular-nums">
+                <span className="text-slate-500">Partnership: </span>
+                <span className="font-bold text-[#E87500] tabular-nums">
                   {partnership.runs} ({partnership.balls}b)
                 </span>
               </div>
@@ -1781,7 +1781,7 @@ export function ScoringDashboardView({
                 <button
                   type="button"
                   onClick={openInningsSwitchModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-gold-pro text-[#070B28] text-xs font-black animate-pulse"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-white text-xs font-black animate-pulse"
                 >
                   <Play className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>CONFIRM &amp; SWITCH TO 2ND INNINGS</span>
@@ -1792,7 +1792,7 @@ export function ScoringDashboardView({
                 <button
                   type="button"
                   onClick={() => setMatchCompleteModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-gold-pro text-[#070B28] text-xs font-black tracking-wide animate-pulse"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-white text-xs font-black tracking-wide animate-pulse"
                 >
                   <Trophy className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>CONFIRM MATCH COMPLETED</span>
@@ -1806,9 +1806,9 @@ export function ScoringDashboardView({
                     setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
                     setActiveTab('overs');
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg btn-primary-pro text-white text-xs font-bold"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg wo-btn-primary text-white text-xs font-bold"
                 >
-                  <Trophy className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                  <Trophy className="w-3.5 h-3.5 text-white" aria-hidden="true" />
                   <span>Match Summary</span>
                 </button>
               )}
@@ -1820,7 +1820,7 @@ export function ScoringDashboardView({
                     setSelectedPomId(match.playerOfMatchId || '');
                     setPomModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg btn-gold-pro text-[#070B28] text-xs font-extrabold"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg wo-btn-soft text-xs font-extrabold"
                 >
                   <Award className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Set Player of the Match</span>
@@ -1837,15 +1837,15 @@ export function ScoringDashboardView({
                 !activeInn.strikerId && !activeInn.completed && match.status !== 'completed';
               return (
                 <div
-                  className={`relative rounded-xl overlay-home-card transition-all flex flex-col ${
+                  className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
                     needsStriker
-                      ? 'ring-2 ring-[#EF1A1A]'
-                      : 'ring-1 ring-[#FFE600]/55'
+                      ? 'ring-2 ring-red-500'
+                      : 'ring-1 ring-[#FF8C00]/45'
                   }`}
                 >
-                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 overlay-home-header text-[#FFE600]">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 wo-header text-white">
                     <span className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-wider">
-                      {!needsStriker && <CricketBatIcon className="w-3.5 h-3.5 text-[#FFE600]" />}
+                      {!needsStriker && <CricketBatIcon className="w-3.5 h-3.5 text-white" />}
                       <span>STRIKER</span>
                     </span>
                     <div className="relative" data-slot-menu="true">
@@ -1860,17 +1860,17 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Striker"
-                        className="p-1 rounded-md text-[#FFE600] hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                        className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
 
                       {slotMenuOpen === 'striker' && !needsStriker && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg overlay-home-card overflow-hidden text-left">
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
                           <button
                             type="button"
                             onClick={() => openEditPlayerModal('striker')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors border-b border-[#FACC15]/20"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
                           >
                             Edit Batsman
                           </button>
@@ -1880,7 +1880,7 @@ export function ScoringDashboardView({
                               setSlotMenuOpen(null);
                               setPlayerPickerSlot('striker');
                             }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
                           >
                             Replace Batsman
                           </button>
@@ -1903,7 +1903,7 @@ export function ScoringDashboardView({
                             ? setNewBatterModalOpen(true)
                             : setPlayerPickerSlot('striker')
                         }
-                        className="w-full min-h-[88px] rounded-lg btn-primary-pro text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg wo-btn-primary text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
                       >
                         Select Batsman
                       </motion.button>
@@ -1913,44 +1913,44 @@ export function ScoringDashboardView({
                       <div className="flex items-center gap-2 min-w-0">
                         {activeInn.strikerId && (
                           <span
-                            className="w-7 h-7 rounded-lg bg-[#FFE600]/15 border border-[#FFE600]/45 text-[#FFE600] inline-flex items-center justify-center shrink-0"
+                            className="w-7 h-7 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/35 text-[#FF8C00] inline-flex items-center justify-center shrink-0"
                             title="Currently On Strike"
                           >
                             <CricketBatIcon className="w-4 h-4" />
                           </span>
                         )}
-                        <p className="font-display font-black text-base text-white truncate">
+                        <p className="font-display font-black text-base text-slate-900 truncate">
                           {strikerStats?.playerName || 'Select Striker'}
                         </p>
                       </div>
-                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-[#0B0618]/80 rounded-lg p-2 border border-[#FACC15]/20">
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-200">
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">R</p>
-                          <p className="text-sm font-black text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-black text-[#FF8C00] tabular-nums">
                             {strikerStats?.runs ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">B</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">B</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {strikerStats?.balls ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">4s</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">4s</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {strikerStats?.fours ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">6s</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">6s</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {strikerStats?.sixes ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">SR</p>
-                          <p className="text-xs font-bold text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">SR</p>
+                          <p className="text-xs font-bold text-[#E87500] tabular-nums">
                             {strikerStats?.sr ?? '0.0'}
                           </p>
                         </div>
@@ -1967,7 +1967,7 @@ export function ScoringDashboardView({
                 type="button"
                 onClick={handleSwapBatsmen}
                 title="Swap Batsmen"
-                className="w-full md:w-12 md:h-12 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 md:p-0 rounded-xl btn-gold-pro text-[#070B28] text-xs font-black"
+                className="w-full md:w-12 md:h-12 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 md:p-0 rounded-xl wo-btn-primary text-white text-xs font-black"
               >
                 <ArrowLeftRight className="w-5 h-5" aria-hidden="true" />
                 <span className="md:hidden">SWAP BATSMEN</span>
@@ -1980,13 +1980,13 @@ export function ScoringDashboardView({
                 !activeInn.nonStrikerId && !activeInn.completed && match.status !== 'completed';
               return (
                 <div
-                  className={`relative rounded-xl overlay-home-card transition-all flex flex-col ${
+                  className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
                     needsNonStriker
-                      ? 'ring-2 ring-[#EF1A1A]'
+                      ? 'ring-2 ring-red-500'
                       : ''
                   }`}
                 >
-                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 overlay-home-header text-[#FFE600]">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 wo-header text-white">
                     <span className="text-xs font-black uppercase tracking-wider">
                       NONSTRIKER
                     </span>
@@ -2004,17 +2004,17 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Non-Striker"
-                        className="p-1 rounded-md text-[#FFE600] hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                        className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
 
                       {slotMenuOpen === 'nonStriker' && !needsNonStriker && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg overlay-home-card overflow-hidden text-left">
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
                           <button
                             type="button"
                             onClick={() => openEditPlayerModal('nonStriker')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors border-b border-[#FACC15]/20"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
                           >
                             Edit Batsman
                           </button>
@@ -2024,7 +2024,7 @@ export function ScoringDashboardView({
                               setSlotMenuOpen(null);
                               setPlayerPickerSlot('nonStriker');
                             }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
                           >
                             Replace Batsman
                           </button>
@@ -2047,44 +2047,44 @@ export function ScoringDashboardView({
                             ? setNewBatterModalOpen(true)
                             : setPlayerPickerSlot('nonStriker')
                         }
-                        className="w-full min-h-[88px] rounded-lg btn-primary-pro text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg wo-btn-primary text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
                       >
                         Select Batsman
                       </motion.button>
                     </div>
                   ) : (
                     <div className="p-4 flex-1 flex flex-col justify-between">
-                      <p className="font-display font-black text-base text-white truncate">
+                      <p className="font-display font-black text-base text-slate-900 truncate">
                         {nonStrikerStats?.playerName || 'Select Non-Striker'}
                       </p>
-                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-[#0B0618]/80 rounded-lg p-2 border border-[#FACC15]/20">
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-200">
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">R</p>
-                          <p className="text-sm font-black text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-black text-[#FF8C00] tabular-nums">
                             {nonStrikerStats?.runs ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">B</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">B</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {nonStrikerStats?.balls ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">4s</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">4s</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {nonStrikerStats?.fours ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">6s</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">6s</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {nonStrikerStats?.sixes ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">SR</p>
-                          <p className="text-xs font-bold text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">SR</p>
+                          <p className="text-xs font-bold text-[#E87500] tabular-nums">
                             {nonStrikerStats?.sr ?? '0.0'}
                           </p>
                         </div>
@@ -2105,19 +2105,19 @@ export function ScoringDashboardView({
                 match.status !== 'completed';
               return (
                 <div
-                  className={`relative rounded-xl overlay-home-card transition-all flex flex-col ${
+                  className={`relative rounded-xl wo-card transition-all flex flex-col text-slate-900 ${
                     needsNewBowler
-                      ? 'ring-2 ring-[#EF1A1A]'
+                      ? 'ring-2 ring-red-500'
                       : ''
                   }`}
                 >
-                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 overlay-home-header text-[#FFE600]">
+                  <div className="relative px-4 py-2.5 rounded-t-[10px] flex items-center justify-between gap-2 wo-header text-white">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black uppercase tracking-wider">
                         BOWLER
                       </span>
                       {isPendingBowlerChange && (
-                        <span className="px-2 py-0.5 rounded bg-[#FFE600] text-[#070B28] text-[10px] font-extrabold uppercase tracking-wider">
+                        <span className="px-2 py-0.5 rounded bg-white text-[#E87500] text-[10px] font-extrabold uppercase tracking-wider">
                           Over {completedOverNum} Done
                         </span>
                       )}
@@ -2134,17 +2134,17 @@ export function ScoringDashboardView({
                           }
                         }}
                         aria-label="Edit or Replace Bowler"
-                        className="p-1 rounded-md text-[#FFE600] hover:text-white hover:bg-white/15 inline-flex items-center gap-1 transition-colors"
+                        className="p-1 rounded-md text-white hover:bg-white/20 inline-flex items-center gap-1 transition-colors"
                       >
                         <UserPen className="w-4 h-4" aria-hidden="true" />
                       </button>
 
                       {slotMenuOpen === 'bowler' && !needsNewBowler && (
-                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg overlay-home-card overflow-hidden text-left">
+                        <div className="absolute right-0 top-full mt-1.5 z-40 w-44 rounded-lg wo-card overflow-hidden text-left shadow-xl">
                           <button
                             type="button"
                             onClick={() => openEditPlayerModal('bowler')}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors border-b border-[#FACC15]/20"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors border-b border-slate-200"
                           >
                             Edit Bowler
                           </button>
@@ -2155,7 +2155,7 @@ export function ScoringDashboardView({
                               if (isPendingBowlerChange) setOverCompleteModalOpen(true);
                               else setPlayerPickerSlot('bowler');
                             }}
-                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-white hover:bg-[#6B0208] hover:text-[#FFE600] transition-colors"
+                            className="w-full px-4 py-2.5 text-left text-sm font-semibold text-slate-800 hover:bg-[#FFF3E0] hover:text-[#E87500] transition-colors"
                           >
                             Replace Bowler
                           </button>
@@ -2178,44 +2178,44 @@ export function ScoringDashboardView({
                             ? setOverCompleteModalOpen(true)
                             : setPlayerPickerSlot('bowler')
                         }
-                        className="w-full min-h-[88px] rounded-lg btn-primary-pro text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
+                        className="w-full min-h-[88px] rounded-lg wo-btn-primary text-white font-display font-black text-base sm:text-lg tracking-wide flex items-center justify-center"
                       >
                         Select Bowler
                       </motion.button>
                     </div>
                   ) : (
                     <div className="p-4 flex-1 flex flex-col justify-between">
-                      <p className="font-display font-black text-base text-white truncate">
+                      <p className="font-display font-black text-base text-slate-900 truncate">
                         {bowlerStats?.playerName || 'Select Bowler'}
                       </p>
-                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-[#0B0618]/80 rounded-lg p-2 border border-[#FACC15]/20">
+                      <div className="mt-2.5 grid grid-cols-5 gap-1 text-center bg-slate-50 rounded-lg p-2 border border-slate-200">
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">O</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">O</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {bowlerStats?.overs ?? '0.0'}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">M</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">M</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {bowlerStats?.maidens ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">R</p>
-                          <p className="text-sm font-bold text-white tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">R</p>
+                          <p className="text-sm font-bold text-slate-900 tabular-nums">
                             {bowlerStats?.runs ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">W</p>
-                          <p className="text-sm font-black text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">W</p>
+                          <p className="text-sm font-black text-[#FF8C00] tabular-nums">
                             {bowlerStats?.wickets ?? 0}
                           </p>
                         </div>
                         <div>
-                          <p className="text-[10px] text-rose-200/75 font-semibold">Eco</p>
-                          <p className="text-xs font-bold text-[#FFE600] tabular-nums">
+                          <p className="text-[10px] text-slate-500 font-semibold">Eco</p>
+                          <p className="text-xs font-bold text-[#E87500] tabular-nums">
                             {bowlerStats?.economy ?? '0.00'}
                           </p>
                         </div>
@@ -2226,29 +2226,29 @@ export function ScoringDashboardView({
               );
             })()}
 
-            <div className="rounded-xl overlay-home-card p-4 flex flex-col justify-between gap-3">
+            <div className="rounded-xl wo-card p-4 flex flex-col justify-between gap-3 text-slate-900">
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-wider text-[#FFE600] mb-1.5">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#E87500] mb-1.5">
                   THIS OVER (Over {currentOverNumber + 1})
                 </p>
                 <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
                   {thisOverBalls.length > 0 ? (
                     thisOverBalls.map(renderBallChip)
                   ) : (
-                    <span className="text-xs text-rose-200/65">No balls bowled in this over yet.</span>
+                    <span className="text-xs text-slate-400">No balls bowled in this over yet.</span>
                   )}
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-[#FACC15]/20">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-rose-200/80 mb-1.5">
+              <div className="pt-2 border-t border-slate-200">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                   PREV OVER {currentOverNumber > 0 ? `(Over ${currentOverNumber})` : ''}
                 </p>
                 <div className="flex flex-wrap gap-1.5 min-h-[28px] items-center">
                   {prevOverBalls.length > 0 ? (
                     prevOverBalls.map(renderBallChip)
                   ) : (
-                    <span className="text-xs text-rose-200/65">No previous over yet.</span>
+                    <span className="text-xs text-slate-400">No previous over yet.</span>
                   )}
                 </div>
               </div>
@@ -2441,8 +2441,8 @@ export function ScoringDashboardView({
             )}
           </AnimatePresence>
 
-          {/* Home Page Animated Scoring Keypad + Inline Sub-Panels */}
-          <div className="rounded-xl overlay-home-card p-4 sm:p-5">
+          {/* White & Orange Animated Scoring Keypad + Inline Sub-Panels */}
+          <div className="rounded-xl wo-card text-slate-900 p-4 sm:p-5">
             <AnimatePresence mode="wait">
               {keypadPanel === 'main' && (
                 <motion.div
@@ -2463,7 +2463,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => recordDelivery({ runsOffBat: 0 })}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       0
                     </motion.button>
@@ -2476,7 +2476,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('DCL')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
                     >
                       DCL
                     </motion.button>
@@ -2491,13 +2491,13 @@ export function ScoringDashboardView({
                         whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                         transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                         onClick={() => recordDelivery({ runsOffBat: r })}
-                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                       >
                         {r}
                       </motion.button>
                     ))}
 
-                    {/* 4 (Boundary - Radiant Gold) */}
+                    {/* 4 (Boundary - Vibrant Orange) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
@@ -2508,12 +2508,12 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] btn-gold-pro disabled:opacity-45 text-[#070B28] font-display font-black text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                     >
                       4
                     </motion.button>
 
-                    {/* 6 (Boundary - Radiant Gold) */}
+                    {/* 6 (Boundary - Vibrant Orange) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
@@ -2524,7 +2524,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] btn-gold-pro disabled:opacity-45 text-[#070B28] font-display font-black text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                     >
                       6
                     </motion.button>
@@ -2540,7 +2540,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 4, isBoundary4: false }, '+4 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       4
                     </motion.button>
@@ -2553,7 +2553,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => recordDelivery({ runsOffBat: 5 }, '+5 Runs')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       5
                     </motion.button>
@@ -2572,7 +2572,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery({ runsOffBat: 6, isBoundary6: false }, '+6 Runs')
                       }
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                     >
                       6
                     </motion.button>
@@ -2587,13 +2587,13 @@ export function ScoringDashboardView({
                         whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                         transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                         onClick={() => setKeypadPanel(ex)}
-                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
+                        className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm tracking-wide"
                       >
                         {ex}
                       </motion.button>
                     ))}
 
-                    {/* OUT (Broadcast Crimson Red) */}
+                    {/* OUT (Alert Red) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
@@ -2601,7 +2601,7 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={openWicketModal}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] btn-primary-pro disabled:opacity-45 text-white font-display font-black text-sm tracking-wide"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] bg-[#DC2626] hover:bg-[#B91C1C] shadow-sm disabled:opacity-45 text-white font-display font-black text-sm tracking-wide transition-colors"
                     >
                       OUT
                     </motion.button>
@@ -2613,7 +2613,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('MORE')}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] overlay-home-btn-active font-display font-extrabold text-sm"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-active font-display font-extrabold text-sm"
                     >
                       More
                     </motion.button>
@@ -2626,13 +2626,13 @@ export function ScoringDashboardView({
                       whileTap={isScoringLocked ? undefined : { scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('MORE_RUNS')}
-                      className="h-[46px] sm:h-[48px] px-4 sm:px-5 rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-sm tracking-wide"
+                      className="h-[46px] sm:h-[48px] px-4 sm:px-5 rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm tracking-wide"
                     >
                       7 8 9 10..
                     </motion.button>
                   </div>
 
-                  {/* Row 3: Gold Edit (Pencil) & Undo Icon Buttons */}
+                  {/* Row 3: Soft Orange Edit (Pencil) & Undo Icon Buttons */}
                   <div className="flex flex-wrap items-center gap-3">
                     <motion.button
                       type="button"
@@ -2642,7 +2642,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => openEditScoreModal(innIdx)}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] btn-gold-pro text-[#070B28] inline-flex items-center justify-center"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-soft inline-flex items-center justify-center"
                     >
                       <Pencil className="w-5 h-5 fill-current" aria-hidden="true" />
                     </motion.button>
@@ -2656,7 +2656,7 @@ export function ScoringDashboardView({
                       whileTap={!match.undoStack.length ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={handleUndo}
-                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] btn-gold-pro disabled:opacity-45 text-[#070B28] inline-flex items-center justify-center"
+                      className="w-[54px] h-[46px] sm:w-[58px] sm:h-[48px] rounded-[12px] wo-btn-soft disabled:opacity-45 inline-flex items-center justify-center"
                     >
                       <Undo2 className="w-5 h-5 stroke-[2.6]" aria-hidden="true" />
                     </motion.button>
@@ -2679,11 +2679,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close No Ball panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">No Ball</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">No Ball</h4>
                   </div>
 
                   {/* Row 1: NB, NB +1 .. NB +5 */}
@@ -2708,7 +2708,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[10px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-sm sm:text-base"
+                        className="h-12 rounded-[10px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm sm:text-base"
                       >
                         {r === 0 ? 'NB' : `NB +${r}`}
                       </motion.button>
@@ -2734,7 +2734,7 @@ export function ScoringDashboardView({
                         );
                         setKeypadPanel('main');
                       }}
-                      className="h-12 rounded-[10px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-sm sm:text-base"
                     >
                       NB +6
                     </motion.button>
@@ -2745,7 +2745,7 @@ export function ScoringDashboardView({
                       whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
                       onClick={() => setKeypadPanel('NB_LB')}
-                      className="sm:col-span-2 h-12 rounded-[10px] btn-primary-pro disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
+                      className="sm:col-span-2 h-12 rounded-[10px] wo-btn-primary disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
                     >
                       Leg Byes
                     </motion.button>
@@ -2756,7 +2756,7 @@ export function ScoringDashboardView({
                       whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
                       onClick={() => setKeypadPanel('NB_BYE')}
-                      className="sm:col-span-2 h-12 rounded-[10px] btn-primary-pro disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
+                      className="sm:col-span-2 h-12 rounded-[10px] wo-btn-primary disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
                     >
                       Bye
                     </motion.button>
@@ -2779,11 +2779,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('NB')}
                       aria-label="Back to No Ball"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">
+                    <h4 className="font-display font-black text-xl text-[#E87500]">
                       {keypadPanel === 'NB_LB' ? 'No Ball + Leg Byes' : 'No Ball + Byes'}
                     </h4>
                   </div>
@@ -2808,7 +2808,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[10px] btn-primary-pro disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
+                        className="h-12 rounded-[10px] wo-btn-primary disabled:opacity-45 text-white font-display font-bold text-sm sm:text-base"
                       >
                         {keypadPanel === 'NB_LB' ? `NB +${r} LB` : `NB +${r} B`}
                       </motion.button>
@@ -2832,11 +2832,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close Wide panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">Wide</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">Wide</h4>
                   </div>
 
                   {/* Row 1: Wd, Wd +1, Wd +2, Wd +3 */}
@@ -2855,7 +2855,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {r === 0 ? 'Wd' : `Wd +${r}`}
                       </motion.button>
@@ -2878,7 +2878,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {`Wd +${r}`}
                       </motion.button>
@@ -2902,11 +2902,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close Byes panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">Byes</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">Byes</h4>
                   </div>
 
                   {/* Row 1: 1 B, 2 B, 3 B, 4 B */}
@@ -2925,7 +2925,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {`${r} B`}
                       </motion.button>
@@ -2948,7 +2948,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {`${r} B`}
                       </motion.button>
@@ -2972,11 +2972,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close Leg Byes panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">Leg Byes</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">Leg Byes</h4>
                   </div>
 
                   {/* Row 1: 1 LB, 2 LB, 3 LB, 4 LB */}
@@ -2995,7 +2995,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {`${r} LB`}
                       </motion.button>
@@ -3018,7 +3018,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] overlay-home-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
+                        className="h-12 rounded-[12px] wo-trans-btn disabled:opacity-45 font-display font-extrabold text-base"
                       >
                         {`${r} LB`}
                       </motion.button>
@@ -3042,11 +3042,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close Declared panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">Declared</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">Declared</h4>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -3064,7 +3064,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] btn-gold-pro disabled:opacity-45 text-[#070B28] font-display font-black text-base"
+                        className="h-12 rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                       >
                         {`${r} D`}
                       </motion.button>
@@ -3086,7 +3086,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[12px] btn-gold-pro disabled:opacity-45 text-[#070B28] font-display font-black text-base"
+                        className="h-12 rounded-[12px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-base"
                       >
                         {`${r} D`}
                       </motion.button>
@@ -3110,11 +3110,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close More panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">More</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">More</h4>
                   </div>
 
                   {/* Row 1: Complete, Change Target, Change Over, Penalty */}
@@ -3124,7 +3124,7 @@ export function ScoringDashboardView({
                       whileHover={{ scale: 1.03, y: -1 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={handleCompleteInningsOrMatch}
-                      className="h-12 rounded-[10px] overlay-home-btn font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-btn-secondary font-display font-bold text-sm sm:text-base"
                     >
                       Complete
                     </motion.button>
@@ -3143,7 +3143,7 @@ export function ScoringDashboardView({
                         );
                         setChangeTargetModalOpen(true);
                       }}
-                      className="h-12 rounded-[10px] overlay-home-btn font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-btn-secondary font-display font-bold text-sm sm:text-base"
                     >
                       Change Target
                     </motion.button>
@@ -3156,7 +3156,7 @@ export function ScoringDashboardView({
                         setQuickOverValue(String(activeInn.maxOvers || match.oversPerInnings));
                         setChangeOverModalOpen(true);
                       }}
-                      className="h-12 rounded-[10px] overlay-home-btn font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-btn-secondary font-display font-bold text-sm sm:text-base"
                     >
                       Change Over
                     </motion.button>
@@ -3167,7 +3167,7 @@ export function ScoringDashboardView({
                       whileHover={isScoringLocked ? undefined : { scale: 1.03, y: -1 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
                       onClick={() => setKeypadPanel('PENALTY')}
-                      className="h-12 rounded-[10px] overlay-home-btn disabled:opacity-45 font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm sm:text-base"
                     >
                       Penalty
                     </motion.button>
@@ -3180,7 +3180,7 @@ export function ScoringDashboardView({
                       whileHover={{ scale: 1.03, y: -1 }}
                       whileTap={{ scale: 0.95 }}
                       onClick={() => setMatchSettingModalOpen(true)}
-                      className="h-12 rounded-[10px] overlay-home-btn font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] wo-btn-secondary font-display font-bold text-sm sm:text-base"
                     >
                       Setting
                     </motion.button>
@@ -3193,7 +3193,7 @@ export function ScoringDashboardView({
                         setWalkOverWinnerId(match.team1Id);
                         setWalkOverModalOpen(true);
                       }}
-                      className="h-12 rounded-[10px] btn-primary-pro text-white font-display font-bold text-sm sm:text-base"
+                      className="h-12 rounded-[10px] bg-[#DC2626] hover:bg-[#B91C1C] shadow-sm text-white font-display font-bold text-sm sm:text-base transition-colors"
                     >
                       Walk Over
                     </motion.button>
@@ -3216,11 +3216,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('MORE')}
                       aria-label="Back to More"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">
+                    <h4 className="font-display font-black text-xl text-[#E87500]">
                       Penalty Runs
                     </h4>
                   </div>
@@ -3240,7 +3240,7 @@ export function ScoringDashboardView({
                           );
                           setKeypadPanel('main');
                         }}
-                        className="h-12 rounded-[10px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                        className="h-12 rounded-[10px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                       >
                         +{r}
                       </motion.button>
@@ -3264,11 +3264,11 @@ export function ScoringDashboardView({
                       type="button"
                       onClick={() => setKeypadPanel('main')}
                       aria-label="Close More Runs panel"
-                      className="p-1.5 rounded-lg overlay-home-btn text-[#FFE600]"
+                      className="p-1.5 rounded-lg wo-btn-secondary text-[#FF8C00]"
                     >
                       <X className="w-5 h-5" />
                     </button>
-                    <h4 className="font-display font-black text-xl text-[#FFE600]">More Runs</h4>
+                    <h4 className="font-display font-black text-xl text-[#E87500]">More Runs</h4>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3284,7 +3284,7 @@ export function ScoringDashboardView({
                           recordDelivery({ runsOffBat: r }, `+${r} Runs`);
                           setKeypadPanel('main');
                         }}
-                        className="w-[54px] h-[48px] sm:w-[58px] sm:h-[50px] rounded-[12px] overlay-home-btn disabled:opacity-45 font-display font-bold text-base"
+                        className="w-[54px] h-[48px] sm:w-[58px] sm:h-[50px] rounded-[12px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-base"
                       >
                         {r}
                       </motion.button>
@@ -3312,8 +3312,8 @@ export function ScoringDashboardView({
                   onClick={() => setScorecardInningsTab(idx)}
                   className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
                     scorecardInningsTab === idx
-                      ? 'overlay-home-btn-active text-white'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'wo-btn-active'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-orange-50'
                   }`}
                 >
                   {idx === 0 ? '1st Innings' : '2nd Innings'} · {t?.shortName || `Team ${idx + 1}`}{' '}
@@ -3877,8 +3877,8 @@ export function ScoringDashboardView({
                     onClick={() => setOversInningsTab(idx)}
                     className={`px-4 py-2 rounded-lg text-xs font-bold border transition-colors ${
                       oversInningsTab === idx
-                        ? 'overlay-home-btn-active text-white'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        ? 'wo-btn-active'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-orange-50'
                     }`}
                   >
                     {idx === 0 ? '1st Innings Overs' : '2nd Innings Overs'} ·{' '}
@@ -4178,9 +4178,9 @@ export function ScoringDashboardView({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-md rounded-xl bg-white border border-[#FACC15]/35 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col">
-            <div className="overlay-home-header text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-black text-sm text-[#FFE600] uppercase tracking-wide">
+          <div className="w-full max-w-md rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[88vh] flex flex-col">
+            <div className="wo-header text-white px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-black text-sm text-white uppercase tracking-wide">
                 Select{' '}
                 {playerPickerSlot === 'striker'
                   ? 'Striker'
@@ -4191,7 +4191,7 @@ export function ScoringDashboardView({
               <button
                 type="button"
                 onClick={() => setPlayerPickerSlot(null)}
-                className="p-1 rounded text-[#FFE600] hover:text-white"
+                className="p-1 rounded text-white/90 hover:text-white"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -4321,7 +4321,7 @@ export function ScoringDashboardView({
                           onClick={() =>
                             handleQuickAddPlayer(targetTeam.id, playerPickerSlot)
                           }
-                          className="w-full py-2 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+                          className="w-full py-2 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider"
                         >
                           + Add &amp; Assign Player
                         </button>
@@ -4354,16 +4354,16 @@ export function ScoringDashboardView({
               onSubmit={submitEditScoreModal}
               className="w-full max-w-[700px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
             >
-              {/* Home Theme Header with Centered Gold Title */}
-              <div className="relative px-5 py-3.5 overlay-home-header flex items-center justify-center">
-                <h3 className="font-display font-black text-xl tracking-wide text-[#FFE600] uppercase text-center">
+              {/* White & Orange Header */}
+              <div className="relative px-5 py-3.5 wo-header flex items-center justify-center">
+                <h3 className="font-display font-black text-xl tracking-wide text-white uppercase text-center">
                   {editInningsIdx === 0 ? 'EDIT 1ST INN SCORE' : 'EDIT 2ND INN SCORE'}
                 </h3>
                 <button
                   type="button"
                   onClick={() => setEditScoreModalOpen(false)}
                   aria-label="Close modal"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-[#FFE600] hover:text-white transition-transform hover:scale-110"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 p-1 text-white/90 hover:text-white transition-transform hover:scale-110"
                 >
                   <X className="w-5 h-5 stroke-[2.5]" />
                 </button>
@@ -4381,7 +4381,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editRuns}
                       onChange={(e) => setEditRuns(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4395,7 +4395,7 @@ export function ScoringDashboardView({
                       max={10}
                       value={editWickets}
                       onChange={(e) => setEditWickets(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4408,7 +4408,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editBalls}
                       onChange={(e) => setEditBalls(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4421,7 +4421,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editWides}
                       onChange={(e) => setEditWides(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4434,7 +4434,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editNoBalls}
                       onChange={(e) => setEditNoBalls(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4448,7 +4448,7 @@ export function ScoringDashboardView({
                       max={50}
                       value={editMaxOvers}
                       onChange={(e) => setEditMaxOvers(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4461,7 +4461,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editByes}
                       onChange={(e) => setEditByes(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4474,7 +4474,7 @@ export function ScoringDashboardView({
                       min={0}
                       value={editLegByes}
                       onChange={(e) => setEditLegByes(e.target.value)}
-                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                      className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                     />
                   </div>
 
@@ -4488,7 +4488,7 @@ export function ScoringDashboardView({
                         min={1}
                         value={editTarget}
                         onChange={(e) => setEditTarget(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                   )}
@@ -4500,7 +4500,7 @@ export function ScoringDashboardView({
                     type="submit"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.96 }}
-                    className="px-7 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                    className="px-7 py-2.5 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
                   >
                     CHANGE
                   </motion.button>
@@ -4529,14 +4529,14 @@ export function ScoringDashboardView({
               onSubmit={handleSaveQuickTarget}
               className="w-full max-w-md rounded-[4px] bg-white overflow-hidden shadow-2xl"
             >
-              <div className="relative px-5 py-3.5 overlay-home-header flex items-center justify-center">
-                <h3 className="font-display font-black text-lg tracking-wide text-[#FFE600] uppercase">
+              <div className="relative px-5 py-3.5 wo-header flex items-center justify-center">
+                <h3 className="font-display font-black text-lg tracking-wide text-white uppercase">
                   CHANGE TARGET
                 </h3>
                 <button
                   type="button"
                   onClick={() => setChangeTargetModalOpen(false)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#FFE600] hover:text-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/90 hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4553,13 +4553,13 @@ export function ScoringDashboardView({
                     autoFocus
                     value={quickTargetValue}
                     onChange={(e) => setQuickTargetValue(e.target.value)}
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
                   />
                 </div>
                 <div className="flex justify-center">
                   <button
                     type="submit"
-                    className="px-7 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+                    className="px-7 py-2.5 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider"
                   >
                     CHANGE
                   </button>
@@ -4588,14 +4588,14 @@ export function ScoringDashboardView({
               onSubmit={handleSaveQuickOver}
               className="w-full max-w-md rounded-xl bg-white overflow-hidden shadow-2xl"
             >
-              <div className="relative px-5 py-3.5 overlay-home-header flex items-center justify-center">
-                <h3 className="font-display font-black text-lg tracking-wide text-[#FFE600] uppercase">
+              <div className="relative px-5 py-3.5 wo-header flex items-center justify-center">
+                <h3 className="font-display font-black text-lg tracking-wide text-white uppercase">
                   CHANGE MATCH OVERS
                 </h3>
                 <button
                   type="button"
                   onClick={() => setChangeOverModalOpen(false)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#FFE600] hover:text-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/90 hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4613,13 +4613,13 @@ export function ScoringDashboardView({
                     autoFocus
                     value={quickOverValue}
                     onChange={(e) => setQuickOverValue(e.target.value)}
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none"
                   />
                 </div>
                 <div className="flex justify-center">
                   <button
                     type="submit"
-                    className="px-7 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider"
+                    className="px-7 py-2.5 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider"
                   >
                     CHANGE
                   </button>
@@ -4645,16 +4645,16 @@ export function ScoringDashboardView({
               initial={{ opacity: 0, scale: 0.95, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-md rounded-xl overlay-home-card overflow-hidden shadow-2xl"
+              className="w-full max-w-md rounded-xl wo-card overflow-hidden shadow-2xl"
             >
-              <div className="relative px-5 py-3.5 overlay-home-header flex items-center justify-center">
-                <h3 className="font-display font-black text-lg tracking-wide text-[#FFE600] uppercase">
+              <div className="relative px-5 py-3.5 wo-header flex items-center justify-center">
+                <h3 className="font-display font-black text-lg tracking-wide text-white uppercase">
                   MATCH SETTINGS
                 </h3>
                 <button
                   type="button"
                   onClick={() => setMatchSettingModalOpen(false)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#FFE600] hover:text-white"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/90 hover:text-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -4667,7 +4667,7 @@ export function ScoringDashboardView({
                     setKeypadPanel('main');
                     openEditScoreModal(0);
                   }}
-                  className="py-3 px-3 rounded-lg overlay-home-btn text-xs font-bold"
+                  className="py-3 px-3 rounded-lg wo-btn-secondary text-xs font-bold"
                 >
                   Edit 1st Inn Score
                 </button>
@@ -4678,7 +4678,7 @@ export function ScoringDashboardView({
                     setKeypadPanel('main');
                     openEditScoreModal(1);
                   }}
-                  className="py-3 px-3 rounded-lg overlay-home-btn text-xs font-bold"
+                  className="py-3 px-3 rounded-lg wo-btn-secondary text-xs font-bold"
                 >
                   Edit 2nd Inn Score
                 </button>
@@ -4689,7 +4689,7 @@ export function ScoringDashboardView({
                     setKeypadPanel('main');
                     openTossModal();
                   }}
-                  className="py-3 px-3 rounded-lg btn-gold-pro text-[#070B28] text-xs font-extrabold"
+                  className="py-3 px-3 rounded-lg wo-btn-soft text-xs font-extrabold"
                 >
                   Edit Toss
                 </button>
@@ -4786,13 +4786,13 @@ export function ScoringDashboardView({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white border border-[#FACC15]/35 shadow-2xl overflow-hidden">
-            <div className="overlay-home-header text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-black text-sm text-[#FFE600] uppercase tracking-wide">Toss Setup</h3>
+          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="wo-header text-white px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-black text-sm text-white uppercase tracking-wide">Toss Setup</h3>
               <button
                 type="button"
                 onClick={() => setTossModalOpen(false)}
-                className="p-1 rounded text-[#FFE600] hover:text-white"
+                className="p-1 rounded text-white/90 hover:text-white"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -4823,8 +4823,8 @@ export function ScoringDashboardView({
                       onClick={() => setTossDecision(dec)}
                       className={`py-2 rounded-lg text-xs font-bold border ${
                         tossDecision === dec
-                          ? 'overlay-home-btn-active text-white'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-rose-50'
+                          ? 'wo-btn-active'
+                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-orange-50'
                       }`}
                     >
                       Elected to {dec}
@@ -4843,7 +4843,7 @@ export function ScoringDashboardView({
                 <button
                   type="button"
                   onClick={submitTossModal}
-                  className="px-4 py-2 rounded-lg btn-primary-pro text-xs font-extrabold uppercase tracking-wider text-white"
+                  className="px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider text-white"
                 >
                   Save Toss
                 </button>
@@ -4860,13 +4860,13 @@ export function ScoringDashboardView({
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-sm rounded-xl bg-white border border-[#FACC15]/35 shadow-2xl overflow-hidden">
-            <div className="overlay-home-header text-white px-4 py-3 flex items-center justify-between">
-              <h3 className="font-display font-black text-sm text-[#FFE600] uppercase tracking-wide">Select Player of the Match</h3>
+          <div className="w-full max-w-sm rounded-xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
+            <div className="wo-header text-white px-4 py-3 flex items-center justify-between">
+              <h3 className="font-display font-black text-sm text-white uppercase tracking-wide">Select Player of the Match</h3>
               <button
                 type="button"
                 onClick={() => setPomModalOpen(false)}
-                className="p-1 rounded text-[#FFE600] hover:text-white"
+                className="p-1 rounded text-white/90 hover:text-white"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
@@ -4902,7 +4902,7 @@ export function ScoringDashboardView({
                     setPomModalOpen(false);
                     onToast('Player of the Match saved.');
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg btn-primary-pro text-xs font-extrabold uppercase tracking-wider text-white"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider text-white"
                 >
                   <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Save</span>
@@ -4933,27 +4933,27 @@ export function ScoringDashboardView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 16 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="w-full max-w-lg rounded-2xl bg-white border border-[#FACC15]/40 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+              className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
             >
               {/* Animated Notification Header */}
-              <div className="overlay-home-header text-white px-5 py-4">
+              <div className="wo-header text-white px-5 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <motion.div
                       animate={{ rotate: [0, -16, 16, -12, 12, 0], scale: [1, 1.1, 1] }}
                       transition={{ duration: 0.95, repeat: Infinity, repeatDelay: 1.4 }}
-                      className="w-12 h-12 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center shrink-0 shadow-inner"
+                      className="w-12 h-12 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0 shadow-inner"
                     >
-                      <BellRing className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                      <BellRing className="w-6 h-6 text-white" aria-hidden="true" />
                     </motion.div>
                     <div>
                       <h3
                         id="over-completed-title"
-                        className="font-display font-black text-lg sm:text-xl tracking-wide text-[#FFE600] leading-tight"
+                        className="font-display font-black text-lg sm:text-xl tracking-wide text-white leading-tight"
                       >
                         OVER COMPLETED!
                       </h3>
-                      <p className="text-xs sm:text-sm font-extrabold text-rose-100 tracking-wider uppercase mt-0.5">
+                      <p className="text-xs sm:text-sm font-extrabold text-orange-100 tracking-wider uppercase mt-0.5">
                         PLEASE CHANGE BOWLER
                       </p>
                     </div>
@@ -4962,21 +4962,21 @@ export function ScoringDashboardView({
                     type="button"
                     onClick={() => setOverCompleteModalOpen(false)}
                     aria-label="Close bowler popup"
-                    className="p-1.5 rounded-lg text-[#FFE600] hover:text-white transition-colors"
+                    className="p-1.5 rounded-lg text-white/90 hover:text-white transition-colors"
                   >
                     <X className="w-4 h-4" aria-hidden="true" />
                   </button>
                 </div>
 
                 {/* Completed Over Summary + Strike Rotation Confirmation */}
-                <div className="mt-3 pt-3 border-t border-[#FFE600]/25 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
-                  <span className="px-2.5 py-1 rounded-md bg-white/15 text-[#FFE600]">
+                <div className="mt-3 pt-3 border-t border-white/25 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                  <span className="px-2.5 py-1 rounded-md bg-white/20 text-white">
                     Over {completedOverNum} Complete · {prevOverSummary.runs}R / {prevOverSummary.wkts}W
                   </span>
-                  <span className="px-2.5 py-1 rounded-md bg-white/10 text-rose-100">
+                  <span className="px-2.5 py-1 rounded-md bg-white/15 text-orange-50">
                     Next Over: Over {completedOverNum + 1}
                   </span>
-                  <span className="px-2.5 py-1 rounded-md bg-white/10 text-rose-100">
+                  <span className="px-2.5 py-1 rounded-md bg-white/15 text-orange-50">
                     Strike Rotated: {strikerStats?.playerName || 'Striker'} *
                   </span>
                 </div>
@@ -5038,8 +5038,8 @@ export function ScoringDashboardView({
                                   isPrevBowler
                                     ? 'bg-slate-200 text-slate-500 border-slate-300'
                                     : isPicked
-                                      ? 'btn-primary-pro text-white'
-                                      : 'bg-rose-50 text-[#B91C1C] border-rose-200'
+                                      ? 'wo-btn-primary text-white'
+                                      : 'bg-[#FFF3E0] text-[#E87500] border-[#FF8C00]/25'
                                 }`}
                               >
                                 {getPlayerInitials(p.name)}
@@ -5078,7 +5078,7 @@ export function ScoringDashboardView({
                                 Previous
                               </span>
                             ) : isPicked ? (
-                              <span className="w-7 h-7 rounded-full btn-primary-pro text-white inline-flex items-center justify-center">
+                              <span className="w-7 h-7 rounded-full wo-btn-primary text-white inline-flex items-center justify-center">
                                 <Check className="w-4 h-4" aria-hidden="true" />
                               </span>
                             ) : (
@@ -5134,7 +5134,7 @@ export function ScoringDashboardView({
                       !selectedNextBowlerId || selectedNextBowlerId === previousOverBowlerId
                     }
                     onClick={() => handleConfirmNextBowler(selectedNextBowlerId)}
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl btn-primary-pro disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide whitespace-nowrap"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl wo-btn-primary disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide whitespace-nowrap"
                   >
                     <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                     <span>SELECT BOWLER</span>
@@ -5166,22 +5166,22 @@ export function ScoringDashboardView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 14 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="w-full max-w-lg rounded-2xl bg-white border border-[#FACC15]/40 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+              className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
             >
               {/* Header */}
-              <div className="overlay-home-header text-white px-5 py-4 flex items-start justify-between gap-3">
+              <div className="wo-header text-white px-5 py-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center shrink-0">
-                    <UserPlus className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                  <div className="w-11 h-11 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0">
+                    <UserPlus className="w-6 h-6 text-white" aria-hidden="true" />
                   </div>
                   <div>
                     <h3
                       id="new-batter-title"
-                      className="font-display font-black text-base sm:text-lg tracking-wide text-[#FFE600] uppercase"
+                      className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
                       WICKET FALLEN! SELECT NEXT BATTER
                     </h3>
-                    <p className="text-xs font-bold text-rose-100 mt-0.5">
+                    <p className="text-xs font-bold text-orange-100 mt-0.5">
                       Scoring is paused until the next batter is selected or added
                     </p>
                   </div>
@@ -5190,7 +5190,7 @@ export function ScoringDashboardView({
                   type="button"
                   onClick={() => setNewBatterModalOpen(false)}
                   aria-label="Close next batter popup"
-                  className="p-1.5 rounded-lg text-[#FFE600] hover:text-white transition-colors"
+                  className="p-1.5 rounded-lg text-white/90 hover:text-white transition-colors"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -5334,7 +5334,7 @@ export function ScoringDashboardView({
                   type="button"
                   disabled={!selectedNextBatterId}
                   onClick={() => handleConfirmNextBatter(selectedNextBatterId)}
-                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl btn-primary-pro disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl wo-btn-primary disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide"
                 >
                   <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                   <span>SELECT BATTER</span>
@@ -5365,24 +5365,24 @@ export function ScoringDashboardView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 14 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="w-full max-w-lg rounded-2xl bg-white border border-[#FACC15]/40 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+              className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
             >
               {/* Header */}
-              <div className="overlay-home-header text-white px-5 py-4 flex items-start justify-between gap-3">
+              <div className="wo-header text-white px-5 py-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center shrink-0">
-                    <ArrowLeftRight className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                  <div className="w-11 h-11 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0">
+                    <ArrowLeftRight className="w-6 h-6 text-white" aria-hidden="true" />
                   </div>
                   <div>
                     <h3
                       id="innings-switch-title"
-                      className="font-display font-black text-base sm:text-lg tracking-wide text-[#FFE600] uppercase"
+                      className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
                       {isFirstInningsEnded
                         ? '1ST INNINGS COMPLETED!'
                         : 'END 1ST INNINGS & SWITCH'}
                     </h3>
-                    <p className="text-xs font-bold text-rose-100 mt-0.5">
+                    <p className="text-xs font-bold text-orange-100 mt-0.5">
                       End 1st innings and switch live scoring to 2nd innings
                     </p>
                   </div>
@@ -5391,7 +5391,7 @@ export function ScoringDashboardView({
                   type="button"
                   onClick={() => setInningsSwitchModalOpen(false)}
                   aria-label="Close innings switch popup"
-                  className="p-1.5 rounded-lg text-[#FFE600] hover:text-white transition-colors"
+                  className="p-1.5 rounded-lg text-white/90 hover:text-white transition-colors"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -5498,22 +5498,22 @@ export function ScoringDashboardView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 14 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="w-full max-w-lg rounded-2xl bg-white border border-[#FACC15]/40 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+              className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
             >
               {/* Header */}
-              <div className="overlay-home-header text-white px-5 py-4 flex items-start justify-between gap-3">
+              <div className="wo-header text-white px-5 py-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center shrink-0">
-                    <Users className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                  <div className="w-11 h-11 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0">
+                    <Users className="w-6 h-6 text-white" aria-hidden="true" />
                   </div>
                   <div>
                     <h3
                       id="inn2-setup-title"
-                      className="font-display font-black text-base sm:text-lg tracking-wide text-[#FFE600] uppercase"
+                      className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
                       2ND INNINGS — SELECT BATTERS &amp; BOWLER
                     </h3>
-                    <p className="text-xs font-bold text-rose-100 mt-0.5">
+                    <p className="text-xs font-bold text-orange-100 mt-0.5">
                       Select or add Opening Striker, Non-Striker &amp; Bowler to begin scoring
                     </p>
                   </div>
@@ -5522,7 +5522,7 @@ export function ScoringDashboardView({
                   type="button"
                   onClick={() => setSecondInningsSetupModalOpen(false)}
                   aria-label="Close 2nd innings setup popup"
-                  className="p-1.5 rounded-lg text-[#FFE600] hover:text-white transition-colors"
+                  className="p-1.5 rounded-lg text-white/90 hover:text-white transition-colors"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -5567,8 +5567,8 @@ export function ScoringDashboardView({
                               }}
                               className={`px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
                                 inn2StrikerId === p.id
-                                  ? 'overlay-home-btn-active text-white'
-                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-rose-50'
+                                  ? 'wo-btn-active'
+                                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-orange-50'
                               }`}
                             >
                               #{p.jerseyNo} {p.name}
@@ -5599,8 +5599,8 @@ export function ScoringDashboardView({
                                 p.id === inn2StrikerId
                                   ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                                   : inn2NonStrikerId === p.id
-                                    ? 'overlay-home-btn-active text-white'
-                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-rose-50'
+                                    ? 'wo-btn-active'
+                                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-orange-50'
                               }`}
                             >
                               #{p.jerseyNo} {p.name}
@@ -5612,8 +5612,8 @@ export function ScoringDashboardView({
 
                     {/* Quick Add Batter for 2nd Innings Batting Team */}
                     {secondBatTeam && (
-                      <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 space-y-1.5">
-                        <p className="text-[11px] font-bold text-[#B91C1C] flex items-center gap-1.5">
+                      <div className="p-3 rounded-xl bg-[#FFF3E0]/80 border border-[#FF8C00]/25 space-y-1.5">
+                        <p className="text-[11px] font-bold text-[#E87500] flex items-center gap-1.5">
                           <UserPlus className="w-3.5 h-3.5" aria-hidden="true" />
                           Quick Add Batter to {secondBatTeam.shortName}
                         </p>
@@ -5629,12 +5629,12 @@ export function ScoringDashboardView({
                               }
                             }}
                             placeholder="Enter batter name"
-                            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-hidden focus:border-[#D4080F]"
+                            className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white focus:outline-hidden focus:border-[#FF8C00]"
                           />
                           <button
                             type="button"
                             onClick={() => handleQuickAddPlayer(secondBatTeam.id, 'inn2Bat')}
-                            className="px-3.5 py-1.5 rounded-lg btn-primary-pro text-white text-xs font-bold shrink-0"
+                            className="px-3.5 py-1.5 rounded-lg wo-btn-primary text-white text-xs font-bold shrink-0"
                           >
                             + Add Batter
                           </button>
@@ -5734,7 +5734,7 @@ export function ScoringDashboardView({
                     inn2StrikerId === inn2NonStrikerId
                   }
                   onClick={handleConfirmSecondInningsSetup}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl btn-primary-pro disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide"
+                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl wo-btn-primary disabled:opacity-45 disabled:cursor-not-allowed text-white font-display font-black text-xs sm:text-sm tracking-wide"
                 >
                   <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
                   <span>CONFIRM &amp; START 2ND INNINGS</span>
@@ -5765,26 +5765,26 @@ export function ScoringDashboardView({
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: 14 }}
               transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-              className="w-full max-w-lg rounded-2xl bg-white border-2 border-[#FACC15]/55 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+              className="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
             >
               {/* Header */}
-              <div className="overlay-home-header text-white px-5 py-4 flex items-start justify-between gap-3">
+              <div className="wo-header text-white px-5 py-4 flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <motion.div
                     animate={{ scale: [1, 1.12, 1], rotate: [0, -6, 6, 0] }}
                     transition={{ duration: 1.4, repeat: Infinity }}
-                    className="w-11 h-11 rounded-xl bg-[#FFE600]/15 border border-[#FFE600]/45 flex items-center justify-center shrink-0"
+                    className="w-11 h-11 rounded-xl bg-white/20 border border-white/35 flex items-center justify-center shrink-0"
                   >
-                    <Trophy className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                    <Trophy className="w-6 h-6 text-white" aria-hidden="true" />
                   </motion.div>
                   <div>
                     <h3
                       id="match-complete-title"
-                      className="font-display font-black text-base sm:text-lg tracking-wide text-[#FFE600] uppercase"
+                      className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
                       MATCH COMPLETED!
                     </h3>
-                    <p className="text-xs font-bold text-rose-100 mt-0.5">
+                    <p className="text-xs font-bold text-orange-100 mt-0.5">
                       Confirm match over to open complete Match Summary &amp; Overs
                     </p>
                   </div>
@@ -5793,7 +5793,7 @@ export function ScoringDashboardView({
                   type="button"
                   onClick={() => setMatchCompleteModalOpen(false)}
                   aria-label="Close match completed popup"
-                  className="p-1.5 rounded-lg text-[#FFE600] hover:text-white transition-colors"
+                  className="p-1.5 rounded-lg text-white/90 hover:text-white transition-colors"
                 >
                   <X className="w-4 h-4" aria-hidden="true" />
                 </button>
@@ -5908,9 +5908,9 @@ export function ScoringDashboardView({
               onSubmit={handleSaveEditPlayer}
               className="w-full max-w-[700px] rounded-[4px] bg-white overflow-hidden shadow-2xl my-auto"
             >
-              {/* Home Theme Header with Gold Cricketer Icon & Gold Title */}
-              <div className="relative px-5 py-3.5 overlay-home-header flex items-center justify-center">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#FFE600] flex items-center">
+              {/* White & Orange Header */}
+              <div className="relative px-5 py-3.5 wo-header flex items-center justify-center">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-white flex items-center">
                   <svg
                     viewBox="0 0 36 36"
                     className="w-8 h-8"
@@ -5944,7 +5944,7 @@ export function ScoringDashboardView({
 
                 <h3
                   id="edit-player-modal-title"
-                  className="font-display font-bold text-xl tracking-wide text-[#FFEB3B] uppercase text-center"
+                  className="font-display font-bold text-xl tracking-wide text-white uppercase text-center"
                 >
                   {editPlayerModal.slot === 'striker'
                     ? 'EDIT STRIKER'
@@ -5981,7 +5981,7 @@ export function ScoringDashboardView({
                     value={editPlayerName}
                     onChange={(e) => setEditPlayerName(e.target.value)}
                     placeholder="Enter player name"
-                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base font-medium text-slate-900 focus:outline-none transition-colors"
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base font-medium text-slate-900 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -5997,7 +5997,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBatterScore}
                         onChange={(e) => setEditBatterScore(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6009,7 +6009,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBatterBalls}
                         onChange={(e) => setEditBatterBalls(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6021,7 +6021,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBatter4s}
                         onChange={(e) => setEditBatter4s(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6033,7 +6033,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBatter6s}
                         onChange={(e) => setEditBatter6s(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -6048,7 +6048,7 @@ export function ScoringDashboardView({
                         value={editBowlerOvers}
                         onChange={(e) => setEditBowlerOvers(e.target.value)}
                         placeholder="0.0"
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6060,7 +6060,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBowlerMaidens}
                         onChange={(e) => setEditBowlerMaidens(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6072,7 +6072,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBowlerRuns}
                         onChange={(e) => setEditBowlerRuns(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                     <div>
@@ -6084,7 +6084,7 @@ export function ScoringDashboardView({
                         min={0}
                         value={editBowlerWickets}
                         onChange={(e) => setEditBowlerWickets(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#D4080F] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
+                        className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-1.5 text-base text-slate-900 tabular-nums focus:outline-none transition-colors"
                       />
                     </div>
                   </div>
@@ -6096,7 +6096,7 @@ export function ScoringDashboardView({
                     type="submit"
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.96 }}
-                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg btn-primary-pro text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
+                    className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider cursor-pointer"
                   >
                     <span>UPDATE</span>
                     <Send className="w-3.5 h-3.5 fill-current" aria-hidden="true" />

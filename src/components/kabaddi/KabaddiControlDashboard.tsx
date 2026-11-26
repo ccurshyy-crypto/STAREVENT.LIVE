@@ -561,15 +561,15 @@ export function KabaddiControlDashboard({
     const superTackleOn = team.playersOnMat > 0 && team.playersOnMat <= 3;
 
     return (
-      <div className="rounded-2xl overlay-home-card overflow-hidden flex flex-col">
+      <div className="rounded-2xl wo-card overflow-hidden flex flex-col text-slate-900">
         {/* Team Header */}
         <div
-          className="px-4 py-3 border-b border-[#FFE600]/45 flex items-center justify-between gap-2"
+          className="px-4 py-3 border-b border-white/20 flex items-center justify-between gap-2"
           style={{ background: palette.bgGradient }}
         >
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-black/45 border border-[#FFE600]/65 font-mono text-[11px] font-black text-[#FFE600]">
+              <span className="px-2 py-0.5 rounded bg-black/35 border border-white/40 font-mono text-[11px] font-black text-white">
                 {team.shortName}
               </span>
               <h3 className="font-display text-base sm:text-lg font-black text-white uppercase truncate">
@@ -588,7 +588,7 @@ export function KabaddiControlDashboard({
           </div>
 
           <div className="text-right shrink-0">
-            <span className="block font-mono text-4xl sm:text-5xl font-black text-[#FFE600] leading-none tabular-nums drop-shadow">
+            <span className="block font-mono text-4xl sm:text-5xl font-black text-white leading-none tabular-nums drop-shadow">
               {String(team.score).padStart(2, '0')}
             </span>
           </div>
@@ -597,26 +597,26 @@ export function KabaddiControlDashboard({
         {/* Body Controls */}
         <div className="p-3.5 sm:p-4 space-y-3.5 flex-1">
           {/* Raiding Status & Players on Mat */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-white/10">
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 border-b border-slate-200">
             <button
               type="button"
               onClick={() =>
                 updateState((prev) => ({ ...prev, raidingTeam: side }), false)
               }
               className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
-                isRaiding ? 'overlay-home-btn-active text-white' : 'overlay-home-btn'
+                isRaiding ? 'wo-btn-active' : 'wo-btn-secondary'
               }`}
             >
               {isRaiding ? '● Raiding Now' : 'Set Raiding'}
             </button>
 
             <div className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
-              <span className="text-[11px] font-bold text-zinc-300">Mat:</span>
+              <Users className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+              <span className="text-[11px] font-bold text-slate-600">Mat:</span>
               <button
                 type="button"
                 onClick={() => adjustMatPlayers(side, -1)}
-                className="w-7 h-7 rounded-lg overlay-home-btn font-mono font-black text-sm flex items-center justify-center"
+                className="w-7 h-7 rounded-lg wo-btn-secondary font-mono font-black text-sm flex items-center justify-center"
                 aria-label={`Remove player from ${team.name}`}
               >
                 -
@@ -624,8 +624,8 @@ export function KabaddiControlDashboard({
               <span
                 className={`px-2 py-0.5 rounded-md font-mono text-xs font-black tabular-nums ${
                   superTackleOn
-                    ? 'bg-[#FFE600] text-[#070B28]'
-                    : 'bg-white/10 text-white'
+                    ? 'bg-[#FF8C00] text-white'
+                    : 'bg-slate-100 border border-slate-200 text-slate-900'
                 }`}
               >
                 {team.playersOnMat}/7
@@ -633,7 +633,7 @@ export function KabaddiControlDashboard({
               <button
                 type="button"
                 onClick={() => adjustMatPlayers(side, 1)}
-                className="w-7 h-7 rounded-lg overlay-home-btn font-mono font-black text-sm flex items-center justify-center"
+                className="w-7 h-7 rounded-lg wo-btn-secondary font-mono font-black text-sm flex items-center justify-center"
                 aria-label={`Revive player for ${team.name}`}
               >
                 +
@@ -641,7 +641,7 @@ export function KabaddiControlDashboard({
               <button
                 type="button"
                 onClick={() => adjustMatPlayers(side, 0, 7)}
-                className="px-2 h-7 rounded-lg overlay-home-btn font-mono text-[10px] font-black"
+                className="px-2 h-7 rounded-lg wo-btn-secondary font-mono text-[10px] font-black"
               >
                 7
               </button>
@@ -649,7 +649,7 @@ export function KabaddiControlDashboard({
           </div>
 
           {superTackleOn && (
-            <div className="rounded-lg bg-[#FFE600]/15 border border-[#FFE600]/60 px-3 py-1.5 text-[11px] font-mono font-black text-[#FFE600] uppercase flex items-center justify-between">
+            <div className="rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/50 px-3 py-1.5 text-[11px] font-mono font-black text-[#E87500] uppercase flex items-center justify-between">
               <span>SUPER TACKLE ON ({team.playersOnMat} PLAYERS)</span>
               <Shield className="w-3.5 h-3.5" aria-hidden="true" />
             </div>
@@ -660,23 +660,23 @@ export function KabaddiControlDashboard({
             <button
               type="button"
               onClick={() => addTeamPoints(side, 1, 'raid')}
-              className="min-h-[46px] px-2 py-2 rounded-xl overlay-home-btn font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-secondary font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
-              <span className="text-[#FFE600] text-base font-mono">+1</span>
+              <span className="text-[#FF8C00] text-base font-mono">+1</span>
               <span className="text-[10px] uppercase">Raid Pt</span>
             </button>
             <button
               type="button"
               onClick={() => addTeamPoints(side, 2, 'raid')}
-              className="min-h-[46px] px-2 py-2 rounded-xl overlay-home-btn font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-secondary font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
-              <span className="text-[#FFE600] text-base font-mono">+2</span>
+              <span className="text-[#FF8C00] text-base font-mono">+2</span>
               <span className="text-[10px] uppercase">Raid Pts</span>
             </button>
             <button
               type="button"
               onClick={() => addTeamPoints(side, 3, 'raid', 'SUPER_RAID')}
-              className="min-h-[46px] px-2 py-2 rounded-xl btn-gold-pro text-[#070B28] font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-primary text-white font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
               <span className="text-base font-mono">+3</span>
               <span className="text-[10px] uppercase">Super Raid</span>
@@ -685,25 +685,25 @@ export function KabaddiControlDashboard({
             <button
               type="button"
               onClick={() => addTeamPoints(side, 1, 'tackle')}
-              className="min-h-[46px] px-2 py-2 rounded-xl overlay-home-btn font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-secondary font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
-              <span className="text-[#FFE600] text-base font-mono">+1</span>
+              <span className="text-[#FF8C00] text-base font-mono">+1</span>
               <span className="text-[10px] uppercase">Tackle</span>
             </button>
             <button
               type="button"
               onClick={() => addTeamPoints(side, 2, 'tackle', 'SUPER_TACKLE')}
-              className="min-h-[46px] px-2 py-2 rounded-xl overlay-home-btn-active text-white font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-active font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
-              <span className="text-[#FFE600] text-base font-mono">+2</span>
+              <span className="text-base font-mono">+2</span>
               <span className="text-[10px] uppercase">Super Tackle</span>
             </button>
             <button
               type="button"
               onClick={() => addTeamPoints(side, 1, 'bonus', 'BONUS')}
-              className="min-h-[46px] px-2 py-2 rounded-xl overlay-home-btn font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
+              className="min-h-[46px] px-2 py-2 rounded-xl wo-btn-secondary font-display font-black text-xs sm:text-sm flex flex-col items-center justify-center leading-tight"
             >
-              <span className="text-[#FFE600] text-base font-mono">+1</span>
+              <span className="text-[#FF8C00] text-base font-mono">+1</span>
               <span className="text-[10px] uppercase">Bonus</span>
             </button>
           </div>
@@ -713,7 +713,7 @@ export function KabaddiControlDashboard({
             <button
               type="button"
               onClick={() => handleAllOutOnTeam(side)}
-              className="min-h-[40px] px-2.5 py-2 rounded-xl btn-primary-pro text-white font-display font-black text-[11px] uppercase tracking-wide"
+              className="min-h-[40px] px-2.5 py-2 rounded-xl wo-btn-primary text-white font-display font-black text-[11px] uppercase tracking-wide"
             >
               All Out (+2 Opp)
             </button>
@@ -722,8 +722,8 @@ export function KabaddiControlDashboard({
               onClick={() => handleEmptyRaid(side)}
               className={`min-h-[40px] px-2.5 py-2 rounded-xl font-display font-extrabold text-[11px] uppercase ${
                 team.emptyRaids >= 2
-                  ? 'bg-[#EF1A1A] text-white border border-[#FFE600] animate-pulse'
-                  : 'overlay-home-btn'
+                  ? 'bg-[#DC2626] text-white border border-red-700 animate-pulse'
+                  : 'wo-btn-secondary'
               }`}
             >
               {team.emptyRaids >= 2
@@ -734,14 +734,14 @@ export function KabaddiControlDashboard({
               type="button"
               onClick={() => handleUseTimeout(side)}
               disabled={team.timeoutsLeft <= 0}
-              className="min-h-[40px] px-2.5 py-2 rounded-xl overlay-home-btn disabled:opacity-45 font-display font-bold text-[11px] uppercase"
+              className="min-h-[40px] px-2.5 py-2 rounded-xl wo-btn-secondary disabled:opacity-45 font-display font-bold text-[11px] uppercase"
             >
               Timeout ({team.timeoutsLeft})
             </button>
             <button
               type="button"
               onClick={() => addTeamPoints(side, -1, 'adjust')}
-              className="min-h-[40px] px-2.5 py-2 rounded-xl bg-black/45 hover:bg-red-950/80 border border-red-400/40 text-red-200 font-mono font-black text-xs"
+              className="min-h-[40px] px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 font-mono font-black text-xs"
             >
               -1 Score
             </button>
@@ -755,33 +755,33 @@ export function KabaddiControlDashboard({
     <div
       className={
         embedded
-          ? 'space-y-5 text-white'
-          : 'min-h-screen py-5 sm:py-8 px-3 sm:px-6 lg:px-8 text-white'
+          ? 'space-y-5 text-slate-900'
+          : 'min-h-screen py-5 sm:py-8 px-3 sm:px-6 lg:px-8 text-slate-900'
       }
     >
       <div className="max-w-7xl mx-auto space-y-5">
         {/* Top Action Bar */}
-        <div className="rounded-2xl overlay-home-card overflow-hidden">
-          <div className="overlay-home-header px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-2xl wo-card overflow-hidden">
+          <div className="wo-header px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               {onBackHome && !embedded && (
                 <button
                   type="button"
                   onClick={onBackHome}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/35 hover:bg-black/55 border border-[#FFE600]/45 text-xs font-bold text-white"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 border border-white/35 text-xs font-bold text-white"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                  <ArrowLeft className="w-3.5 h-3.5 text-white" aria-hidden="true" />
                   <span>Home</span>
                 </button>
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <Trophy className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
+                  <Trophy className="w-4 h-4 text-white shrink-0" aria-hidden="true" />
                   <h1 className="font-display text-base sm:text-xl font-black text-white uppercase tracking-wide truncate">
                     Kabaddi Live Scoreboard &amp; Control
                   </h1>
                 </div>
-                <p className="font-mono text-[11px] text-[#FFE600]/90">
+                <p className="font-mono text-[11px] text-orange-100">
                   Room ID: {uid} · {syncing ? 'Syncing live...' : 'Real-Time Sync Ready (OBS / vMix)'}
                 </p>
               </div>
@@ -792,40 +792,42 @@ export function KabaddiControlDashboard({
                 type="button"
                 onClick={undo}
                 disabled={!canUndo}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn disabled:opacity-40 text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-orange-50 disabled:opacity-45 text-[#E87500] text-xs font-bold shadow-xs"
               >
-                <Undo2 className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <Undo2 className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Undo</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleSwapSides}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-orange-50 text-[#E87500] text-xs font-bold shadow-xs"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <ArrowLeftRight className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Swap Sides</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setShowSetup((v) => !v)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold ${
-                  showSetup ? 'overlay-home-btn-active text-white' : 'overlay-home-btn'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs ${
+                  showSetup
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-white hover:bg-orange-50 text-[#E87500]'
                 }`}
               >
-                <Settings2 className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <Settings2 className="w-3.5 h-3.5" aria-hidden="true" />
                 <span>Team &amp; Match Setup</span>
               </button>
             </div>
           </div>
 
           {/* vMix / OBS Overlay Link Bar */}
-          <div className="p-3.5 sm:px-6 sm:py-3.5 bg-[#0A081E]/75 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="p-3.5 sm:px-6 sm:py-3.5 bg-[#FFF8F0] border-t border-[#FF8C00]/20 flex flex-wrap items-center justify-between gap-2.5">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <Tv className="w-4 h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
-              <span className="text-xs font-bold text-zinc-300 shrink-0">vMix / OBS URL:</span>
-              <code className="px-2.5 py-1 rounded-lg bg-black/50 border border-white/15 font-mono text-[11px] text-[#FFE600] truncate max-w-full">
+              <Tv className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+              <span className="text-xs font-bold text-slate-700 shrink-0">vMix / OBS URL:</span>
+              <code className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-mono text-[11px] text-[#E87500] truncate max-w-full">
                 {overlayUrl}
               </code>
             </div>
@@ -834,7 +836,7 @@ export function KabaddiControlDashboard({
               <button
                 type="button"
                 onClick={() => void handleCopyLink('normal')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg btn-gold-pro text-[#070B28] font-display font-black text-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-primary text-white font-display font-black text-xs"
               >
                 {copiedType === 'normal' ? (
                   <Check className="w-3.5 h-3.5" aria-hidden="true" />
@@ -847,7 +849,7 @@ export function KabaddiControlDashboard({
               <button
                 type="button"
                 onClick={() => void handleCopyLink('green')}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700/85 hover:bg-emerald-600 border border-emerald-400/50 text-white font-display font-bold text-xs"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs shadow-xs"
               >
                 {copiedType === 'green' ? (
                   <Check className="w-3.5 h-3.5" aria-hidden="true" />
@@ -861,21 +863,21 @@ export function KabaddiControlDashboard({
                 href={overlayUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
               >
-                <ExternalLink className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <ExternalLink className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                 <span>Open Overlay</span>
               </a>
 
               <button
                 type="button"
                 onClick={() => setShowPreview((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
               >
                 {showPreview ? (
-                  <EyeOff className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                  <EyeOff className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                 ) : (
-                  <Eye className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                  <Eye className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                 )}
                 <span>{showPreview ? 'Hide Preview' : 'Show Preview'}</span>
               </button>
@@ -885,23 +887,23 @@ export function KabaddiControlDashboard({
 
         {/* Collapsible Team & Match Setup Editor */}
         {showSetup && (
-          <div className="rounded-2xl overlay-home-card p-4 sm:p-5 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-white/10">
-              <h2 className="font-display text-sm font-black uppercase tracking-wider text-[#FFE600]">
+          <div className="rounded-2xl wo-card p-4 sm:p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 pb-2 border-b border-slate-200">
+              <h2 className="font-display text-sm font-black uppercase tracking-wider text-[#E87500]">
                 Tournament, Team Names &amp; Colors
               </h2>
               {!confirmReset ? (
                 <button
                   type="button"
                   onClick={() => setConfirmReset(true)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-950/75 hover:bg-red-900 border border-red-500/45 text-xs font-bold text-red-100"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 border border-red-200 text-xs font-bold text-red-600"
                 >
                   <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
                   <span>Reset Match to 0-0</span>
                 </button>
               ) : (
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-red-200">Reset scores &amp; timers?</span>
+                  <span className="text-xs font-semibold text-red-600">Reset scores &amp; timers?</span>
                   <button
                     type="button"
                     onClick={handleResetMatch}
@@ -912,7 +914,7 @@ export function KabaddiControlDashboard({
                   <button
                     type="button"
                     onClick={() => setConfirmReset(false)}
-                    className="px-3 py-1 rounded-lg bg-white/10 text-zinc-200 text-xs font-bold"
+                    className="px-3 py-1 rounded-lg wo-btn-secondary text-xs font-bold"
                   >
                     Cancel
                   </button>
@@ -922,7 +924,7 @@ export function KabaddiControlDashboard({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase">
+                <label className="block text-[11px] font-bold text-slate-600 uppercase">
                   Tournament Name
                 </label>
                 <input
@@ -931,11 +933,11 @@ export function KabaddiControlDashboard({
                   onChange={(e) =>
                     updateState((prev) => ({ ...prev, tournamentName: e.target.value }), false)
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-[#090915] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:ring-2 focus:ring-[#FF8C00]/25 focus:outline-none text-xs text-slate-900"
                 />
               </div>
               <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase">
+                <label className="block text-[11px] font-bold text-slate-600 uppercase">
                   Match Label
                 </label>
                 <input
@@ -944,11 +946,11 @@ export function KabaddiControlDashboard({
                   onChange={(e) =>
                     updateState((prev) => ({ ...prev, matchLabel: e.target.value }), false)
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-[#090915] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:ring-2 focus:ring-[#FF8C00]/25 focus:outline-none text-xs text-slate-900"
                 />
               </div>
               <div className="space-y-1">
-                <label className="block text-[11px] font-bold text-zinc-300 uppercase">
+                <label className="block text-[11px] font-bold text-slate-600 uppercase">
                   Bottom Ticker Text
                 </label>
                 <input
@@ -957,7 +959,7 @@ export function KabaddiControlDashboard({
                   onChange={(e) =>
                     updateState((prev) => ({ ...prev, tickerText: e.target.value }), false)
                   }
-                  className="w-full px-3 py-2 rounded-lg bg-[#090915] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs text-white"
+                  className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:ring-2 focus:ring-[#FF8C00]/25 focus:outline-none text-xs text-slate-900"
                 />
               </div>
             </div>
@@ -969,9 +971,9 @@ export function KabaddiControlDashboard({
                 return (
                   <div
                     key={side}
-                    className="rounded-xl bg-[#09081A]/80 border border-white/12 p-3.5 space-y-2.5"
+                    className="rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-2.5"
                   >
-                    <p className="text-xs font-black uppercase tracking-wider text-[#FFE600]">
+                    <p className="text-xs font-black uppercase tracking-wider text-[#E87500]">
                       Team {side} Details
                     </p>
                     <div className="grid grid-cols-[1fr_92px] gap-2">
@@ -988,7 +990,7 @@ export function KabaddiControlDashboard({
                           )
                         }
                         placeholder={`Team ${side} Name`}
-                        className="px-3 py-2 rounded-lg bg-[#141326] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs font-bold text-white uppercase"
+                        className="px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs font-bold text-slate-900 uppercase"
                       />
                       <input
                         type="text"
@@ -1007,7 +1009,7 @@ export function KabaddiControlDashboard({
                           )
                         }
                         placeholder="CODE"
-                        className="px-3 py-2 rounded-lg bg-[#141326] border border-white/15 focus:border-[#FFE600] focus:outline-none text-xs font-mono font-black text-[#FFE600] uppercase text-center"
+                        className="px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs font-mono font-black text-[#E87500] uppercase text-center"
                       />
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -1030,8 +1032,8 @@ export function KabaddiControlDashboard({
                             title={pal.label}
                             className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1.5 border ${
                               active
-                                ? 'border-[#FFE600] bg-white/15 text-white'
-                                : 'border-white/15 bg-black/35 text-zinc-300'
+                                ? 'border-[#FF8C00] bg-[#FFF3E0] text-[#E87500]'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-[#FF8C00]/50'
                             }`}
                           >
                             <span
@@ -1052,11 +1054,11 @@ export function KabaddiControlDashboard({
 
         {/* LIVE 16:9 BROADCAST PREVIEW */}
         {showPreview && (
-          <div className="rounded-2xl overlay-home-card overflow-hidden">
-            <div className="px-4 py-2.5 bg-[#09081A]/90 border-b border-[#FFE600]/25 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-2xl wo-card overflow-hidden">
+            <div className="px-4 py-2.5 wo-header flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#EF1A1A] animate-pulse" />
-                <span className="font-mono text-xs font-black uppercase tracking-wider text-[#FFE600]">
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span className="font-mono text-xs font-black uppercase tracking-wider text-white">
                   LIVE BROADCAST PREVIEW (1920×1080 / 1280×720)
                 </span>
               </div>
@@ -1066,10 +1068,10 @@ export function KabaddiControlDashboard({
                     key={mode}
                     type="button"
                     onClick={() => setPreviewBg(mode)}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase transition-colors ${
                       previewBg === mode
-                        ? 'overlay-home-btn-active text-white'
-                        : 'overlay-home-btn'
+                        ? 'bg-white text-[#E87500] shadow-xs'
+                        : 'bg-white/15 hover:bg-white/25 text-white border border-white/25'
                     }`}
                   >
                     {mode === 'arena' ? 'Arena BG' : mode === 'green' ? 'Green Screen' : 'Transparent'}
@@ -1078,10 +1080,10 @@ export function KabaddiControlDashboard({
               </div>
             </div>
 
-            <div className="p-3 sm:p-4 bg-[#070614]">
+            <div className="p-3 sm:p-4 bg-slate-900">
               <div
                 ref={previewContainerRef}
-                className="relative w-full aspect-video rounded-xl overflow-hidden border border-[#FFE600]/30 shadow-2xl"
+                className="relative w-full aspect-video rounded-xl overflow-hidden border border-slate-700 shadow-2xl"
                 style={
                   previewBg === 'transparent'
                     ? {
@@ -1112,22 +1114,22 @@ export function KabaddiControlDashboard({
         {/* TIMERS CONSOLE: MATCH CLOCK + 30s RAID TIMER */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Match Clock Panel */}
-          <div className="rounded-2xl overlay-home-card overflow-hidden">
-            <div className="overlay-home-header px-4 py-2.5 flex items-center justify-between">
+          <div className="rounded-2xl wo-card overflow-hidden">
+            <div className="wo-header px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Timer className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+                <Timer className="w-4 h-4 text-white" aria-hidden="true" />
                 <span className="font-display text-xs font-black uppercase tracking-wider text-white">
                   Match Clock &amp; Half Control
                 </span>
               </div>
-              <span className="px-2 py-0.5 rounded bg-black/40 border border-[#FFE600]/50 font-mono text-[10px] font-black text-[#FFE600]">
+              <span className="px-2 py-0.5 rounded bg-white/20 border border-white/35 font-mono text-[10px] font-black text-white">
                 {state.half}
               </span>
             </div>
 
             <div className="p-4 space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="font-mono text-4xl sm:text-5xl font-black text-[#FFE600] tabular-nums">
+                <div className="font-mono text-4xl sm:text-5xl font-black text-[#FF8C00] tabular-nums">
                   {formatClockMMSS(liveMatchSec)}
                 </div>
 
@@ -1137,8 +1139,8 @@ export function KabaddiControlDashboard({
                     onClick={toggleMatchClock}
                     className={`min-h-[42px] px-4 py-2 rounded-xl font-display font-black text-xs uppercase inline-flex items-center gap-1.5 ${
                       state.matchClock.running
-                        ? 'btn-primary-pro text-white'
-                        : 'btn-gold-pro text-[#070B28]'
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
+                        : 'wo-btn-primary text-white'
                     }`}
                   >
                     {state.matchClock.running ? (
@@ -1156,9 +1158,9 @@ export function KabaddiControlDashboard({
                   <button
                     type="button"
                     onClick={() => setMatchClockSeconds(state.matchClock.durationSec)}
-                    className="min-h-[42px] px-3 py-2 rounded-xl overlay-home-btn text-xs font-bold inline-flex items-center gap-1"
+                    className="min-h-[42px] px-3 py-2 rounded-xl wo-btn-secondary text-xs font-bold inline-flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                    <RotateCcw className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                     <span>Reset</span>
                   </button>
                 </div>
@@ -1171,7 +1173,7 @@ export function KabaddiControlDashboard({
                     key={mins}
                     type="button"
                     onClick={() => setMatchClockSeconds(mins * 60, true)}
-                    className="px-2.5 py-1 rounded-lg overlay-home-btn font-mono text-[11px] font-bold"
+                    className="px-2.5 py-1 rounded-lg wo-btn-secondary font-mono text-[11px] font-bold"
                   >
                     {mins}:00
                   </button>
@@ -1179,14 +1181,14 @@ export function KabaddiControlDashboard({
                 <button
                   type="button"
                   onClick={() => setMatchClockSeconds(liveMatchSec + 10)}
-                  className="px-2.5 py-1 rounded-lg overlay-home-btn font-mono text-[11px] font-bold"
+                  className="px-2.5 py-1 rounded-lg wo-btn-secondary font-mono text-[11px] font-bold"
                 >
                   +10s
                 </button>
                 <button
                   type="button"
                   onClick={() => setMatchClockSeconds(liveMatchSec - 10)}
-                  className="px-2.5 py-1 rounded-lg overlay-home-btn font-mono text-[11px] font-bold"
+                  className="px-2.5 py-1 rounded-lg wo-btn-secondary font-mono text-[11px] font-bold"
                 >
                   -10s
                 </button>
@@ -1223,10 +1225,10 @@ export function KabaddiControlDashboard({
                     }
                     className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase ${
                       state.half === h
-                        ? 'overlay-home-btn-active text-white'
+                        ? 'wo-btn-active'
                         : h === 'FULL TIME'
-                          ? 'btn-gold-pro text-[#070B28]'
-                          : 'overlay-home-btn'
+                          ? 'wo-btn-soft'
+                          : 'wo-btn-secondary'
                     }`}
                   >
                     {h === 'FULL TIME' ? '🏆 Full Time (Show Winner)' : h}
@@ -1237,15 +1239,15 @@ export function KabaddiControlDashboard({
           </div>
 
           {/* 30-Second Raid Timer Panel */}
-          <div className="rounded-2xl overlay-home-card overflow-hidden">
-            <div className="overlay-home-header px-4 py-2.5 flex items-center justify-between">
+          <div className="rounded-2xl wo-card overflow-hidden">
+            <div className="wo-header px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+                <Zap className="w-4 h-4 text-white" aria-hidden="true" />
                 <span className="font-display text-xs font-black uppercase tracking-wider text-white">
                   30-Second Raid Timer
                 </span>
               </div>
-              <span className="font-mono text-[11px] font-black text-[#FFE600]">
+              <span className="font-mono text-[11px] font-black text-orange-100">
                 Raiding:{' '}
                 {state.raidingTeam === 'A'
                   ? state.teamA.shortName
@@ -1260,8 +1262,8 @@ export function KabaddiControlDashboard({
                 <div
                   className={`px-4 py-1.5 rounded-xl font-mono text-4xl sm:text-5xl font-black tabular-nums border-2 ${
                     liveRaidSec <= 10 && state.raidClock.running
-                      ? 'bg-[#DC2626] border-[#FFE600] text-white animate-pulse'
-                      : 'bg-black/45 border-[#FFE600]/60 text-[#FFE600]'
+                      ? 'bg-[#DC2626] border-red-700 text-white animate-pulse'
+                      : 'bg-[#FFF3E0] border-[#FF8C00]/45 text-[#E87500]'
                   }`}
                 >
                   {String(liveRaidSec).padStart(2, '0')}s
@@ -1273,8 +1275,8 @@ export function KabaddiControlDashboard({
                     onClick={toggleRaidClock}
                     className={`min-h-[42px] px-4 py-2 rounded-xl font-display font-black text-xs uppercase inline-flex items-center gap-1.5 ${
                       state.raidClock.running
-                        ? 'btn-primary-pro text-white'
-                        : 'btn-gold-pro text-[#070B28]'
+                        ? 'bg-red-600 hover:bg-red-700 text-white shadow-xs'
+                        : 'wo-btn-primary text-white'
                     }`}
                   >
                     {state.raidClock.running ? (
@@ -1293,9 +1295,9 @@ export function KabaddiControlDashboard({
                   <button
                     type="button"
                     onClick={() => resetAndStartRaid(true, false)}
-                    className="min-h-[42px] px-3.5 py-2 rounded-xl overlay-home-btn text-xs font-bold inline-flex items-center gap-1"
+                    className="min-h-[42px] px-3.5 py-2 rounded-xl wo-btn-secondary text-xs font-bold inline-flex items-center gap-1"
                   >
-                    <RotateCcw className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                    <RotateCcw className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                     <span>Fresh 30s</span>
                   </button>
                 </div>
@@ -1305,15 +1307,15 @@ export function KabaddiControlDashboard({
                 <button
                   type="button"
                   onClick={() => resetAndStartRaid(true, true)}
-                  className="flex-1 min-h-[40px] px-3 py-2 rounded-xl overlay-home-btn-active text-white font-display font-black text-xs uppercase inline-flex items-center justify-center gap-1.5"
+                  className="flex-1 min-h-[40px] px-3 py-2 rounded-xl wo-btn-primary text-white font-display font-black text-xs uppercase inline-flex items-center justify-center gap-1.5"
                 >
-                  <ArrowLeftRight className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                  <ArrowLeftRight className="w-3.5 h-3.5 text-white" aria-hidden="true" />
                   <span>Next Raid (Switch Side + Start 30s)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => resetAndStartRaid(false, false)}
-                  className="min-h-[40px] px-3 py-2 rounded-xl overlay-home-btn text-xs font-bold"
+                  className="min-h-[40px] px-3 py-2 rounded-xl wo-btn-secondary text-xs font-bold"
                 >
                   Reset 30s
                 </button>
@@ -1331,12 +1333,12 @@ export function KabaddiControlDashboard({
         {/* BROADCAST OVERLAY CARDS & ANIMATED ALERTS (MUTUALLY EXCLUSIVE + AUTO-HIDE) */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Broadcast Graphics & Cards */}
-          <div className="rounded-2xl overlay-home-card overflow-hidden">
-            <div className="overlay-home-header px-4 py-2.5 flex items-center justify-between">
+          <div className="rounded-2xl wo-card overflow-hidden">
+            <div className="wo-header px-4 py-2.5 flex items-center justify-between">
               <span className="font-display text-xs font-black uppercase tracking-wider text-white">
                 Broadcast Overlay Graphics
               </span>
-              <span className="font-mono text-[10px] font-bold text-[#FFE600]">
+              <span className="font-mono text-[10px] font-bold text-orange-100">
                 1 Active at a Time
               </span>
             </div>
@@ -1351,9 +1353,7 @@ export function KabaddiControlDashboard({
                     )
                   }
                   className={`min-h-[42px] px-3 py-2 rounded-xl text-xs font-extrabold uppercase ${
-                    state.showScoreboard
-                      ? 'overlay-home-btn-active text-white'
-                      : 'overlay-home-btn'
+                    state.showScoreboard ? 'wo-btn-active' : 'wo-btn-secondary'
                   }`}
                 >
                   Score Bar: {state.showScoreboard ? 'ON' : 'OFF'}
@@ -1379,9 +1379,7 @@ export function KabaddiControlDashboard({
                       )
                     }
                     className={`min-h-[42px] px-3 py-2 rounded-xl text-xs font-extrabold uppercase ${
-                      state.activeCard === card.id
-                        ? 'overlay-home-btn-active text-white'
-                        : 'overlay-home-btn'
+                      state.activeCard === card.id ? 'wo-btn-active' : 'wo-btn-secondary'
                     }`}
                   >
                     {card.label}
@@ -1392,10 +1390,10 @@ export function KabaddiControlDashboard({
           </div>
 
           {/* Animated Pop-Up Alerts (Auto-Hide after 4.5s) */}
-          <div className="rounded-2xl overlay-home-card overflow-hidden">
-            <div className="overlay-home-header px-4 py-2.5 flex items-center justify-between">
+          <div className="rounded-2xl wo-card overflow-hidden">
+            <div className="wo-header px-4 py-2.5 flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <Sparkles className="w-3.5 h-3.5 text-white" aria-hidden="true" />
                 <span className="font-display text-xs font-black uppercase tracking-wider text-white">
                   Broadcast Pop-Up Alerts (Auto-Hide)
                 </span>
@@ -1403,7 +1401,7 @@ export function KabaddiControlDashboard({
               <button
                 type="button"
                 onClick={() => triggerManualAlert('NONE')}
-                className="px-2 py-0.5 rounded bg-black/40 border border-white/25 text-[10px] font-bold text-white hover:border-[#FFE600]"
+                className="px-2 py-0.5 rounded bg-white text-[#E87500] hover:bg-orange-50 text-[10px] font-bold shadow-xs"
               >
                 Clear Now
               </button>
@@ -1425,7 +1423,7 @@ export function KabaddiControlDashboard({
                   key={item.id}
                   type="button"
                   onClick={() => triggerManualAlert(item.id, state.raidingTeam)}
-                  className="min-h-[40px] px-2.5 py-2 rounded-xl overlay-home-trans-btn text-xs font-black uppercase tracking-wide"
+                  className="min-h-[40px] px-2.5 py-2 rounded-xl wo-trans-btn text-xs font-black uppercase tracking-wide"
                 >
                   {item.label}
                 </button>
@@ -1440,7 +1438,7 @@ export function KabaddiControlDashboard({
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl bg-[#19040C]/95 border border-[#FFE600]/60 text-white text-xs sm:text-sm font-bold shadow-2xl"
+          className="fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl bg-white border-2 border-[#FF8C00] text-slate-900 text-xs sm:text-sm font-bold shadow-2xl"
         >
           {localToast}
         </div>

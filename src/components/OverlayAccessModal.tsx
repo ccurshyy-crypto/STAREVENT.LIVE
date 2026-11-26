@@ -64,15 +64,12 @@ export function OverlayAccessModal({
       aria-label="Overlay Access"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
     >
-      <div className="relative w-full max-w-lg rounded-2xl overlay-home-card overflow-hidden my-auto">
-        {/* Top Crimson-Gold Accent */}
-        <div className="h-1 w-full bg-gradient-to-r from-[#EF1A1A] via-[#FFE600] to-[#EF1A1A]" />
-
+      <div className="relative w-full max-w-lg rounded-2xl wo-card text-slate-900 overflow-hidden my-auto shadow-2xl">
         {/* Header */}
-        <div className="px-5 py-4 overlay-home-header flex items-center justify-between gap-3">
+        <div className="px-5 py-4 wo-header flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <KeyRound className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            <span className="font-display font-black text-sm sm:text-base text-[#FFE600] tracking-wide uppercase">
+            <KeyRound className="w-5 h-5 text-white" aria-hidden="true" />
+            <span className="font-display font-black text-sm sm:text-base text-white tracking-wide uppercase">
               Overlay Access
             </span>
           </div>
@@ -81,7 +78,7 @@ export function OverlayAccessModal({
             type="button"
             onClick={onClose}
             aria-label="Close modal"
-            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-lg text-white/90 hover:text-white hover:bg-white/15"
           >
             <X className="w-5 h-5" />
           </button>
@@ -90,18 +87,18 @@ export function OverlayAccessModal({
         <div className="p-5 sm:p-6">
           {isUnlocked && session ? (
             <div className="space-y-5 text-center">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/15 border border-emerald-400/45 flex items-center justify-center">
-                <LockOpen className="w-7 h-7 text-emerald-400" aria-hidden="true" />
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+                <LockOpen className="w-7 h-7 text-emerald-600" aria-hidden="true" />
               </div>
               <div className="space-y-1">
-                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FFE600]">
+                <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FF8C00]">
                   Full Overlays Unlocked
                 </p>
-                <h2 className="font-display text-2xl font-black text-white">
+                <h2 className="font-display text-2xl font-black text-slate-900">
                   {session.accessId}
                 </h2>
                 {session.label && (
-                  <p className="text-sm text-zinc-400">{session.label}</p>
+                  <p className="text-sm text-slate-500">{session.label}</p>
                 )}
               </div>
 
@@ -113,7 +110,7 @@ export function OverlayAccessModal({
                       onClose();
                       onUnlockedSuccess();
                     }}
-                    className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#FFE600] hover:bg-[#FEF08A] text-[#09090D] font-display font-black text-sm uppercase tracking-wide"
+                    className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl wo-btn-primary text-white font-display font-black text-sm uppercase tracking-wide"
                   >
                     Open Overlays Workspace
                   </button>
@@ -121,7 +118,7 @@ export function OverlayAccessModal({
                 <button
                   type="button"
                   onClick={lockAndLogout}
-                  className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#DC2626] hover:bg-[#EF4444] text-white font-display font-bold text-sm uppercase tracking-wide"
+                  className="flex-1 min-h-[46px] inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#DC2626] hover:bg-[#B91C1C] text-white font-display font-bold text-sm uppercase tracking-wide transition-colors"
                 >
                   <LogOut className="w-4 h-4 shrink-0" />
                   Lock / Logout
@@ -131,13 +128,13 @@ export function OverlayAccessModal({
           ) : (
             <div className="space-y-5">
               <div className="text-center space-y-2">
-                <div className="w-12 h-12 mx-auto rounded-xl bg-[#DC2626]/20 border border-[#FFE600]/45 flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-[#FFE600]" aria-hidden="true" />
+                <div className="w-12 h-12 mx-auto rounded-xl bg-[#FFF3E0] border border-[#FF8C00]/30 flex items-center justify-center">
+                  <Lock className="w-6 h-6 text-[#FF8C00]" aria-hidden="true" />
                 </div>
-                <h2 className="font-display text-xl sm:text-2xl font-black text-white">
+                <h2 className="font-display text-xl sm:text-2xl font-black text-slate-900">
                   User Login
                 </h2>
-                <p className="text-xs sm:text-sm text-zinc-400">
+                <p className="text-xs sm:text-sm text-slate-500">
                   Enter the Login ID and Password provided by the Main Admin.
                 </p>
               </div>
@@ -145,7 +142,7 @@ export function OverlayAccessModal({
               {errorMsg && (
                 <div
                   role="alert"
-                  className="rounded-xl bg-red-950/75 border border-red-500/50 px-4 py-3 text-xs sm:text-sm font-medium text-red-100"
+                  className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-xs sm:text-sm font-medium text-red-700"
                 >
                   {errorMsg}
                 </div>
@@ -155,7 +152,7 @@ export function OverlayAccessModal({
                 <div className="space-y-1.5">
                   <label
                     htmlFor="modal-access-id"
-                    className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700"
                   >
                     Login ID (Access ID)
                   </label>
@@ -166,14 +163,14 @@ export function OverlayAccessModal({
                     value={accessId}
                     onChange={(e) => setAccessId(e.target.value)}
                     placeholder="e.g. STAREVENTLIVE35484"
-                    className="w-full px-4 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-white placeholder:text-zinc-500"
+                    className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label
                     htmlFor="modal-access-password"
-                    className="block text-xs font-bold uppercase tracking-wider text-zinc-300"
+                    className="block text-xs font-bold uppercase tracking-wider text-slate-700"
                   >
                     Password
                   </label>
@@ -185,13 +182,13 @@ export function OverlayAccessModal({
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter password"
-                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-[#09090D] border border-white/15 focus:border-[#FFE600] focus:outline-none text-sm text-white placeholder:text-zinc-500"
+                      className="w-full pl-4 pr-11 py-3 rounded-xl bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm text-slate-900 placeholder:text-slate-400"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-zinc-400 hover:text-white rounded-lg"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-[#FF8C00] rounded-lg"
                     >
                       {showPassword ? (
                         <EyeOff className="w-4 h-4" />
@@ -205,7 +202,7 @@ export function OverlayAccessModal({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-sm sm:text-base uppercase tracking-wide"
+                  className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl wo-btn-primary disabled:opacity-60 text-white font-display font-black text-sm sm:text-base uppercase tracking-wide"
                 >
                   <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{submitting ? 'Verifying...' : 'Unlock Overlays'}</span>
@@ -215,16 +212,16 @@ export function OverlayAccessModal({
           )}
 
           {onOpenOwnerAdmin && (
-            <div className="mt-5 pt-4 border-t border-[#FACC15]/20 flex items-center justify-between gap-3">
-              <span className="text-[11px] text-rose-100/75">
+            <div className="mt-5 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-slate-500">
                 Main Admin? Create &amp; manage user IDs:
               </span>
               <button
                 type="button"
                 onClick={onOpenOwnerAdmin}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
               >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <ShieldCheck className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                 <span>Open Admin Panel</span>
               </button>
             </div>
