@@ -1665,7 +1665,7 @@ export function ScoringDashboardView({
                 return (
                   <option key={t.id} value={t.id}>
                     Theme: {t.name}
-                    {locked ? ` (Unlock ₹${WORLDCUP_OFFER_PRICE_INR} · 2 Days)` : ''}
+                    {locked ? ` (Unlock ₹${WORLDCUP_OFFER_PRICE_INR} · 1 Day)` : ''}
                   </option>
                 );
               })}
@@ -6226,7 +6226,7 @@ export function ScoringDashboardView({
                   : prev.overlay.bottomScoreMode,
             },
           }));
-          onToast('WorldCup Scoreboard unlocked for 2 Days and activated live!');
+          onToast('WorldCup Scoreboard unlocked for 1 Day and activated live!');
         }}
       />
     </div>

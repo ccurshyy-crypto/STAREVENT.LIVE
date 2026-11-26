@@ -150,7 +150,9 @@ export function WorldCupUnlockModal({
     setErrorMsg(null);
     const cleanUtr = utrInput.replace(/\D/g, '');
     if (cleanUtr.length < 12) {
-      setErrorMsg('Please enter the 12-digit UPI UTR / Transaction Reference Number after paying ₹99.');
+      setErrorMsg(
+        `Please enter the 12-digit UPI UTR / Transaction Reference Number after paying ₹${WORLDCUP_OFFER_PRICE_INR}.`
+      );
       return;
     }
 
@@ -169,7 +171,7 @@ export function WorldCupUnlockModal({
 
   const savingsInr = WORLDCUP_ORIGINAL_PRICE_INR - WORLDCUP_OFFER_PRICE_INR;
   const whatsappProofUrl = `https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-    `Hello ${STUDIO_CONTACT.brand}, I paid ₹${WORLDCUP_OFFER_PRICE_INR} for WorldCup Scoreboard (2 Days Unlock). Order ID: ${orderId}${
+    `Hello ${STUDIO_CONTACT.brand}, I paid ₹${WORLDCUP_OFFER_PRICE_INR} for WorldCup Scoreboard (1 Day Unlock). Order ID: ${orderId}${
       utrInput.trim() ? `, UTR: ${utrInput.trim()}` : ''
     }.`
   )}`;
@@ -196,7 +198,7 @@ export function WorldCupUnlockModal({
               Unlock WorldCup Scoreboard
             </h3>
             <p className="text-xs text-orange-50 font-medium">
-              Instant QR Pay · Valid for {WORLDCUP_UNLOCK_DURATION_DAYS} Days (48 Hours)
+              Instant QR Pay · Valid for {WORLDCUP_UNLOCK_DURATION_DAYS} Day (24 Hours)
             </p>
           </div>
           <button
@@ -227,7 +229,7 @@ export function WorldCupUnlockModal({
             <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900 space-y-1">
               <div className="flex items-center justify-center gap-1.5 font-extrabold">
                 <Clock className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                <span>2 Days Pass Active</span>
+                <span>1 Day Pass Active</span>
               </div>
               <p className="font-semibold text-emerald-700">
                 Valid until: {formatWorldCupExpiryDate(unlockedExpiry)}
@@ -243,11 +245,11 @@ export function WorldCupUnlockModal({
           </div>
         ) : (
           <div className="p-4 sm:p-5 space-y-4">
-            {/* Price Strip: ₹149 strikethrough -> ₹99 */}
+            {/* Price Strip: ₹149 strikethrough -> ₹49 */}
             <div className="rounded-xl bg-[#FFF8EE] border border-[#FF8C00]/35 px-4 py-3 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#C25E00]">
-                  Limited Offer · 2 Days Access
+                  Limited Offer · 1 Day Access
                 </p>
                 <div className="flex items-baseline gap-2 mt-0.5">
                   <span className="text-base font-bold text-slate-400 line-through">
@@ -263,7 +265,7 @@ export function WorldCupUnlockModal({
               </div>
               <div className="text-right">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FF8C00] text-white text-[11px] font-black uppercase">
-                  <Clock className="w-3 h-3" aria-hidden="true" />2 Days
+                  <Clock className="w-3 h-3" aria-hidden="true" />1 Day
                 </span>
               </div>
             </div>
@@ -380,7 +382,7 @@ export function WorldCupUnlockModal({
                 ) : (
                   <>
                     <LockOpen className="w-4 h-4" aria-hidden="true" />
-                    <span>Payment Done — Unlock for 2 Days</span>
+                    <span>Payment Done — Unlock for 1 Day</span>
                   </>
                 )}
               </button>
@@ -388,7 +390,7 @@ export function WorldCupUnlockModal({
               <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
                 <span className="inline-flex items-center gap-1 font-semibold">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                  Instant 48h Activation
+                  Instant 24h Activation
                 </span>
                 <a
                   href={whatsappProofUrl}

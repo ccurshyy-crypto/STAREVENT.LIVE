@@ -948,7 +948,7 @@ export function SidebarToolsViews({
               : prev.overlay.bottomScoreMode,
         },
       }));
-      onToast('WorldCup Scoreboard unlocked for 2 Days and activated live!');
+      onToast('WorldCup Scoreboard unlocked for 1 Day and activated live!');
     };
 
     const previewZeroBalls = [
@@ -1034,7 +1034,7 @@ export function SidebarToolsViews({
                             ₹{WORLDCUP_ORIGINAL_PRICE_INR}
                           </span>
                           <span className="text-[#FFE600]">₹{WORLDCUP_OFFER_PRICE_INR}</span>
-                          <span className="text-orange-200">· 2 Days</span>
+                          <span className="text-orange-200">· 1 Day</span>
                         </span>
                       ) : isWorldCup ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
@@ -1103,7 +1103,7 @@ export function SidebarToolsViews({
                     <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
                     {isLocked && (
                       <p className="text-[11px] font-bold text-[#C25E00]">
-                        Unlock WorldCup for 2 Days —{' '}
+                        Unlock WorldCup for 1 Day —{' '}
                         <span className="line-through text-slate-400">
                           ₹{WORLDCUP_ORIGINAL_PRICE_INR}
                         </span>{' '}
@@ -1124,7 +1124,7 @@ export function SidebarToolsViews({
                       <span className="line-through opacity-75 text-[11px]">
                         ₹{WORLDCUP_ORIGINAL_PRICE_INR}
                       </span>
-                      <span>PAY ₹{WORLDCUP_OFFER_PRICE_INR} · UNLOCK 2 DAYS</span>
+                      <span>PAY ₹{WORLDCUP_OFFER_PRICE_INR} · UNLOCK 1 DAY</span>
                     </button>
                   ) : (
                     <button

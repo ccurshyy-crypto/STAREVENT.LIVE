@@ -98,7 +98,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
   const [passwordInput, setPasswordInput] = useState(() => generateRandomPassword());
   const [justCreated, setJustCreated] = useState<OverlayAccessKeyRow | null>(null);
 
-  // Owner UPI QR settings (WorldCup ₹99 / 2 Days Unlock)
+  // Owner UPI QR settings (WorldCup ₹49 / 1 Day Unlock)
   const [upiIdInput, setUpiIdInput] = useState(() => getLocalOwnerUpiConfig().upiId);
   const [upiPayeeInput, setUpiPayeeInput] = useState(() => getLocalOwnerUpiConfig().payeeName);
   const [upiSaving, setUpiSaving] = useState(false);
@@ -147,7 +147,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
       upiId: upiIdInput,
       payeeName: upiPayeeInput,
       amountInr: WORLDCUP_OFFER_PRICE_INR,
-      orderId: 'PREVIEW99',
+      orderId: 'PREVIEW49',
     });
     QRCode.toDataURL(uri, {
       width: 160,
@@ -643,7 +643,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
         )}
       </div>
 
-      {/* Owner UPI QR Payment Configuration (WorldCup ₹149 -> ₹99 · 2 Days) */}
+      {/* Owner UPI QR Payment Configuration (WorldCup ₹149 -> ₹49 · 1 Day) */}
       <div className="rounded-2xl border border-[#FFE600]/25 bg-black/45 p-4 sm:p-5 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -658,7 +658,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
                   ₹{WORLDCUP_ORIGINAL_PRICE_INR}
                 </span>{' '}
                 <span className="text-[#FFE600] font-bold">₹{WORLDCUP_OFFER_PRICE_INR}</span> for
-                2-Day WorldCup Unlock.
+                1-Day WorldCup Unlock.
               </p>
             </div>
           </div>
@@ -721,7 +721,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
             <div className="flex flex-col items-center gap-1.5 p-2.5 rounded-xl bg-white border border-white/20 shrink-0 mx-auto sm:mx-0">
               <img
                 src={upiPreviewQr}
-                alt="Preview ₹99 Owner UPI QR"
+                alt={`Preview ₹${WORLDCUP_OFFER_PRICE_INR} Owner UPI QR`}
                 className="w-28 h-28 block"
               />
               <span className="text-[10px] font-black text-slate-900 uppercase">

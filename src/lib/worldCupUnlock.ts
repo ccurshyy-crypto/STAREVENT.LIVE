@@ -3,8 +3,8 @@ import { getSupabaseClient, SUPABASE_SCOREBOARD_TABLE } from './supabaseClient';
 import type { UserAccountDetails } from '../types/cricketSuite';
 
 export const WORLDCUP_ORIGINAL_PRICE_INR = 149;
-export const WORLDCUP_OFFER_PRICE_INR = 99;
-export const WORLDCUP_UNLOCK_DURATION_DAYS = 2;
+export const WORLDCUP_OFFER_PRICE_INR = 49;
+export const WORLDCUP_UNLOCK_DURATION_DAYS = 1;
 export const WORLDCUP_UNLOCK_DURATION_MS = WORLDCUP_UNLOCK_DURATION_DAYS * 24 * 60 * 60 * 1000;
 
 const OWNER_UPI_STORAGE_KEY = 'star_event_live_owner_upi_v1';
@@ -132,7 +132,7 @@ export function buildWorldCupUpiUri(params: {
   const amount = (params.amountInr ?? WORLDCUP_OFFER_PRICE_INR).toFixed(2);
   const upiId = sanitizeUpiId(params.upiId) || DEFAULT_OWNER_UPI_CONFIG.upiId;
   const payeeName = params.payeeName.trim() || DEFAULT_OWNER_UPI_CONFIG.payeeName;
-  const note = `WorldCup Scoreboard 2 Days Unlock (${params.orderId})`;
+  const note = `WorldCup Scoreboard 1 Day Unlock (${params.orderId})`;
   return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
     payeeName
   )}&am=${amount}&cu=INR&tr=${encodeURIComponent(params.orderId)}&tn=${encodeURIComponent(note)}`;
