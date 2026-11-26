@@ -7,6 +7,12 @@ export interface TataIplEventBanner {
   caption?: string;
 }
 
+export interface TataIplWinnerInfo {
+  headline: string;
+  badge: string;
+  summaryLine: string;
+}
+
 export interface TataIplScoreboardBarProps {
   batTeamCode: string;
   batTeamLogo?: string;
@@ -30,6 +36,7 @@ export interface TataIplScoreboardBarProps {
   targetText: string;
   matchTitle: string;
   activeEvent?: TataIplEventBanner | null;
+  winnerInfo?: TataIplWinnerInfo | null;
   compact?: boolean;
 }
 
@@ -142,6 +149,7 @@ export function TataIplScoreboardBar({
   targetText,
   matchTitle,
   activeEvent = null,
+  winnerInfo = null,
   compact = false,
 }: TataIplScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
@@ -264,8 +272,17 @@ export function TataIplScoreboardBar({
             )}
           </div>
 
-          {/* Upper Primary Row */}
+          {/* Upper Primary Row — shows animated Match Winner inside the exact same scoreboard bar when match finishes */}
           <div className="ipl-patti-top-band">
+            {winnerInfo ? (
+              <div className="ipl-win-strip" role="status" aria-live="polite">
+                <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+                <span className="ipl-win-badge">{winnerInfo.badge}</span>
+                <span className="ipl-win-headline">{winnerInfo.headline}</span>
+                <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+              </div>
+            ) : (
+              <>
             {/* 1. Left-Center: Batting Team, Gold Score Box & Overs */}
             <div className="ipl-seg-team-score">
               <div className="ipl-bat-team-wrap">
@@ -400,15 +417,29 @@ export function TataIplScoreboardBar({
                 </span>
               </div>
             </div>
+              </>
+            )}
           </div>
 
           {/* Lower Dark Navy Sub-Bar */}
           <div className="ipl-patti-bottom-band">
-            <div className="ipl-sub-left">
-              <span className="ipl-sub-vs">v {cleanBowl}</span>
-              <span className="ipl-sub-target">{targetText}</span>
-            </div>
-            <div className="ipl-sub-right">{matchTitle}</div>
+            {winnerInfo ? (
+              <>
+                <div className="ipl-sub-left">
+                  <span className="ipl-sub-vs">RESULT</span>
+                  <span className="ipl-sub-target">{winnerInfo.summaryLine}</span>
+                </div>
+                <div className="ipl-sub-right">{matchTitle}</div>
+              </>
+            ) : (
+              <>
+                <div className="ipl-sub-left">
+                  <span className="ipl-sub-vs">v {cleanBowl}</span>
+                  <span className="ipl-sub-target">{targetText}</span>
+                </div>
+                <div className="ipl-sub-right">{matchTitle}</div>
+              </>
+            )}
           </div>
         </div>
 

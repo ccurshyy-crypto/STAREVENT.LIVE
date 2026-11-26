@@ -1022,136 +1022,26 @@ export function BroadcastOverlayCanvas({
       );
     }
 
-    // When match is won/completed, replace the live scoreboard completely with a huge animated Winner Celebration Banner
-    if (match.status === 'completed') {
-      const inn1BatTeam = inn1 ? teamMap.get(inn1.battingTeamId) : team1;
-      const inn2BatTeam = inn2 ? teamMap.get(inn2.battingTeamId) : team2;
-      const diff = (inn1?.runs ?? 0) - (inn2?.runs ?? 0);
-      const isTied = diff === 0;
-      const winnerTeam = isTied ? undefined : diff > 0 ? inn1BatTeam : inn2BatTeam;
-      const headline = isTied
-        ? 'MATCH TIED!'
+    // Build inside-scoreboard animated Winner info when match is completed
+    const isMatchCompleted = match.status === 'completed';
+    const inn1BatTeam = inn1 ? teamMap.get(inn1.battingTeamId) : team1;
+    const inn2BatTeam = inn2 ? teamMap.get(inn2.battingTeamId) : team2;
+    const scoreDiff = (inn1?.runs ?? 0) - (inn2?.runs ?? 0);
+    const isMatchTied = scoreDiff === 0;
+    const winnerTeam = isMatchTied ? undefined : scoreDiff > 0 ? inn1BatTeam : inn2BatTeam;
+    const winnerHeadline = isMatchTied
+      ? 'MATCH TIED!'
+      : match.resultText?.trim()
+        ? match.resultText.trim().toUpperCase()
         : `${(winnerTeam?.name || 'WINNER').toUpperCase()} WON!`;
-
-      return (
-        <div className="absolute bottom-4 inset-x-6 pointer-events-none z-20">
-          <motion.div
-            key={`winner-banner-${match.id}-${match.resultText}`}
-            initial={{ opacity: 0, y: 44, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 280, damping: 22 }}
-            className="relative rounded-2xl overflow-hidden text-white border-[3px] shadow-2xl"
-            style={{
-              background: `linear-gradient(110deg, ${theme.surface} 0%, ${theme.primary} 38%, ${theme.secondary} 68%, ${theme.surface} 100%)`,
-              borderColor: '#FACC15',
-              boxShadow:
-                '0 18px 48px rgba(0,0,0,0.65), 0 0 28px rgba(250, 204, 21, 0.45)',
-            }}
-          >
-            {/* Animated golden light shimmer sweep */}
-            <motion.div
-              aria-hidden="true"
-              initial={{ x: '-120%' }}
-              animate={{ x: '220%' }}
-              transition={{
-                duration: 2.2,
-                repeat: Infinity,
-                repeatDelay: 1.4,
-                ease: 'easeInOut',
-              }}
-              className="pointer-events-none absolute inset-y-0 w-1/3 -skew-x-24 opacity-30"
-              style={{
-                background:
-                  'linear-gradient(90deg, transparent, rgba(255,255,255,0.9), transparent)',
-              }}
-            />
-
-            {/* Main Winner Row */}
-            <div className="relative z-10 px-6 sm:px-8 py-4 sm:py-5 flex items-center justify-between gap-4">
-              {/* Left Animated Trophy + Winner Logo */}
-              <div className="flex items-center gap-3 shrink-0">
-                <motion.div
-                  animate={{ scale: [1, 1.12, 1], rotate: [0, -8, 8, 0] }}
-                  transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center border-2 border-[#FACC15] shadow-lg"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, rgba(250,204,21,0.32), rgba(234,179,8,0.12))',
-                  }}
-                >
-                  <Trophy className="w-7 h-7 sm:w-9 sm:h-9 text-[#FACC15]" aria-hidden="true" />
-                </motion.div>
-                {winnerTeam && renderTeamBadge(winnerTeam, 'w-12 h-12 sm:w-14 sm:h-14')}
-              </div>
-
-              {/* Center Huge Animated Winner Announcement */}
-              <div className="flex-1 min-w-0 text-center">
-                <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-[#FACC15] text-slate-950 text-[10px] sm:text-xs font-black uppercase tracking-[0.22em] shadow-xs">
-                  <span>{isTied ? 'MATCH RESULT' : 'CHAMPION · MATCH WINNER'}</span>
-                  <span>·</span>
-                  <span>{match.stageBadge}</span>
-                </div>
-
-                <motion.p
-                  animate={{ scale: [1, 1.035, 1] }}
-                  transition={{ duration: 1.9, repeat: Infinity, ease: 'easeInOut' }}
-                  className="font-display font-black text-2xl sm:text-4xl lg:text-5xl uppercase tracking-wide leading-tight mt-1 drop-shadow-[0_3px_10px_rgba(0,0,0,0.65)] truncate"
-                >
-                  {headline}
-                </motion.p>
-
-                <p
-                  className="font-display font-extrabold text-xs sm:text-base lg:text-lg uppercase tracking-[0.14em] mt-0.5 truncate"
-                  style={{ color: '#FACC15' }}
-                >
-                  {match.resultText}
-                </p>
-              </div>
-
-              {/* Right Animated Trophy */}
-              <motion.div
-                animate={{ scale: [1, 1.12, 1], rotate: [0, 8, -8, 0] }}
-                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-                className="hidden sm:flex w-14 h-14 sm:w-16 sm:h-16 rounded-2xl items-center justify-center border-2 border-[#FACC15] shrink-0 shadow-lg"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(250,204,21,0.32), rgba(234,179,8,0.12))',
-                }}
-              >
-                <Trophy className="w-8 h-8 sm:w-9 sm:h-9 text-[#FACC15]" aria-hidden="true" />
-              </motion.div>
-            </div>
-
-            {/* Bottom Final Score Comparison Strip */}
-            <div
-              className="relative z-10 px-6 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] sm:text-xs font-bold border-t border-white/15"
-              style={{ background: 'rgba(2, 6, 23, 0.78)' }}
-            >
-              <div className="flex items-center gap-3 tabular-nums">
-                <span>
-                  <span className="text-white/75">{inn1BatTeam?.shortName || 'T1'}:</span>{' '}
-                  <span className="text-white font-black">
-                    {inn1?.runs ?? 0}/{inn1?.wickets ?? 0}
-                  </span>{' '}
-                  <span className="text-white/70">({formatOvers(inn1?.legalBalls ?? 0)})</span>
-                </span>
-                <span className="text-[#FACC15]">•</span>
-                <span>
-                  <span className="text-white/75">{inn2BatTeam?.shortName || 'T2'}:</span>{' '}
-                  <span className="text-white font-black">
-                    {inn2?.runs ?? 0}/{inn2?.wickets ?? 0}
-                  </span>{' '}
-                  <span className="text-white/70">({formatOvers(inn2?.legalBalls ?? 0)})</span>
-                </span>
-              </div>
-              <span className="uppercase tracking-wider text-[#FACC15] truncate">
-                {tournament?.name || state.user.channelTitle || 'LIVE'} · {match.matchLabel}
-              </span>
-            </div>
-          </motion.div>
-        </div>
-      );
-    }
+    const winnerSummaryLine = `${inn1BatTeam?.shortName || 'T1'} ${inn1?.runs ?? 0}/${inn1?.wickets ?? 0} (${formatOvers(inn1?.legalBalls ?? 0)})  •  ${inn2BatTeam?.shortName || 'T2'} ${inn2?.runs ?? 0}/${inn2?.wickets ?? 0} (${formatOvers(inn2?.legalBalls ?? 0)})`;
+    const winnerInfo = isMatchCompleted
+      ? {
+          headline: winnerHeadline,
+          badge: isMatchTied ? 'MATCH TIED' : 'WINNER',
+          summaryLine: winnerSummaryLine,
+        }
+      : null;
 
     // Specialized bottom ticker modes
     if (
@@ -1289,6 +1179,7 @@ export function BroadcastOverlayCanvas({
             showBalls={ballList.length > 0}
             targetText={pattiTargetText}
             matchTitle={pattiMatchTitle}
+            winnerInfo={winnerInfo}
             activeEvent={
               showTransition && activeTransition
                 ? { id: activeTransition.id, type: activeTransition.type }
@@ -1324,7 +1215,7 @@ export function BroadcastOverlayCanvas({
             bowlerName={bowler?.playerName || 'Bowler'}
             bowlerFigures={`${bowler?.wickets ?? 0}-${bowler?.runs ?? 0} (${bowler?.overs ?? '0.0'})`}
             balls={ballList}
-            infoStrip={infoStrip}
+            infoStrip={winnerInfo ? `🏆 ${winnerInfo.headline} · ${winnerInfo.summaryLine}` : infoStrip}
             footerRight={`${match.matchLabel} · ${state.user.watermarkText || 'STAREVENT.LIVE'}`}
             accentColor={theme.accent}
             primaryColor={theme.primary}

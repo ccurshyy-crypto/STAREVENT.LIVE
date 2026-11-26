@@ -363,7 +363,56 @@ export function KabaddiOverlayCanvas({
             {/* Top accent metallic highlight */}
             <div className="h-[3px] w-full bg-gradient-to-r from-[#EF1A1A] via-[#FFE600] to-[#EF1A1A]" />
 
-            {/* Main 5-column scoreboard grid */}
+            {/* Main 5-column scoreboard grid — animates winner inside the exact same bar on FULL TIME */}
+            {state.half === 'FULL TIME' ? (
+              <div className="grid grid-cols-[110px_1fr_110px] items-stretch min-h-[86px]">
+                {/* Left Team Final Score Box */}
+                <div
+                  className="px-3 py-2 flex flex-col items-center justify-center border-r-2 border-[#FFE600]/70"
+                  style={{ background: paletteA.bgGradient }}
+                >
+                  <span className="font-mono text-[11px] font-black text-[#FFE600] uppercase">
+                    {state.teamA.shortName}
+                  </span>
+                  <span className="font-mono text-4xl font-black text-white leading-none tabular-nums">
+                    {String(state.teamA.score).padStart(2, '0')}
+                  </span>
+                </div>
+
+                {/* Center Animated Winner Display inside the exact same scoreboard bar */}
+                <div className="ipl-win-strip">
+                  <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+                  <span className="ipl-win-badge">
+                    {state.teamA.score === state.teamB.score ? 'FULL TIME' : 'WINNER'}
+                  </span>
+                  <span className="ipl-win-headline">
+                    {state.teamA.score === state.teamB.score
+                      ? 'MATCH TIED!'
+                      : state.teamA.score > state.teamB.score
+                        ? `${state.teamA.name} WON BY ${state.teamA.score - state.teamB.score} ${
+                            state.teamA.score - state.teamB.score === 1 ? 'POINT' : 'POINTS'
+                          }!`
+                        : `${state.teamB.name} WON BY ${state.teamB.score - state.teamA.score} ${
+                            state.teamB.score - state.teamA.score === 1 ? 'POINT' : 'POINTS'
+                          }!`}
+                  </span>
+                  <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+                </div>
+
+                {/* Right Team Final Score Box */}
+                <div
+                  className="px-3 py-2 flex flex-col items-center justify-center border-l-2 border-[#FFE600]/70"
+                  style={{ background: paletteB.bgGradient }}
+                >
+                  <span className="font-mono text-[11px] font-black text-[#FFE600] uppercase">
+                    {state.teamB.shortName}
+                  </span>
+                  <span className="font-mono text-4xl font-black text-white leading-none tabular-nums">
+                    {String(state.teamB.score).padStart(2, '0')}
+                  </span>
+                </div>
+              </div>
+            ) : (
             <div className="grid grid-cols-[1fr_104px_212px_104px_1fr] items-stretch min-h-[86px]">
               {/* TEAM A PANEL */}
               <div
@@ -474,6 +523,7 @@ export function KabaddiOverlayCanvas({
                 </div>
               </div>
             </div>
+            )}
 
             {/* Bottom broadcast ticker strip */}
             {state.tickerText.trim() && (

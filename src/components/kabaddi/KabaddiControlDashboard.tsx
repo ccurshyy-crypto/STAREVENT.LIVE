@@ -1199,13 +1199,37 @@ export function KabaddiControlDashboard({
                     key={h}
                     type="button"
                     onClick={() =>
-                      updateState((prev) => ({ ...prev, half: h }), false)
+                      updateState((prev) => {
+                        if (h === 'FULL TIME') {
+                          return {
+                            ...prev,
+                            half: h,
+                            matchClock: {
+                              ...prev.matchClock,
+                              remainingSec: computeLiveTimerSeconds(prev.matchClock),
+                              running: false,
+                              startedAtMs: null,
+                            },
+                            raidClock: {
+                              ...prev.raidClock,
+                              remainingSec: computeLiveTimerSeconds(prev.raidClock),
+                              running: false,
+                              startedAtMs: null,
+                            },
+                          };
+                        }
+                        return { ...prev, half: h };
+                      }, false)
                     }
                     className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase ${
-                      state.half === h ? 'overlay-home-btn-active text-white' : 'overlay-home-btn'
+                      state.half === h
+                        ? 'overlay-home-btn-active text-white'
+                        : h === 'FULL TIME'
+                          ? 'btn-gold-pro text-[#070B28]'
+                          : 'overlay-home-btn'
                     }`}
                   >
-                    {h}
+                    {h === 'FULL TIME' ? '🏆 Full Time (Show Winner)' : h}
                   </button>
                 ))}
               </div>
