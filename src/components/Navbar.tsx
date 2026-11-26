@@ -86,8 +86,8 @@ export function Navbar({
         <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#FFE600] via-50% to-[#E11D1D] opacity-90 topbar-beam-sweep" />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto min-h-[64px] sm:min-h-[72px] py-2 px-2.5 sm:px-6 lg:px-8 flex items-center justify-between gap-1.5 sm:gap-4">
-        {/* Zone 1: Star Event Live Brand */}
+      <div className="relative z-10 max-w-[1440px] mx-auto min-h-[60px] sm:min-h-[68px] py-2 px-2.5 sm:px-4 lg:px-6 xl:px-8 flex items-center justify-between gap-2 lg:gap-3">
+        {/* Zone 1: Star Event Live Brand (never clipped on mobile or desktop) */}
         <a
           href="/"
           onClick={(e) => {
@@ -95,9 +95,9 @@ export function Navbar({
             setMobileOpen(false);
             onNavigateHome('top');
           }}
-          className="inline-flex items-center gap-2 sm:gap-3 min-w-0 shrink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] rounded-xl"
+          className="inline-flex items-center gap-1.5 sm:gap-2.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600] rounded-xl"
         >
-          <span className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black p-[1.5px] ring-2 ring-[#FFE600]/85 shadow-[0_0_18px_rgba(255,230,0,0.45)] flex items-center justify-center shrink-0 overflow-hidden">
+          <span className="w-8 h-8 min-[380px]:w-9 min-[380px]:h-9 sm:w-10 sm:h-10 xl:w-11 xl:h-11 rounded-full bg-black p-[1.5px] ring-2 ring-[#FFE600]/85 shadow-[0_0_16px_rgba(255,230,0,0.45)] flex items-center justify-center shrink-0 overflow-hidden">
             <img
               src={STUDIO_CONTACT.logoImagePath}
               alt="Star Event Live Official Logo"
@@ -106,10 +106,10 @@ export function Navbar({
               className="w-full h-full object-cover rounded-full"
             />
           </span>
-          <span className="flex flex-col leading-none min-w-0">
-            <span className="font-display text-[15px] min-[380px]:text-base sm:text-2xl font-black tracking-tight flex items-center gap-1.5 truncate">
+          <span className="flex flex-col leading-none shrink-0">
+            <span className="font-display text-[13px] min-[380px]:text-[15px] sm:text-lg xl:text-xl font-black tracking-tight flex items-center gap-1 sm:gap-1.5 whitespace-nowrap">
               <span className="text-[#FFE600] drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)]">STAR EVENT</span>
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#E11D1D] text-white text-[11px] sm:text-sm font-black tracking-wide border border-white/25 shadow-sm">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-[#E11D1D] text-white text-[9px] min-[380px]:text-[10px] sm:text-xs font-black tracking-wide border border-white/25 shadow-sm shrink-0">
                 LIVE
               </span>
             </span>
@@ -122,7 +122,7 @@ export function Navbar({
         {/* Zone 2: Desktop Navigation */}
         <nav
           aria-label="Primary navigation"
-          className="hidden lg:flex items-center gap-6 text-sm font-semibold text-white"
+          className="hidden lg:flex items-center justify-center gap-3.5 xl:gap-5 2xl:gap-6 text-[13px] xl:text-sm font-semibold text-white min-w-0"
         >
           {navItems.map((item) => {
             const isActive = Boolean(item.page && currentPage === item.page);
@@ -145,13 +145,13 @@ export function Navbar({
         </nav>
 
         {/* Zone 3: Language + Overlay Access + Call + Mobile Menu */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 xl:gap-2 shrink-0">
           <LanguageSwitcher lang={lang} onChangeLang={onChangeLang} variant="dropdown" />
 
           <button
             type="button"
             onClick={onOpenAccessModal}
-            className={`min-h-[38px] sm:min-h-[40px] inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs sm:text-sm font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
+            className={`min-h-[36px] sm:min-h-[38px] inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-bold rounded-xl transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] ${
               isUnlocked
                 ? 'bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-400/45'
                 : 'btn-glass-pro text-zinc-100'
@@ -159,27 +159,27 @@ export function Navbar({
           >
             {isUnlocked && session ? (
               <>
-                <LockOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" aria-hidden="true" />
-                <span className="max-w-[70px] sm:max-w-[110px] truncate font-mono text-[11px] sm:text-xs">
+                <LockOpen className="w-3.5 h-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
+                <span className="max-w-[52px] min-[420px]:max-w-[78px] lg:max-w-[84px] xl:max-w-[110px] truncate font-mono text-[11px] sm:text-xs">
                   {session.accessId}
                 </span>
               </>
             ) : (
               <>
-                <KeyRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FFE600] shrink-0" aria-hidden="true" />
-                <span className="hidden sm:inline">Unlock Overlays</span>
-                <span className="sm:hidden">Unlock</span>
+                <KeyRound className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
+                <span className="hidden xl:inline">Unlock Overlays</span>
+                <span className="xl:hidden">Unlock</span>
               </>
             )}
           </button>
 
           <a
             href={STUDIO_CONTACT.phoneHref}
-            className="btn-primary-pro hidden sm:inline-flex min-h-[40px] items-center gap-2 px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
+            className="btn-primary-pro hidden sm:inline-flex min-h-[38px] items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
           >
             <Phone className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            <span className="hidden xl:inline">{UI_COPY.nav.callCta[lang]}</span>
-            <span className="xl:hidden">Call</span>
+            <span className="hidden 2xl:inline">{UI_COPY.nav.callCta[lang]}</span>
+            <span className="2xl:hidden">Call</span>
           </a>
 
           <button
