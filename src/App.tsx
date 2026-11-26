@@ -12,6 +12,7 @@ import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
 import { PartnerAdSection } from './components/PartnerAdSection';
 import { ServicesPage } from './components/ServicesPage';
+import { SoftwareOffersSection } from './components/SoftwareOffersSection';
 import { StingerOverlaysOfferSection } from './components/StingerOverlaysOfferSection';
 import { StudioSpotlightSection } from './components/StudioSpotlightSection';
 import { OwnerAdminPage } from './components/OwnerAdminPage';
@@ -199,6 +200,16 @@ export default function App() {
     setAccessModalOpen(true);
   };
 
+  const navigateToOwnerAdmin = () => {
+    setAccessModalOpen(false);
+    setStandaloneOverlay(false);
+    if (window.location.pathname !== '/owner-admin') {
+      window.history.pushState({}, '', '/owner-admin');
+    }
+    setOwnerAdminRoute(true);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  };
+
   if (standaloneOverlay) {
     return (
       <StandaloneOverlayPage
@@ -273,6 +284,8 @@ export default function App() {
                 onOpenOverlays={navigateToOverlays}
               />
 
+              <SoftwareOffersSection lang={lang} />
+
               <BookingCalendarSection
                 lang={lang}
                 heading="BOOKING UR ORDER"
@@ -323,6 +336,7 @@ export default function App() {
           onNavigateOverlays={navigateToOverlays}
           onNavigatePackages={navigateToPackages}
           onNavigateBooking={navigateToBooking}
+          onOpenOwnerAdmin={navigateToOwnerAdmin}
         />
       )}
 
@@ -330,6 +344,7 @@ export default function App() {
         open={accessModalOpen}
         onClose={() => setAccessModalOpen(false)}
         onUnlockedSuccess={navigateToOverlays}
+        onOpenOwnerAdmin={navigateToOwnerAdmin}
       />
     </div>
   );

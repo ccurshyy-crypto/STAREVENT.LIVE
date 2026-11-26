@@ -1,4 +1,4 @@
-import { Instagram, Youtube } from 'lucide-react';
+import { Instagram, ShieldCheck, Youtube } from 'lucide-react';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { ScrollReveal } from './ScrollReveal';
 import { SpinningLogoVideo } from './SpinningLogoVideo';
@@ -10,6 +10,7 @@ interface FooterProps {
   onNavigateOverlays: () => void;
   onNavigatePackages: () => void;
   onNavigateBooking: () => void;
+  onOpenOwnerAdmin?: () => void;
 }
 
 export function Footer({
@@ -19,6 +20,7 @@ export function Footer({
   onNavigateOverlays,
   onNavigatePackages,
   onNavigateBooking,
+  onOpenOwnerAdmin,
 }: FooterProps) {
   return (
     <footer className="relative z-10 border-t-2 border-[#FFE600]/45 bg-[#070B28]/96 py-12">
@@ -147,6 +149,16 @@ export function Footer({
               </a>{' '}
               · © {new Date().getFullYear()} {STUDIO_CONTACT.brand}
             </span>
+            {onOpenOwnerAdmin && (
+              <button
+                type="button"
+                onClick={onOpenOwnerAdmin}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-[11px] font-bold whitespace-nowrap"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
+                <span>Admin Panel</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

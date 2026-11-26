@@ -535,8 +535,8 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
 
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'generate-users' | 'access-keys' | 'overlay-accounts'
-  >('generate-users');
+    'access-keys' | 'overlay-accounts' | 'generate-users'
+  >('access-keys');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -649,25 +649,25 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#09090D] text-[#F4F4F5] py-8 sm:py-14 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-[#3B0207] via-[#1C030C] to-[#070B28] text-[#F4F4F5] py-8 sm:py-14 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-5">
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
             onClick={onBackHome}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/15 text-xs sm:text-sm font-semibold text-zinc-200 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl overlay-home-btn text-xs sm:text-sm font-semibold transition-all"
           >
             <ArrowLeft className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
             <span>Back to Star Event Live</span>
           </button>
 
-          <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-            Owner Restricted Route
+          <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#FFE600]">
+            Star Event Live · Admin Panel
           </span>
         </div>
 
-        <div className="rounded-2xl bg-[#111116] border border-[#FFE600]/35 overflow-hidden shadow-[0_24px_70px_rgba(0,0,0,0.85)]">
-          <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
+        <div className="rounded-2xl overlay-home-card overflow-hidden">
+          <div className="h-1 w-full bg-gradient-to-r from-[#EF1A1A] via-[#FFE600] to-[#EF1A1A]" />
 
           <div className="p-5 sm:p-8">
             {statusLoading ? (
@@ -675,55 +675,55 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                 <p className="font-mono text-xs font-bold uppercase tracking-widest text-[#FFE600]">
                   Star Event Live · Owner Access
                 </p>
-                <p className="text-sm text-zinc-400">Checking owner session...</p>
+                <p className="text-sm text-rose-100/75">Checking owner session...</p>
               </div>
             ) : adminToken ? (
               <div className="space-y-5">
-                <div className="flex flex-wrap items-center gap-2 p-1 rounded-xl bg-[#09090D] border border-white/10">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('generate-users')}
-                    className={`flex-1 min-w-[180px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
-                      activeTab === 'generate-users'
-                        ? 'bg-[#FF8C00] text-white'
-                        : 'text-zinc-300 hover:text-white'
-                    }`}
-                  >
-                    Generate User ID &amp; Password
-                  </button>
+                <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl bg-[#0B0618]/80 border border-[#FACC15]/25">
                   <button
                     type="button"
                     onClick={() => setActiveTab('access-keys')}
-                    className={`flex-1 min-w-[160px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    className={`flex-1 min-w-[180px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
                       activeTab === 'access-keys'
-                        ? 'bg-[#FF8C00] text-white'
-                        : 'text-zinc-300 hover:text-white'
+                        ? 'overlay-home-btn-active text-white'
+                        : 'overlay-home-btn'
                     }`}
                   >
-                    Client Access IDs (Supabase)
+                    Create User ID &amp; Password
                   </button>
                   <button
                     type="button"
                     onClick={() => setActiveTab('overlay-accounts')}
-                    className={`flex-1 min-w-[160px] px-4 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    className={`flex-1 min-w-[160px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
                       activeTab === 'overlay-accounts'
-                        ? 'bg-[#FF8C00] text-white'
-                        : 'text-zinc-300 hover:text-white'
+                        ? 'overlay-home-btn-active text-white'
+                        : 'overlay-home-btn'
                     }`}
                   >
-                    Scoreboard Overlay Control Accounts
+                    Overlay Accounts
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('generate-users')}
+                    className={`flex-1 min-w-[160px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
+                      activeTab === 'generate-users'
+                        ? 'overlay-home-btn-active text-white'
+                        : 'overlay-home-btn'
+                    }`}
+                  >
+                    Email Auth Users
                   </button>
                 </div>
 
-                {activeTab === 'generate-users' ? (
-                  <GenerateUserPanel
+                {activeTab === 'access-keys' ? (
+                  <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
+                ) : activeTab === 'overlay-accounts' ? (
+                  <OverlayAccountsManager
                     adminToken={adminToken}
                     onLockAdmin={() => void handleLockAdmin()}
                   />
-                ) : activeTab === 'access-keys' ? (
-                  <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
                 ) : (
-                  <OverlayAccountsManager
+                  <GenerateUserPanel
                     adminToken={adminToken}
                     onLockAdmin={() => void handleLockAdmin()}
                   />

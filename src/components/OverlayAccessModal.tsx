@@ -6,6 +6,7 @@ import {
   Lock,
   LockOpen,
   LogOut,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
@@ -14,12 +15,14 @@ interface OverlayAccessModalProps {
   open: boolean;
   onClose: () => void;
   onUnlockedSuccess?: () => void;
+  onOpenOwnerAdmin?: () => void;
 }
 
 export function OverlayAccessModal({
   open,
   onClose,
   onUnlockedSuccess,
+  onOpenOwnerAdmin,
 }: OverlayAccessModalProps) {
   const { session, isUnlocked, unlockWithCredentials, lockAndLogout } = useOverlayAccess();
   const [accessId, setAccessId] = useState('');
@@ -61,15 +64,15 @@ export function OverlayAccessModal({
       aria-label="Overlay Access"
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto"
     >
-      <div className="relative w-full max-w-lg rounded-2xl bg-[#111116] border border-[#FFE600]/40 shadow-[0_24px_70px_rgba(0,0,0,0.85)] overflow-hidden my-auto">
+      <div className="relative w-full max-w-lg rounded-2xl overlay-home-card overflow-hidden my-auto">
         {/* Top Crimson-Gold Accent */}
-        <div className="h-1 w-full bg-gradient-to-r from-[#DC2626] via-[#FFE600] to-[#DC2626]" />
+        <div className="h-1 w-full bg-gradient-to-r from-[#EF1A1A] via-[#FFE600] to-[#EF1A1A]" />
 
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between gap-3 bg-[#15151C]">
+        <div className="px-5 py-4 overlay-home-header flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <KeyRound className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            <span className="font-display font-black text-sm sm:text-base text-white tracking-wide uppercase">
+            <span className="font-display font-black text-sm sm:text-base text-[#FFE600] tracking-wide uppercase">
               Overlay Access
             </span>
           </div>
@@ -202,12 +205,28 @@ export function OverlayAccessModal({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-[#FFE600] to-[#FACC15] hover:from-[#FEF08A] hover:to-[#FFE600] disabled:opacity-60 text-[#09090D] font-display font-black text-sm sm:text-base uppercase tracking-wide transition-colors"
+                  className="w-full min-h-[48px] inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-sm sm:text-base uppercase tracking-wide"
                 >
                   <LockOpen className="w-4 h-4 shrink-0" aria-hidden="true" />
                   <span>{submitting ? 'Verifying...' : 'Unlock Overlays'}</span>
                 </button>
               </form>
+            </div>
+          )}
+
+          {onOpenOwnerAdmin && (
+            <div className="mt-5 pt-4 border-t border-[#FACC15]/20 flex items-center justify-between gap-3">
+              <span className="text-[11px] text-rose-100/75">
+                Main Admin? Create &amp; manage user IDs:
+              </span>
+              <button
+                type="button"
+                onClick={onOpenOwnerAdmin}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg overlay-home-btn text-xs font-bold whitespace-nowrap"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                <span>Open Admin Panel</span>
+              </button>
             </div>
           )}
         </div>

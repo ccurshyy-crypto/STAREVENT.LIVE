@@ -6,6 +6,7 @@ import {
   EyeOff,
   KeyRound,
   Lock,
+  MessageCircle,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -364,10 +365,10 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
         <button
           type="submit"
           disabled={saving}
-          className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#DC2626] hover:bg-[#EF4444] disabled:opacity-60 text-white font-display font-black text-xs sm:text-sm uppercase tracking-wide transition-colors"
+          className="w-full min-h-[44px] inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl btn-primary-pro disabled:opacity-60 text-white font-display font-black text-xs sm:text-sm uppercase tracking-wide"
         >
           <Plus className="w-4 h-4 text-[#FFE600]" />
-          <span>{saving ? 'Saving to Supabase...' : 'Generate & Save Access Key'}</span>
+          <span>{saving ? 'Saving...' : 'Generate & Save User ID & Password'}</span>
         </button>
       </form>
 
@@ -376,30 +377,41 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
         <div className="rounded-xl bg-emerald-950/55 border border-emerald-400/45 p-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-0.5 text-xs">
             <p className="font-bold text-emerald-300">
-              New Access Key Created &amp; Active
+              New User ID &amp; Password Created &amp; Active
             </p>
             <p className="font-mono text-white">
               ID: <strong className="text-[#FFE600]">{justCreated.access_id}</strong> · Pass:{' '}
               <strong>{justCreated.password}</strong>
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void handleCopyBundle(justCreated, 'created')}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FFE600] hover:bg-[#FEF08A] text-[#09090D] font-display font-black text-xs whitespace-nowrap"
-          >
-            {copiedId === 'created' ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                Copied for Client
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copy ID &amp; Password
-              </>
-            )}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void handleCopyBundle(justCreated, 'created')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg btn-gold-pro text-[#070B28] font-display font-black text-xs whitespace-nowrap"
+            >
+              {copiedId === 'created' ? (
+                <>
+                  <Check className="w-3.5 h-3.5" />
+                  Copied for User
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  Copy ID &amp; Pass
+                </>
+              )}
+            </button>
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(formatShareBundle(justCreated))}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-display font-bold text-xs whitespace-nowrap"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Share WhatsApp
+            </a>
+          </div>
         </div>
       )}
 
@@ -498,6 +510,16 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
                         </>
                       )}
                     </button>
+
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(formatShareBundle(row))}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600/85 hover:bg-emerald-500 text-[11px] font-bold text-white whitespace-nowrap"
+                    >
+                      <MessageCircle className="w-3 h-3" />
+                      WhatsApp
+                    </a>
 
                     <button
                       type="button"
