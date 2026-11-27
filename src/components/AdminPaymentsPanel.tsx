@@ -7,6 +7,7 @@ import {
   History,
   Lock,
   LockOpen,
+  QrCode,
   RefreshCw,
   ShieldCheck,
   XCircle,
@@ -68,11 +69,13 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'PAID' | 'PENDING' | 'FAILED'>('ALL');
   const [loading, setLoading] = useState(false);
   const [cashfreeConfigured, setCashfreeConfigured] = useState(false);
+  const [ownerUpiId, setOwnerUpiId] = useState('crushyyphotography@oksbi');
   const [payments, setPayments] = useState<AdminPaymentRow[]>([]);
   const [unlocks, setUnlocks] = useState<AdminUnlockRow[]>([]);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogRow[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
+  const [processingOrderId, setProcessingOrderId] = useState<string | null>(null);
 
   // Manual Grant Form (Admin-only with mandatory audit reason)
   const [grantCustomerId, setGrantCustomerId] = useState('');
@@ -101,16 +104,18 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
       const json = (await res.json().catch(() => null)) as {
         ok?: boolean;
         cashfreeConfigured?: boolean;
+        ownerUpiId?: string;
         payments?: AdminPaymentRow[];
         unlocks?: AdminUnlockRow[];
         auditLogs?: AdminAuditLogRow[];
         error?: string;
       } | null;
       if (!res.ok || !json?.ok) {
-        setErrorMsg(json?.error || 'Could not load Cashfree payment records.');
+        setErrorMsg(json?.error || 'Could not load payment records.');
         return;
       }
       setCashfreeConfigured(Boolean(json.cashfreeConfigured));
+      if (json.ownerUpiId) setOwnerUpiId(json.ownerUpiId);
       setPayments(Array.isArray(json.payments) ? json.payments : []);
       setUnlocks(Array.isArray(json.unlocks) ? json.unlocks : []);
       setAuditLogs(Array.isArray(json.auditLogs) ? json.auditLogs : []);
@@ -207,6 +212,49 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
     }
   };
 
+  const handleUpiQrDecision = async (orderId: string, decision: 'approve' | 'reject') => {
+    setErrorMsg(null);
+    setFeedbackMsg(null);
+    setProcessingOrderId(orderId);
+    try {
+      const endpoint =
+        decision === 'approve'
+          ? '/api/admin/payments/upi-qr/approve'
+          : '/api/admin/payments/upi-qr/reject';
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ orderId }),
+      });
+      if (res.status === 401) {
+        onLockAdmin();
+        return;
+      }
+      const json = (await res.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !json?.ok) {
+        setErrorMsg(json?.error || `Failed to ${decision} UPI QR payment.`);
+        return;
+      }
+      setFeedbackMsg(
+        decision === 'approve'
+          ? `Approved & unlocked order ${orderId} (audit logged).`
+          : `Rejected order ${orderId} — theme stays locked (audit logged).`
+      );
+      await loadData();
+    } catch {
+      setErrorMsg(`Network error while trying to ${decision} order.`);
+    } finally {
+      setProcessingOrderId(null);
+    }
+  };
+
+  const pendingUpiQrOrders = payments.filter(
+    (p) => p.order_id.startsWith('UPI_') && p.payment_status === 'PENDING'
+  );
+
   return (
     <div className="space-y-6">
       {/* Status Banner */}
@@ -217,25 +265,22 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
           </div>
           <div>
             <h3 className="font-display font-bold text-base text-white">
-              Cashfree Production Payments &amp; Audit Ledger
+              Owner UPI QR &amp; Cashfree Payments Ledger
             </h3>
             <p className="text-xs text-zinc-400">
-              Server-verified ₹149 WorldCup &amp; ₹79 Lightning Premier orders · Webhook HMAC-SHA256 verified · Zero UTR bypass
+              Active UPI QR: <span className="font-mono text-zinc-200">{ownerUpiId}</span> · ₹149 WorldCup &amp; ₹79 Lightning Premier · Zero fake-UTR auto-unlock
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span
-            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
-              cashfreeConfigured
-                ? 'bg-emerald-950/70 border-emerald-500/40 text-emerald-300'
-                : 'bg-amber-950/70 border-amber-500/40 text-amber-200'
-            }`}
-          >
-            {cashfreeConfigured
-              ? 'Cashfree Production Active'
-              : 'Set CASHFREE_APP_ID & CASHFREE_SECRET_KEY'}
+          <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-emerald-950/70 border-emerald-500/40 text-emerald-300">
+            Owner UPI QR Active
           </span>
+          {cashfreeConfigured && (
+            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold border bg-sky-950/70 border-sky-500/40 text-sky-300">
+              Cashfree Live
+            </span>
+          )}
           <button
             type="button"
             onClick={() => void loadData()}
@@ -267,6 +312,81 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
           <span>{feedbackMsg}</span>
         </div>
       )}
+
+      {/* Pending Owner UPI QR Payment Approvals */}
+      <div className="rounded-2xl border border-amber-400/35 bg-amber-950/20 p-4 sm:p-5 space-y-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+            <h4 className="font-display font-bold text-sm text-white">
+              Pending UPI QR Approvals ({pendingUpiQrOrders.length})
+            </h4>
+          </div>
+          <span className="text-[11px] text-amber-200/80">
+            Verify receipt in Google Pay ({ownerUpiId}) before clicking Approve &amp; Unlock
+          </span>
+        </div>
+
+        {pendingUpiQrOrders.length === 0 ? (
+          <p className="text-xs text-zinc-400 py-2">
+            No pending UPI QR payment proofs right now. When a customer scans your QR and submits
+            their 12-digit UTR, it will appear here for 1-click approval.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {pendingUpiQrOrders.map((p) => {
+              const displayUtr = p.cf_payment_id
+                ? p.cf_payment_id.replace(/^UPI_UTR_/, '')
+                : 'Awaiting UTR';
+              const busy = processingOrderId === p.order_id;
+              return (
+                <div
+                  key={p.order_id}
+                  className="rounded-xl bg-zinc-950/85 border border-white/15 px-3.5 py-3 flex flex-wrap items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-bold text-white">{p.customer_id}</span>
+                      <span className="px-2 py-0.5 rounded bg-white/10 text-zinc-200 font-bold text-[10px]">
+                        {p.product_name}
+                      </span>
+                      <span className="font-black text-[#FFE600] tabular-nums">
+                        ₹{p.expected_amount} {p.currency}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-300">
+                      UTR:{' '}
+                      <span className="font-mono font-bold text-emerald-300">{displayUtr}</span>
+                      <span className="mx-1.5 text-zinc-500">·</span>
+                      Order: <span className="font-mono text-zinc-400">{p.order_id}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleUpiQrDecision(p.order_id, 'approve')}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-[11px] font-black uppercase tracking-wider"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>{busy ? 'Working...' : 'Approve & Unlock'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleUpiQrDecision(p.order_id, 'reject')}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-red-950/90 hover:bg-red-900 disabled:opacity-50 border border-red-500/40 text-red-200 text-[11px] font-bold"
+                    >
+                      <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Reject</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Payment Records Table */}
       <div className="rounded-2xl border border-white/10 bg-black/45 p-4 sm:p-5 space-y-4">

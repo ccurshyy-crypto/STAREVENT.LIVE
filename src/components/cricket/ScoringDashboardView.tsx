@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
+  AlertTriangle,
   ArrowLeft,
   ArrowLeftRight,
   Award,
@@ -34,9 +35,14 @@ import {
   computePartnershipsList,
   DeliveryInput,
   formatOvers,
+  formatSingleDateHuman,
   getBallPillLabel,
+  getTournamentExpiryDate,
   isMatchLockedByNewerMatch,
+  isMatchTournamentExpired,
+  isTournamentExpired,
   MATCH_LOCKED_MESSAGE,
+  TOURNAMENT_EXPIRED_MESSAGE,
   undoLastDelivery,
 } from '../../data/cricketSampleData';
 import {
@@ -544,7 +550,9 @@ export function ScoringDashboardView({
     !activeInn.completed &&
     match.status !== 'completed' &&
     (!activeInn.strikerId || !activeInn.nonStrikerId || !activeInn.bowlerId);
+  const isTournamentExpiredFlag = isTournamentExpired(tournament);
   const isScoringLocked =
+    isTournamentExpiredFlag ||
     match.status === 'completed' ||
     activeInn.completed ||
     isPendingNewBatter ||
@@ -555,6 +563,10 @@ export function ScoringDashboardView({
     updater: (m: CricketMatch) => CricketMatch,
     transitionType?: TransitionOverlayType
   ) => {
+    if (isTournamentExpiredFlag) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     updateState((prev) => ({
       ...prev,
       matches: prev.matches.map((item) =>
@@ -574,6 +586,11 @@ export function ScoringDashboardView({
   };
 
   const recordDelivery = (input: DeliveryInput, label?: string) => {
+    if (isTournamentExpiredFlag) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
+
     if (isPendingNewBatter) {
       setNewBatterModalOpen(true);
       onToast('Player OUT! Please select or add the next batter before scoring.');
@@ -1559,6 +1576,36 @@ export function ScoringDashboardView({
 
   return (
     <div className="space-y-4">
+      {isTournamentExpiredFlag && tournament && (
+        <div
+          role="alert"
+          className="rounded-xl bg-red-600 text-white px-4 py-3.5 shadow-md flex flex-wrap items-center justify-between gap-3"
+        >
+          <div className="flex items-start gap-2.5 min-w-0">
+            <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-display font-bold text-sm">
+                Tournament Expired — Live Scoring Disabled
+              </p>
+              <p className="text-xs text-red-100 mt-0.5">
+                &ldquo;{tournament.name}&rdquo; expired after{' '}
+                {formatSingleDateHuman(getTournamentExpiryDate(tournament) || tournament.endDate)}.
+                All scoring actions and broadcast updates are locked for expired tournaments.
+              </p>
+            </div>
+          </div>
+          {onNavigateToMatches && (
+            <button
+              type="button"
+              onClick={onNavigateToMatches}
+              className="px-3.5 py-1.5 rounded-lg bg-white text-red-700 hover:bg-red-50 text-xs font-extrabold uppercase tracking-wider shrink-0"
+            >
+              Back to Matches
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Top Bar: Match Context + Quick Switcher + Overlay Control */}
       <div className="rounded-xl wo-card overflow-hidden">
         <div className="wo-header text-white px-4 py-3 flex flex-wrap items-center justify-between gap-3">
@@ -1583,16 +1630,18 @@ export function ScoringDashboardView({
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                    match.status === 'live'
-                      ? 'bg-white text-[#E87500]'
-                      : match.status === 'completed'
-                        ? 'bg-emerald-600 text-white'
-                        : match.status === 'innings_break'
-                          ? 'bg-amber-100 text-[#B45309]'
-                          : 'bg-white/20 text-white border border-white/35'
+                    isTournamentExpiredFlag
+                      ? 'bg-red-600 text-white'
+                      : match.status === 'live'
+                        ? 'bg-white text-[#E87500]'
+                        : match.status === 'completed'
+                          ? 'bg-emerald-600 text-white'
+                          : match.status === 'innings_break'
+                            ? 'bg-amber-100 text-[#B45309]'
+                            : 'bg-white/20 text-white border border-white/35'
                   }`}
                 >
-                  {match.status.replace('_', ' ')}
+                  {isTournamentExpiredFlag ? 'expired' : match.status.replace('_', ' ')}
                 </span>
               </div>
               <p className="text-[11px] text-orange-100 truncate">
@@ -1608,6 +1657,10 @@ export function ScoringDashboardView({
                 value={match.id}
                 onChange={(e) => {
                   const target = state.matches.find((m) => m.id === e.target.value);
+                  if (target && isMatchTournamentExpired(target, state.tournaments)) {
+                    onToast(TOURNAMENT_EXPIRED_MESSAGE);
+                    return;
+                  }
                   if (target && isMatchLockedByNewerMatch(target, state.matches)) {
                     onToast(MATCH_LOCKED_MESSAGE);
                     return;
@@ -1618,12 +1671,13 @@ export function ScoringDashboardView({
                 className="w-full sm:w-auto max-w-full px-2.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold border border-orange-200 focus:outline-hidden focus:ring-2 focus:ring-white"
               >
                 {state.matches.map((m) => {
+                  const expired = isMatchTournamentExpired(m, state.tournaments);
                   const locked = isMatchLockedByNewerMatch(m, state.matches);
                   return (
-                    <option key={m.id} value={m.id} disabled={locked}>
+                    <option key={m.id} value={m.id} disabled={expired || locked}>
                       {m.matchLabel} · {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
                       {teamMap.get(m.team2Id)?.shortName || 'T2'}
-                      {locked ? ' (Locked)' : ''}
+                      {expired ? ' (Expired)' : locked ? ' (Locked)' : ''}
                     </option>
                   );
                 })}

@@ -15,8 +15,12 @@ import {
 } from 'lucide-react';
 import {
   formatOvers,
+  getTodayLocalDateStr,
   isMatchLockedByNewerMatch,
+  isMatchTournamentExpired,
+  isTournamentExpired,
   MATCH_LOCKED_MESSAGE,
+  TOURNAMENT_EXPIRED_MESSAGE,
 } from '../../data/cricketSampleData';
 import {
   BallType,
@@ -80,7 +84,7 @@ export function MatchListView({
   const [team2Id, setTeam2Id] = useState('');
   const [matchName, setMatchName] = useState('');
   const [stageBadge, setStageBadge] = useState<MatchStageBadge>('LEAGUE');
-  const [matchDate, setMatchDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [matchDate, setMatchDate] = useState(() => getTodayLocalDateStr());
   const [matchTime, setMatchTime] = useState('16:00');
   const [venue, setVenue] = useState('');
   const [totalOvers, setTotalOvers] = useState('6');
@@ -101,8 +105,15 @@ export function MatchListView({
 
   const openCreateMatch = () => {
     const defaultTour =
-      state.tournaments.find((t) => t.id === state.activeTournamentId) ??
-      state.tournaments[0];
+      state.tournaments.find(
+        (t) => t.id === state.activeTournamentId && !isTournamentExpired(t)
+      ) ?? state.tournaments.find((t) => !isTournamentExpired(t));
+
+    if (state.tournaments.length > 0 && !defaultTour) {
+      onToast('All existing tournaments have expired. Create a new active tournament first.');
+      return;
+    }
+
     const tid = defaultTour?.id || '';
     const availableTeams = state.teams.filter((tm) => tm.tournamentId === tid);
 
@@ -115,7 +126,7 @@ export function MatchListView({
     setTeam2Id(availableTeams[1]?.id || '');
     setMatchName(`MATCH ${state.matches.length + 1}`);
     setStageBadge('LEAGUE');
-    setMatchDate(new Date().toISOString().slice(0, 10));
+    setMatchDate(getTodayLocalDateStr());
     setMatchTime('16:00');
     setVenue(defaultTour?.location || '');
     setTotalOvers(String(defaultTour?.oversPerInnings || state.user.defaultOvers || 6));
@@ -126,6 +137,10 @@ export function MatchListView({
   };
 
   const openEditMatch = (m: CricketMatch) => {
+    if (isMatchTournamentExpired(m, state.tournaments)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     if (isMatchLockedByNewerMatch(m, state.matches)) {
       onToast(MATCH_LOCKED_MESSAGE);
       return;
@@ -168,6 +183,11 @@ export function MatchListView({
     setFormError(null);
     if (!tournamentId) {
       setFormError('Please select a tournament first.');
+      return false;
+    }
+    const targetTour = state.tournaments.find((t) => t.id === tournamentId);
+    if (isTournamentExpired(targetTour)) {
+      setFormError(TOURNAMENT_EXPIRED_MESSAGE);
       return false;
     }
     if (!team1Id || !team2Id) {
@@ -464,12 +484,21 @@ export function MatchListView({
               const tour = tourMap.get(m.tournamentId);
               const inn1 = m.innings[0];
               const inn2 = m.innings[1];
+              const isTourExpired = isTournamentExpired(tour);
               const isLocked = isMatchLockedByNewerMatch(m, state.matches);
+              const isBlocked = isTourExpired || isLocked;
+              const lockMsg = isTourExpired
+                ? TOURNAMENT_EXPIRED_MESSAGE
+                : MATCH_LOCKED_MESSAGE;
               return (
                 <div
                   key={`mobile-${m.id}`}
                   className={`rounded-xl bg-white border p-3.5 space-y-3 shadow-xs ${
-                    isLocked ? 'border-slate-200 bg-slate-50/90 opacity-90' : 'border-slate-200'
+                    isTourExpired
+                      ? 'border-red-200/80 bg-slate-50/90 opacity-90'
+                      : isLocked
+                        ? 'border-slate-200 bg-slate-50/90 opacity-90'
+                        : 'border-slate-200'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -478,11 +507,18 @@ export function MatchListView({
                         <p className="font-display font-bold text-sm text-slate-900">
                           {m.matchLabel} · {m.stageBadge}
                         </p>
-                        {isLocked && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                        {isTourExpired ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide">
                             <Lock className="w-3 h-3" aria-hidden="true" />
-                            Locked
+                            Expired
                           </span>
+                        ) : (
+                          isLocked && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                              <Lock className="w-3 h-3" aria-hidden="true" />
+                              Locked
+                            </span>
+                          )
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">
@@ -491,14 +527,16 @@ export function MatchListView({
                     </div>
                     <span
                       className={`text-[11px] font-bold px-2 py-0.5 rounded shrink-0 ${
-                        m.status === 'live'
-                          ? 'bg-emerald-50 text-emerald-700'
-                          : m.status === 'completed'
-                            ? 'bg-[#FFF3E0] text-[#E87500]'
-                            : 'bg-slate-100 text-slate-600'
+                        isTourExpired
+                          ? 'bg-red-100 text-red-700'
+                          : m.status === 'live'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : m.status === 'completed'
+                              ? 'bg-[#FFF3E0] text-[#E87500]'
+                              : 'bg-slate-100 text-slate-600'
                       }`}
                     >
-                      {formatStatusLabel(m.status)}
+                      {isTourExpired ? 'Expired' : formatStatusLabel(m.status)}
                     </span>
                   </div>
 
@@ -529,15 +567,19 @@ export function MatchListView({
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                    {isLocked ? (
+                    {isBlocked ? (
                       <button
                         type="button"
-                        onClick={() => onToast(MATCH_LOCKED_MESSAGE)}
-                        title={MATCH_LOCKED_MESSAGE}
-                        className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-slate-200 text-slate-500 text-xs font-bold cursor-not-allowed"
+                        onClick={() => onToast(lockMsg)}
+                        title={lockMsg}
+                        className={`flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold cursor-not-allowed ${
+                          isTourExpired
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-slate-200 text-slate-500'
+                        }`}
                       >
                         <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                        LOCKED
+                        {isTourExpired ? 'EXPIRED' : 'LOCKED'}
                       </button>
                     ) : (
                       <button
@@ -553,7 +595,7 @@ export function MatchListView({
                       type="button"
                       onClick={() => openEditMatch(m)}
                       className={`inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold ${
-                        isLocked
+                        isBlocked
                           ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                           : 'wo-btn-soft'
                       }`}
@@ -615,12 +657,17 @@ export function MatchListView({
                     const tour = tourMap.get(m.tournamentId);
                     const inn1 = m.innings[0];
                     const inn2 = m.innings[1];
+                    const isTourExpired = isTournamentExpired(tour);
                     const isLocked = isMatchLockedByNewerMatch(m, state.matches);
+                    const isBlocked = isTourExpired || isLocked;
+                    const lockMsg = isTourExpired
+                      ? TOURNAMENT_EXPIRED_MESSAGE
+                      : MATCH_LOCKED_MESSAGE;
                     return (
                       <tr
                         key={m.id}
                         className={
-                          isLocked
+                          isBlocked
                             ? 'bg-slate-50/80 opacity-85 transition-colors'
                             : 'hover:bg-slate-50/70 transition-colors'
                         }
@@ -630,11 +677,18 @@ export function MatchListView({
                             <p className="font-semibold text-slate-900">
                               {m.matchLabel} · {m.stageBadge}
                             </p>
-                            {isLocked && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                            {isTourExpired ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide">
                                 <Lock className="w-3 h-3" aria-hidden="true" />
-                                Locked
+                                Expired
                               </span>
+                            ) : (
+                              isLocked && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wide">
+                                  <Lock className="w-3 h-3" aria-hidden="true" />
+                                  Locked
+                                </span>
+                              )
                             )}
                           </div>
                           <p className="text-xs text-slate-500">{tour?.name || 'Tournament'}</p>
@@ -660,14 +714,16 @@ export function MatchListView({
                         <td className="px-4 py-3 text-xs">
                           <span
                             className={`font-semibold ${
-                              m.status === 'live'
-                                ? 'text-emerald-700'
-                                : m.status === 'completed'
-                                  ? 'text-[#E87500]'
-                                  : 'text-slate-600'
+                              isTourExpired
+                                ? 'text-red-600'
+                                : m.status === 'live'
+                                  ? 'text-emerald-700'
+                                  : m.status === 'completed'
+                                    ? 'text-[#E87500]'
+                                    : 'text-slate-600'
                             }`}
                           >
-                            {formatStatusLabel(m.status)}
+                            {isTourExpired ? 'Expired' : formatStatusLabel(m.status)}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-xs font-mono tabular-nums text-slate-800">
@@ -682,15 +738,19 @@ export function MatchListView({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1.5">
-                            {isLocked ? (
+                            {isBlocked ? (
                               <button
                                 type="button"
-                                onClick={() => onToast(MATCH_LOCKED_MESSAGE)}
-                                title={MATCH_LOCKED_MESSAGE}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-slate-200 text-slate-500 text-xs font-bold whitespace-nowrap cursor-not-allowed"
+                                onClick={() => onToast(lockMsg)}
+                                title={lockMsg}
+                                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap cursor-not-allowed ${
+                                  isTourExpired
+                                    ? 'bg-red-100 text-red-700'
+                                    : 'bg-slate-200 text-slate-500'
+                                }`}
                               >
                                 <Lock className="w-3.5 h-3.5" aria-hidden="true" />
-                                LOCKED
+                                {isTourExpired ? 'EXPIRED' : 'LOCKED'}
                               </button>
                             ) : (
                               <button
@@ -706,7 +766,7 @@ export function MatchListView({
                               type="button"
                               onClick={() => openEditMatch(m)}
                               className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold ${
-                                isLocked
+                                isBlocked
                                   ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                                   : 'wo-btn-soft'
                               }`}
@@ -1001,11 +1061,15 @@ export function MatchListView({
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm"
                     >
                       <option value="">Choose Tournament</option>
-                      {state.tournaments.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
+                      {state.tournaments.map((t) => {
+                        const expired = isTournamentExpired(t);
+                        return (
+                          <option key={t.id} value={t.id} disabled={expired}>
+                            {t.name}
+                            {expired ? ' (Expired)' : ''}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 

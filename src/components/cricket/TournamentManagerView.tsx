@@ -1,7 +1,8 @@
 import { ChangeEvent, FormEvent, useRef, useState } from 'react';
 import {
+  AlertTriangle,
+  Calendar,
   Camera,
-  CheckCircle2,
   Edit3,
   FolderPlus,
   Lock,
@@ -15,9 +16,21 @@ import {
 } from 'lucide-react';
 import {
   computePointTableRows,
+  expandDateRange,
   formatOvers,
+  formatSingleDateHuman,
+  formatTournamentDatesDisplay,
+  getTodayLocalDateStr,
+  getTournamentDatesList,
+  getTournamentExpiryDate,
+  getTournamentRemainingDays,
   isMatchLockedByNewerMatch,
+  isTournamentExpired,
+  isTournamentUpcoming,
+  isValidIsoDateStr,
   MATCH_LOCKED_MESSAGE,
+  normalizeTournamentDates,
+  TOURNAMENT_EXPIRED_MESSAGE,
 } from '../../data/cricketSampleData';
 import {
   BallType,
@@ -70,8 +83,11 @@ export function TournamentManagerView({
   const [tOvers, setTOvers] = useState('6');
   const [tBallType, setTBallType] = useState<BallType>('Tennis');
   const [tFormat, setTFormat] = useState<MatchFormat>('T10');
-  const [tStartDate, setTStartDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [tEndDate, setTEndDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [tStartDate, setTStartDate] = useState(() => getTodayLocalDateStr());
+  const [tEndDate, setTEndDate] = useState(() => getTodayLocalDateStr());
+  const [tSelectedDates, setTSelectedDates] = useState<string[]>(() => [getTodayLocalDateStr()]);
+  const [tAddDateInput, setTAddDateInput] = useState(() => getTodayLocalDateStr());
+  const [tFormError, setTFormError] = useState<string | null>(null);
   const [tStatus, setTStatus] = useState<Tournament['status']>('active');
 
   // Group Form
@@ -90,8 +106,12 @@ export function TournamentManagerView({
       ? selectedTourId
       : state.activeTournamentId || state.tournaments[0]?.id || '';
 
+  const effectiveTour = state.tournaments.find((t) => t.id === effectiveTourId);
+  const isEffectiveTourExpired = isTournamentExpired(effectiveTour);
+
   const openCreateTournament = () => {
     setEditingId(null);
+    setTFormError(null);
     setTName('');
     setTShort('');
     setTLogoUrl('');
@@ -100,15 +120,22 @@ export function TournamentManagerView({
     setTOvers(String(state.user.defaultOvers || 6));
     setTBallType('Tennis');
     setTFormat('T10');
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayLocalDateStr();
     setTStartDate(today);
     setTEndDate(today);
+    setTSelectedDates([today]);
+    setTAddDateInput(today);
     setTStatus('active');
     setModalOpen(true);
   };
 
   const openEditTournament = (t: Tournament) => {
+    if (isTournamentExpired(t)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     setEditingId(t.id);
+    setTFormError(null);
     setTName(t.name);
     setTShort(t.shortName);
     setTLogoUrl(t.logoUrl || '');
@@ -117,10 +144,59 @@ export function TournamentManagerView({
     setTOvers(String(t.oversPerInnings));
     setTBallType(t.ballType || 'Tennis');
     setTFormat(t.matchFormat || 'T10');
-    setTStartDate(t.startDate);
-    setTEndDate(t.endDate);
+    const datesList = getTournamentDatesList(t);
+    setTStartDate(datesList[0] || t.startDate);
+    setTEndDate(datesList[datesList.length - 1] || t.endDate);
+    setTSelectedDates(datesList);
+    setTAddDateInput(datesList[datesList.length - 1] || getTodayLocalDateStr());
     setTStatus(t.status);
     setModalOpen(true);
+  };
+
+  const handleStartDateChange = (nextStart: string) => {
+    setTFormError(null);
+    setTStartDate(nextStart);
+    const nextEnd = nextStart && tEndDate && tEndDate < nextStart ? nextStart : tEndDate || nextStart;
+    setTEndDate(nextEnd);
+    if (isValidIsoDateStr(nextStart) && isValidIsoDateStr(nextEnd)) {
+      setTSelectedDates(expandDateRange(nextStart, nextEnd));
+    }
+  };
+
+  const handleEndDateChange = (nextEnd: string) => {
+    setTFormError(null);
+    setTEndDate(nextEnd);
+    const nextStart = tStartDate && nextEnd && nextEnd < tStartDate ? nextEnd : tStartDate || nextEnd;
+    setTStartDate(nextStart);
+    if (isValidIsoDateStr(nextStart) && isValidIsoDateStr(nextEnd)) {
+      setTSelectedDates(expandDateRange(nextStart, nextEnd));
+    }
+  };
+
+  const handleAddSingleDate = () => {
+    setTFormError(null);
+    if (!isValidIsoDateStr(tAddDateInput)) return;
+    const today = getTodayLocalDateStr();
+    if (tAddDateInput < today) {
+      setTFormError('Cannot add a past date. Select today or a future date.');
+      return;
+    }
+    const merged = normalizeTournamentDates([...tSelectedDates, tAddDateInput]);
+    setTSelectedDates(merged);
+    if (merged.length > 0) {
+      setTStartDate(merged[0]);
+      setTEndDate(merged[merged.length - 1]);
+    }
+  };
+
+  const handleRemoveSingleDate = (dateStr: string) => {
+    setTFormError(null);
+    const remaining = tSelectedDates.filter((d) => d !== dateStr);
+    setTSelectedDates(remaining);
+    if (remaining.length > 0) {
+      setTStartDate(remaining[0]);
+      setTEndDate(remaining[remaining.length - 1]);
+    }
   };
 
   const handleLogoFile = (e: ChangeEvent<HTMLInputElement>) => {
@@ -141,11 +217,19 @@ export function TournamentManagerView({
 
   const handleSaveTournament = (e: FormEvent) => {
     e.preventDefault();
+    setTFormError(null);
     const cleanName = tName.trim();
     if (!cleanName) return;
     const overs = Math.max(1, Math.min(50, Number(tOvers) || 6));
 
     if (editingId) {
+      const existing = state.tournaments.find((t) => t.id === editingId);
+      if (!existing || isTournamentExpired(existing)) {
+        onToast(TOURNAMENT_EXPIRED_MESSAGE);
+        setModalOpen(false);
+        return;
+      }
+      // Dates are strictly immutable after tournament creation to prevent expiry bypass
       updateState((prev) => ({
         ...prev,
         tournaments: prev.tournaments.map((t) =>
@@ -160,16 +244,35 @@ export function TournamentManagerView({
                 oversPerInnings: overs,
                 ballType: tBallType,
                 matchFormat: tFormat,
-                startDate: tStartDate,
-                endDate: tEndDate,
-                status: tStatus,
+                status: tStatus === 'expired' ? 'active' : tStatus,
               }
             : t
         ),
       }));
       onToast(`Tournament "${cleanName}" updated.`);
     } else {
+      const normalizedDates = normalizeTournamentDates(
+        tSelectedDates.length > 0
+          ? tSelectedDates
+          : expandDateRange(tStartDate, tEndDate)
+      );
+      if (normalizedDates.length === 0) {
+        setTFormError('Please select at least one tournament date.');
+        return;
+      }
+      const today = getTodayLocalDateStr();
+      const firstDate = normalizedDates[0];
+      const lastDate = normalizedDates[normalizedDates.length - 1];
+      if (lastDate < today) {
+        setTFormError(
+          `Selected tournament dates have already passed (${formatSingleDateHuman(lastDate)}). Please select today or future dates.`
+        );
+        return;
+      }
+
       const newId = `tour_${Date.now()}`;
+      const computedStatus: Tournament['status'] =
+        firstDate > today ? 'upcoming' : 'active';
       const newTour: Tournament = {
         id: newId,
         name: cleanName,
@@ -180,10 +283,11 @@ export function TournamentManagerView({
         oversPerInnings: overs,
         ballType: tBallType,
         matchFormat: tFormat,
-        startDate: tStartDate,
-        endDate: tEndDate,
+        startDate: firstDate,
+        endDate: lastDate,
+        tournamentDates: normalizedDates,
         isActive: true,
-        status: tStatus,
+        status: computedStatus,
       };
       updateState((prev) => ({
         ...prev,
@@ -194,7 +298,9 @@ export function TournamentManagerView({
         ],
       }));
       setSelectedTourId(newId);
-      onToast(`Tournament "${cleanName}" created and set active.`);
+      onToast(
+        `Tournament "${cleanName}" created (active until ${formatSingleDateHuman(lastDate)}).`
+      );
     }
     setModalOpen(false);
   };
@@ -202,12 +308,18 @@ export function TournamentManagerView({
   const handleDeleteTournament = (id: string) => {
     updateState((prev) => {
       const nextTours = prev.tournaments.filter((t) => t.id !== id);
+      const nextActiveTour = nextTours.find((t) => !isTournamentExpired(t));
       const nextActive =
-        prev.activeTournamentId === id ? nextTours[0]?.id || '' : prev.activeTournamentId;
+        prev.activeTournamentId === id
+          ? nextActiveTour?.id || ''
+          : prev.activeTournamentId;
       return {
         ...prev,
         activeTournamentId: nextActive,
-        tournaments: nextTours,
+        tournaments: nextTours.map((t) => ({
+          ...t,
+          isActive: t.id === nextActive && !isTournamentExpired(t),
+        })),
         groups: prev.groups.filter((g) => g.tournamentId !== id),
       };
     });
@@ -216,16 +328,21 @@ export function TournamentManagerView({
   };
 
   const handleSetActiveTournament = (id: string) => {
+    const target = state.tournaments.find((t) => t.id === id);
+    if (!target || isTournamentExpired(target)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     updateState((prev) => ({
       ...prev,
       activeTournamentId: id,
       tournaments: prev.tournaments.map((t) => ({
         ...t,
-        isActive: t.id === id,
+        isActive: t.id === id && !isTournamentExpired(t),
       })),
     }));
     setSelectedTourId(id);
-    onToast('Active tournament updated.');
+    onToast(`"${target.name}" is now active.`);
   };
 
   // =========================================================================
@@ -291,13 +408,21 @@ export function TournamentManagerView({
             {/* Mobile Tournament Cards */}
             <div className="md:hidden space-y-3">
               {filtered.map((t) => {
-                const isActive = t.id === state.activeTournamentId;
+                const expired = isTournamentExpired(t);
+                const upcoming = isTournamentUpcoming(t);
+                const isActive = !expired && t.id === state.activeTournamentId;
+                const remainingDays = getTournamentRemainingDays(t);
+                const datesLabel = formatTournamentDatesDisplay(t);
                 const teamCount = state.teams.filter((tm) => tm.tournamentId === t.id).length;
                 const matchCount = state.matches.filter((m) => m.tournamentId === t.id).length;
                 return (
                   <div
                     key={`mobile-${t.id}`}
-                    className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-3 shadow-xs"
+                    className={`rounded-xl border p-3.5 space-y-3 shadow-xs ${
+                      expired
+                        ? 'bg-slate-50/90 border-red-200/80 opacity-90'
+                        : 'bg-white border-slate-200'
+                    }`}
                   >
                     <div className="flex items-start gap-3">
                       {t.logoUrl ? (
@@ -317,98 +442,159 @@ export function TournamentManagerView({
                             {t.name}
                           </p>
                           <span
-                            className={`text-[11px] font-bold uppercase shrink-0 ${
-                              isActive ? 'text-emerald-700' : 'text-slate-500'
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
+                              expired
+                                ? 'bg-red-600 text-white'
+                                : isActive
+                                  ? 'bg-emerald-600 text-white'
+                                  : upcoming
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-slate-200 text-slate-700'
                             }`}
                           >
-                            {isActive ? 'Active' : t.status}
+                            {expired
+                              ? 'Expired'
+                              : isActive
+                                ? 'Active'
+                                : upcoming
+                                  ? 'Upcoming'
+                                  : 'Inactive'}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 truncate">
-                          {t.location} · {teamCount} Teams · {matchCount} Matches
+                          {t.shortName} · {t.location} · {teamCount} Teams · {matchCount} Matches
                         </p>
                         <p className="text-[11px] text-slate-600 tabular-nums mt-0.5">
                           {t.matchFormat} · {t.oversPerInnings} Overs · {t.ballType}
                         </p>
-                        <p className="text-[11px] text-slate-500 tabular-nums">
-                          {t.startDate} – {t.endDate}
+                        <p className="text-[11px] text-slate-700 font-medium mt-1 leading-snug">
+                          {datesLabel}
                         </p>
+                        {!expired && (
+                          <p className="text-[10px] font-semibold text-emerald-700 mt-0.5">
+                            {remainingDays === 0
+                              ? 'Expires tonight (last day)'
+                              : `${remainingDays} day${remainingDays === 1 ? '' : 's'} remaining`}
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      {!isActive && (
-                        <button
-                          type="button"
-                          onClick={() => handleSetActiveTournament(t.id)}
-                          className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold whitespace-nowrap"
-                        >
-                          <CheckCircle2 className="w-3.5 h-3.5" />
-                          Set Active
-                        </button>
-                      )}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100">
                       <button
                         type="button"
-                        onClick={() => openEditTournament(t)}
-                        className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-bold"
+                        role="switch"
+                        aria-checked={isActive}
+                        disabled={expired}
+                        onClick={() => handleSetActiveTournament(t.id)}
+                        title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Activate this tournament'}
+                        className={`inline-flex items-center gap-2 text-xs font-semibold ${
+                          expired ? 'cursor-not-allowed opacity-60 text-slate-400' : 'text-slate-700'
+                        }`}
                       >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        Edit
+                        <span
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            isActive
+                              ? 'bg-emerald-500'
+                              : expired
+                                ? 'bg-slate-200'
+                                : 'bg-slate-300'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-xs transition-transform ${
+                              isActive ? 'translate-x-4.5' : 'translate-x-1'
+                            }`}
+                          />
+                        </span>
+                        <span>{expired ? 'Locked' : isActive ? 'Activated' : 'Activate'}</span>
                       </button>
-                      {deleteConfirmId !== t.id ? (
+
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
-                          onClick={() => setDeleteConfirmId(t.id)}
-                          className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600"
-                          aria-label={`Delete ${t.name}`}
+                          onClick={() => openEditTournament(t)}
+                          title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Edit tournament'}
+                          className={`inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold ${
+                            expired
+                              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                              : 'bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500]'
+                          }`}
                         >
-                          <Trash2 className="w-4 h-4" />
+                          {expired ? (
+                            <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                          ) : (
+                            <Edit3 className="w-3.5 h-3.5" />
+                          )}
+                          {expired ? 'Locked' : 'Edit'}
                         </button>
-                      ) : (
-                        <div className="inline-flex items-center gap-1">
+                        {deleteConfirmId !== t.id ? (
                           <button
                             type="button"
-                            onClick={() => handleDeleteTournament(t.id)}
-                            className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+                            onClick={() => setDeleteConfirmId(t.id)}
+                            className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600"
+                            aria-label={`Delete ${t.name}`}
                           >
-                            Confirm
+                            <Trash2 className="w-4 h-4" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirmId(null)}
-                            className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      )}
+                        ) : (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteTournament(t.id)}
+                              className="px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold"
+                            >
+                              Confirm
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeleteConfirmId(null)}
+                              className="px-2.5 py-1.5 rounded-lg bg-slate-200 text-slate-700 text-xs font-bold"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
               })}
             </div>
 
-            {/* Desktop Table */}
+            {/* Desktop Table (Matches Name | Short Name | Place | Tournament Dates | Activate | Status | Action) */}
             <div className="hidden md:block rounded-xl bg-white border border-slate-200 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-600 uppercase">
                     <tr>
-                      <th className="px-4 py-3">Tournament</th>
-                      <th className="px-4 py-3">Venue</th>
-                      <th className="px-4 py-3">Format &amp; Overs</th>
-                      <th className="px-4 py-3">Dates</th>
-                      <th className="px-4 py-3">Status</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Short Name</th>
+                      <th className="px-4 py-3">Place</th>
+                      <th className="px-4 py-3">Tournament Dates</th>
+                      <th className="px-4 py-3 text-center">Activate</th>
+                      <th className="px-4 py-3 text-center">Status</th>
+                      <th className="px-4 py-3 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filtered.map((t) => {
-                      const isActive = t.id === state.activeTournamentId;
+                      const expired = isTournamentExpired(t);
+                      const upcoming = isTournamentUpcoming(t);
+                      const isActive = !expired && t.id === state.activeTournamentId;
+                      const remainingDays = getTournamentRemainingDays(t);
+                      const datesLabel = formatTournamentDatesDisplay(t);
                       const teamCount = state.teams.filter((tm) => tm.tournamentId === t.id).length;
                       const matchCount = state.matches.filter((m) => m.tournamentId === t.id).length;
                       return (
-                        <tr key={t.id} className="hover:bg-slate-50/70 transition-colors">
+                        <tr
+                          key={t.id}
+                          className={
+                            expired
+                              ? 'bg-slate-50/75 opacity-85 transition-colors'
+                              : 'hover:bg-slate-50/70 transition-colors'
+                          }
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3">
                               {t.logoUrl ? (
@@ -425,46 +611,97 @@ export function TournamentManagerView({
                               <div>
                                 <p className="font-semibold text-slate-900">{t.name}</p>
                                 <p className="text-xs text-slate-500">
-                                  {t.tournamentType} · {teamCount} Teams · {matchCount} Matches
+                                  {t.matchFormat} · {t.oversPerInnings} Overs · {teamCount} Teams · {matchCount} Matches
                                 </p>
                               </div>
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-xs font-semibold text-slate-700">
+                            {t.shortName}
+                          </td>
                           <td className="px-4 py-3 text-xs text-slate-700">{t.location}</td>
-                          <td className="px-4 py-3 text-xs text-slate-700 tabular-nums">
-                            {t.matchFormat} · {t.oversPerInnings} Overs · {t.ballType}
+                          <td className="px-4 py-3 text-xs text-slate-700 max-w-[260px]">
+                            <p className="leading-snug font-medium">{datesLabel}</p>
+                            {!expired && (
+                              <p className="text-[11px] font-semibold text-emerald-700 mt-0.5">
+                                {remainingDays === 0
+                                  ? 'Last day — expires tonight'
+                                  : `Valid · ${remainingDays} day${remainingDays === 1 ? '' : 's'} left`}
+                              </p>
+                            )}
                           </td>
-                          <td className="px-4 py-3 text-xs text-slate-600 tabular-nums">
-                            {t.startDate} – {t.endDate}
-                          </td>
-                          <td className="px-4 py-3 text-xs">
-                            <span
-                              className={`font-semibold ${
-                                isActive ? 'text-emerald-700' : 'text-slate-600'
+                          <td className="px-4 py-3 text-center">
+                            <button
+                              type="button"
+                              role="switch"
+                              aria-checked={isActive}
+                              aria-label={`Activate ${t.name}`}
+                              onClick={() => handleSetActiveTournament(t.id)}
+                              title={
+                                expired
+                                  ? TOURNAMENT_EXPIRED_MESSAGE
+                                  : isActive
+                                    ? 'Currently active tournament'
+                                    : 'Set as active tournament'
+                              }
+                              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                                isActive
+                                  ? 'bg-emerald-500'
+                                  : expired
+                                    ? 'bg-slate-200 cursor-not-allowed opacity-60'
+                                    : 'bg-slate-300 hover:bg-slate-400 cursor-pointer'
                               }`}
                             >
-                              {isActive ? 'Active' : t.status}
+                              <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition-transform ${
+                                  isActive ? 'translate-x-5' : 'translate-x-0.5'
+                                }`}
+                              />
+                            </button>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-bold ${
+                                expired
+                                  ? 'bg-red-600 text-white'
+                                  : isActive
+                                    ? 'bg-emerald-600 text-white'
+                                    : upcoming
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-slate-200 text-slate-700'
+                              }`}
+                            >
+                              {expired
+                                ? 'Expired'
+                                : isActive
+                                  ? 'Active'
+                                  : upcoming
+                                    ? 'Upcoming'
+                                    : 'Inactive'}
                             </span>
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center justify-end gap-1.5">
-                              {!isActive && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleSetActiveTournament(t.id)}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold"
-                                >
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                  Set Active
-                                </button>
-                              )}
                               <button
                                 type="button"
                                 onClick={() => openEditTournament(t)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500] text-xs font-semibold"
+                                title={
+                                  expired
+                                    ? TOURNAMENT_EXPIRED_MESSAGE
+                                    : 'Edit tournament details'
+                                }
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold ${
+                                  expired
+                                    ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                                    : 'bg-[#FFF3E0] hover:bg-orange-100 text-[#E87500]'
+                                }`}
                               >
-                                <Edit3 className="w-3.5 h-3.5" />
-                                Edit
+                                {expired ? (
+                                  <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                                ) : (
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                )}
+                                {expired ? 'Locked' : 'Edit'}
                               </button>
                               {deleteConfirmId !== t.id ? (
                                 <button
@@ -572,28 +809,128 @@ export function TournamentManagerView({
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={tStartDate}
-                      onChange={(e) => setTStartDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm"
-                    />
-                  </div>
+                  {tFormError && (
+                    <div
+                      role="alert"
+                      className="sm:col-span-2 rounded-lg bg-red-50 border border-red-200 px-3.5 py-2.5 text-xs font-semibold text-red-700 flex items-start gap-2"
+                    >
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                      <span>{tFormError}</span>
+                    </div>
+                  )}
 
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-700">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={tEndDate}
-                      onChange={(e) => setTEndDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm"
-                    />
+                  {/* Tournament Dates Section — Selectable on Create, Strictly Locked After Creation */}
+                  <div className="sm:col-span-2 rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide">
+                        <Calendar className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                        <span>Tournament Dates *</span>
+                      </label>
+                      {editingId && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase">
+                          <Lock className="w-3 h-3" aria-hidden="true" />
+                          Locked after creation
+                        </span>
+                      )}
+                    </div>
+
+                    {editingId ? (
+                      <div className="space-y-1.5">
+                        <p className="text-xs font-semibold text-slate-800">
+                          {tSelectedDates.map(formatSingleDateHuman).join(', ') || `${tStartDate} – ${tEndDate}`}
+                        </p>
+                        <p className="text-[11px] text-slate-500">
+                          Tournament dates cannot be changed after creation. This tournament automatically expires after{' '}
+                          <strong>
+                            {formatSingleDateHuman(
+                              tSelectedDates[tSelectedDates.length - 1] || tEndDate
+                            )}
+                          </strong>
+                          .
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-600">
+                              Start Date
+                            </label>
+                            <input
+                              type="date"
+                              min={getTodayLocalDateStr()}
+                              value={tStartDate}
+                              onChange={(e) => handleStartDateChange(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="block text-[11px] font-semibold text-slate-600">
+                              End Date (Expires after this date)
+                            </label>
+                            <input
+                              type="date"
+                              min={tStartDate || getTodayLocalDateStr()}
+                              value={tEndDate}
+                              onChange={(e) => handleEndDateChange(e.target.value)}
+                              className="w-full px-3 py-2 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                          <input
+                            type="date"
+                            min={getTodayLocalDateStr()}
+                            value={tAddDateInput}
+                            onChange={(e) => setTAddDateInput(e.target.value)}
+                            aria-label="Add individual tournament date"
+                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddSingleDate}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-[#FFF3E0] border border-[#FF8C00]/50 text-[#E87500] text-xs font-bold"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            Add Specific Date
+                          </button>
+                        </div>
+
+                        {tSelectedDates.length > 0 && (
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap gap-1.5">
+                              {tSelectedDates.map((d) => (
+                                <span
+                                  key={d}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white border border-slate-300 text-xs font-semibold text-slate-800"
+                                >
+                                  <span>{formatSingleDateHuman(d)}</span>
+                                  {tSelectedDates.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSingleDate(d)}
+                                      aria-label={`Remove ${formatSingleDateHuman(d)}`}
+                                      className="text-slate-400 hover:text-red-600"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                            <p className="text-[11px] font-semibold text-emerald-700">
+                              Valid for {tSelectedDates.length} day{tSelectedDates.length === 1 ? '' : 's'} — will automatically expire after{' '}
+                              <span className="underline">
+                                {formatSingleDateHuman(tSelectedDates[tSelectedDates.length - 1])}
+                              </span>
+                              . Expired tournaments stop working automatically.
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -739,6 +1076,10 @@ export function TournamentManagerView({
     const allPoints = computePointTableRows(state, effectiveTourId);
 
     const openCreateGroup = () => {
+      if (isEffectiveTourExpired) {
+        onToast(TOURNAMENT_EXPIRED_MESSAGE);
+        return;
+      }
       setEditingGroupId(null);
       setGroupName(`Group ${String.fromCharCode(65 + tourGroups.length)}`);
       setGroupTeamIds([]);
@@ -746,6 +1087,10 @@ export function TournamentManagerView({
     };
 
     const openEditGroup = (g: TournamentGroup) => {
+      if (isEffectiveTourExpired) {
+        onToast(TOURNAMENT_EXPIRED_MESSAGE);
+        return;
+      }
       setEditingGroupId(g.id);
       setGroupName(g.name);
       setGroupTeamIds([...g.teamIds]);
@@ -760,6 +1105,11 @@ export function TournamentManagerView({
 
     const handleSaveGroup = (e: FormEvent) => {
       e.preventDefault();
+      if (isEffectiveTourExpired) {
+        onToast(TOURNAMENT_EXPIRED_MESSAGE);
+        setGroupModalOpen(false);
+        return;
+      }
       if (!effectiveTourId || !groupName.trim()) return;
       if (editingGroupId) {
         updateState((prev) => ({
@@ -789,6 +1139,10 @@ export function TournamentManagerView({
     };
 
     const handleDeleteGroup = (id: string) => {
+      if (isEffectiveTourExpired) {
+        onToast(TOURNAMENT_EXPIRED_MESSAGE);
+        return;
+      }
       updateState((prev) => ({
         ...prev,
         groups: prev.groups.filter((g) => g.id !== id),
@@ -826,6 +1180,7 @@ export function TournamentManagerView({
               {state.tournaments.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
+                  {isTournamentExpired(t) ? ' (Expired)' : ''}
                 </option>
               ))}
             </select>
@@ -833,14 +1188,29 @@ export function TournamentManagerView({
 
           <button
             type="button"
-            disabled={!effectiveTourId}
+            disabled={!effectiveTourId || isEffectiveTourExpired}
             onClick={openCreateGroup}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary disabled:opacity-50 text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
+            title={isEffectiveTourExpired ? TOURNAMENT_EXPIRED_MESSAGE : 'Create group'}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
             <FolderPlus className="w-4 h-4" />
             <span>CREATE GROUP</span>
           </button>
         </div>
+
+        {isEffectiveTourExpired && effectiveTour && (
+          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2.5 text-xs text-red-800">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+            <div>
+              <p className="font-bold text-red-900">
+                Tournament Expired ({formatSingleDateHuman(getTournamentExpiryDate(effectiveTour) || effectiveTour.endDate)})
+              </p>
+              <p className="mt-0.5">
+                {TOURNAMENT_EXPIRED_MESSAGE}
+              </p>
+            </div>
+          </div>
+        )}
 
         {!effectiveTourId ? (
           <div className="rounded-xl bg-white border border-slate-200 p-10 text-center text-sm text-slate-500">
@@ -851,14 +1221,16 @@ export function TournamentManagerView({
             <p className="text-sm font-semibold text-slate-800">
               No groups created for this tournament yet.
             </p>
-            <button
-              type="button"
-              onClick={openCreateGroup}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create First Group</span>
-            </button>
+            {!isEffectiveTourExpired && (
+              <button
+                type="button"
+                onClick={openCreateGroup}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create First Group</span>
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -990,6 +1362,10 @@ export function TournamentManagerView({
                         const t1 = teamMap.get(m.team1Id);
                         const t2 = teamMap.get(m.team2Id);
                         const isLocked = isMatchLockedByNewerMatch(m, state.matches);
+                        const isBlocked = isEffectiveTourExpired || isLocked;
+                        const lockMsg = isEffectiveTourExpired
+                          ? TOURNAMENT_EXPIRED_MESSAGE
+                          : MATCH_LOCKED_MESSAGE;
                         return (
                           <div
                             key={m.id}
@@ -1006,15 +1382,19 @@ export function TournamentManagerView({
                               </p>
                             </div>
                             {onOpenScoring &&
-                              (isLocked ? (
+                              (isBlocked ? (
                                 <button
                                   type="button"
-                                  onClick={() => onToast(MATCH_LOCKED_MESSAGE)}
-                                  title={MATCH_LOCKED_MESSAGE}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md bg-slate-200 text-slate-500 text-[11px] font-bold shrink-0 cursor-not-allowed"
+                                  onClick={() => onToast(lockMsg)}
+                                  title={lockMsg}
+                                  className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold shrink-0 cursor-not-allowed ${
+                                    isEffectiveTourExpired
+                                      ? 'bg-red-100 text-red-700'
+                                      : 'bg-slate-200 text-slate-500'
+                                  }`}
                                 >
                                   <Lock className="w-3 h-3" aria-hidden="true" />
-                                  Locked
+                                  {isEffectiveTourExpired ? 'Expired' : 'Locked'}
                                 </button>
                               ) : (
                                 <button
@@ -1140,6 +1520,10 @@ export function TournamentManagerView({
   const tourGroups = state.groups.filter((g) => g.tournamentId === effectiveTourId);
 
   const assignTeamToGroup = (teamId: string, nextGroupId: string) => {
+    if (isEffectiveTourExpired) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     updateState((prev) => ({
       ...prev,
       groups: prev.groups.map((g) => {
@@ -1167,6 +1551,7 @@ export function TournamentManagerView({
             {state.tournaments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+                {isTournamentExpired(t) ? ' (Expired)' : ''}
               </option>
             ))}
           </select>
@@ -1183,6 +1568,18 @@ export function TournamentManagerView({
           </div>
         </div>
       </div>
+
+      {isEffectiveTourExpired && effectiveTour && (
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 flex items-start gap-2.5 text-xs text-red-800">
+          <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-bold text-red-900">
+              Tournament Expired ({formatSingleDateHuman(getTournamentExpiryDate(effectiveTour) || effectiveTour.endDate)})
+            </p>
+            <p className="mt-0.5">{TOURNAMENT_EXPIRED_MESSAGE}</p>
+          </div>
+        </div>
+      )}
 
       {!effectiveTourId || tourTeams.length === 0 ? (
         <div className="rounded-xl bg-white border border-slate-200 p-10 text-center space-y-2 shadow-xs">
@@ -1220,8 +1617,9 @@ export function TournamentManagerView({
                     <span className="text-[11px] font-semibold text-slate-600">Assigned Group</span>
                     <select
                       value={currentGrp?.id || ''}
+                      disabled={isEffectiveTourExpired}
                       onChange={(e) => assignTeamToGroup(tm.id, e.target.value)}
-                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800 max-w-[180px]"
+                      className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-400 text-xs text-slate-800 max-w-[180px]"
                     >
                       <option value="">Unassigned</option>
                       {tourGroups.map((g) => (
@@ -1265,8 +1663,9 @@ export function TournamentManagerView({
                         <td className="px-4 py-3">
                           <select
                             value={currentGrp?.id || ''}
+                            disabled={isEffectiveTourExpired}
                             onChange={(e) => assignTeamToGroup(tm.id, e.target.value)}
-                            className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-xs text-slate-800"
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white disabled:bg-slate-100 disabled:text-slate-400 text-xs text-slate-800"
                           >
                             <option value="">Unassigned</option>
                             {tourGroups.map((g) => (

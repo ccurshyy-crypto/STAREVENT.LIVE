@@ -1058,7 +1058,7 @@ export function SidebarToolsViews({
                       {isLocked && paidConfig ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-900 text-white text-[11px] font-extrabold tracking-wide tabular-nums">
                           <span className="text-[#FFE600]">₹{paidConfig.priceInr}</span>
-                          <span className="text-orange-200">· Cashfree Verified</span>
+                          <span className="text-orange-200">· UPI QR Pay</span>
                         </span>
                       ) : isPaid ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
@@ -1161,7 +1161,7 @@ export function SidebarToolsViews({
                         <span className="text-slate-900 font-black tabular-nums">
                           ₹{paidConfig.priceInr} {paidConfig.currency}
                         </span>{' '}
-                        (Server-Verified Cashfree Checkout)
+                        (Scan UPI QR · Verified Unlock)
                       </p>
                     )}
                   </div>

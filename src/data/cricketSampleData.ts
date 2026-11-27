@@ -9,6 +9,7 @@ import {
   PointTableEntry,
   Team,
   TeamColorTag,
+  Tournament,
   WicketType,
 } from '../types/cricketSuite';
 
@@ -163,6 +164,179 @@ export function isMatchLockedByNewerMatch(
 
 export const MATCH_LOCKED_MESSAGE =
   'This completed match is locked while a newer match exists. Delete the newer match first to open it.';
+
+export const TOURNAMENT_EXPIRED_MESSAGE =
+  'This tournament has expired. Expired tournaments cannot be activated, edited, or used for scoring.';
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+export function isValidIsoDateStr(value?: string | null): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  if (!ISO_DATE_RE.test(trimmed)) return false;
+  const [y, m, d] = trimmed.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  return (
+    dt.getFullYear() === y &&
+    dt.getMonth() === m - 1 &&
+    dt.getDate() === d
+  );
+}
+
+/** Local calendar date YYYY-MM-DD (avoids UTC midnight timezone shift in IST). */
+export function getTodayLocalDateStr(now: Date = new Date()): string {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+/** Expand inclusive local calendar dates between startDate and endDate (YYYY-MM-DD). */
+export function expandDateRange(
+  startDate: string,
+  endDate: string,
+  maxDays = 60
+): string[] {
+  if (!isValidIsoDateStr(startDate)) {
+    return isValidIsoDateStr(endDate) ? [endDate] : [];
+  }
+  const effectiveEnd = isValidIsoDateStr(endDate) ? endDate : startDate;
+  const [sy, sm, sd] = startDate.split('-').map(Number);
+  const [ey, em, ed] = effectiveEnd.split('-').map(Number);
+  const startDt = new Date(sy, sm - 1, sd);
+  const endDt = new Date(ey, em - 1, ed);
+  if (endDt < startDt) return [startDate];
+
+  const out: string[] = [];
+  const cursor = new Date(sy, sm - 1, sd);
+  let count = 0;
+  while (cursor <= endDt && count < maxDays) {
+    out.push(getTodayLocalDateStr(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+    count += 1;
+  }
+  const endStr = getTodayLocalDateStr(endDt);
+  if (out[out.length - 1] !== endStr) {
+    out.push(endStr);
+  }
+  return out;
+}
+
+export function normalizeTournamentDates(dates: string[]): string[] {
+  const unique = Array.from(
+    new Set(dates.map((d) => d.trim()).filter(isValidIsoDateStr))
+  );
+  unique.sort();
+  return unique;
+}
+
+export function getTournamentDatesList(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate'> | null
+): string[] {
+  if (!tournament) return [];
+  if (Array.isArray(tournament.tournamentDates) && tournament.tournamentDates.length > 0) {
+    const normalized = normalizeTournamentDates(tournament.tournamentDates);
+    if (normalized.length > 0) return normalized;
+  }
+  return expandDateRange(tournament.startDate, tournament.endDate);
+}
+
+export function getTournamentExpiryDate(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate'> | null
+): string | null {
+  if (!tournament) return null;
+  const dates = getTournamentDatesList(tournament);
+  if (dates.length > 0) {
+    return dates[dates.length - 1];
+  }
+  if (isValidIsoDateStr(tournament.endDate)) return tournament.endDate;
+  if (isValidIsoDateStr(tournament.startDate)) return tournament.startDate;
+  return null;
+}
+
+/**
+ * A tournament remains active through the full local calendar day of its last selected date.
+ * Once the local calendar date is strictly past the expiry date (or status === 'expired'),
+ * the tournament is expired and cannot be used.
+ */
+export function isTournamentExpired(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate' | 'status'> | null,
+  now: Date = new Date()
+): boolean {
+  if (!tournament) return false;
+  if (tournament.status === 'expired') return true;
+  const expiryDate = getTournamentExpiryDate(tournament);
+  if (!expiryDate) return false;
+  return getTodayLocalDateStr(now) > expiryDate;
+}
+
+export function isTournamentUpcoming(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate' | 'status'> | null,
+  now: Date = new Date()
+): boolean {
+  if (!tournament || isTournamentExpired(tournament, now)) return false;
+  const dates = getTournamentDatesList(tournament);
+  if (dates.length === 0) return false;
+  return dates[0] > getTodayLocalDateStr(now);
+}
+
+export function getTournamentRemainingDays(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate' | 'status'> | null,
+  now: Date = new Date()
+): number {
+  if (!tournament || isTournamentExpired(tournament, now)) return -1;
+  const expiryDate = getTournamentExpiryDate(tournament);
+  if (!expiryDate) return 0;
+  const todayStr = getTodayLocalDateStr(now);
+  const [ty, tm, td] = todayStr.split('-').map(Number);
+  const [ey, em, ed] = expiryDate.split('-').map(Number);
+  const todayMs = new Date(ty, tm - 1, td).getTime();
+  const expiryMs = new Date(ey, em - 1, ed).getTime();
+  return Math.max(0, Math.round((expiryMs - todayMs) / 86_400_000));
+}
+
+export function formatSingleDateHuman(isoDate: string): string {
+  if (!isValidIsoDateStr(isoDate)) return isoDate;
+  const [y, m, d] = isoDate.split('-').map(Number);
+  return `${d} ${SHORT_MONTHS[m - 1]} ${y}`;
+}
+
+export function formatTournamentDatesDisplay(
+  tournament?: Pick<Tournament, 'tournamentDates' | 'startDate' | 'endDate'> | null
+): string {
+  const dates = getTournamentDatesList(tournament);
+  if (dates.length === 0) return '—';
+  if (dates.length <= 8) {
+    return dates.map(formatSingleDateHuman).join(', ');
+  }
+  const head = dates.slice(0, 3).map(formatSingleDateHuman).join(', ');
+  const tail = dates.slice(-2).map(formatSingleDateHuman).join(', ');
+  return `${head}, … , ${tail} (${dates.length} days)`;
+}
+
+export function isMatchTournamentExpired(
+  match: Pick<CricketMatch, 'tournamentId'> | null | undefined,
+  tournaments: Tournament[],
+  now: Date = new Date()
+): boolean {
+  if (!match?.tournamentId) return false;
+  const tour = tournaments.find((t) => t.id === match.tournamentId);
+  return isTournamentExpired(tour, now);
+}
 
 
 export interface ScoreboardBarStyle {

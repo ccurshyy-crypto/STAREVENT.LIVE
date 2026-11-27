@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Eye,
   EyeOff,
   LogOut,
@@ -26,8 +27,13 @@ import {
 } from '../../types/cricketSuite';
 import {
   BROADCAST_THEMES,
+  formatSingleDateHuman,
+  getTournamentExpiryDate,
   isMatchLockedByNewerMatch,
+  isMatchTournamentExpired,
+  isTournamentExpired,
   MATCH_LOCKED_MESSAGE,
+  TOURNAMENT_EXPIRED_MESSAGE,
 } from '../../data/cricketSampleData';
 import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
@@ -335,8 +341,16 @@ export function TvOverlayControllerView({
 
   // ================= AUTHENTICATED OVERLAY CONTROL PANEL =================
   const { overlay } = state;
+  const activeMatchTour = state.tournaments.find(
+    (t) => t.id === activeMatch?.tournamentId
+  );
+  const activeMatchTourExpired = isTournamentExpired(activeMatchTour);
 
   const setMainCard = (card: MainOverlayCard, toastLabel?: string) => {
+    if (card.kind !== 'NONE' && activeMatchTourExpired) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     setActiveTransitionType(null);
     if (card.kind === 'NONE') {
       cancelAutoHide();
@@ -391,6 +405,10 @@ export function TvOverlayControllerView({
   const handleSelectBottomMode = (
     mode: (typeof BOTTOM_SCORE_MODES)[number]
   ) => {
+    if (mode !== 'EMPTY' && activeMatchTourExpired) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     setActiveTransitionType(null);
     const isCurrentlyActive =
       overlay.bottomScoreMode === mode && overlay.mainCard.kind === 'NONE';
@@ -434,6 +452,10 @@ export function TvOverlayControllerView({
   };
 
   const triggerTransition = (type: TransitionOverlayType) => {
+    if (activeMatchTourExpired) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     setActiveTransitionType(type);
     updateState((prev) => ({
       ...prev,
@@ -479,6 +501,27 @@ export function TvOverlayControllerView({
 
   return (
     <div className="space-y-4">
+      {activeMatchTourExpired && activeMatchTour && (
+        <div
+          role="alert"
+          className="rounded-xl bg-red-600 text-white px-4 py-3 flex items-start gap-2.5 text-xs shadow-sm"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+          <div>
+            <p className="font-bold text-sm">
+              Tournament Expired — Broadcast Overlay Disabled
+            </p>
+            <p className="text-red-100 mt-0.5">
+              &ldquo;{activeMatchTour.name}&rdquo; expired after{' '}
+              {formatSingleDateHuman(
+                getTournamentExpiryDate(activeMatchTour) || activeMatchTour.endDate
+              )}
+              . Select an active tournament match to broadcast live graphics.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Top Bar: VMix Link, Toggles, Match Switcher, Lock */}
       <div className="rounded-xl wo-card p-4 space-y-3 text-slate-900">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -502,6 +545,10 @@ export function TvOverlayControllerView({
                 value={activeMatch?.id || ''}
                 onChange={(e) => {
                   const target = state.matches.find((m) => m.id === e.target.value);
+                  if (target && isMatchTournamentExpired(target, state.tournaments)) {
+                    onToast(TOURNAMENT_EXPIRED_MESSAGE);
+                    return;
+                  }
                   if (target && isMatchLockedByNewerMatch(target, state.matches)) {
                     onToast(MATCH_LOCKED_MESSAGE);
                     return;
@@ -512,12 +559,13 @@ export function TvOverlayControllerView({
                 className={`${homeSelectClass} w-full sm:w-auto max-w-full`}
               >
                 {state.matches.map((m) => {
+                  const expired = isMatchTournamentExpired(m, state.tournaments);
                   const locked = isMatchLockedByNewerMatch(m, state.matches);
                   return (
-                    <option key={m.id} value={m.id} disabled={locked}>
+                    <option key={m.id} value={m.id} disabled={expired || locked}>
                       {m.matchLabel}: {teamMap.get(m.team1Id)?.shortName || 'T1'} vs{' '}
                       {teamMap.get(m.team2Id)?.shortName || 'T2'}
-                      {locked ? ' (Locked)' : ''}
+                      {expired ? ' (Expired)' : locked ? ' (Locked)' : ''}
                     </option>
                   );
                 })}

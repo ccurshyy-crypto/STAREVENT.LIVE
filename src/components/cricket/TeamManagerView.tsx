@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import {
   Camera,
   Edit3,
+  Lock,
   Plus,
   Search,
   Trash2,
@@ -13,8 +14,10 @@ import {
 import {
   getTeamColorHex,
   getTeamTextColorHex,
+  isTournamentExpired,
   isValidHexColor,
   normalizeHexColor,
+  TOURNAMENT_EXPIRED_MESSAGE,
 } from '../../data/cricketSampleData';
 import {
   CricketSuiteState,
@@ -67,23 +70,40 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const [isWicketKeeper, setIsWicketKeeper] = useState(false);
   const playerPhotoInputRef = useRef<HTMLInputElement | null>(null);
 
+  const tourObjMap = new Map(state.tournaments.map((t) => [t.id, t]));
+  const isTeamTourExpired = (team?: Team | null) =>
+    team ? isTournamentExpired(tourObjMap.get(team.tournamentId)) : false;
+
   const openCreateTeam = () => {
+    const selectedTourObj =
+      selectedTournamentId !== 'ALL' ? tourObjMap.get(selectedTournamentId) : undefined;
+    const activeTourObj = tourObjMap.get(state.activeTournamentId);
+    const firstValidTour =
+      (selectedTourObj && !isTournamentExpired(selectedTourObj) ? selectedTourObj : undefined) ??
+      (activeTourObj && !isTournamentExpired(activeTourObj) ? activeTourObj : undefined) ??
+      state.tournaments.find((t) => !isTournamentExpired(t));
+
+    if (state.tournaments.length > 0 && !firstValidTour) {
+      onToast('All existing tournaments have expired. Create a new active tournament first.');
+      return;
+    }
+
     setEditingTeamId(null);
     setName('');
     setShortName('');
     setPlace('');
     setTeamColorHex(DEFAULT_TEAM_COLOR);
     setTextColorHex(DEFAULT_TEXT_COLOR);
-    setTeamTourId(
-      selectedTournamentId !== 'ALL'
-        ? selectedTournamentId
-        : state.activeTournamentId || state.tournaments[0]?.id || ''
-    );
+    setTeamTourId(firstValidTour?.id || '');
     setLogoUrl('');
     setTeamModalOpen(true);
   };
 
   const openEditTeam = (team: Team) => {
+    if (isTeamTourExpired(team)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     setEditingTeamId(team.id);
     setName(team.name);
     setShortName(team.shortName);
@@ -116,6 +136,11 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     e.preventDefault();
     const cleanName = name.trim();
     if (!cleanName) return;
+    const targetTour = tourObjMap.get(teamTourId);
+    if (targetTour && isTournamentExpired(targetTour)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     const cleanShort = (shortName.trim() || cleanName.slice(0, 4)).toUpperCase().slice(0, 8);
     const resolvedTeamColor = normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR);
     const resolvedTextColor = normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR);
@@ -204,6 +229,10 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     if (!playersModalTeamId || !cleanName) return;
 
     const targetTeam = state.teams.find((t) => t.id === playersModalTeamId);
+    if (isTeamTourExpired(targetTeam)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     const normalized = cleanName.toLowerCase();
     const hasDuplicate = targetTeam?.players.some(
       (p) =>
@@ -267,6 +296,11 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   };
 
   const handleDeletePlayer = (teamId: string, playerId: string) => {
+    const targetTeam = state.teams.find((t) => t.id === teamId);
+    if (isTeamTourExpired(targetTeam)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
+      return;
+    }
     updateState((prev) => ({
       ...prev,
       teams: prev.teams.map((tm) =>
@@ -309,6 +343,7 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             {state.tournaments.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+                {isTournamentExpired(t) ? ' (Expired)' : ''}
               </option>
             ))}
           </select>
@@ -363,10 +398,15 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
             {filteredTeams.map((team) => {
               const bgHex = getTeamColorHex(team);
               const fgHex = getTeamTextColorHex(team);
+              const expired = isTeamTourExpired(team);
               return (
                 <div
                   key={`mobile-${team.id}`}
-                  className="rounded-xl bg-white border border-slate-200 p-3.5 space-y-3 shadow-xs"
+                  className={`rounded-xl border p-3.5 space-y-3 shadow-xs ${
+                    expired
+                      ? 'bg-slate-50/90 border-red-200/80 opacity-90'
+                      : 'bg-white border-slate-200'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     {team.logoUrl ? (
@@ -388,9 +428,16 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                         <p className="font-display font-bold text-sm text-slate-900 truncate">
                           {team.name}
                         </p>
-                        <span className="font-mono text-[11px] font-bold text-slate-600 shrink-0">
-                          {team.shortName}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {expired && (
+                            <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                              Expired
+                            </span>
+                          )}
+                          <span className="font-mono text-[11px] font-bold text-slate-600">
+                            {team.shortName}
+                          </span>
+                        </div>
                       </div>
                       <p className="text-[11px] text-slate-500 truncate">
                         {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
@@ -410,20 +457,41 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                     <button
                       type="button"
                       onClick={() => {
+                        if (expired) {
+                          onToast(TOURNAMENT_EXPIRED_MESSAGE);
+                          return;
+                        }
                         setPlayersModalTeamId(team.id);
                         resetPlayerForm();
                       }}
-                      className="flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg wo-btn-primary text-xs font-bold whitespace-nowrap"
+                      title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Add or manage squad players'}
+                      className={`flex-1 inline-flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-bold whitespace-nowrap ${
+                        expired
+                          ? 'bg-red-100 text-red-700 cursor-not-allowed'
+                          : 'wo-btn-primary'
+                      }`}
                     >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      Add Players ({team.players.length})
+                      {expired ? (
+                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                      ) : (
+                        <UserPlus className="w-3.5 h-3.5" />
+                      )}
+                      {expired ? 'Tournament Expired' : `Add Players (${team.players.length})`}
                     </button>
                     <button
                       type="button"
                       onClick={() => openEditTeam(team)}
-                      className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg wo-btn-soft text-xs font-bold"
+                      className={`inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs font-bold ${
+                        expired
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'wo-btn-soft'
+                      }`}
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
+                      {expired ? (
+                        <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                      ) : (
+                        <Edit3 className="w-3.5 h-3.5" />
+                      )}
                       Edit
                     </button>
                     {deleteConfirmId !== team.id ? (
@@ -477,10 +545,25 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                   {filteredTeams.map((team) => {
                     const bgHex = getTeamColorHex(team);
                     const fgHex = getTeamTextColorHex(team);
+                    const expired = isTeamTourExpired(team);
                     return (
-                      <tr key={team.id} className="hover:bg-slate-50/70 transition-colors">
+                      <tr
+                        key={team.id}
+                        className={
+                          expired
+                            ? 'bg-slate-50/80 opacity-85 transition-colors'
+                            : 'hover:bg-slate-50/70 transition-colors'
+                        }
+                      >
                         <td className="px-4 py-3">
-                          <p className="font-semibold text-slate-900">{team.name}</p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-slate-900">{team.name}</p>
+                            {expired && (
+                              <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-bold">
+                                Expired
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-slate-500">
                             {tourMap.get(team.tournamentId) || 'Unassigned Tournament'} ·{' '}
                             {team.players.length} Players
@@ -523,21 +606,43 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                             <button
                               type="button"
                               onClick={() => openEditTeam(team)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-soft text-xs font-bold"
+                              title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Edit team'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold ${
+                                expired
+                                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                  : 'wo-btn-soft'
+                              }`}
                             >
-                              <Edit3 className="w-3.5 h-3.5" />
+                              {expired ? (
+                                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                              ) : (
+                                <Edit3 className="w-3.5 h-3.5" />
+                              )}
                               Edit
                             </button>
                             <button
                               type="button"
                               onClick={() => {
+                                if (expired) {
+                                  onToast(TOURNAMENT_EXPIRED_MESSAGE);
+                                  return;
+                                }
                                 setPlayersModalTeamId(team.id);
                                 resetPlayerForm();
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md wo-btn-primary text-xs font-bold whitespace-nowrap"
+                              title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Add or manage squad players'}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-bold whitespace-nowrap ${
+                                expired
+                                  ? 'bg-red-100 text-red-700 cursor-not-allowed'
+                                  : 'wo-btn-primary'
+                              }`}
                             >
-                              <UserPlus className="w-3.5 h-3.5" />
-                              Add Players ({team.players.length})
+                              {expired ? (
+                                <Lock className="w-3.5 h-3.5" aria-hidden="true" />
+                              ) : (
+                                <UserPlus className="w-3.5 h-3.5" />
+                              )}
+                              {expired ? 'Expired' : `Add Players (${team.players.length})`}
                             </button>
                             {deleteConfirmId !== team.id ? (
                               <button
@@ -609,6 +714,32 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
 
             {/* Clean Material Underline Form Body */}
             <div className="px-7 sm:px-10 pt-9 pb-8 space-y-8 bg-white">
+              {/* Row 0: Tournament Selector (blocks expired tournaments) */}
+              {state.tournaments.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                    Tournament *
+                  </label>
+                  <select
+                    required
+                    value={teamTourId}
+                    onChange={(e) => setTeamTourId(e.target.value)}
+                    className="w-full bg-transparent border-0 border-b border-slate-400 focus:border-b-2 focus:border-[#FF8C00] py-2 text-[15px] text-slate-900 focus:outline-none transition-colors"
+                  >
+                    <option value="">Select Active Tournament</option>
+                    {state.tournaments.map((t) => {
+                      const expired = isTournamentExpired(t);
+                      return (
+                        <option key={t.id} value={t.id} disabled={expired}>
+                          {t.name}
+                          {expired ? ' (Expired)' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+
               {/* Row 1: Name & Short Name */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-7 items-end">
                 <div>

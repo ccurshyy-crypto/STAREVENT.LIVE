@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import QRCode from 'qrcode';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export const CASHFREE_PRODUCTION_BASE_URL = 'https://api.cashfree.com/pg';
@@ -9,6 +10,11 @@ export const LIGHTNING_PRO_PRODUCT_CODE = 'lightning_pro_scoreboard';
 export const LIGHTNING_PRO_PRODUCT_NAME = 'Lightning Premier Scoreboard';
 export const LIGHTNING_PRO_FIXED_AMOUNT_INR = 79;
 export const WORLDCUP_FIXED_CURRENCY = 'INR';
+
+export const OWNER_UPI_ID = (process.env.OWNER_UPI_ID || 'crushyyphotography@oksbi').trim();
+export const OWNER_UPI_PAYEE_NAME = (process.env.OWNER_UPI_NAME || 'Crushyyphotography').trim();
+export const OWNER_UPI_STATIC_QR_IMAGE =
+  '/assets/aistudio/WhatsApp_Image_2026-11-19_at_2.32.59_AM_c3b23480.jpeg';
 
 export type PaidThemeId = 'worldcup' | 'lightning-pro';
 
@@ -1169,3 +1175,328 @@ export async function processVerifiedCashfreeWebhook(params: {
     };
   });
 }
+
+// ===========================================================================
+// OWNER DIRECT UPI QR PAYMENT FLOW (crushyyphotography@oksbi)
+//   - Generates dynamic amount-locked UPI QR codes on the server.
+//   - Customer UTR submission NEVER unlocks automatically (status stays PENDING/LOCKED).
+//   - Strictly enforces 12-digit UTR format & global uniqueness (no UTR reuse).
+//   - Unlocks ONLY when authenticated Owner Admin approves after checking bank/GPay receipt.
+// ===========================================================================
+
+export function generateUniqueUpiQrOrderId(themeId: PaidThemeId = 'worldcup'): string {
+  const prefix = PAID_THEME_PRODUCTS[themeId]?.orderPrefix || 'WC';
+  const ts = Date.now();
+  const rand = crypto.randomBytes(5).toString('hex').toUpperCase();
+  return `UPI_${prefix}_${ts}_${rand}`;
+}
+
+export function sanitizeUpiUtr(raw: unknown): string | null {
+  const digits = String(raw || '')
+    .trim()
+    .replace(/[\s-]/g, '');
+  if (!/^\d{12}$/.test(digits)) {
+    return null;
+  }
+  return digits;
+}
+
+export async function buildOwnerUpiPaymentIntent(params: {
+  orderId: string;
+  product: PaidThemeProductConfig;
+}): Promise<{
+  upiId: string;
+  payeeName: string;
+  upiUri: string;
+  qrDataUrl: string;
+  staticQrImageUrl: string;
+}> {
+  const { orderId, product } = params;
+  const note = `${product.orderPrefix} ${orderId.slice(-8)}`;
+  const upiParams = new URLSearchParams({
+    pa: OWNER_UPI_ID,
+    pn: OWNER_UPI_PAYEE_NAME,
+    am: product.amountInr.toFixed(2),
+    cu: product.currency,
+    tr: orderId,
+    tn: note,
+  });
+  const upiUri = `upi://pay?${upiParams.toString()}`;
+  const qrDataUrl = await QRCode.toDataURL(upiUri, {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 320,
+    color: {
+      dark: '#0F172A',
+      light: '#FFFFFF',
+    },
+  });
+
+  return {
+    upiId: OWNER_UPI_ID,
+    payeeName: OWNER_UPI_PAYEE_NAME,
+    upiUri,
+    qrDataUrl,
+    staticQrImageUrl: OWNER_UPI_STATIC_QR_IMAGE,
+  };
+}
+
+export async function submitUpiQrUtrProof(params: {
+  supabaseAdmin: SupabaseClient | null;
+  orderId: string;
+  customerId: string;
+  utrRaw: unknown;
+}): Promise<
+  | {
+      ok: true;
+      unlocked: boolean;
+      paymentStatus: PaymentStatus;
+      orderId: string;
+      utr: string;
+      message: string;
+    }
+  | { ok: false; status: number; error: string }
+> {
+  const cleanOrderId = sanitizeOrderId(params.orderId);
+  if (!cleanOrderId) {
+    return { ok: false, status: 400, error: 'A valid UPI QR Order ID is required.' };
+  }
+
+  const utr = sanitizeUpiUtr(params.utrRaw);
+  if (!utr) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Please enter a valid 12-digit numeric UPI UTR / Reference Number.',
+    };
+  }
+
+  return withOrderLock(cleanOrderId, async () => {
+    const existing = await getPaymentRecord(params.supabaseAdmin, cleanOrderId);
+    if (!existing) {
+      return { ok: false, status: 404, error: 'UPI QR order not found on server.' };
+    }
+
+    if (sanitizeCustomerId(existing.customer_id) !== sanitizeCustomerId(params.customerId)) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'This UPI QR order does not belong to the currently logged-in customer.',
+      };
+    }
+
+    if (!existing.order_id.startsWith('UPI_')) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Manual UTR proof is only accepted for Owner UPI QR orders.',
+      };
+    }
+
+    if (existing.payment_status === 'PAID' && existing.unlock_status === 'UNLOCKED') {
+      return {
+        ok: true,
+        unlocked: true,
+        paymentStatus: 'PAID',
+        orderId: existing.order_id,
+        utr,
+        message: 'Payment has already been verified and unlocked by the owner.',
+      };
+    }
+
+    if (existing.payment_status === 'FAILED' || existing.payment_status === 'CANCELLED') {
+      return {
+        ok: false,
+        status: 400,
+        error: 'This order was rejected or cancelled. Please generate a fresh QR order.',
+      };
+    }
+
+    const uniqueRefKey = `UPI_UTR_${utr}`;
+    const alreadyUsed = await isCfPaymentIdUsedByAnotherOrder(
+      params.supabaseAdmin,
+      uniqueRefKey,
+      existing.order_id
+    );
+    if (alreadyUsed) {
+      return {
+        ok: false,
+        status: 409,
+        error:
+          'This 12-digit UTR number has already been submitted on another order. Reused UTR numbers are blocked.',
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    const pendingRecord: WorldCupPaymentRecord = {
+      ...existing,
+      cf_payment_id: uniqueRefKey,
+      payment_status: 'PENDING',
+      cashfree_raw_status: 'UPI_QR_PROOF_SUBMITTED',
+      unlock_status: 'LOCKED', // STRICT SECURITY: Never auto-unlock on customer UTR input
+      verified_at: null,
+      updated_at: nowIso,
+    };
+
+    const persisted = await persistPaymentRecord(params.supabaseAdmin, pendingRecord);
+    if (!persisted.ok && persisted.duplicatePaymentId) {
+      return {
+        ok: false,
+        status: 409,
+        error: 'Duplicate UTR detected and blocked by database uniqueness check.',
+      };
+    }
+
+    return {
+      ok: true,
+      unlocked: false,
+      paymentStatus: 'PENDING',
+      orderId: existing.order_id,
+      utr,
+      message:
+        'UTR submitted! Payment is pending owner verification on Crushyyphotography UPI. Your theme will unlock automatically once confirmed.',
+    };
+  });
+}
+
+export async function adminApproveUpiQrPayment(params: {
+  supabaseAdmin: SupabaseClient | null;
+  orderId: string;
+  actor: string;
+  ipAddress: string;
+  note?: string;
+}): Promise<
+  | {
+      ok: true;
+      payment: WorldCupPaymentRecord;
+      unlock: WorldCupUnlockRecord;
+      auditLog: PaymentAdminAuditLog;
+    }
+  | { ok: false; status: number; error: string }
+> {
+  const cleanOrderId = sanitizeOrderId(params.orderId);
+  if (!cleanOrderId) {
+    return { ok: false, status: 400, error: 'Valid Order ID is required.' };
+  }
+
+  return withOrderLock(cleanOrderId, async () => {
+    const existing = await getPaymentRecord(params.supabaseAdmin, cleanOrderId);
+    if (!existing) {
+      return { ok: false, status: 404, error: 'Payment order not found.' };
+    }
+
+    const product = resolvePaidThemeProductByCode(existing.product_code);
+    if (!product || Math.abs(Number(existing.expected_amount) - product.amountInr) > 0.001) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Order product or amount does not match server catalog pricing.',
+      };
+    }
+
+    const nowIso = new Date().toISOString();
+    const reasonText =
+      (params.note || '').trim().slice(0, 220) ||
+      `Owner verified ₹${product.amountInr} UPI QR payment (${existing.cf_payment_id || existing.order_id})`;
+
+    const paidRecord: WorldCupPaymentRecord = {
+      ...existing,
+      payment_status: 'PAID',
+      cashfree_raw_status: 'UPI_QR_OWNER_APPROVED',
+      unlock_status: 'UNLOCKED',
+      verified_at: nowIso,
+      updated_at: nowIso,
+    };
+
+    const unlockRecord: WorldCupUnlockRecord = {
+      customer_id: existing.customer_id,
+      product_code: product.productCode,
+      unlock_status: 'UNLOCKED',
+      grant_source: 'admin_manual',
+      order_id: existing.order_id,
+      cf_payment_id: existing.cf_payment_id,
+      unlocked_at: nowIso,
+      expires_at: null,
+      granted_by: params.actor,
+      grant_reason: reasonText,
+      updated_at: nowIso,
+    };
+
+    await persistPaymentRecord(params.supabaseAdmin, paidRecord);
+    await persistUnlockRecord(params.supabaseAdmin, unlockRecord);
+
+    const auditLog = await recordAdminAuditLog(params.supabaseAdmin, {
+      actor: params.actor,
+      action: 'MANUAL_GRANT',
+      customer_id: existing.customer_id,
+      reason: reasonText,
+      ip_address: params.ipAddress,
+      metadata: {
+        flow: 'upi_qr_owner_approve',
+        order_id: existing.order_id,
+        utr_ref: existing.cf_payment_id,
+        theme_id: product.themeId,
+        product_code: product.productCode,
+        amount_inr: product.amountInr,
+      },
+    });
+
+    return { ok: true, payment: paidRecord, unlock: unlockRecord, auditLog };
+  });
+}
+
+export async function adminRejectUpiQrPayment(params: {
+  supabaseAdmin: SupabaseClient | null;
+  orderId: string;
+  actor: string;
+  ipAddress: string;
+  reason?: string;
+}): Promise<
+  | { ok: true; payment: WorldCupPaymentRecord; auditLog: PaymentAdminAuditLog }
+  | { ok: false; status: number; error: string }
+> {
+  const cleanOrderId = sanitizeOrderId(params.orderId);
+  if (!cleanOrderId) {
+    return { ok: false, status: 400, error: 'Valid Order ID is required.' };
+  }
+
+  return withOrderLock(cleanOrderId, async () => {
+    const existing = await getPaymentRecord(params.supabaseAdmin, cleanOrderId);
+    if (!existing) {
+      return { ok: false, status: 404, error: 'Payment order not found.' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const reasonText =
+      (params.reason || '').trim().slice(0, 220) ||
+      `Owner rejected UPI QR order ${existing.order_id} (payment not received / invalid UTR)`;
+
+    const rejectedRecord: WorldCupPaymentRecord = {
+      ...existing,
+      payment_status: 'FAILED',
+      cashfree_raw_status: 'UPI_QR_OWNER_REJECTED',
+      unlock_status: 'LOCKED',
+      verified_at: null,
+      updated_at: nowIso,
+    };
+
+    await persistPaymentRecord(params.supabaseAdmin, rejectedRecord);
+
+    const auditLog = await recordAdminAuditLog(params.supabaseAdmin, {
+      actor: params.actor,
+      action: 'MANUAL_REVOKE',
+      customer_id: existing.customer_id,
+      reason: reasonText,
+      ip_address: params.ipAddress,
+      metadata: {
+        flow: 'upi_qr_owner_reject',
+        order_id: existing.order_id,
+        utr_ref: existing.cf_payment_id,
+        product_code: existing.product_code,
+      },
+    });
+
+    return { ok: true, payment: rejectedRecord, auditLog };
+  });
+}
+

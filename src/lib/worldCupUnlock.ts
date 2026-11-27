@@ -319,6 +319,83 @@ export async function verifyCashfreeWorldCupOrder(
   return json;
 }
 
+export interface CreateUpiQrOrderResponse {
+  ok: boolean;
+  alreadyUnlocked?: boolean;
+  unlocked?: boolean;
+  themeId?: PaidThemeId;
+  productName?: string;
+  orderId?: string;
+  amount?: number;
+  currency?: string;
+  upiId?: string;
+  payeeName?: string;
+  upiUri?: string;
+  qrDataUrl?: string;
+  staticQrImageUrl?: string;
+  error?: string;
+}
+
+export interface SubmitUpiQrProofResponse {
+  ok: boolean;
+  unlocked: boolean;
+  paymentStatus?: string;
+  orderId?: string;
+  utr?: string;
+  message?: string;
+  error?: string;
+}
+
+export async function createOwnerUpiQrOrder(
+  authHeaders: Record<string, string>,
+  params: { themeId?: PaidThemeId; customerEmail?: string }
+): Promise<CreateUpiQrOrderResponse> {
+  const res = await fetch('/api/payments/upi-qr/create-order', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({
+      themeId: params.themeId || 'worldcup',
+      customerEmail: params.customerEmail || '',
+    }),
+  });
+  const json = (await res.json().catch(() => null)) as CreateUpiQrOrderResponse | null;
+  if (!json) {
+    return { ok: false, error: 'Invalid server response while generating UPI QR code.' };
+  }
+  return json;
+}
+
+export async function submitOwnerUpiQrProof(
+  authHeaders: Record<string, string>,
+  params: { orderId: string; utr: string }
+): Promise<SubmitUpiQrProofResponse> {
+  const res = await fetch('/api/payments/upi-qr/submit-proof', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({
+      orderId: params.orderId,
+      utr: params.utr,
+    }),
+  });
+  const json = (await res.json().catch(() => null)) as SubmitUpiQrProofResponse | null;
+  if (!json) {
+    return {
+      ok: false,
+      unlocked: false,
+      error: 'Invalid server response while submitting payment UTR reference.',
+    };
+  }
+  return json;
+}
+
 // Broadcast in-tab refresh event when a server-verified unlock succeeds
 const UNLOCK_REFRESH_EVENT = 'starevent:worldcup-unlock-refresh';
 

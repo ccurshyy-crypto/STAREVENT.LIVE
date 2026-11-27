@@ -6,8 +6,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
+  adminApproveUpiQrPayment,
+  adminRejectUpiQrPayment,
+  buildOwnerUpiPaymentIntent,
   createCashfreeProductionOrder,
   generateUniqueCashfreeOrderId,
+  generateUniqueUpiQrOrderId,
   getCashfreeProductionConfig,
   getCustomerThemeEntitlements,
   getUnlockRecord,
@@ -16,6 +20,9 @@ import {
   listAdminAuditLogs,
   listAllPaymentRecords,
   listAllUnlockRecords,
+  OWNER_UPI_ID,
+  OWNER_UPI_PAYEE_NAME,
+  OWNER_UPI_STATIC_QR_IMAGE,
   PAID_THEME_PRODUCTS,
   persistPaymentRecord,
   persistUnlockRecord,
@@ -25,6 +32,7 @@ import {
   resolvePaidThemeProductByCode,
   sanitizeCustomerId,
   sanitizeOrderId,
+  submitUpiQrUtrProof,
   verifyCashfreeWebhookSignature,
   verifyOrderDirectlyWithCashfree,
   WORLDCUP_FIXED_AMOUNT_INR,
@@ -1717,6 +1725,146 @@ async function startServer() {
   });
 
   // =========================================================================
+  // 5B. OWNER DIRECT UPI QR PAYMENT ENDPOINTS (crushyyphotography@oksbi)
+  //     - Generates dynamic amount-locked UPI QR codes (₹79 / ₹149).
+  //     - Customer UTR submission NEVER unlocks automatically (stays PENDING/LOCKED).
+  //     - Only authenticated Owner Admin approval unlocks the theme.
+  // =========================================================================
+  app.post('/api/payments/upi-qr/create-order', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customer = await resolveAuthenticatedCustomer(req, true);
+    if (!customer) {
+      res.status(401).json({
+        ok: false,
+        error: 'Please sign in again to generate your UPI payment QR.',
+      });
+      return;
+    }
+
+    const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
+    if (!product) {
+      res.status(400).json({ ok: false, error: 'Unknown scoreboard theme product requested.' });
+      return;
+    }
+
+    if (
+      req.body &&
+      req.body.amount !== undefined &&
+      Number(req.body.amount) !== product.amountInr
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: `Amount for ${product.productName} is fixed at ₹${product.amountInr} INR on the server.`,
+      });
+      return;
+    }
+
+    const supabaseAdmin = getSupabaseAdminClient();
+    const existingUnlock = await getUnlockRecord(
+      supabaseAdmin,
+      customer.customerId,
+      product.productCode
+    );
+    if (isUnlockRecordActive(existingUnlock)) {
+      res.json({
+        ok: true,
+        alreadyUnlocked: true,
+        unlocked: true,
+        themeId: product.themeId,
+        orderId: existingUnlock?.order_id ?? null,
+      });
+      return;
+    }
+
+    const orderId = generateUniqueUpiQrOrderId(product.themeId);
+    const customerEmail =
+      typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
+        ? req.body.customerEmail.trim()
+        : customer.customerEmail;
+
+    try {
+      const intent = await buildOwnerUpiPaymentIntent({ orderId, product });
+      const nowIso = new Date().toISOString();
+      const paymentRecord: WorldCupPaymentRecord = {
+        order_id: orderId,
+        customer_id: customer.customerId,
+        customer_email: customerEmail,
+        customer_name: customer.customerName,
+        product_code: product.productCode,
+        product_name: product.productName,
+        expected_amount: product.amountInr,
+        currency: product.currency,
+        cf_order_id: 'OWNER_UPI_QR',
+        cf_payment_id: null,
+        payment_status: 'PENDING',
+        cashfree_raw_status: 'UPI_QR_AWAITING_PAYMENT',
+        unlock_status: 'LOCKED',
+        verified_at: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      await persistPaymentRecord(supabaseAdmin, paymentRecord);
+
+      res.status(201).json({
+        ok: true,
+        themeId: product.themeId,
+        productName: product.productName,
+        orderId,
+        amount: product.amountInr,
+        currency: product.currency,
+        upiId: intent.upiId,
+        payeeName: intent.payeeName,
+        upiUri: intent.upiUri,
+        qrDataUrl: intent.qrDataUrl,
+        staticQrImageUrl: intent.staticQrImageUrl,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not generate dynamic UPI QR code.',
+      });
+    }
+  });
+
+  app.post('/api/payments/upi-qr/submit-proof', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customer = await resolveAuthenticatedCustomer(req, true);
+    if (!customer) {
+      res.status(401).json({
+        ok: false,
+        unlocked: false,
+        error: 'Customer authentication required.',
+      });
+      return;
+    }
+
+    const result = await submitUpiQrUtrProof({
+      supabaseAdmin: getSupabaseAdminClient(),
+      orderId: req.body?.orderId,
+      customerId: customer.customerId,
+      utrRaw: req.body?.utr,
+    });
+
+    if (!result.ok) {
+      res.status(result.status).json({
+        ok: false,
+        unlocked: false,
+        error: result.error,
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      unlocked: result.unlocked,
+      paymentStatus: result.paymentStatus,
+      orderId: result.orderId,
+      utr: result.utr,
+      message: result.message,
+    });
+  });
+
+  // =========================================================================
   // 6. ADMIN-ONLY PAYMENT LEDGER & AUDITED MANUAL ACCESS GRANT
   //    Strictly protected by requireOwnerAdmin Bearer token.
   // =========================================================================
@@ -1738,11 +1886,55 @@ async function startServer() {
     res.json({
       ok: true,
       cashfreeConfigured: isCashfreeConfigured(),
+      ownerUpiId: OWNER_UPI_ID,
+      ownerUpiPayeeName: OWNER_UPI_PAYEE_NAME,
+      ownerStaticQrImageUrl: OWNER_UPI_STATIC_QR_IMAGE,
       fixedAmountInr: WORLDCUP_FIXED_AMOUNT_INR,
       products: PAID_THEME_PRODUCTS,
       payments,
       unlocks: allUnlocks,
       auditLogs,
+    });
+  });
+
+  app.post('/api/admin/payments/upi-qr/approve', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const result = await adminApproveUpiQrPayment({
+      supabaseAdmin: getSupabaseAdminClient(),
+      orderId: req.body?.orderId,
+      actor: 'owner_admin',
+      ipAddress: getClientIp(req),
+      note: typeof req.body?.note === 'string' ? req.body.note : undefined,
+    });
+    if (!result.ok) {
+      res.status(result.status).json({ ok: false, error: result.error });
+      return;
+    }
+    res.json({
+      ok: true,
+      payment: result.payment,
+      unlock: result.unlock,
+      auditLog: result.auditLog,
+    });
+  });
+
+  app.post('/api/admin/payments/upi-qr/reject', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const result = await adminRejectUpiQrPayment({
+      supabaseAdmin: getSupabaseAdminClient(),
+      orderId: req.body?.orderId,
+      actor: 'owner_admin',
+      ipAddress: getClientIp(req),
+      reason: typeof req.body?.reason === 'string' ? req.body.reason : undefined,
+    });
+    if (!result.ok) {
+      res.status(result.status).json({ ok: false, error: result.error });
+      return;
+    }
+    res.json({
+      ok: true,
+      payment: result.payment,
+      auditLog: result.auditLog,
     });
   });
 

@@ -124,8 +124,9 @@ export interface Tournament {
   oversPerInnings: number;
   startDate: string;
   endDate: string;
+  tournamentDates?: string[];
   isActive: boolean;
-  status: 'active' | 'completed' | 'upcoming';
+  status: 'active' | 'completed' | 'upcoming' | 'expired';
 }
 
 export interface BallEvent {

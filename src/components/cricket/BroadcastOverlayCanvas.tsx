@@ -14,6 +14,7 @@ import {
   getTeamColorHex,
   getTeamTextColorHex,
   getThemePalette,
+  isTournamentExpired,
 } from '../../data/cricketSampleData';
 import {
   BallEvent,
@@ -132,6 +133,19 @@ export function BroadcastOverlayCanvas({
         className="w-full h-full select-none overflow-hidden"
         style={bgStyle}
         aria-label="Broadcast overlay canvas"
+      />
+    );
+  }
+
+  const activeMatchTournament = match
+    ? state.tournaments.find((t) => t.id === match.tournamentId)
+    : undefined;
+  if (activeMatchTournament && isTournamentExpired(activeMatchTournament)) {
+    return (
+      <div
+        className="w-full h-full select-none overflow-hidden"
+        style={bgStyle}
+        aria-label="Broadcast overlay canvas (tournament expired)"
       />
     );
   }

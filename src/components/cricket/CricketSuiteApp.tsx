@@ -27,7 +27,10 @@ import {
 import { UnlockedOverlaySession } from '../../context/OverlayAccessContext';
 import {
   isMatchLockedByNewerMatch,
+  isMatchTournamentExpired,
+  isTournamentExpired,
   MATCH_LOCKED_MESSAGE,
+  TOURNAMENT_EXPIRED_MESSAGE,
 } from '../../data/cricketSampleData';
 import { useCricketSuiteStore } from '../../hooks/useCricketSuiteStore';
 import { SidebarRoute } from '../../types/cricketSuite';
@@ -117,10 +120,51 @@ export function CricketSuiteApp({
     }
   }, [loadStatus, uid, state.user.userTheme, state.user.customThemeColors?.enabled, updateState]);
 
+  // Automatically deactivate & mark expired tournaments whose selected dates have passed
+  useEffect(() => {
+    if (loadStatus !== 'ready') return;
+    const enforceExpiry = () => {
+      const now = new Date();
+      const hasExpiredToSync = state.tournaments.some(
+        (t) => isTournamentExpired(t, now) && (t.isActive || t.status !== 'expired')
+      );
+      const activeTour = state.tournaments.find((t) => t.id === state.activeTournamentId);
+      const activeTourIsExpired = Boolean(activeTour && isTournamentExpired(activeTour, now));
+      if (!hasExpiredToSync && !activeTourIsExpired) return;
+
+      updateState((prev) => {
+        const nextTours = prev.tournaments.map((t) =>
+          isTournamentExpired(t, now)
+            ? { ...t, isActive: false, status: 'expired' as const }
+            : t
+        );
+        const currentActiveStillValid = nextTours.find(
+          (t) => t.id === prev.activeTournamentId && !isTournamentExpired(t, now)
+        );
+        const fallbackActive =
+          currentActiveStillValid ?? nextTours.find((t) => !isTournamentExpired(t, now));
+        const nextActiveId = fallbackActive?.id || '';
+        return {
+          ...prev,
+          activeTournamentId: nextActiveId,
+          tournaments: nextTours.map((t) => ({
+            ...t,
+            isActive: t.id === nextActiveId && !isTournamentExpired(t, now),
+          })),
+        };
+      });
+    };
+
+    enforceExpiry();
+    const timer = window.setInterval(enforceExpiry, 60_000);
+    return () => window.clearInterval(timer);
+  }, [loadStatus, state.tournaments, state.activeTournamentId, updateState]);
+
   const activeTournament = useMemo(
     () =>
-      state.tournaments.find((t) => t.id === state.activeTournamentId) ??
-      state.tournaments[0],
+      state.tournaments.find(
+        (t) => t.id === state.activeTournamentId && !isTournamentExpired(t)
+      ) ?? state.tournaments.find((t) => !isTournamentExpired(t)),
     [state.tournaments, state.activeTournamentId]
   );
 
@@ -180,6 +224,10 @@ export function CricketSuiteApp({
   const handleOpenScoring = useCallback(
     (matchId: string) => {
       const targetMatch = state.matches.find((m) => m.id === matchId);
+      if (targetMatch && isMatchTournamentExpired(targetMatch, state.tournaments)) {
+        showToast(TOURNAMENT_EXPIRED_MESSAGE);
+        return;
+      }
       if (targetMatch && isMatchLockedByNewerMatch(targetMatch, state.matches)) {
         showToast(MATCH_LOCKED_MESSAGE);
         return;
@@ -191,7 +239,7 @@ export function CricketSuiteApp({
       setActiveRoute('scoring');
       setDrawerOpen(false);
     },
-    [state.matches, showToast, updateState]
+    [state.matches, state.tournaments, showToast, updateState]
   );
 
   const handleRequestLogout = useCallback(() => {
@@ -585,6 +633,7 @@ export function CricketSuiteApp({
 
             {activeMatch &&
               activeRoute !== 'scoring' &&
+              !isMatchTournamentExpired(activeMatch, state.tournaments) &&
               !isMatchLockedByNewerMatch(activeMatch, state.matches) && (
                 <button
                   type="button"
