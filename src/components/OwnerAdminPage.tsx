@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
+import { AdminPaymentsPanel } from './AdminPaymentsPanel';
 import { GenerateUserPanel } from './GenerateUserPanel';
 
 interface OwnerAdminPageProps {
@@ -535,7 +536,7 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
 
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'access-keys' | 'overlay-accounts' | 'generate-users'
+    'access-keys' | 'overlay-accounts' | 'generate-users' | 'payments'
   >('access-keys');
 
   const [password, setPassword] = useState('');
@@ -757,6 +758,17 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   >
                     Email Auth Users
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('payments')}
+                    className={`flex-1 min-w-[170px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
+                      activeTab === 'payments'
+                        ? 'overlay-home-btn-active text-white'
+                        : 'overlay-home-btn'
+                    }`}
+                  >
+                    Cashfree Payments
+                  </button>
                   {!authStatus.configured && (
                     <button
                       type="button"
@@ -835,6 +847,11 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
                 ) : activeTab === 'overlay-accounts' ? (
                   <OverlayAccountsManager
+                    adminToken={adminToken}
+                    onLockAdmin={() => void handleLockAdmin()}
+                  />
+                ) : activeTab === 'payments' ? (
+                  <AdminPaymentsPanel
                     adminToken={adminToken}
                     onLockAdmin={() => void handleLockAdmin()}
                   />

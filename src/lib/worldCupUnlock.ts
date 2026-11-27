@@ -1,188 +1,258 @@
-import { STUDIO_CONTACT } from '../data/content';
-import { getSupabaseClient, SUPABASE_SCOREBOARD_TABLE } from './supabaseClient';
-import type { UserAccountDetails } from '../types/cricketSuite';
+import { useCallback, useEffect, useState } from 'react';
+import { useOverlayAccess } from '../context/OverlayAccessContext';
 
-export const WORLDCUP_ORIGINAL_PRICE_INR = 149;
-export const WORLDCUP_OFFER_PRICE_INR = 49;
-export const WORLDCUP_UNLOCK_DURATION_DAYS = 1;
-export const WORLDCUP_UNLOCK_DURATION_MS = WORLDCUP_UNLOCK_DURATION_DAYS * 24 * 60 * 60 * 1000;
+export const WORLDCUP_PRODUCT_NAME = 'WorldCup Scoreboard';
+export const WORLDCUP_FIXED_PRICE_INR = 149;
+export const WORLDCUP_FIXED_CURRENCY = 'INR';
 
-const OWNER_UPI_STORAGE_KEY = 'star_event_live_owner_upi_v1';
-const OWNER_UPI_SUPABASE_DOC_ID = 'star_event_live_owner_upi_config_v1';
-
-export interface OwnerUpiConfig {
-  upiId: string;
-  payeeName: string;
-  updatedAt?: string;
+export interface ServerWorldCupStatus {
+  loading: boolean;
+  unlocked: boolean;
+  authenticated: boolean;
+  cashfreeConfigured: boolean;
+  customerId: string | null;
+  grantSource: 'cashfree' | 'admin_manual' | null;
+  orderId: string | null;
+  cfPaymentId: string | null;
+  unlockedAt: string | null;
+  expiresAt: string | null;
 }
 
-const ENV_UPI_ID = (import.meta.env.VITE_OWNER_UPI_ID as string | undefined)?.trim();
-const ENV_UPI_NAME = (import.meta.env.VITE_OWNER_UPI_NAME as string | undefined)?.trim();
-
-export const DEFAULT_OWNER_UPI_CONFIG: OwnerUpiConfig = {
-  upiId: ENV_UPI_ID || `${STUDIO_CONTACT.phoneDisplay}@ybl`,
-  payeeName: ENV_UPI_NAME || STUDIO_CONTACT.brand,
-};
-
-export function sanitizeUpiId(raw: string): string {
-  return raw.trim().replace(/\s+/g, '').slice(0, 80);
+export interface CreateCashfreeOrderResponse {
+  ok: boolean;
+  alreadyUnlocked?: boolean;
+  unlocked?: boolean;
+  orderId?: string;
+  paymentSessionId?: string;
+  amount?: number;
+  currency?: string;
+  mode?: 'production';
+  configRequired?: boolean;
+  error?: string;
 }
 
-export function isValidUpiId(raw: string): boolean {
-  const clean = sanitizeUpiId(raw);
-  return /^[a-zA-Z0-9._-]{2,64}@[a-zA-Z0-9]{2,32}$/.test(clean);
+export interface VerifyCashfreeOrderResponse {
+  ok: boolean;
+  unlocked: boolean;
+  paymentStatus?: 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
+  orderId?: string;
+  cfPaymentId?: string | null;
+  amount?: number;
+  currency?: string;
+  verifiedAt?: string | null;
+  message?: string;
+  error?: string;
 }
 
-export function getLocalOwnerUpiConfig(): OwnerUpiConfig {
-  if (typeof window === 'undefined') return DEFAULT_OWNER_UPI_CONFIG;
+/**
+ * Queries authoritative backend database for the signed-in customer's
+ * WorldCup Scoreboard unlock entitlement. Never trusts localStorage or client state.
+ */
+export async function fetchServerWorldCupStatus(
+  authHeaders: Record<string, string>
+): Promise<ServerWorldCupStatus> {
   try {
-    const raw = window.localStorage.getItem(OWNER_UPI_STORAGE_KEY);
-    if (!raw) return DEFAULT_OWNER_UPI_CONFIG;
-    const parsed = JSON.parse(raw) as Partial<OwnerUpiConfig>;
-    const upiId = typeof parsed.upiId === 'string' && isValidUpiId(parsed.upiId)
-      ? sanitizeUpiId(parsed.upiId)
-      : DEFAULT_OWNER_UPI_CONFIG.upiId;
-    const payeeName =
-      typeof parsed.payeeName === 'string' && parsed.payeeName.trim()
-        ? parsed.payeeName.trim().slice(0, 60)
-        : DEFAULT_OWNER_UPI_CONFIG.payeeName;
-    return { upiId, payeeName, updatedAt: parsed.updatedAt };
+    const res = await fetch('/api/payments/worldcup/status', {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers: authHeaders,
+    });
+    if (res.status === 401) {
+      return {
+        loading: false,
+        unlocked: false,
+        authenticated: false,
+        cashfreeConfigured: false,
+        customerId: null,
+        grantSource: null,
+        orderId: null,
+        cfPaymentId: null,
+        unlockedAt: null,
+        expiresAt: null,
+      };
+    }
+    const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!res.ok || !json?.ok) {
+      return {
+        loading: false,
+        unlocked: false,
+        authenticated: true,
+        cashfreeConfigured: false,
+        customerId: null,
+        grantSource: null,
+        orderId: null,
+        cfPaymentId: null,
+        unlockedAt: null,
+        expiresAt: null,
+      };
+    }
+
+    return {
+      loading: false,
+      unlocked: json.unlocked === true,
+      authenticated: true,
+      cashfreeConfigured: json.cashfreeConfigured === true,
+      customerId: typeof json.customerId === 'string' ? json.customerId : null,
+      grantSource:
+        json.grantSource === 'cashfree' || json.grantSource === 'admin_manual'
+          ? json.grantSource
+          : null,
+      orderId: typeof json.orderId === 'string' ? json.orderId : null,
+      cfPaymentId: typeof json.cfPaymentId === 'string' ? json.cfPaymentId : null,
+      unlockedAt: typeof json.unlockedAt === 'string' ? json.unlockedAt : null,
+      expiresAt: typeof json.expiresAt === 'string' ? json.expiresAt : null,
+    };
   } catch {
-    return DEFAULT_OWNER_UPI_CONFIG;
+    return {
+      loading: false,
+      unlocked: false,
+      authenticated: false,
+      cashfreeConfigured: false,
+      customerId: null,
+      grantSource: null,
+      orderId: null,
+      cfPaymentId: null,
+      unlockedAt: null,
+      expiresAt: null,
+    };
   }
 }
 
-export function saveLocalOwnerUpiConfig(config: OwnerUpiConfig): OwnerUpiConfig {
-  const clean: OwnerUpiConfig = {
-    upiId: isValidUpiId(config.upiId)
-      ? sanitizeUpiId(config.upiId)
-      : DEFAULT_OWNER_UPI_CONFIG.upiId,
-    payeeName: config.payeeName.trim().slice(0, 60) || DEFAULT_OWNER_UPI_CONFIG.payeeName,
-    updatedAt: new Date().toISOString(),
-  };
+/**
+ * Read-only backend entitlement check used by Standalone OBS / vMix overlay pages.
+ */
+export async function fetchOverlayWorldCupEntitlement(uid: string): Promise<boolean> {
+  const clean = String(uid || '').trim();
+  if (!clean) return false;
+  try {
+    const res = await fetch(`/api/payments/worldcup/entitlement/${encodeURIComponent(clean)}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    if (!res.ok) return false;
+    const json = (await res.json().catch(() => null)) as { ok?: boolean; unlocked?: boolean } | null;
+    return Boolean(json?.ok && json?.unlocked === true);
+  } catch {
+    return false;
+  }
+}
+
+export async function createCashfreeWorldCupOrder(
+  authHeaders: Record<string, string>,
+  customerContact?: { customerEmail?: string; customerPhone?: string }
+): Promise<CreateCashfreeOrderResponse> {
+  const res = await fetch('/api/payments/worldcup/create-order', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({
+      customerEmail: customerContact?.customerEmail || '',
+      customerPhone: customerContact?.customerPhone || '',
+    }),
+  });
+  const json = (await res.json().catch(() => null)) as CreateCashfreeOrderResponse | null;
+  if (!json) {
+    return { ok: false, error: 'Invalid server response while creating Cashfree order.' };
+  }
+  return json;
+}
+
+export async function verifyCashfreeWorldCupOrder(
+  authHeaders: Record<string, string>,
+  orderId: string
+): Promise<VerifyCashfreeOrderResponse> {
+  const res = await fetch('/api/payments/worldcup/verify', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders,
+    },
+    body: JSON.stringify({ orderId }),
+  });
+  const json = (await res.json().catch(() => null)) as VerifyCashfreeOrderResponse | null;
+  if (!json) {
+    return {
+      ok: false,
+      unlocked: false,
+      error: 'Invalid server response while verifying Cashfree payment.',
+    };
+  }
+  return json;
+}
+
+// Broadcast in-tab refresh event when a server-verified unlock succeeds
+const UNLOCK_REFRESH_EVENT = 'starevent:worldcup-unlock-refresh';
+
+export function emitWorldCupUnlockRefresh(): void {
   if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(OWNER_UPI_STORAGE_KEY, JSON.stringify(clean));
-    } catch {
-      // ignore storage quota errors
-    }
-  }
-  return clean;
-}
-
-export async function fetchOwnerUpiConfig(): Promise<OwnerUpiConfig> {
-  const local = getLocalOwnerUpiConfig();
-  try {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from(SUPABASE_SCOREBOARD_TABLE)
-      .select('data')
-      .eq('match_id', OWNER_UPI_SUPABASE_DOC_ID)
-      .maybeSingle();
-
-    if (!error && data && typeof data.data === 'object' && data.data !== null) {
-      const remote = data.data as Partial<OwnerUpiConfig>;
-      if (typeof remote.upiId === 'string' && isValidUpiId(remote.upiId)) {
-        return saveLocalOwnerUpiConfig({
-          upiId: remote.upiId,
-          payeeName:
-            typeof remote.payeeName === 'string' && remote.payeeName.trim()
-              ? remote.payeeName
-              : DEFAULT_OWNER_UPI_CONFIG.payeeName,
-        });
-      }
-    }
-  } catch {
-    // Fallback cleanly to local/default config
-  }
-  return local;
-}
-
-export async function saveOwnerUpiConfigRemote(
-  config: OwnerUpiConfig
-): Promise<{ saved: OwnerUpiConfig; syncedCloud: boolean }> {
-  const saved = saveLocalOwnerUpiConfig(config);
-  try {
-    const supabase = getSupabaseClient();
-    const { error } = await supabase.from(SUPABASE_SCOREBOARD_TABLE).upsert(
-      {
-        match_id: OWNER_UPI_SUPABASE_DOC_ID,
-        data: saved,
-        updated_at: saved.updatedAt,
-      },
-      { onConflict: 'match_id' }
-    );
-    return { saved, syncedCloud: !error };
-  } catch {
-    return { saved, syncedCloud: false };
+    window.dispatchEvent(new CustomEvent(UNLOCK_REFRESH_EVENT));
   }
 }
 
-export function generateWorldCupOrderId(): string {
-  const rand = Math.floor(100000 + Math.random() * 900000);
-  return `SELWC${rand}`;
+/**
+ * Authoritative React hook that checks WorldCup unlock status strictly against
+ * the backend database via GET /api/payments/worldcup/status.
+ */
+export function useWorldCupServerUnlock(): {
+  status: ServerWorldCupStatus;
+  refresh: () => Promise<ServerWorldCupStatus>;
+} {
+  const { session, getPaymentAuthHeaders } = useOverlayAccess();
+  const [status, setStatus] = useState<ServerWorldCupStatus>({
+    loading: true,
+    unlocked: false,
+    authenticated: false,
+    cashfreeConfigured: false,
+    customerId: null,
+    grantSource: null,
+    orderId: null,
+    cfPaymentId: null,
+    unlockedAt: null,
+    expiresAt: null,
+  });
+
+  const refresh = useCallback(async () => {
+    const headers = await getPaymentAuthHeaders();
+    const next = await fetchServerWorldCupStatus(headers);
+    setStatus(next);
+    return next;
+  }, [getPaymentAuthHeaders]);
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      const headers = await getPaymentAuthHeaders();
+      const next = await fetchServerWorldCupStatus(headers);
+      if (active) setStatus(next);
+    };
+    void load();
+
+    const onRefresh = () => {
+      void load();
+    };
+    window.addEventListener(UNLOCK_REFRESH_EVENT, onRefresh);
+    return () => {
+      active = false;
+      window.removeEventListener(UNLOCK_REFRESH_EVENT, onRefresh);
+    };
+  }, [session?.accessId, getPaymentAuthHeaders]);
+
+  return { status, refresh };
 }
 
-export function buildWorldCupUpiUri(params: {
-  upiId: string;
-  payeeName: string;
-  amountInr?: number;
-  orderId: string;
-}): string {
-  const amount = (params.amountInr ?? WORLDCUP_OFFER_PRICE_INR).toFixed(2);
-  const upiId = sanitizeUpiId(params.upiId) || DEFAULT_OWNER_UPI_CONFIG.upiId;
-  const payeeName = params.payeeName.trim() || DEFAULT_OWNER_UPI_CONFIG.payeeName;
-  const note = `WorldCup Scoreboard 1 Day Unlock (${params.orderId})`;
-  return `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent(
-    payeeName
-  )}&am=${amount}&cu=INR&tr=${encodeURIComponent(params.orderId)}&tn=${encodeURIComponent(note)}`;
-}
-
-export function isWorldCupUnlocked(
-  user: Partial<UserAccountDetails> | null | undefined,
-  nowMs = Date.now()
-): boolean {
-  const raw = user?.worldcupUnlockExpiresAt;
-  if (!raw || typeof raw !== 'string') return false;
-  const parsed = Date.parse(raw);
-  return Number.isFinite(parsed) && parsed > nowMs;
-}
-
-export function createWorldCupUnlockExpiryIso(fromMs = Date.now()): string {
-  return new Date(fromMs + WORLDCUP_UNLOCK_DURATION_MS).toISOString();
-}
-
-export function formatWorldCupRemainingTime(
-  expiresAt?: string | null,
-  nowMs = Date.now()
-): string {
-  if (!expiresAt) return 'Locked';
-  const target = Date.parse(expiresAt);
-  if (!Number.isFinite(target)) return 'Locked';
-  const diffMs = target - nowMs;
-  if (diffMs <= 0) return 'Expired';
-
-  const totalMinutes = Math.floor(diffMs / 60000);
-  const days = Math.floor(totalMinutes / (60 * 24));
-  const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
-  const mins = totalMinutes % 60;
-
-  if (days > 0) {
-    return `${days}d ${hours}h left`;
-  }
-  if (hours > 0) {
-    return `${hours}h ${mins}m left`;
-  }
-  return `${Math.max(1, mins)}m left`;
-}
-
-export function formatWorldCupExpiryDate(expiresAt?: string | null): string {
-  if (!expiresAt) return '—';
-  const d = new Date(expiresAt);
+export function formatUnlockTimestamp(iso?: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
   return d.toLocaleString('en-IN', {
     day: '2-digit',
     month: 'short',
+    year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
     hour12: true,

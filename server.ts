@@ -5,6 +5,31 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import {
+  createCashfreeProductionOrder,
+  generateUniqueCashfreeOrderId,
+  getCashfreeProductionConfig,
+  getUnlockRecord,
+  isCashfreeConfigured,
+  isUnlockRecordActive,
+  listAdminAuditLogs,
+  listAllPaymentRecords,
+  listAllUnlockRecords,
+  persistPaymentRecord,
+  persistUnlockRecord,
+  processVerifiedCashfreeWebhook,
+  recordAdminAuditLog,
+  sanitizeCustomerId,
+  sanitizeOrderId,
+  verifyCashfreeWebhookSignature,
+  verifyOrderDirectlyWithCashfree,
+  WORLDCUP_FIXED_AMOUNT_INR,
+  WORLDCUP_FIXED_CURRENCY,
+  WORLDCUP_PRODUCT_CODE,
+  WORLDCUP_PRODUCT_NAME,
+  type WorldCupPaymentRecord,
+  type WorldCupUnlockRecord,
+} from './server/cashfreePayments.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -109,8 +134,15 @@ function issueSignedToken(payload: Record<string, unknown>): string {
 
 function verifySignedToken(
   token: string,
-  expectedRole: 'owner_admin' | 'overlay_controller'
-): { valid: boolean; jti?: string; loginId?: string; assignedUser?: string; uid?: string } {
+  expectedRole: 'owner_admin' | 'overlay_controller' | 'customer_session'
+): {
+  valid: boolean;
+  jti?: string;
+  loginId?: string;
+  assignedUser?: string;
+  uid?: string;
+  email?: string;
+} {
   if (!token || typeof token !== 'string') return { valid: false };
   const parts = token.split('.');
   if (parts.length !== 2) return { valid: false };
@@ -138,6 +170,7 @@ function verifySignedToken(
       loginId?: string;
       assignedUser?: string;
       uid?: string;
+      email?: string;
     };
     if (
       parsed.role !== expectedRole ||
@@ -159,6 +192,7 @@ function verifySignedToken(
       loginId: parsed.loginId,
       assignedUser: parsed.assignedUser,
       uid: parsed.uid,
+      email: parsed.email,
     };
   } catch {
     return { valid: false };
@@ -170,6 +204,172 @@ function extractBearerToken(req: express.Request): string {
   if (!auth || typeof auth !== 'string') return '';
   if (!auth.startsWith('Bearer ')) return '';
   return auth.slice(7).trim();
+}
+
+const CUSTOMER_SESSION_COOKIE = 'sel_customer_session';
+
+function parseCookieHeader(headerValue: string | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!headerValue) return out;
+  for (const part of headerValue.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx <= 0) continue;
+    const k = part.slice(0, idx).trim();
+    const v = part.slice(idx + 1).trim();
+    if (k) out[k] = decodeURIComponent(v);
+  }
+  return out;
+}
+
+function verifyCookieOriginOrCsrfHeader(req: express.Request): boolean {
+  if (req.headers['x-requested-with'] === 'XMLHttpRequest') {
+    return true;
+  }
+  const origin = req.headers.origin;
+  if (!origin || typeof origin !== 'string') return false;
+  try {
+    const parsedOrigin = new URL(origin);
+    const expectedHost = String(req.headers['x-forwarded-host'] || req.headers.host || '')
+      .split(',')[0]
+      .trim()
+      .toLowerCase();
+    return Boolean(expectedHost) && parsedOrigin.host.toLowerCase() === expectedHost;
+  } catch {
+    return false;
+  }
+}
+
+function setCustomerSessionCookie(res: express.Response, token: string): void {
+  res.setHeader(
+    'Set-Cookie',
+    `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`
+  );
+}
+
+function clearCustomerSessionCookie(res: express.Response): void {
+  res.setHeader(
+    'Set-Cookie',
+    `${CUSTOMER_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`
+  );
+}
+
+function getServerSupabasePublicAnonKey(): string {
+  return (
+    process.env.SUPABASE_ANON_KEY?.trim() ||
+    process.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+    'sb_publishable_SyrDtT05ElI0DYMlzQBbnA_tGZFbvkf'
+  );
+}
+
+interface AuthenticatedCustomer {
+  customerId: string;
+  customerName: string;
+  customerEmail: string;
+  authSource: 'customer_session' | 'supabase_jwt';
+}
+
+async function resolveAuthenticatedCustomer(
+  req: express.Request,
+  requireCsrfCheckForCookie = false
+): Promise<AuthenticatedCustomer | null> {
+  const bearer = extractBearerToken(req);
+
+  // 1. Check server-signed customer_session Bearer token
+  if (bearer) {
+    const signed = verifySignedToken(bearer, 'customer_session');
+    if (signed.valid && signed.uid) {
+      return {
+        customerId: sanitizeCustomerId(signed.uid),
+        customerName: signed.assignedUser || signed.uid,
+        customerEmail: signed.email || 'customer@starevent.live',
+        authSource: 'customer_session',
+      };
+    }
+
+    // 2. Check live Supabase Auth JWT directly against Supabase Auth API
+    try {
+      const sbUrl = getServerSupabaseUrl();
+      const anonKey = getServerSupabasePublicAnonKey();
+      const userRes = await fetch(`${sbUrl}/auth/v1/user`, {
+        method: 'GET',
+        headers: {
+          apikey: anonKey,
+          Authorization: `Bearer ${bearer}`,
+        },
+      });
+      if (userRes.ok) {
+        const userJson = (await userRes.json().catch(() => null)) as {
+          id?: string;
+          email?: string;
+          user_metadata?: Record<string, unknown>;
+        } | null;
+        if (userJson?.id) {
+          let profileUid: string | null = null;
+          let profileName: string | null = null;
+          const supabaseAdmin = getSupabaseAdminClient();
+          if (supabaseAdmin) {
+            const { data: prof } = await supabaseAdmin
+              .from('profiles')
+              .select('uid, full_name, is_active')
+              .eq('id', userJson.id)
+              .maybeSingle();
+            if (prof) {
+              if (prof.is_active === false) return null;
+              profileUid = typeof prof.uid === 'string' ? prof.uid : null;
+              profileName = typeof prof.full_name === 'string' ? prof.full_name : null;
+            }
+          }
+          const uid = deriveWorkspaceUid(
+            userJson.id,
+            profileUid ||
+              (typeof userJson.user_metadata?.uid === 'string'
+                ? userJson.user_metadata.uid
+                : null)
+          );
+          return {
+            customerId: sanitizeCustomerId(uid),
+            customerName: profileName || userJson.email || uid,
+            customerEmail: userJson.email || 'customer@starevent.live',
+            authSource: 'supabase_jwt',
+          };
+        }
+      }
+    } catch {
+      // Ignore network errors and reject below
+    }
+  }
+
+  // 3. Check HttpOnly signed customer_session cookie (survives Cashfree full-page redirect)
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const cookieToken = cookies[CUSTOMER_SESSION_COOKIE];
+  if (cookieToken) {
+    if (requireCsrfCheckForCookie && !verifyCookieOriginOrCsrfHeader(req)) {
+      return null;
+    }
+    const signed = verifySignedToken(cookieToken, 'customer_session');
+    if (signed.valid && signed.uid) {
+      return {
+        customerId: sanitizeCustomerId(signed.uid),
+        customerName: signed.assignedUser || signed.uid,
+        customerEmail: signed.email || 'customer@starevent.live',
+        authSource: 'customer_session',
+      };
+    }
+  }
+
+  return null;
+}
+
+function resolvePublicOrigin(req: express.Request): string {
+  const configured = process.env.APP_URL?.trim();
+  if (configured && /^https?:\/\//i.test(configured)) {
+    return configured.replace(/\/+$/, '');
+  }
+  const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
+  const host = String(req.headers['x-forwarded-host'] || req.headers.host || 'localhost:3000')
+    .split(',')[0]
+    .trim();
+  return `${proto}://${host}`;
 }
 
 function serializeOverlayAccount(rec: OverlayAccountRecord) {
@@ -284,6 +484,74 @@ async function invokeAdminUsersEdgeFunction(
 async function startServer() {
   const app = express();
   app.disable('x-powered-by');
+
+  // =========================================================================
+  // 0. CASHFREE PRODUCTION WEBHOOK (RAW BODY REQUIRED BEFORE express.json)
+  //    Verifies official HMAC-SHA256 signature on untouched raw request body.
+  // =========================================================================
+  app.post(
+    '/api/webhooks/cashfree',
+    express.raw({ type: '*/*', limit: '1mb' }),
+    async (req, res) => {
+      res.setHeader('Cache-Control', 'no-store');
+      const cfConfig = getCashfreeProductionConfig();
+      if (!cfConfig) {
+        res.status(503).json({
+          ok: false,
+          error: 'Cashfree Production webhook secret is not configured on the server.',
+        });
+        return;
+      }
+
+      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+        res.status(400).json({ ok: false, error: 'Empty webhook payload.' });
+        return;
+      }
+
+      const rawBody = req.body.toString('utf8');
+      const timestamp = req.header('x-webhook-timestamp');
+      const signature = req.header('x-webhook-signature');
+
+      const sigValid = verifyCashfreeWebhookSignature(
+        rawBody,
+        timestamp,
+        signature,
+        cfConfig.webhookSecret
+      );
+      if (!sigValid) {
+        res.status(401).json({ ok: false, error: 'Invalid Cashfree webhook signature.' });
+        return;
+      }
+
+      let parsedPayload: Record<string, unknown>;
+      try {
+        const rawJson = JSON.parse(rawBody) as unknown;
+        if (!rawJson || typeof rawJson !== 'object') {
+          res.status(400).json({ ok: false, error: 'Malformed webhook JSON.' });
+          return;
+        }
+        parsedPayload = rawJson as Record<string, unknown>;
+      } catch {
+        res.status(400).json({ ok: false, error: 'Malformed webhook JSON.' });
+        return;
+      }
+
+      try {
+        const result = await processVerifiedCashfreeWebhook({
+          supabaseAdmin: getSupabaseAdminClient(),
+          eventPayload: parsedPayload,
+          webhookTimestamp: timestamp || '',
+        });
+        res.status(200).json({ ok: true, ...result });
+      } catch (err) {
+        res.status(500).json({
+          ok: false,
+          error: err instanceof Error ? err.message : 'Webhook processing error.',
+        });
+      }
+    }
+  );
+
   app.use(express.json({ limit: '1mb' }));
 
   app.get('/api/health', (_req, res) => {
@@ -1034,6 +1302,458 @@ async function startServer() {
     }
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true });
+  });
+
+  // =========================================================================
+  // 4. SERVER-VERIFIED CUSTOMER AUTH FOR CASHFREE PAYMENTS
+  //    Issues signed HttpOnly session cookie + in-memory Bearer token.
+  // =========================================================================
+  app.post('/api/customer-auth/login', async (req, res) => {
+    const ip = getClientIp(req);
+    if (isRateLimited(ip)) {
+      res.status(429).json({ ok: false, error: 'Too many login attempts. Please wait.' });
+      return;
+    }
+
+    const loginId = typeof req.body?.loginId === 'string' ? req.body.loginId.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
+    res.setHeader('Cache-Control', 'no-store');
+
+    if (!loginId || !password || /[*%]/.test(loginId)) {
+      res.status(400).json({ ok: false, error: 'Valid Login ID and Password are required.' });
+      return;
+    }
+
+    try {
+      const sbClient =
+        getSupabaseAdminClient() ||
+        createClient(getServerSupabaseUrl(), getServerSupabasePublicAnonKey(), {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+
+      const escaped = loginId.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      const { data, error } = await sbClient
+        .from('overlay_access_keys')
+        .select('access_id, password, label, is_active')
+        .ilike('access_id', escaped);
+
+      if (error || !Array.isArray(data) || data.length === 0) {
+        res.status(401).json({ ok: false, error: 'Invalid Login ID or Password.' });
+        return;
+      }
+
+      const exactRow = data.find(
+        (r) =>
+          String(r.access_id || '').trim().toLowerCase() === loginId.toLowerCase() &&
+          timingSafeTextEqual(String(r.password || '').trim(), password)
+      );
+
+      if (!exactRow) {
+        res.status(401).json({ ok: false, error: 'Invalid Login ID or Password.' });
+        return;
+      }
+      if (exactRow.is_active !== true) {
+        res.status(403).json({ ok: false, error: 'This account is inactive.' });
+        return;
+      }
+
+      resetRateLimit(ip);
+      const canonicalUid = sanitizeCustomerId(exactRow.access_id);
+      const label = typeof exactRow.label === 'string' && exactRow.label.trim()
+        ? exactRow.label.trim()
+        : canonicalUid;
+
+      const token = issueSignedToken({
+        role: 'customer_session',
+        uid: canonicalUid,
+        loginId: canonicalUid,
+        assignedUser: label,
+      });
+      setCustomerSessionCookie(res, token);
+      res.json({ ok: true, token, customerId: canonicalUid, label });
+    } catch {
+      res.status(500).json({ ok: false, error: 'Could not verify customer session.' });
+    }
+  });
+
+  app.post('/api/customer-auth/logout', (req, res) => {
+    const bearer = extractBearerToken(req);
+    const cookies = parseCookieHeader(req.headers.cookie);
+    for (const candidate of [bearer, cookies[CUSTOMER_SESSION_COOKIE]]) {
+      if (!candidate) continue;
+      const verified = verifySignedToken(candidate, 'customer_session');
+      if (verified.valid && verified.jti) {
+        revokedTokenIds.add(verified.jti);
+      }
+    }
+    clearCustomerSessionCookie(res);
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true });
+  });
+
+  // =========================================================================
+  // 5. CASHFREE PRODUCTION PAYMENT & SERVER-SIDE UNLOCK ENDPOINTS
+  //    - Fixed amount ₹149 INR enforced strictly on the server.
+  //    - Zero UTR/manual client unlocking. Zero sandbox/demo bypasses.
+  // =========================================================================
+  app.get('/api/payments/worldcup/status', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customer = await resolveAuthenticatedCustomer(req, false);
+    if (!customer) {
+      res.status(401).json({
+        ok: false,
+        unlocked: false,
+        error: 'Customer authentication required.',
+      });
+      return;
+    }
+
+    const unlockRec = await getUnlockRecord(getSupabaseAdminClient(), customer.customerId);
+    const unlocked = isUnlockRecordActive(unlockRec);
+
+    res.json({
+      ok: true,
+      unlocked,
+      customerId: customer.customerId,
+      productName: WORLDCUP_PRODUCT_NAME,
+      amount: WORLDCUP_FIXED_AMOUNT_INR,
+      currency: WORLDCUP_FIXED_CURRENCY,
+      cashfreeConfigured: isCashfreeConfigured(),
+      grantSource: unlocked ? unlockRec?.grant_source ?? null : null,
+      orderId: unlocked ? unlockRec?.order_id ?? null : null,
+      cfPaymentId: unlocked ? unlockRec?.cf_payment_id ?? null : null,
+      unlockedAt: unlocked ? unlockRec?.unlocked_at ?? null : null,
+      expiresAt: unlocked ? unlockRec?.expires_at ?? null : null,
+    });
+  });
+
+  // Read-only server entitlement check for OBS / vMix Standalone Overlay rendering
+  app.get('/api/payments/worldcup/entitlement/:uid', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const uid = sanitizeCustomerId(req.params.uid);
+    if (!uid) {
+      res.status(400).json({ ok: false, unlocked: false });
+      return;
+    }
+    const unlockRec = await getUnlockRecord(getSupabaseAdminClient(), uid);
+    res.json({
+      ok: true,
+      uid,
+      unlocked: isUnlockRecordActive(unlockRec),
+    });
+  });
+
+  app.post('/api/payments/worldcup/create-order', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customer = await resolveAuthenticatedCustomer(req, true);
+    if (!customer) {
+      res.status(401).json({
+        ok: false,
+        error: 'Please sign in again to initiate Cashfree payment.',
+      });
+      return;
+    }
+
+    const cfConfig = getCashfreeProductionConfig();
+    if (!cfConfig) {
+      res.status(503).json({
+        ok: false,
+        configRequired: true,
+        error:
+          'Cashfree Production keys (CASHFREE_APP_ID and CASHFREE_SECRET_KEY) are not configured on the server yet.',
+      });
+      return;
+    }
+
+    // Check if customer already has an active verified unlock
+    const existingUnlock = await getUnlockRecord(getSupabaseAdminClient(), customer.customerId);
+    if (isUnlockRecordActive(existingUnlock)) {
+      res.json({
+        ok: true,
+        alreadyUnlocked: true,
+        unlocked: true,
+        orderId: existingUnlock?.order_id ?? null,
+      });
+      return;
+    }
+
+    const orderId = generateUniqueCashfreeOrderId();
+    const origin = resolvePublicOrigin(req);
+    const returnUrl = `${origin}/?cf_order_id=${encodeURIComponent(orderId)}`;
+    const notifyUrl = `${origin}/api/webhooks/cashfree`;
+
+    const customerPhone =
+      typeof req.body?.customerPhone === 'string' ? req.body.customerPhone : '';
+    const customerEmail =
+      typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
+        ? req.body.customerEmail.trim()
+        : customer.customerEmail;
+
+    try {
+      const cfResult = await createCashfreeProductionOrder({
+        config: cfConfig,
+        orderId,
+        customerId: customer.customerId,
+        customerName: customer.customerName,
+        customerEmail,
+        customerPhone,
+        returnUrl,
+        notifyUrl,
+      });
+
+      if (!cfResult.ok || !cfResult.paymentSessionId) {
+        res.status(502).json({
+          ok: false,
+          error: cfResult.error || 'Cashfree Production API could not create order.',
+        });
+        return;
+      }
+
+      const nowIso = new Date().toISOString();
+      const paymentRecord: WorldCupPaymentRecord = {
+        order_id: orderId,
+        customer_id: customer.customerId,
+        customer_email: customerEmail,
+        customer_name: customer.customerName,
+        product_code: WORLDCUP_PRODUCT_CODE,
+        product_name: WORLDCUP_PRODUCT_NAME,
+        expected_amount: WORLDCUP_FIXED_AMOUNT_INR,
+        currency: WORLDCUP_FIXED_CURRENCY,
+        cf_order_id: cfResult.cfOrderId || null,
+        cf_payment_id: null,
+        payment_status: 'PENDING',
+        cashfree_raw_status: cfResult.orderStatus || 'ACTIVE',
+        unlock_status: 'LOCKED',
+        verified_at: null,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      await persistPaymentRecord(getSupabaseAdminClient(), paymentRecord);
+
+      res.status(201).json({
+        ok: true,
+        orderId,
+        paymentSessionId: cfResult.paymentSessionId,
+        amount: WORLDCUP_FIXED_AMOUNT_INR,
+        currency: WORLDCUP_FIXED_CURRENCY,
+        mode: 'production',
+      });
+    } catch (err) {
+      res.status(502).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to connect to Cashfree Production API.',
+      });
+    }
+  });
+
+  app.post('/api/payments/worldcup/verify', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customer = await resolveAuthenticatedCustomer(req, true);
+    if (!customer) {
+      res.status(401).json({
+        ok: false,
+        unlocked: false,
+        error: 'Customer authentication required.',
+      });
+      return;
+    }
+
+    // Explicitly reject any legacy UTR or client-supplied transaction ID attempts
+    if (req.body && (req.body.utr || req.body.utrNumber || req.body.manualTransactionId)) {
+      res.status(400).json({
+        ok: false,
+        unlocked: false,
+        error: 'Manual UTR / transaction ID verification is disabled. Complete payment via Cashfree Checkout.',
+      });
+      return;
+    }
+
+    const orderId = sanitizeOrderId(req.body?.orderId);
+    if (!orderId) {
+      res.status(400).json({
+        ok: false,
+        unlocked: false,
+        error: 'A valid Cashfree orderId is required for verification.',
+      });
+      return;
+    }
+
+    const cfConfig = getCashfreeProductionConfig();
+    if (!cfConfig) {
+      res.status(503).json({
+        ok: false,
+        unlocked: false,
+        error: 'Cashfree Production credentials are not configured on the server.',
+      });
+      return;
+    }
+
+    try {
+      const outcome = await verifyOrderDirectlyWithCashfree({
+        supabaseAdmin: getSupabaseAdminClient(),
+        config: cfConfig,
+        orderId,
+        expectedCustomerId: customer.customerId,
+      });
+
+      if ('notFound' in outcome) {
+        res.status(404).json({
+          ok: false,
+          unlocked: false,
+          error: outcome.reason,
+        });
+        return;
+      }
+
+      res.json({
+        ok: outcome.verified,
+        unlocked: outcome.unlocked,
+        paymentStatus: outcome.paymentStatus,
+        orderId: outcome.record.order_id,
+        cfPaymentId: outcome.cfPaymentId,
+        amount: outcome.record.expected_amount,
+        currency: outcome.record.currency,
+        verifiedAt: outcome.record.verified_at,
+        message: outcome.reason,
+      });
+    } catch (err) {
+      res.status(502).json({
+        ok: false,
+        unlocked: false,
+        error: err instanceof Error ? err.message : 'Cashfree server verification failed.',
+      });
+    }
+  });
+
+  // =========================================================================
+  // 6. ADMIN-ONLY PAYMENT LEDGER & AUDITED MANUAL ACCESS GRANT
+  //    Strictly protected by requireOwnerAdmin Bearer token.
+  // =========================================================================
+  app.get('/api/admin/payments/worldcup', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const statusFilter = String(req.query.status || 'ALL').toUpperCase();
+    const supabaseAdmin = getSupabaseAdminClient();
+    const [allPayments, allUnlocks, auditLogs] = await Promise.all([
+      listAllPaymentRecords(supabaseAdmin),
+      listAllUnlockRecords(supabaseAdmin),
+      listAdminAuditLogs(supabaseAdmin),
+    ]);
+
+    const payments =
+      statusFilter === 'ALL'
+        ? allPayments
+        : allPayments.filter((p) => p.payment_status === statusFilter);
+
+    res.json({
+      ok: true,
+      cashfreeConfigured: isCashfreeConfigured(),
+      fixedAmountInr: WORLDCUP_FIXED_AMOUNT_INR,
+      payments,
+      unlocks: allUnlocks,
+      auditLogs,
+    });
+  });
+
+  app.post('/api/admin/payments/worldcup/manual-grant', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customerId = sanitizeCustomerId(req.body?.customerId);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 240) : '';
+    const durationDaysRaw = req.body?.durationDays;
+    const durationDays =
+      typeof durationDaysRaw === 'number' && Number.isFinite(durationDaysRaw) && durationDaysRaw > 0
+        ? Math.min(365, Math.floor(durationDaysRaw))
+        : null;
+
+    if (customerId.length < 3) {
+      res.status(400).json({ ok: false, error: 'Valid Customer ID / Access ID is required.' });
+      return;
+    }
+    if (reason.length < 5) {
+      res.status(400).json({
+        ok: false,
+        error: 'An audit reason (at least 5 characters) is mandatory for manual access grants.',
+      });
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const expiresAt = durationDays
+      ? new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+
+    const supabaseAdmin = getSupabaseAdminClient();
+    const unlockRec: WorldCupUnlockRecord = {
+      customer_id: customerId,
+      product_code: WORLDCUP_PRODUCT_CODE,
+      unlock_status: 'UNLOCKED',
+      grant_source: 'admin_manual',
+      order_id: null,
+      cf_payment_id: null,
+      unlocked_at: nowIso,
+      expires_at: expiresAt,
+      granted_by: 'owner_admin',
+      grant_reason: reason,
+      updated_at: nowIso,
+    };
+
+    await persistUnlockRecord(supabaseAdmin, unlockRec);
+    const auditEntry = await recordAdminAuditLog(supabaseAdmin, {
+      actor: 'owner_admin',
+      action: 'MANUAL_GRANT',
+      customer_id: customerId,
+      reason,
+      ip_address: getClientIp(req),
+      metadata: {
+        product_code: WORLDCUP_PRODUCT_CODE,
+        expires_at: expiresAt,
+      },
+    });
+
+    res.status(201).json({ ok: true, unlock: unlockRec, auditLog: auditEntry });
+  });
+
+  app.post('/api/admin/payments/worldcup/revoke', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const customerId = sanitizeCustomerId(req.body?.customerId);
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 240) : '';
+
+    if (customerId.length < 3) {
+      res.status(400).json({ ok: false, error: 'Valid Customer ID is required.' });
+      return;
+    }
+    if (reason.length < 5) {
+      res.status(400).json({ ok: false, error: 'An audit reason (at least 5 characters) is required.' });
+      return;
+    }
+
+    const nowIso = new Date().toISOString();
+    const supabaseAdmin = getSupabaseAdminClient();
+    const existing = await getUnlockRecord(supabaseAdmin, customerId);
+    const revokedRec: WorldCupUnlockRecord = {
+      customer_id: customerId,
+      product_code: WORLDCUP_PRODUCT_CODE,
+      unlock_status: 'LOCKED',
+      grant_source: existing?.grant_source || 'admin_manual',
+      order_id: existing?.order_id || null,
+      cf_payment_id: existing?.cf_payment_id || null,
+      unlocked_at: existing?.unlocked_at || nowIso,
+      expires_at: nowIso,
+      granted_by: 'owner_admin',
+      grant_reason: reason,
+      updated_at: nowIso,
+    };
+
+    await persistUnlockRecord(supabaseAdmin, revokedRec);
+    const auditEntry = await recordAdminAuditLog(supabaseAdmin, {
+      actor: 'owner_admin',
+      action: 'MANUAL_REVOKE',
+      customer_id: customerId,
+      reason,
+      ip_address: getClientIp(req),
+      metadata: { product_code: WORLDCUP_PRODUCT_CODE },
+    });
+
+    res.json({ ok: true, unlock: revokedRec, auditLog: auditEntry });
   });
 
   if (!isProd) {

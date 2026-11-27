@@ -1,40 +1,42 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
-import QRCode from 'qrcode';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Check,
+  AlertTriangle,
   CheckCircle2,
-  Clock,
-  Copy,
-  ExternalLink,
+  CreditCard,
   Loader2,
-  LockOpen,
-  MessageCircle,
-  QrCode,
+  Lock,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   X,
 } from 'lucide-react';
-import { STUDIO_CONTACT } from '../../data/content';
+import { useOverlayAccess } from '../../context/OverlayAccessContext';
 import {
-  buildWorldCupUpiUri,
-  createWorldCupUnlockExpiryIso,
-  fetchOwnerUpiConfig,
-  formatWorldCupExpiryDate,
-  generateWorldCupOrderId,
-  getLocalOwnerUpiConfig,
-  OwnerUpiConfig,
-  WORLDCUP_OFFER_PRICE_INR,
-  WORLDCUP_ORIGINAL_PRICE_INR,
-  WORLDCUP_UNLOCK_DURATION_DAYS,
+  createCashfreeWorldCupOrder,
+  emitWorldCupUnlockRefresh,
+  fetchServerWorldCupStatus,
+  verifyCashfreeWorldCupOrder,
+  WORLDCUP_FIXED_CURRENCY,
+  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
+
+declare global {
+  interface Window {
+    Cashfree?: (opts: { mode: 'production' }) => {
+      checkout: (opts: {
+        paymentSessionId: string;
+        redirectTarget?: '_modal' | '_self' | '_blank';
+      }) => Promise<{ error?: { message?: string }; paymentDetails?: unknown } | void>;
+    };
+  }
+}
 
 export interface WorldCupUnlockModalProps {
   open: boolean;
   onClose: () => void;
   onUnlockSuccess: (payload: {
-    expiresAt: string;
-    utr: string;
     orderId: string;
+    cfPaymentId: string | null;
   }) => void;
 }
 
@@ -43,138 +45,140 @@ export function WorldCupUnlockModal({
   onClose,
   onUnlockSuccess,
 }: WorldCupUnlockModalProps) {
-  const [upiConfig, setUpiConfig] = useState<OwnerUpiConfig>(() => getLocalOwnerUpiConfig());
-  const [orderId, setOrderId] = useState<string>(() => generateWorldCupOrderId());
-  const [qrDataUrl, setQrDataUrl] = useState<string>('');
-  const [qrLoading, setQrLoading] = useState<boolean>(true);
-  const [copiedUpi, setCopiedUpi] = useState<boolean>(false);
-
-  const [utrInput, setUtrInput] = useState<string>('');
+  const { session, getPaymentAuthHeaders } = useOverlayAccess();
+  const [creatingOrder, setCreatingOrder] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [verifying, setVerifying] = useState<boolean>(false);
-  const [unlockedExpiry, setUnlockedExpiry] = useState<string | null>(null);
+  const [verifiedSuccess, setVerifiedSuccess] = useState<{
+    orderId: string;
+    cfPaymentId: string | null;
+  } | null>(null);
+  const [customerPhone, setCustomerPhone] = useState('');
 
-  // Fresh order + latest owner UPI config every time modal opens
   useEffect(() => {
     if (!open) return;
-    let active = true;
-    setOrderId(generateWorldCupOrderId());
-    setUtrInput('');
     setErrorMsg(null);
-    setVerifying(false);
-    setUnlockedExpiry(null);
-    setCopiedUpi(false);
-
-    void fetchOwnerUpiConfig().then((cfg) => {
-      if (active) setUpiConfig(cfg);
-    });
-
-    return () => {
-      active = false;
-    };
+    setStatusMessage(null);
+    setVerifiedSuccess(null);
   }, [open]);
 
-  const upiUri = useMemo(
-    () =>
-      buildWorldCupUpiUri({
-        upiId: upiConfig.upiId,
-        payeeName: upiConfig.payeeName,
-        amountInr: WORLDCUP_OFFER_PRICE_INR,
-        orderId,
-      }),
-    [upiConfig.upiId, upiConfig.payeeName, orderId]
+  const verifyWithBackend = useCallback(
+    async (orderIdToVerify: string) => {
+      setVerifying(true);
+      setErrorMsg(null);
+      setStatusMessage('Verifying payment directly with Cashfree Production server...');
+      try {
+        const authHeaders = await getPaymentAuthHeaders();
+        const verifyRes = await verifyCashfreeWorldCupOrder(authHeaders, orderIdToVerify);
+
+        if (verifyRes.ok && verifyRes.unlocked && verifyRes.paymentStatus === 'PAID') {
+          // Double-confirm entitlement directly from backend database
+          const serverStatus = await fetchServerWorldCupStatus(authHeaders);
+          if (serverStatus.unlocked) {
+            emitWorldCupUnlockRefresh();
+            const payload = {
+              orderId: verifyRes.orderId || orderIdToVerify,
+              cfPaymentId: verifyRes.cfPaymentId ?? null,
+            };
+            setVerifiedSuccess(payload);
+            setStatusMessage(null);
+            onUnlockSuccess(payload);
+            return;
+          }
+        }
+
+        const reason =
+          verifyRes.error ||
+          verifyRes.message ||
+          'Payment is not confirmed as SUCCESS on Cashfree yet. Access remains locked.';
+        setErrorMsg(reason);
+        setStatusMessage(null);
+      } catch {
+        setErrorMsg('Could not reach payment verification server. Please retry.');
+        setStatusMessage(null);
+      } finally {
+        setVerifying(false);
+      }
+    },
+    [getPaymentAuthHeaders, onUnlockSuccess]
   );
 
-  // Generate dynamic UPI QR Code immediately when modal opens or UPI config updates
+  // If redirected back from Cashfree Checkout with ?cf_order_id=..., verify immediately on backend
   useEffect(() => {
-    if (!open) return;
-    let cancelled = false;
-    setQrLoading(true);
-
-    QRCode.toDataURL(upiUri, {
-      width: 260,
-      margin: 2,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#0F172A',
-        light: '#FFFFFF',
-      },
-    })
-      .then((url) => {
-        if (!cancelled) {
-          setQrDataUrl(url);
-          setQrLoading(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setQrDataUrl('');
-          setQrLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, upiUri]);
+    if (!open || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const returnedOrderId = params.get('cf_order_id');
+    if (returnedOrderId && returnedOrderId.trim()) {
+      setActiveOrderId(returnedOrderId.trim());
+      void verifyWithBackend(returnedOrderId.trim());
+    }
+  }, [open, verifyWithBackend]);
 
   if (!open) return null;
 
-  const handleCopyUpi = () => {
-    const text = upiConfig.upiId;
-    if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(text).then(() => {
-        setCopiedUpi(true);
-        window.setTimeout(() => setCopiedUpi(false), 1800);
-      });
-      return;
-    }
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
-      setCopiedUpi(true);
-      window.setTimeout(() => setCopiedUpi(false), 1800);
-    } catch {
-      // ignore
-    }
-  };
-
-  const handleConfirmPayment = (e: FormEvent) => {
-    e.preventDefault();
+  const handleStartCashfreeCheckout = async () => {
     setErrorMsg(null);
-    const cleanUtr = utrInput.replace(/\D/g, '');
-    if (cleanUtr.length < 12) {
-      setErrorMsg(
-        `Please enter the 12-digit UPI UTR / Transaction Reference Number after paying ₹${WORLDCUP_OFFER_PRICE_INR}.`
-      );
-      return;
-    }
+    setStatusMessage(null);
+    setCreatingOrder(true);
 
-    setVerifying(true);
-    window.setTimeout(() => {
-      const expiresAt = createWorldCupUnlockExpiryIso();
-      setVerifying(false);
-      setUnlockedExpiry(expiresAt);
-      onUnlockSuccess({
-        expiresAt,
-        utr: cleanUtr.slice(0, 16),
-        orderId,
+    try {
+      const authHeaders = await getPaymentAuthHeaders();
+      const orderRes = await createCashfreeWorldCupOrder(authHeaders, {
+        customerEmail: session?.email || '',
+        customerPhone: customerPhone.trim(),
       });
-    }, 650);
-  };
 
-  const savingsInr = WORLDCUP_ORIGINAL_PRICE_INR - WORLDCUP_OFFER_PRICE_INR;
-  const whatsappProofUrl = `https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
-    `Hello ${STUDIO_CONTACT.brand}, I paid ₹${WORLDCUP_OFFER_PRICE_INR} for WorldCup Scoreboard (1 Day Unlock). Order ID: ${orderId}${
-      utrInput.trim() ? `, UTR: ${utrInput.trim()}` : ''
-    }.`
-  )}`;
+      if (orderRes.ok && orderRes.alreadyUnlocked && orderRes.unlocked) {
+        emitWorldCupUnlockRefresh();
+        const payload = {
+          orderId: orderRes.orderId || 'VERIFIED',
+          cfPaymentId: null,
+        };
+        setVerifiedSuccess(payload);
+        onUnlockSuccess(payload);
+        return;
+      }
+
+      if (!orderRes.ok || !orderRes.orderId || !orderRes.paymentSessionId) {
+        setErrorMsg(
+          orderRes.error ||
+            'Could not create Cashfree Production order. Please ensure Cashfree Production keys are configured on the server.'
+        );
+        return;
+      }
+
+      setActiveOrderId(orderRes.orderId);
+
+      if (typeof window === 'undefined' || typeof window.Cashfree !== 'function') {
+        setErrorMsg(
+          'Cashfree Production Checkout SDK failed to load. Please refresh the page and try again.'
+        );
+        return;
+      }
+
+      const cashfree = window.Cashfree({ mode: 'production' });
+      setStatusMessage('Opening secure Cashfree Production Checkout...');
+
+      const checkoutResult = await cashfree.checkout({
+        paymentSessionId: orderRes.paymentSessionId,
+        redirectTarget: '_modal',
+      });
+
+      if (checkoutResult && checkoutResult.error?.message) {
+        setErrorMsg(checkoutResult.error.message);
+        setStatusMessage(null);
+      }
+
+      // Always verify strictly on backend with Cashfree Production API after checkout closes
+      await verifyWithBackend(orderRes.orderId);
+    } catch {
+      setErrorMsg('Network error starting Cashfree Checkout. Please try again.');
+    } finally {
+      setCreatingOrder(false);
+    }
+  };
 
   return (
     <div
@@ -184,21 +188,21 @@ export function WorldCupUnlockModal({
       aria-labelledby="worldcup-unlock-modal-title"
     >
       <div className="w-full max-w-md rounded-2xl bg-white border-2 border-[#FF8C00] shadow-2xl overflow-hidden my-auto">
-        {/* Top Broadcast Orange Header */}
+        {/* Header */}
         <div className="wo-header px-5 py-4 text-white flex items-start justify-between gap-3">
           <div className="space-y-1">
             <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-orange-100">
               <Sparkles className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
-              <span>Premium Broadcast Theme</span>
+              <span>Cashfree Verified Checkout</span>
             </div>
             <h3
               id="worldcup-unlock-modal-title"
               className="font-display font-black text-lg leading-tight text-white"
             >
-              Unlock WorldCup Scoreboard
+              Unlock WorldCup Scoreboard – ₹{WORLDCUP_FIXED_PRICE_INR}
             </h3>
             <p className="text-xs text-orange-50 font-medium">
-              Instant QR Pay · Valid for {WORLDCUP_UNLOCK_DURATION_DAYS} Day (24 Hours)
+              Server-verified Cashfree Production payment · Instant unlock on SUCCESS
             </p>
           </div>
           <button
@@ -212,28 +216,30 @@ export function WorldCupUnlockModal({
         </div>
 
         {/* Body */}
-        {unlockedExpiry ? (
+        {verifiedSuccess ? (
           <div className="p-6 text-center space-y-4">
             <div className="w-16 h-16 rounded-full bg-emerald-100 border-2 border-emerald-500 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-9 h-9" aria-hidden="true" />
             </div>
             <div className="space-y-1">
               <h4 className="font-display font-black text-xl text-slate-900">
-                WorldCup Unlocked!
+                Payment Verified · Unlocked!
               </h4>
               <p className="text-xs text-slate-600">
-                Payment confirmed (₹{WORLDCUP_OFFER_PRICE_INR}). Your WorldCup Broadcast
-                Scoreboard is now active live on OBS &amp; vMix.
+                Cashfree confirmed your ₹{WORLDCUP_FIXED_PRICE_INR} {WORLDCUP_FIXED_CURRENCY}{' '}
+                payment on the server. WorldCup Scoreboard is now active live on OBS &amp; vMix.
               </p>
             </div>
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900 space-y-1">
-              <div className="flex items-center justify-center gap-1.5 font-extrabold">
-                <Clock className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                <span>1 Day Pass Active</span>
-              </div>
-              <p className="font-semibold text-emerald-700">
-                Valid until: {formatWorldCupExpiryDate(unlockedExpiry)}
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900 space-y-1 text-left">
+              <p className="font-bold">
+                Order ID: <span className="font-mono">{verifiedSuccess.orderId}</span>
               </p>
+              {verifiedSuccess.cfPaymentId && (
+                <p className="font-bold">
+                  Cashfree Payment ID:{' '}
+                  <span className="font-mono">{verifiedSuccess.cfPaymentId}</span>
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -244,165 +250,111 @@ export function WorldCupUnlockModal({
             </button>
           </div>
         ) : (
-          <div className="p-4 sm:p-5 space-y-4">
-            {/* Price Strip: ₹149 strikethrough -> ₹49 */}
-            <div className="rounded-xl bg-[#FFF8EE] border border-[#FF8C00]/35 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="p-5 space-y-4">
+            {/* Fixed Server Price Card */}
+            <div className="rounded-xl bg-[#FFF8EE] border border-[#FF8C00]/35 px-4 py-3.5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#C25E00]">
-                  Limited Offer · 1 Day Access
+                  WorldCup Broadcast Theme
                 </p>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="text-base font-bold text-slate-400 line-through">
-                    ₹{WORLDCUP_ORIGINAL_PRICE_INR}
-                  </span>
                   <span className="font-display font-black text-2xl text-slate-900">
-                    ₹{WORLDCUP_OFFER_PRICE_INR}
+                    ₹{WORLDCUP_FIXED_PRICE_INR}
                   </span>
-                  <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700">
-                    SAVE ₹{savingsInr}
+                  <span className="text-xs font-bold text-slate-500">
+                    {WORLDCUP_FIXED_CURRENCY} · Server Fixed Price
                   </span>
                 </div>
               </div>
-              <div className="text-right">
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#FF8C00] text-white text-[11px] font-black uppercase">
-                  <Clock className="w-3 h-3" aria-hidden="true" />1 Day
-                </span>
-              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 text-white text-[11px] font-extrabold uppercase">
+                <Lock className="w-3 h-3 text-[#FFE600]" aria-hidden="true" />
+                Locked
+              </span>
             </div>
 
-            {/* Generated Dynamic UPI QR Code Card */}
-            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 flex flex-col items-center text-center space-y-3">
-              <div className="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-slate-800">
-                <QrCode className="w-4 h-4 text-[#FF8C00]" aria-hidden="true" />
-                <span>Scan &amp; Pay ₹{WORLDCUP_OFFER_PRICE_INR} via UPI</span>
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-white border-2 border-[#FF8C00]/40 shadow-sm">
-                {qrLoading ? (
-                  <div className="w-[200px] h-[200px] flex flex-col items-center justify-center gap-2 text-slate-400">
-                    <Loader2 className="w-7 h-7 animate-spin text-[#FF8C00]" aria-hidden="true" />
-                    <span className="text-[11px] font-semibold">Generating QR Code...</span>
-                  </div>
-                ) : qrDataUrl ? (
-                  <img
-                    src={qrDataUrl}
-                    alt={`Pay ₹${WORLDCUP_OFFER_PRICE_INR} UPI QR Code for ${upiConfig.payeeName}`}
-                    className="w-[200px] h-[200px] block rounded-md"
-                  />
-                ) : (
-                  <div className="w-[200px] h-[200px] flex items-center justify-center text-xs text-red-600 font-semibold p-3">
-                    Unable to render QR. Use UPI ID below.
-                  </div>
-                )}
-              </div>
-
-              <div className="w-full space-y-1.5">
-                <p className="text-[11px] font-bold text-slate-700">
-                  Payee: <span className="text-slate-950">{upiConfig.payeeName}</span>
-                </p>
-                <div className="flex items-center justify-center gap-1.5">
-                  <code className="px-2.5 py-1 rounded-md bg-white border border-slate-200 text-xs font-mono font-bold text-slate-800">
-                    {upiConfig.upiId}
-                  </code>
-                  <button
-                    type="button"
-                    onClick={handleCopyUpi}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-orange-50 border border-slate-300 text-[11px] font-bold text-slate-700"
-                  >
-                    {copiedUpi ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" aria-hidden="true" />
-                        <span className="text-emerald-700">Copied</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3" aria-hidden="true" />
-                        <span>Copy</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <p className="text-[10px] font-semibold text-slate-500">
-                  GPay · PhonePe · Paytm · BHIM · Any UPI App · Order: {orderId}
-                </p>
-              </div>
-
-              <a
-                href={upiUri}
-                className="w-full py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold inline-flex items-center justify-center gap-1.5 transition-colors"
+            {/* Optional Phone for Cashfree UPI/Cards prefill */}
+            <div>
+              <label
+                htmlFor="cashfree-customer-phone"
+                className="block text-[11px] font-extrabold uppercase tracking-wide text-slate-700 mb-1"
               >
-                <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-                <span>Open UPI App Directly (Pay ₹{WORLDCUP_OFFER_PRICE_INR})</span>
-              </a>
+                Mobile Number (For Cashfree Payment Receipt)
+              </label>
+              <input
+                id="cashfree-customer-phone"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit mobile number"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono font-bold text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00] focus:border-[#FF8C00]"
+              />
             </div>
 
-            {/* Payment Done Confirmation Form */}
-            <form onSubmit={handleConfirmPayment} className="space-y-3">
-              <div>
-                <label
-                  htmlFor="worldcup-utr-input"
-                  className="block text-[11px] font-extrabold uppercase tracking-wide text-slate-700 mb-1"
-                >
-                  Enter 12-Digit UPI UTR / Ref No. (After Payment)
-                </label>
-                <input
-                  id="worldcup-utr-input"
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={16}
-                  value={utrInput}
-                  onChange={(e) => {
-                    setUtrInput(e.target.value.replace(/[^0-9]/g, ''));
-                    if (errorMsg) setErrorMsg(null);
-                  }}
-                  placeholder="e.g. 432198765432"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-sm font-mono font-bold text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:ring-2 focus:ring-[#FF8C00] focus:border-[#FF8C00]"
-                />
+            {statusMessage && (
+              <div className="px-3.5 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin shrink-0" aria-hidden="true" />
+                <span>{statusMessage}</span>
               </div>
+            )}
 
-              {errorMsg && (
-                <div
-                  role="alert"
-                  className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs font-semibold"
-                >
-                  {errorMsg}
-                </div>
+            {errorMsg && (
+              <div
+                role="alert"
+                className="px-3.5 py-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-start gap-2"
+              >
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+
+            <button
+              type="button"
+              disabled={creatingOrder || verifying}
+              onClick={() => void handleStartCashfreeCheckout()}
+              className="w-full py-3.5 rounded-xl wo-btn-primary disabled:opacity-60 text-white font-display font-black text-sm uppercase tracking-wider inline-flex items-center justify-center gap-2 shadow-md"
+            >
+              {creatingOrder ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
+                  <span>Creating Cashfree Order...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="w-4 h-4" aria-hidden="true" />
+                  <span>Unlock WorldCup Scoreboard – ₹{WORLDCUP_FIXED_PRICE_INR}</span>
+                </>
               )}
+            </button>
 
+            {activeOrderId && (
               <button
-                type="submit"
+                type="button"
                 disabled={verifying}
-                className="w-full py-3 rounded-xl wo-btn-primary disabled:opacity-60 text-white font-display font-black text-sm uppercase tracking-wider inline-flex items-center justify-center gap-2 shadow-md"
+                onClick={() => void verifyWithBackend(activeOrderId)}
+                className="w-full py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-800 text-xs font-extrabold uppercase tracking-wider inline-flex items-center justify-center gap-1.5"
               >
-                {verifying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                    <span>Verifying Payment...</span>
-                  </>
-                ) : (
-                  <>
-                    <LockOpen className="w-4 h-4" aria-hidden="true" />
-                    <span>Payment Done — Unlock for 1 Day</span>
-                  </>
-                )}
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${verifying ? 'animate-spin' : ''}`}
+                  aria-hidden="true"
+                />
+                <span>Re-Verify Order {activeOrderId} with Cashfree</span>
               </button>
+            )}
 
-              <div className="flex items-center justify-between gap-2 pt-1 text-[11px] text-slate-500">
-                <span className="inline-flex items-center gap-1 font-semibold">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
-                  Instant 24h Activation
-                </span>
-                <a
-                  href={whatsappProofUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:underline"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" aria-hidden="true" />
-                  Send Receipt on WhatsApp
-                </a>
-              </div>
-            </form>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 text-[11px] text-slate-600 space-y-1">
+              <p className="font-bold text-slate-800 inline-flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                <span>100% Server-Verified Cashfree Production Security</span>
+              </p>
+              <p>
+                Supports UPI, GPay, PhonePe, Paytm, Cards &amp; NetBanking. Access unlocks
+                automatically only after Cashfree confirms{' '}
+                <strong className="text-slate-900">SUCCESS</strong> for ₹{WORLDCUP_FIXED_PRICE_INR}{' '}
+                INR.
+              </p>
+            </div>
           </div>
         )}
       </div>

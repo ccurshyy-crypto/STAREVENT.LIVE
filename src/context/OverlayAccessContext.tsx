@@ -110,6 +110,7 @@ interface OverlayAccessContextValue {
   isReady: boolean;
   unlockWithCredentials: (loginId: string, password: string) => Promise<UnlockResult>;
   lockAndLogout: () => void;
+  getPaymentAuthHeaders: () => Promise<Record<string, string>>;
 }
 
 const OverlayAccessContext = createContext<OverlayAccessContextValue | null>(null);
@@ -118,11 +119,18 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<UnlockedOverlaySession | null>(() =>
     loadStoredSession()
   );
+  const [customerBearerToken, setCustomerBearerToken] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
 
   const lockAndLogout = useCallback(() => {
     setSession(null);
+    setCustomerBearerToken('');
     persistSession(null);
+    void fetch('/api/customer-auth/logout', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    }).catch(() => {});
     try {
       const supabase = getSupabaseClient();
       void supabase.auth.signOut();
@@ -130,6 +138,27 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
       // Ignore signOut errors
     }
   }, []);
+
+  const getPaymentAuthHeaders = useCallback(async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = {
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (customerBearerToken) {
+      headers['Authorization'] = `Bearer ${customerBearerToken}`;
+      return headers;
+    }
+    try {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+    } catch {
+      // Fall back to HttpOnly session cookie sent via credentials: 'include'
+    }
+    return headers;
+  }, [customerBearerToken]);
 
   // Keep session synchronized across open browser tabs (login & logout)
   useEffect(() => {
@@ -310,6 +339,28 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
               }
 
               const canonicalAccessId = String(matched.access_id).trim();
+              // Establish server-verified customer session (HttpOnly cookie + in-memory Bearer token)
+              try {
+                const srvRes = await fetch('/api/customer-auth/login', {
+                  method: 'POST',
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                  },
+                  body: JSON.stringify({ loginId: trimmedId, password: trimmedPass }),
+                });
+                const srvJson = (await srvRes.json().catch(() => null)) as {
+                  ok?: boolean;
+                  token?: string;
+                } | null;
+                if (srvRes.ok && srvJson?.ok && typeof srvJson.token === 'string') {
+                  setCustomerBearerToken(srvJson.token);
+                }
+              } catch {
+                // Non-fatal if offline; payment endpoints enforce server auth when invoked
+              }
+
               const nextSession: UnlockedOverlaySession = {
                 accessId: canonicalAccessId,
                 label: typeof matched.label === 'string' ? matched.label : '',
@@ -429,8 +480,9 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
       isReady,
       unlockWithCredentials,
       lockAndLogout,
+      getPaymentAuthHeaders,
     }),
-    [session, isReady, unlockWithCredentials, lockAndLogout]
+    [session, isReady, unlockWithCredentials, lockAndLogout, getPaymentAuthHeaders]
   );
 
   return (

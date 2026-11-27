@@ -375,3 +375,64 @@ insert into storage.buckets (id, name, public)
 values ('cricket-media', 'cricket-media', true)
 on conflict (id) do nothing;
 
+-- =============================================================================
+-- 7. CASHFREE PRODUCTION PAYMENTS, SERVER-SIDE UNLOCKS & ADMIN AUDIT LOGS
+--    Strict server-side service_role write control (no client-side unlocking).
+-- =============================================================================
+create table if not exists public.worldcup_payments (
+  order_id text primary key,
+  customer_id text not null,
+  customer_email text,
+  customer_name text,
+  product_code text not null default 'worldcup_scoreboard',
+  product_name text not null default 'WorldCup Scoreboard',
+  expected_amount numeric(10,2) not null check (expected_amount = 149.00),
+  currency text not null default 'INR' check (currency = 'INR'),
+  cf_order_id text,
+  cf_payment_id text unique,
+  payment_status text not null check (payment_status in ('PENDING', 'PAID', 'FAILED', 'CANCELLED')) default 'PENDING',
+  cashfree_raw_status text,
+  unlock_status text not null check (unlock_status in ('LOCKED', 'UNLOCKED')) default 'LOCKED',
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_worldcup_payments_customer_id
+  on public.worldcup_payments (customer_id, created_at desc);
+
+create index if not exists idx_worldcup_payments_status
+  on public.worldcup_payments (payment_status, created_at desc);
+
+create table if not exists public.worldcup_unlocks (
+  customer_id text primary key,
+  product_code text not null default 'worldcup_scoreboard',
+  unlock_status text not null check (unlock_status in ('LOCKED', 'UNLOCKED')) default 'LOCKED',
+  grant_source text not null check (grant_source in ('cashfree', 'admin_manual')),
+  order_id text unique references public.worldcup_payments(order_id) on delete set null,
+  cf_payment_id text unique,
+  unlocked_at timestamptz not null default now(),
+  expires_at timestamptz,
+  granted_by text,
+  grant_reason text,
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.payment_admin_audit_logs (
+  id uuid primary key default gen_random_uuid(),
+  actor text not null,
+  action text not null check (action in ('MANUAL_GRANT', 'MANUAL_REVOKE')),
+  customer_id text not null,
+  reason text not null,
+  ip_address text,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_payment_admin_audit_logs_customer
+  on public.payment_admin_audit_logs (customer_id, created_at desc);
+
+-- Enable RLS with NO anon/authenticated write policies (backend service_role ONLY)
+alter table public.worldcup_payments enable row level security;
+alter table public.worldcup_unlocks enable row level security;
+alter table public.payment_admin_audit_logs enable row level security;
