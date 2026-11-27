@@ -1,6 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
-import type { TataIplEventBanner, TataIplWinnerInfo } from './TataIplScoreboardBar';
+import type {
+  ScoreboardPatiBanner,
+  TataIplEventBanner,
+  TataIplWinnerInfo,
+} from './TataIplScoreboardBar';
 
 export interface WorldCupScoreboardBarProps {
   batTeamCode: string;
@@ -32,59 +36,112 @@ export interface WorldCupScoreboardBarProps {
   tickerText: string;
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
+  patiBanner?: ScoreboardPatiBanner | null;
   compact?: boolean;
 }
 
-function resolveWorldCupEvent(type: string): { label: string; bg: string; border: string; text: string } {
+function resolveWorldCupEvent(
+  type: string,
+  batTeam: string,
+  bowlTeam: string,
+  strikerName: string,
+  bowlerName: string,
+  customCaption?: string
+): {
+  badge: string;
+  label: string;
+  caption: string;
+  bg: string;
+  border: string;
+  text: string;
+  badgeBg: string;
+  badgeText: string;
+} {
   const normalized = String(type || '')
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
   if (normalized === 'WICKET' || normalized === 'W' || normalized === 'OUT') {
     return {
-      label: 'OUT',
-      bg: 'linear-gradient(180deg, #C81414 0%, #960808 55%, #4A0303 100%)',
-      border: '#F87171',
+      badge: `${bowlTeam} WICKET`,
+      label: 'WICKET! OUT!',
+      caption: customCaption || `${bowlerName} STRIKES`,
+      bg: 'linear-gradient(180deg, #DC2626 0%, #991B1B 52%, #450A0A 100%)',
+      border: '#FCA5A5',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%)',
+      badgeText: '#7F1D1D',
     };
   }
   if (normalized === 'FOUR' || normalized === '4') {
     return {
-      label: 'FOUR',
-      bg: 'linear-gradient(180deg, #3B82F6 0%, #1D4ED8 58%, #1E3A8A 100%)',
+      badge: `${batTeam} • 4 RUNS`,
+      label: 'FOUR!',
+      caption: customCaption || `${strikerName} • BOUNDARY`,
+      bg: 'linear-gradient(180deg, #0046C7 0%, #0035A0 44%, #001A5C 100%)',
       border: '#93C5FD',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 65%, #CBD5E1 100%)',
+      badgeText: '#00237B',
     };
   }
   if (normalized === 'SIX' || normalized === '6') {
     return {
-      label: 'SIX',
-      bg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 55%, #CA8A04 100%)',
+      badge: `${batTeam} • 6 RUNS`,
+      label: 'MAXIMUM SIX!',
+      caption: customCaption || `${strikerName} • HUGE SIXER`,
+      bg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 48%, #CA8A04 100%)',
       border: '#FEF9C3',
       text: '#09090B',
+      badgeBg: 'linear-gradient(180deg, #0035A0 0%, #001A5C 100%)',
+      badgeText: '#FACC15',
     };
   }
-  if (normalized === 'NOBALL' || normalized === 'NB' || normalized === 'FREEHIT') {
+  if (normalized === 'NOBALL' || normalized === 'NB') {
     return {
-      label: normalized === 'FREEHIT' ? 'FREE HIT' : 'NO BALL',
-      bg: 'linear-gradient(180deg, #DC2626 0%, #991B1B 58%, #450A0A 100%)',
-      border: '#FCA5A5',
+      badge: 'NO BALL +1',
+      label: 'NO BALL!',
+      caption: customCaption || `FREE HIT COMING UP • ${strikerName}`,
+      bg: 'linear-gradient(180deg, #B91C1C 0%, #7F1D1D 52%, #001A5C 100%)',
+      border: '#FDE047',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 100%)',
+      badgeText: '#09090B',
     };
   }
-  if (normalized === 'WIDE' || normalized === 'WD') {
+  if (normalized === 'FREEHIT') {
     return {
-      label: 'WIDE',
-      bg: 'linear-gradient(180deg, #22C55E 0%, #16A34A 58%, #14532D 100%)',
-      border: '#86EFAC',
+      badge: 'FREE HIT',
+      label: 'FREE HIT!',
+      caption: customCaption || `${strikerName} ON STRIKE`,
+      bg: 'linear-gradient(180deg, #FDE047 0%, #F59E0B 55%, #B45309 100%)',
+      border: '#FEF9C3',
+      text: '#09090B',
+      badgeBg: '#09090B',
+      badgeText: '#FACC15',
+    };
+  }
+  if (normalized === 'WIDE' || normalized === 'WD' || normalized === 'WIDEBALL') {
+    return {
+      badge: 'WIDE +1',
+      label: 'WIDE BALL!',
+      caption: customCaption || `${bowlerName} • EXTRA RUN`,
+      bg: 'linear-gradient(180deg, #1E3A8A 0%, #00237B 55%, #09090B 100%)',
+      border: '#E2E8F0',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%)',
+      badgeText: '#00237B',
     };
   }
   return {
+    badge: batTeam,
     label: String(type || 'LIVE').toUpperCase(),
-    bg: 'linear-gradient(180deg, #B91C1C 0%, #7F1D1D 60%, #450A0A 100%)',
-    border: '#FCA5A5',
+    caption: customCaption || `${batTeam} LIVE`,
+    bg: 'linear-gradient(180deg, #0046C7 0%, #00237B 60%, #001A5C 100%)',
+    border: '#93C5FD',
     text: '#FFFFFF',
+    badgeBg: 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%)',
+    badgeText: '#00237B',
   };
 }
 
@@ -188,6 +245,7 @@ export function WorldCupScoreboardBar({
   tickerText,
   activeEvent = null,
   winnerInfo = null,
+  patiBanner = null,
   compact = false,
 }: WorldCupScoreboardBarProps) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -234,9 +292,30 @@ export function WorldCupScoreboardBar({
 
   const cleanBat = (batTeamCode || 'BAT').toUpperCase();
   const cleanBowl = (bowlTeamCode || 'BOWL').toUpperCase();
+  const strikerName = (strikerIndex === 1 ? batter1Name : batter2Name) || 'BATTER';
+  const effectiveBanner: ScoreboardPatiBanner | null =
+    patiBanner ??
+    (winnerInfo
+      ? {
+          kind: 'WINNER',
+          badge: winnerInfo.badge,
+          headline: winnerInfo.headline,
+          subline: winnerInfo.summaryLine,
+        }
+      : null);
+  const effectiveShowLogo = Boolean(showTeamLogo || effectiveBanner?.forceShowLogos);
   const visibleBalls = showBalls && balls.length > 0 ? balls.slice(-8) : [];
-  const eventPreset = activeEvent ? resolveWorldCupEvent(activeEvent.type) : null;
-  const showTopStrip = Boolean(eventPreset || visibleBalls.length > 0);
+  const eventPreset = activeEvent
+    ? resolveWorldCupEvent(
+        activeEvent.type,
+        cleanBat,
+        cleanBowl,
+        strikerName.toUpperCase(),
+        (bowlerName || 'BOWLER').toUpperCase(),
+        activeEvent.caption
+      )
+    : null;
+  const showTopStrip = Boolean(!effectiveBanner && (eventPreset || visibleBalls.length > 0));
 
   const content = (
     <div
@@ -303,9 +382,9 @@ export function WorldCupScoreboardBar({
                     !isWicketTile &&
                     (raw === 'WD' || raw.startsWith('WD') || raw.includes('WD'));
                   const isSixTile =
-                    !isWicketTile && !isWideTile && (Boolean(b.isBoundary6) || raw === '6');
+                    !isWicketTile && !isWideTile && Boolean(b.isBoundary6);
                   const isFourTile =
-                    !isWicketTile && !isWideTile && !isSixTile && (Boolean(b.isBoundary4) || raw === '4');
+                    !isWicketTile && !isWideTile && !isSixTile && Boolean(b.isBoundary4);
                   const isNoBallTile =
                     !isWicketTile &&
                     !isWideTile &&
@@ -385,12 +464,133 @@ export function WorldCupScoreboardBar({
           {renderTeamFlagOrCrest(
             cleanBat,
             batTeamLogo,
-            showTeamLogo,
+            effectiveShowLogo,
             batTeamColor,
             batTeamTextColor,
             'left'
           )}
         </div>
+
+        {/* Full-Width World Cup Event Stinger OR In-Pati Banner (Cols 2–6 between team flags) */}
+        {eventPreset ? (
+          <div
+            key={`wc-evt-${activeEvent?.id}`}
+            style={{
+              gridColumn: '2 / 7',
+              gridRow: '2 / 3',
+              height: '44px',
+              background: eventPreset.bg,
+              borderTop: `2px solid ${eventPreset.border}`,
+              borderBottom: `2px solid ${eventPreset.border}`,
+              borderRight: '2px solid #FFFFFF',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.45)',
+              color: eventPreset.text,
+            }}
+            className="flex items-center justify-center gap-4 px-5 overflow-hidden relative z-20"
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="px-2.5 py-0.5 rounded-[3px] font-black uppercase tracking-wider shrink-0 shadow-xs"
+              style={{
+                background: eventPreset.badgeBg,
+                color: eventPreset.badgeText,
+                fontSize: '12px',
+              }}
+            >
+              {eventPreset.badge}
+            </span>
+            <span
+              className="font-black italic uppercase tracking-widest shrink-0"
+              style={{
+                fontSize: '26px',
+                lineHeight: 1,
+                textShadow:
+                  eventPreset.text === '#09090B'
+                    ? '0 1px 0 rgba(255,255,255,0.5)'
+                    : '0 2px 6px rgba(0,0,0,0.55)',
+              }}
+            >
+              {eventPreset.label}
+            </span>
+            <span
+              className="px-2.5 py-0.5 rounded-[3px] font-extrabold uppercase tracking-wide truncate"
+              style={{
+                background: 'rgba(9, 9, 11, 0.35)',
+                color: eventPreset.text === '#09090B' ? '#09090B' : '#FFFFFF',
+                fontSize: '13px',
+              }}
+            >
+              {eventPreset.caption}
+            </span>
+          </div>
+        ) : effectiveBanner ? (
+          <div
+            style={{
+              gridColumn: '2 / 7',
+              gridRow: '2 / 3',
+              height: '44px',
+              background:
+                effectiveBanner.kind === 'HIGHLIGHT'
+                  ? 'linear-gradient(180deg, #0046C7 0%, #002B80 48%, #09090B 100%)'
+                  : 'linear-gradient(180deg, #0046C7 0%, #0035A0 38%, #00237B 78%, #001A5C 100%)',
+              borderTop:
+                effectiveBanner.kind === 'WINNER' || effectiveBanner.kind === 'HIGHLIGHT'
+                  ? '2px solid #FACC15'
+                  : '2px solid #E2E8F0',
+              borderBottom: '2px solid #94A3B8',
+              borderRight: '2px solid #FFFFFF',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}
+            className="flex items-center justify-center gap-3.5 px-5 overflow-hidden"
+            role="status"
+            aria-live="polite"
+          >
+            {effectiveBanner.kind === 'VERSUS' ? (
+              <>
+                <span className="font-black uppercase tracking-wide text-white text-[19px] truncate">
+                  {effectiveBanner.leftTeamName || cleanBat}
+                </span>
+                <span
+                  className="px-3 py-0.5 rounded-[3px] font-black italic uppercase tracking-wider shrink-0 shadow-sm"
+                  style={{
+                    background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 65%, #CBD5E1 100%)',
+                    color: '#00237B',
+                    fontSize: '15px',
+                    transform: 'skewX(-10deg)',
+                  }}
+                >
+                  VS
+                </span>
+                <span className="font-black uppercase tracking-wide text-white text-[19px] truncate">
+                  {effectiveBanner.rightTeamName || cleanBowl}
+                </span>
+              </>
+            ) : (
+              <>
+                {effectiveBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+                <span
+                  className="px-2.5 py-0.5 rounded-[3px] font-black uppercase tracking-wider shrink-0 shadow-xs"
+                  style={{
+                    background:
+                      effectiveBanner.kind === 'WINNER' || effectiveBanner.kind === 'HIGHLIGHT'
+                        ? 'linear-gradient(180deg, #FEF08A 0%, #FACC15 100%)'
+                        : 'linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%)',
+                    color: '#001A5C',
+                    fontSize: '12px',
+                  }}
+                >
+                  {effectiveBanner.badge}
+                </span>
+                <span className="font-black uppercase tracking-wide text-white text-[18px] truncate">
+                  {effectiveBanner.headline}
+                </span>
+                {effectiveBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
 
         {/* Col 2: Slanted Metallic White Team Code Tab */}
         <div
@@ -595,6 +795,8 @@ export function WorldCupScoreboardBar({
             {bowlerName} - {bowlerFigs} ({bowlerOvers})
           </span>
         </div>
+          </>
+        )}
 
         {/* Col 7: Right Team Flag / Logo */}
         <div
@@ -611,7 +813,7 @@ export function WorldCupScoreboardBar({
           {renderTeamFlagOrCrest(
             cleanBowl,
             bowlTeamLogo,
-            showTeamLogo,
+            effectiveShowLogo,
             bowlTeamColor,
             bowlTeamTextColor,
             'right'
@@ -642,14 +844,16 @@ export function WorldCupScoreboardBar({
               className="font-semibold uppercase tracking-tight"
               style={{ color: '#111827', fontSize: '13px', lineHeight: 1 }}
             >
-              {rateLabel}
+              {effectiveBanner ? effectiveBanner.badge : rateLabel}
             </span>
-            <span
-              className="font-black tabular-nums"
-              style={{ color: '#000000', fontSize: '15px', lineHeight: 1 }}
-            >
-              {rateValue}
-            </span>
+            {!effectiveBanner && (
+              <span
+                className="font-black tabular-nums"
+                style={{ color: '#000000', fontSize: '15px', lineHeight: 1 }}
+              >
+                {rateValue}
+              </span>
+            )}
           </div>
         </div>
 
@@ -669,7 +873,7 @@ export function WorldCupScoreboardBar({
             className="font-semibold uppercase tracking-wide text-white truncate"
             style={{ fontSize: '14px', lineHeight: 1 }}
           >
-            {winnerInfo ? winnerInfo.summaryLine : tickerText}
+            {effectiveBanner ? effectiveBanner.subline || tickerText : tickerText}
           </span>
         </div>
       </div>

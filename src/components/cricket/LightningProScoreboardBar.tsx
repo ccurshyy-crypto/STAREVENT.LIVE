@@ -1,6 +1,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
-import type { TataIplEventBanner, TataIplWinnerInfo } from './TataIplScoreboardBar';
+import type {
+  ScoreboardPatiBanner,
+  TataIplEventBanner,
+  TataIplWinnerInfo,
+} from './TataIplScoreboardBar';
 
 export interface LightningProScoreboardBarProps {
   batTeamName: string;
@@ -30,6 +34,7 @@ export interface LightningProScoreboardBarProps {
   bottomTickerText: string;
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
+  patiBanner?: ScoreboardPatiBanner | null;
   compact?: boolean;
 }
 
@@ -43,57 +48,115 @@ function formatTwoDigit(val: number | string | undefined): string {
 }
 
 function resolveLightningEvent(
-  type: string
-): { label: string; bg: string; border: string; text: string } {
+  type: string,
+  batTeamCode: string,
+  bowlTeamCode: string,
+  strikerName: string,
+  bowlerName: string,
+  customCaption?: string
+): {
+  hoodText: string;
+  badge: string;
+  label: string;
+  caption: string;
+  bg: string;
+  border: string;
+  text: string;
+  badgeBg: string;
+  badgeText: string;
+} {
   const normalized = String(type || '')
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
   if (normalized === 'WICKET' || normalized === 'W' || normalized === 'OUT') {
     return {
+      hoodText: 'WICKET FALLS',
+      badge: bowlTeamCode,
       label: 'WICKET! OUT!',
-      bg: 'linear-gradient(180deg, #DC2626 0%, #991B1B 58%, #450A0A 100%)',
+      caption: customCaption || `${bowlerName} STRIKES`,
+      bg: 'linear-gradient(90deg, #08123D 0%, #991B1B 24%, #DC2626 50%, #991B1B 76%, #08123D 100%)',
       border: '#FCA5A5',
       text: '#FFFFFF',
+      badgeBg: '#FACC15',
+      badgeText: '#09154A',
     };
   }
   if (normalized === 'SIX' || normalized === '6') {
     return {
-      label: 'MAXIMUM SIX!',
-      bg: 'linear-gradient(180deg, #F41897 0%, #B80970 55%, #6B0442 100%)',
+      hoodText: 'MAXIMUM SIX',
+      badge: `${batTeamCode} • 6 RUNS`,
+      label: 'SUPER SIX!',
+      caption: customCaption || `${strikerName} • MASSIVE HIT`,
+      bg: 'linear-gradient(90deg, #001A5C 0%, #7E22CE 24%, #F61A9A 50%, #7E22CE 76%, #001A5C 100%)',
       border: '#F9A8D4',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 100%)',
+      badgeText: '#09154A',
     };
   }
   if (normalized === 'FOUR' || normalized === '4') {
     return {
+      hoodText: 'BOUNDARY 4',
+      badge: `${batTeamCode} • 4 RUNS`,
       label: 'CRACKING FOUR!',
-      bg: 'linear-gradient(180deg, #2563EB 0%, #1D4ED8 58%, #1E3A8A 100%)',
-      border: '#93C5FD',
+      caption: customCaption || `${strikerName} • SUPER FOUR`,
+      bg: 'linear-gradient(90deg, #001040 0%, #0044C7 26%, #0EA5E9 50%, #0044C7 74%, #001040 100%)',
+      border: '#7DD3FC',
       text: '#FFFFFF',
+      badgeBg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 100%)',
+      badgeText: '#09154A',
     };
   }
-  if (normalized === 'NOBALL' || normalized === 'NB' || normalized === 'FREEHIT') {
+  if (normalized === 'NOBALL' || normalized === 'NB') {
     return {
-      label: normalized === 'FREEHIT' ? 'FREE HIT!' : 'NO BALL',
-      bg: 'linear-gradient(180deg, #F59E0B 0%, #D97706 58%, #78350F 100%)',
-      border: '#FDE68A',
-      text: '#09090B',
+      hoodText: 'NO BALL +1',
+      badge: 'FREE HIT NEXT',
+      label: 'NO BALL!',
+      caption: customCaption || `${bowlerName} OVERSTEPPED • ${strikerName}`,
+      bg: 'linear-gradient(90deg, #001A5C 0%, #B45309 24%, #F59E0B 50%, #B45309 76%, #001A5C 100%)',
+      border: '#FEF08A',
+      text: '#FFFFFF',
+      badgeBg: '#F61A9A',
+      badgeText: '#FFFFFF',
     };
   }
-  if (normalized === 'WIDE' || normalized === 'WD') {
+  if (normalized === 'FREEHIT') {
     return {
-      label: 'WIDE BALL',
-      bg: 'linear-gradient(180deg, #7C3AED 0%, #5B21B6 58%, #2E1065 100%)',
-      border: '#DDD6FE',
+      hoodText: 'FREE HIT',
+      badge: batTeamCode,
+      label: 'FREE HIT!',
+      caption: customCaption || `${strikerName} ON STRIKE`,
+      bg: 'linear-gradient(90deg, #43087A 0%, #D97706 26%, #FACC15 50%, #D97706 74%, #43087A 100%)',
+      border: '#FEF9C3',
+      text: '#09154A',
+      badgeBg: '#09154A',
+      badgeText: '#FACC15',
+    };
+  }
+  if (normalized === 'WIDE' || normalized === 'WD' || normalized === 'WIDEBALL') {
+    return {
+      hoodText: 'WIDE +1',
+      badge: 'EXTRA RUN',
+      label: 'WIDE BALL!',
+      caption: customCaption || `${bowlerName} • RE-BOWL`,
+      bg: 'linear-gradient(90deg, #001A5C 0%, #5B21B6 26%, #9333EA 50%, #5B21B6 74%, #001A5C 100%)',
+      border: '#E879F9',
       text: '#FFFFFF',
+      badgeBg: '#FFFFFF',
+      badgeText: '#09154A',
     };
   }
   return {
+    hoodText: 'LIVE EVENT',
+    badge: batTeamCode,
     label: String(type || 'LIVE').toUpperCase(),
-    bg: 'linear-gradient(180deg, #F41897 0%, #9D075E 100%)',
+    caption: customCaption || `${batTeamCode} LIVE`,
+    bg: 'linear-gradient(90deg, #001A5C 0%, #CC0A7B 50%, #001A5C 100%)',
     border: '#F9A8D4',
     text: '#FFFFFF',
+    badgeBg: '#FACC15',
+    badgeText: '#09154A',
   };
 }
 
@@ -152,6 +215,7 @@ export function LightningProScoreboardBar({
   bottomTickerText,
   activeEvent = null,
   winnerInfo = null,
+  patiBanner = null,
   compact = false,
 }: LightningProScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
@@ -201,8 +265,30 @@ export function LightningProScoreboardBar({
   const cleanBatCode = (batTeamCode || 'TMA').trim().toUpperCase();
   const cleanBowlName = (bowlTeamName || bowlTeamCode || 'TEAM B').trim().toUpperCase();
   const cleanBowlCode = (bowlTeamCode || 'TMB').trim().toUpperCase();
+  const strikerName = (strikerIndex === 1 ? batter1Name : batter2Name) || 'BATTER';
 
-  const eventPreset = activeEvent ? resolveLightningEvent(activeEvent.type) : null;
+  const effectiveBanner: ScoreboardPatiBanner | null =
+    patiBanner ??
+    (winnerInfo
+      ? {
+          kind: 'WINNER',
+          badge: winnerInfo.badge,
+          headline: winnerInfo.headline,
+          subline: winnerInfo.summaryLine,
+        }
+      : null);
+  const effectiveShowLogo = Boolean(showTeamLogo || effectiveBanner?.forceShowLogos);
+
+  const eventPreset = activeEvent
+    ? resolveLightningEvent(
+        activeEvent.type,
+        cleanBatCode,
+        cleanBowlCode,
+        strikerName.toUpperCase(),
+        (bowlerName || 'BOWLER').toUpperCase(),
+        activeEvent.caption
+      )
+    : null;
   const visibleBalls = showBalls ? balls.slice(-6) : [];
   const totalBallSlots = Math.max(6, visibleBalls.length);
 
@@ -246,7 +332,11 @@ export function LightningProScoreboardBar({
               textShadow: '0 1px 4px rgba(0,0,0,0.65)',
             }}
           >
-            {winnerInfo ? winnerInfo.badge : topHoodText}
+            {eventPreset
+              ? eventPreset.hoodText
+              : effectiveBanner
+                ? effectiveBanner.badge
+                : topHoodText}
           </span>
         </div>
         {/* Right stepped purple ear */}
@@ -280,30 +370,53 @@ export function LightningProScoreboardBar({
               'polygon(20px 0%, calc(100% - 20px) 0%, 100% 50%, calc(100% - 20px) 100%, 20px 100%, 0% 50%)',
           }}
         >
-          {/* Full-width Animated Event Stinger Overlay */}
+          {/* Full-width Animated Event Stinger Overlay inside Hexagonal Chevron */}
           {eventPreset && (
             <div
               key={activeEvent?.id}
-              className="absolute inset-0 z-30 flex items-center justify-center gap-3 px-10 animate-pulse"
+              className="absolute inset-0 z-30 flex items-center justify-center gap-4 px-10 overflow-hidden"
               style={{
                 background: eventPreset.bg,
                 borderTop: `2px solid ${eventPreset.border}`,
                 borderBottom: `2px solid ${eventPreset.border}`,
                 color: eventPreset.text,
               }}
+              role="status"
+              aria-live="polite"
             >
               <span
-                className="font-black uppercase tracking-widest"
+                className="px-3 py-1 rounded font-black uppercase tracking-wider shrink-0 shadow-md"
+                style={{
+                  background: eventPreset.badgeBg,
+                  color: eventPreset.badgeText,
+                  fontSize: '13px',
+                }}
+              >
+                {eventPreset.badge}
+              </span>
+              <span
+                className="font-black italic uppercase tracking-widest shrink-0"
                 style={{
                   fontSize: '30px',
                   lineHeight: 1,
                   textShadow:
-                    eventPreset.text === '#09090B'
-                      ? '0 1px 0 rgba(255,255,255,0.45)'
-                      : '0 3px 10px rgba(0,0,0,0.55)',
+                    eventPreset.text === '#09154A'
+                      ? '0 1px 0 rgba(255,255,255,0.5)'
+                      : '0 3px 10px rgba(0,0,0,0.6)',
                 }}
               >
                 {eventPreset.label}
+              </span>
+              <span
+                className="px-3 py-1 rounded font-extrabold uppercase tracking-wide truncate"
+                style={{
+                  background: 'rgba(8, 18, 61, 0.55)',
+                  border: '1px solid rgba(250, 204, 21, 0.45)',
+                  color: '#FFFFFF',
+                  fontSize: '13px',
+                }}
+              >
+                {eventPreset.caption}
               </span>
             </div>
           )}
@@ -315,7 +428,7 @@ export function LightningProScoreboardBar({
               background: 'linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 56%, #DCE4F0 100%)',
             }}
           >
-            {showTeamLogo && batTeamLogo ? (
+            {effectiveShowLogo && batTeamLogo ? (
               <div className="flex items-center gap-1.5 min-w-0">
                 <img
                   src={batTeamLogo}
@@ -356,6 +469,104 @@ export function LightningProScoreboardBar({
 
           <LightningDivider uid={`${uid}-1`} />
 
+          {effectiveBanner ? (
+            <div
+              className="flex-1 min-w-0 flex flex-col justify-between overflow-hidden relative"
+              style={{
+                background:
+                  effectiveBanner.kind === 'HIGHLIGHT'
+                    ? 'linear-gradient(180deg, #43087A 0%, #002882 48%, #001040 100%)'
+                    : 'linear-gradient(180deg, #0044C7 0%, #002882 44%, #001A5C 52%, #001040 100%)',
+              }}
+              role="status"
+              aria-live="polite"
+            >
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-sky-300/80 to-transparent"
+              />
+              {/* Upper Headline Row */}
+              <div className="flex-1 flex items-center justify-center gap-4 px-6 overflow-hidden">
+                {effectiveBanner.kind === 'VERSUS' ? (
+                  <>
+                    <span className="font-black uppercase italic text-white text-[22px] tracking-wide truncate">
+                      {effectiveBanner.leftTeamName || cleanBatName}
+                    </span>
+                    <span
+                      className="px-4 py-1 rounded-md font-black italic uppercase text-white text-[18px] tracking-wider shrink-0 shadow-md"
+                      style={{
+                        background:
+                          'linear-gradient(180deg, #F61A9A 0%, #CC0A7B 55%, #8E0456 100%)',
+                        clipPath: 'polygon(0% 0%, 100% 0%, 90% 100%, 10% 100%)',
+                      }}
+                    >
+                      VS
+                    </span>
+                    <span className="font-black uppercase italic text-white text-[22px] tracking-wide truncate">
+                      {effectiveBanner.rightTeamName || cleanBowlName}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    {effectiveBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+                    <span
+                      className="px-3 py-0.5 rounded font-black uppercase tracking-wider shrink-0 shadow-sm"
+                      style={{
+                        background:
+                          effectiveBanner.kind === 'WINNER' || effectiveBanner.kind === 'HIGHLIGHT'
+                            ? 'linear-gradient(180deg, #FEF08A 0%, #FACC15 100%)'
+                            : 'linear-gradient(180deg, #F61A9A 0%, #CC0A7B 100%)',
+                        color:
+                          effectiveBanner.kind === 'WINNER' || effectiveBanner.kind === 'HIGHLIGHT'
+                            ? '#09154A'
+                            : '#FFFFFF',
+                        fontSize: '12px',
+                      }}
+                    >
+                      {effectiveBanner.badge}
+                    </span>
+                    <span
+                      className="font-black uppercase italic tracking-wide truncate"
+                      style={{
+                        color: effectiveBanner.kind === 'WINNER' ? '#FACC15' : '#FFFFFF',
+                        fontSize: '21px',
+                        lineHeight: 1.1,
+                      }}
+                    >
+                      {effectiveBanner.headline}
+                    </span>
+                    {effectiveBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+                  </>
+                )}
+              </div>
+
+              {/* Lower Pearl-White Ticker Row with Magenta Accent Slashes */}
+              <div
+                className="h-[22px] flex items-center justify-center gap-2 px-4 shrink-0"
+                style={{
+                  background: 'linear-gradient(180deg, #FFFFFF 0%, #E2E8F0 100%)',
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-[4px] h-[13px] shrink-0 rounded-[1px]"
+                  style={{ background: '#D946EF', transform: 'skewX(22deg)' }}
+                />
+                <span
+                  className="font-black uppercase tracking-wide truncate"
+                  style={{ color: '#09154A', fontSize: '13px', lineHeight: 1 }}
+                >
+                  {effectiveBanner.subline || bottomTickerText}
+                </span>
+                <span
+                  aria-hidden="true"
+                  className="inline-block w-[4px] h-[13px] shrink-0 rounded-[1px]"
+                  style={{ background: '#D946EF', transform: 'skewX(-22deg)' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <>
           {/* 2. LEFT-CENTER ROYAL BLUE METALLIC PANEL: BATTERS */}
           <div
             className="flex-1 min-w-[235px] flex flex-col justify-center px-5 relative overflow-hidden"
@@ -600,8 +811,8 @@ export function LightningProScoreboardBar({
                 const raw = String(ball.label || '0').trim().toUpperCase();
                 const isDot = raw === '•' || raw === '0' || raw === '.';
                 const isWicket = Boolean(ball.isWicket) || raw === 'W' || raw.startsWith('W+');
-                const isSix = !isWicket && (Boolean(ball.isBoundary6) || raw === '6');
-                const isFour = !isWicket && !isSix && (Boolean(ball.isBoundary4) || raw === '4');
+                const isSix = !isWicket && Boolean(ball.isBoundary6);
+                const isFour = !isWicket && !isSix && Boolean(ball.isBoundary4);
 
                 let bg = 'radial-gradient(circle at 35% 30%, #38BDF8 0%, #0284C7 65%, #0369A1 100%)';
                 let border = '1.5px solid #7DD3FC';
@@ -646,6 +857,8 @@ export function LightningProScoreboardBar({
               })}
             </div>
           </div>
+            </>
+          )}
 
           <LightningDivider uid={`${uid}-4`} flip />
 
@@ -656,7 +869,7 @@ export function LightningProScoreboardBar({
               background: 'linear-gradient(180deg, #FFFFFF 0%, #F1F5F9 56%, #DCE4F0 100%)',
             }}
           >
-            {showTeamLogo && bowlTeamLogo ? (
+            {effectiveShowLogo && bowlTeamLogo ? (
               <div className="flex items-center gap-1.5 min-w-0">
                 <div className="min-w-0 text-right">
                   <div

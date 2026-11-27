@@ -13,6 +13,24 @@ export interface TataIplWinnerInfo {
   summaryLine: string;
 }
 
+export type ScoreboardPatiBannerKind =
+  | 'WINNER'
+  | 'VERSUS'
+  | 'TOSS'
+  | 'TOURNAMENT'
+  | 'MESSAGE'
+  | 'HIGHLIGHT';
+
+export interface ScoreboardPatiBanner {
+  kind: ScoreboardPatiBannerKind;
+  badge: string;
+  headline: string;
+  subline?: string;
+  leftTeamName?: string;
+  rightTeamName?: string;
+  forceShowLogos?: boolean;
+}
+
 export interface TataIplScoreboardBarProps {
   batTeamCode: string;
   batTeamLogo?: string;
@@ -41,6 +59,7 @@ export interface TataIplScoreboardBarProps {
   matchTitle: string;
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
+  patiBanner?: ScoreboardPatiBanner | null;
   compact?: boolean;
 }
 
@@ -77,7 +96,7 @@ function resolveEventPreset(
   if (normalized === 'FOUR' || normalized === '4') {
     return {
       theme: 'theme-four',
-      badge: batTeam,
+      badge: `${batTeam} • 4 RUNS`,
       headline: 'FOUR!',
       caption: customCaption || `${strikerName} • CRACKING BOUNDARY`,
     };
@@ -85,7 +104,7 @@ function resolveEventPreset(
   if (normalized === 'SIX' || normalized === '6') {
     return {
       theme: 'theme-six',
-      badge: batTeam,
+      badge: `${batTeam} • 6 RUNS`,
       headline: 'MAXIMUM SIX!',
       caption: customCaption || `${strikerName} • OUT OF THE PARK`,
     };
@@ -98,12 +117,28 @@ function resolveEventPreset(
       caption: customCaption || `${bowlerName} STRIKES • ${scoreText}`,
     };
   }
-  if (normalized === 'FREEHIT' || normalized === 'NOBALL' || normalized === 'NB') {
+  if (normalized === 'NOBALL' || normalized === 'NB') {
+    return {
+      theme: 'theme-noball',
+      badge: 'NO BALL +1',
+      headline: 'NO BALL!',
+      caption: customCaption || `FREE HIT NEXT • ${strikerName}`,
+    };
+  }
+  if (normalized === 'FREEHIT') {
     return {
       theme: 'theme-freehit',
-      badge: 'NO BALL',
+      badge: 'FREE HIT',
       headline: 'FREE HIT!',
       caption: customCaption || `${strikerName} ON STRIKE`,
+    };
+  }
+  if (normalized === 'WIDE' || normalized === 'WD' || normalized === 'WIDEBALL') {
+    return {
+      theme: 'theme-wide',
+      badge: 'WIDE +1',
+      headline: 'WIDE BALL!',
+      caption: customCaption || `${bowlerName} • EXTRA RUN`,
     };
   }
   if (normalized === 'CHASED' || normalized === 'MATCHWON' || normalized === 'WIN') {
@@ -158,6 +193,7 @@ export function TataIplScoreboardBar({
   matchTitle,
   activeEvent = null,
   winnerInfo = null,
+  patiBanner = null,
   compact = false,
 }: TataIplScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
@@ -189,6 +225,18 @@ export function TataIplScoreboardBar({
       )
     : null;
 
+  const effectiveBanner: ScoreboardPatiBanner | null =
+    patiBanner ??
+    (winnerInfo
+      ? {
+          kind: 'WINNER',
+          badge: winnerInfo.badge,
+          headline: winnerInfo.headline,
+          subline: winnerInfo.summaryLine,
+        }
+      : null);
+  const effectiveShowLogo = Boolean(showTeamLogo || effectiveBanner?.forceShowLogos);
+
   const visibleBalls = showBalls && balls.length > 0 ? balls.slice(-6) : [];
 
   return (
@@ -198,7 +246,7 @@ export function TataIplScoreboardBar({
         <div className="ipl-wing-shield-left">
           <div className="ipl-wing-inner-left">
             <div className="ipl-team-crest-box">
-              {showTeamLogo && batTeamLogo ? (
+              {effectiveShowLogo && batTeamLogo ? (
                 <img
                   src={batTeamLogo}
                   alt={cleanBat}
@@ -280,15 +328,38 @@ export function TataIplScoreboardBar({
             )}
           </div>
 
-          {/* Upper Primary Row — shows animated Match Winner inside the exact same scoreboard bar when match finishes */}
+          {/* Upper Primary Row — renders in-patti Winner / Versus / Toss / Message / Highlight natively */}
           <div className="ipl-patti-top-band">
-            {winnerInfo ? (
-              <div className="ipl-win-strip" role="status" aria-live="polite">
-                <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
-                <span className="ipl-win-badge">{winnerInfo.badge}</span>
-                <span className="ipl-win-headline">{winnerInfo.headline}</span>
-                <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
-              </div>
+            {effectiveBanner ? (
+              effectiveBanner.kind === 'WINNER' ? (
+                <div className="ipl-win-strip" role="status" aria-live="polite">
+                  <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+                  <span className="ipl-win-badge">{effectiveBanner.badge}</span>
+                  <span className="ipl-win-headline">{effectiveBanner.headline}</span>
+                  <span className="ipl-win-trophy" aria-hidden="true">🏆</span>
+                </div>
+              ) : effectiveBanner.kind === 'VERSUS' ? (
+                <div className="ipl-pati-banner-strip is-versus" role="status" aria-live="polite">
+                  <span className="ipl-pati-banner-headline">
+                    {effectiveBanner.leftTeamName || cleanBat}
+                  </span>
+                  <span className="ipl-pati-vs-pill">VS</span>
+                  <span className="ipl-pati-banner-headline">
+                    {effectiveBanner.rightTeamName || cleanBowl}
+                  </span>
+                </div>
+              ) : (
+                <div
+                  className={`ipl-pati-banner-strip ${
+                    effectiveBanner.kind === 'HIGHLIGHT' ? 'is-highlight' : ''
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span className="ipl-pati-banner-badge">{effectiveBanner.badge}</span>
+                  <span className="ipl-pati-banner-headline">{effectiveBanner.headline}</span>
+                </div>
+              )
             ) : (
               <>
             {/* 1. Left-Center: Batting Team, Gold Score Box & Overs */}
@@ -396,7 +467,7 @@ export function TataIplScoreboardBar({
                       const up = String(b.label || '').toUpperCase();
                       const cls = b.isWicket || up === 'W'
                         ? 'ipl-ball-dot wicket'
-                        : b.isBoundary4 || b.isBoundary6 || up === '4' || up === '6'
+                        : b.isBoundary4 || b.isBoundary6
                           ? 'ipl-ball-dot boundary'
                           : 'ipl-ball-dot';
                       return (
@@ -431,11 +502,19 @@ export function TataIplScoreboardBar({
 
           {/* Lower Dark Navy Sub-Bar */}
           <div className="ipl-patti-bottom-band">
-            {winnerInfo ? (
+            {effectiveBanner ? (
               <>
                 <div className="ipl-sub-left">
-                  <span className="ipl-sub-vs">RESULT</span>
-                  <span className="ipl-sub-target">{winnerInfo.summaryLine}</span>
+                  <span className="ipl-sub-vs">
+                    {effectiveBanner.kind === 'WINNER'
+                      ? 'RESULT'
+                      : effectiveBanner.kind === 'VERSUS'
+                        ? 'MATCHUP'
+                        : effectiveBanner.badge}
+                  </span>
+                  <span className="ipl-sub-target">
+                    {effectiveBanner.subline || targetText}
+                  </span>
                 </div>
                 <div className="ipl-sub-right">{matchTitle}</div>
               </>
@@ -455,7 +534,7 @@ export function TataIplScoreboardBar({
         <div className="ipl-wing-shield-right">
           <div className="ipl-wing-inner-right">
             <div className="ipl-team-crest-box">
-              {showTeamLogo && bowlTeamLogo ? (
+              {effectiveShowLogo && bowlTeamLogo ? (
                 <img
                   src={bowlTeamLogo}
                   alt={cleanBowl}

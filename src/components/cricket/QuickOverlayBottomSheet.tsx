@@ -275,6 +275,8 @@ export function QuickOverlayBottomSheet({
       activeMatchId: match.id,
       overlay: {
         ...prev.overlay,
+        bottomScoreMode:
+          prev.overlay.bottomScoreMode === 'EMPTY' ? 'Score' : prev.overlay.bottomScoreMode,
         customMsgTab: mappedTab,
         customMsgHeading: cleanHeading,
         customMsgDescription: cleanDesc,
@@ -288,8 +290,8 @@ export function QuickOverlayBottomSheet({
     }));
     onToast(
       msgSubTab === 'CUSTOM MSG'
-        ? 'Custom Message live on overlay!'
-        : 'Highlight message live on overlay!'
+        ? 'Custom Message live on scoreboard bar!'
+        : 'Highlight live on scoreboard bar!'
     );
   };
 

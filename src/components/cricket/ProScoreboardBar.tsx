@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
 import type { ScoreboardBarStyle } from '../../data/cricketSampleData';
+import type {
+  ScoreboardPatiBanner,
+  TataIplEventBanner,
+} from './TataIplScoreboardBar';
 
 export interface ProScoreboardBallDot {
   id: string;
@@ -31,6 +35,8 @@ interface ProScoreboardBarProps {
   compact?: boolean;
   leftBadgeExtra?: ReactNode;
   rightBadgeExtra?: ReactNode;
+  activeEvent?: TataIplEventBanner | null;
+  patiBanner?: ScoreboardPatiBanner | null;
 }
 
 function renderBallCircle(
@@ -161,9 +167,60 @@ export function ProScoreboardBar({
   compact = false,
   leftBadgeExtra,
   rightBadgeExtra,
+  activeEvent = null,
+  patiBanner = null,
 }: ProScoreboardBarProps) {
   const bowlerTextIsDark = barStyle.bowlerPanelText === '#0F172A';
   const isCricAstra = barStyle.ballMode === 'cric-astra';
+
+  const normalizedEvt = activeEvent
+    ? String(activeEvent.type || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+    : '';
+  const proEvent = activeEvent
+    ? normalizedEvt === 'WICKET' || normalizedEvt === 'OUT' || normalizedEvt === 'W'
+      ? {
+          badge: `${rightTeam} WICKET`,
+          headline: 'WICKET! OUT!',
+          caption: activeEvent.caption || `${bowlerName} STRIKES`,
+          bg: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
+        }
+      : normalizedEvt === 'SIX' || normalizedEvt === '6'
+        ? {
+            badge: `${leftTeam} • 6 RUNS`,
+            headline: 'MAXIMUM SIX!',
+            caption: activeEvent.caption || `${strikerName} • HUGE SIXER`,
+            bg: `linear-gradient(90deg, ${primaryColor} 0%, #D97706 50%, ${primaryColor} 100%)`,
+          }
+        : normalizedEvt === 'FOUR' || normalizedEvt === '4'
+          ? {
+              badge: `${leftTeam} • 4 RUNS`,
+              headline: 'CRACKING FOUR!',
+              caption: activeEvent.caption || `${strikerName} • BOUNDARY`,
+              bg: `linear-gradient(90deg, ${primaryColor} 0%, #1D4ED8 50%, ${primaryColor} 100%)`,
+            }
+          : normalizedEvt === 'NOBALL' || normalizedEvt === 'NB'
+            ? {
+                badge: 'NO BALL +1',
+                headline: 'NO BALL!',
+                caption: activeEvent.caption || `FREE HIT NEXT • ${strikerName}`,
+                bg: `linear-gradient(90deg, ${primaryColor} 0%, #B45309 50%, ${primaryColor} 100%)`,
+              }
+            : normalizedEvt === 'WIDE' || normalizedEvt === 'WD' || normalizedEvt === 'WIDEBALL'
+              ? {
+                  badge: 'WIDE +1',
+                  headline: 'WIDE BALL!',
+                  caption: activeEvent.caption || `${bowlerName} • EXTRA RUN`,
+                  bg: `linear-gradient(90deg, ${primaryColor} 0%, #0F172A 50%, ${primaryColor} 100%)`,
+                }
+              : {
+                  badge: leftTeam,
+                  headline: activeEvent.type.toUpperCase(),
+                  caption: activeEvent.caption || `${strikerName} ON STRIKE`,
+                  bg: `linear-gradient(90deg, ${primaryColor} 0%, #0F172A 50%, ${primaryColor} 100%)`,
+                }
+    : null;
 
   const displayBalls: ProScoreboardBallDot[] =
     balls.length > 0
@@ -199,7 +256,7 @@ export function ProScoreboardBar({
   return (
     <div className="w-full select-none">
       <div
-        className={`w-full flex items-stretch overflow-hidden ${
+        className={`relative w-full flex items-stretch overflow-hidden ${
           compact ? 'rounded-lg h-[48px]' : 'rounded-2xl h-[78px]'
         }`}
         style={{
@@ -210,6 +267,34 @@ export function ProScoreboardBar({
           background: '#090D16',
         }}
       >
+        {/* Full-Width Event Stinger Overlay inside ProScoreboardBar */}
+        {proEvent && !compact && (
+          <div
+            key={activeEvent?.id}
+            className="absolute inset-0 z-30 flex items-center justify-center gap-4 px-8 text-white"
+            style={{
+              background: proEvent.bg,
+              borderTop: `2px solid ${accentColor}`,
+              borderBottom: `2px solid ${accentColor}`,
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <span
+              className="px-3 py-1 rounded font-display font-black uppercase text-xs tracking-wider shrink-0"
+              style={{ background: accentColor, color: '#090D16' }}
+            >
+              {proEvent.badge}
+            </span>
+            <span className="font-display font-black italic uppercase text-3xl tracking-widest shrink-0 drop-shadow">
+              {proEvent.headline}
+            </span>
+            <span className="px-3 py-1 rounded bg-black/45 border border-white/25 font-bold uppercase text-xs tracking-wide truncate">
+              {proEvent.caption}
+            </span>
+          </div>
+        )}
+
         {/* 1. LEFT TEAM BADGE */}
         <div
           className={`flex items-center justify-center gap-1.5 font-display font-black uppercase tracking-wide shrink-0 ${
@@ -223,6 +308,49 @@ export function ProScoreboardBar({
           {leftBadgeExtra}
           <span className="truncate">{leftTeam}</span>
         </div>
+
+        {patiBanner ? (
+          <div
+            className="flex-1 min-w-0 flex items-center justify-center gap-4 px-6 text-white overflow-hidden"
+            style={{
+              background: `linear-gradient(90deg, ${primaryColor} 0%, #0F172A 50%, ${primaryColor} 100%)`,
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            {patiBanner.kind === 'VERSUS' ? (
+              <>
+                <span className="font-display font-black uppercase text-xl tracking-wide truncate">
+                  {patiBanner.leftTeamName || leftTeam}
+                </span>
+                <span
+                  className="px-3 py-0.5 rounded font-display font-black italic uppercase text-sm shrink-0"
+                  style={{ background: accentColor, color: '#090D16' }}
+                >
+                  VS
+                </span>
+                <span className="font-display font-black uppercase text-xl tracking-wide truncate">
+                  {patiBanner.rightTeamName || rightTeam}
+                </span>
+              </>
+            ) : (
+              <>
+                {patiBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+                <span
+                  className="px-3 py-0.5 rounded font-display font-black uppercase text-xs tracking-wider shrink-0"
+                  style={{ background: accentColor, color: '#090D16' }}
+                >
+                  {patiBanner.badge}
+                </span>
+                <span className="font-display font-black uppercase text-xl tracking-wide truncate">
+                  {patiBanner.headline}
+                </span>
+                {patiBanner.kind === 'WINNER' && <span aria-hidden="true">🏆</span>}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
 
         {/* 2. BATTERS PANEL */}
         <div
@@ -358,6 +486,8 @@ export function ProScoreboardBar({
             )}
           </div>
         )}
+          </>
+        )}
 
         {/* 5. RIGHT TEAM BADGE */}
         <div
@@ -384,12 +514,12 @@ export function ProScoreboardBar({
       </div>
 
       {/* Live Bottom Info Ticker Strip (only in full live overlay mode) */}
-      {!compact && infoStrip && (
+      {!compact && (patiBanner?.subline || infoStrip) && (
         <div
           className="mx-6 mt-1 px-5 py-1 rounded-b-xl flex items-center justify-between text-[11px] font-bold tracking-wide text-white shadow-lg border-x border-b border-white/20"
           style={{ background: primaryColor }}
         >
-          <span className="truncate">{infoStrip}</span>
+          <span className="truncate">{patiBanner?.subline || infoStrip}</span>
           {footerRight && (
             <span className="uppercase shrink-0 ml-4" style={{ color: accentColor }}>
               {footerRight}

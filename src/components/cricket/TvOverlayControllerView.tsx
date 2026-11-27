@@ -127,12 +127,18 @@ export function TvOverlayControllerView({
                 ...prev.overlay,
                 activeTransition: null,
               }
-            : {
-                ...prev.overlay,
-                bottomScoreMode: 'EMPTY',
-                mainCard: { kind: 'NONE' },
-                activeTransition: null,
-              },
+            : prev.overlay.mainCard.kind === 'CUSTOM_MESSAGE'
+              ? {
+                  ...prev.overlay,
+                  mainCard: { kind: 'NONE' },
+                  activeTransition: null,
+                }
+              : {
+                  ...prev.overlay,
+                  bottomScoreMode: 'EMPTY',
+                  mainCard: { kind: 'NONE' },
+                  activeTransition: null,
+                },
         }));
       }, totalMs);
     },
@@ -358,7 +364,12 @@ export function TvOverlayControllerView({
         ...prev,
         overlay: {
           ...prev.overlay,
-          bottomScoreMode: 'EMPTY',
+          bottomScoreMode:
+            prev.overlay.mainCard.kind === 'CUSTOM_MESSAGE'
+              ? prev.overlay.bottomScoreMode === 'EMPTY'
+                ? 'Score'
+                : prev.overlay.bottomScoreMode
+              : 'EMPTY',
           mainCard: { kind: 'NONE' },
           activeTransition: null,
         },
@@ -371,7 +382,12 @@ export function TvOverlayControllerView({
       ...prev,
       overlay: {
         ...prev.overlay,
-        bottomScoreMode: 'EMPTY',
+        bottomScoreMode:
+          card.kind === 'CUSTOM_MESSAGE'
+            ? prev.overlay.bottomScoreMode === 'EMPTY'
+              ? 'Score'
+              : prev.overlay.bottomScoreMode
+            : 'EMPTY',
         mainCard: card,
         activeTransition: null,
       },
@@ -461,7 +477,8 @@ export function TvOverlayControllerView({
       ...prev,
       overlay: {
         ...prev.overlay,
-        bottomScoreMode: 'EMPTY',
+        bottomScoreMode:
+          prev.overlay.bottomScoreMode === 'EMPTY' ? 'Score' : prev.overlay.bottomScoreMode,
         mainCard: { kind: 'NONE' },
         activeTransition: {
           type,
@@ -1169,6 +1186,7 @@ export function TvOverlayControllerView({
             />
             <div className="grid grid-cols-2 gap-2">
               {(['CUSTOM MSG', 'OTHER'] as const).map((tab) => {
+                const displayLabel = tab === 'OTHER' ? 'HIGHLIGHT' : 'CUSTOM MSG';
                 const active =
                   overlay.mainCard.kind === 'CUSTOM_MESSAGE' &&
                   overlay.mainCard.tab === tab;
@@ -1181,16 +1199,16 @@ export function TvOverlayControllerView({
                         {
                           kind: 'CUSTOM_MESSAGE',
                           tab,
-                          heading: overlay.customMsgHeading || tab,
+                          heading: overlay.customMsgHeading || displayLabel,
                           description: overlay.customMsgDescription,
                         },
                         active,
-                        tab
+                        displayLabel
                       )
                     }
                     className={chipBtn(active)}
                   >
-                    {tab}
+                    {displayLabel}
                   </button>
                 );
               })}

@@ -23,7 +23,10 @@ import {
   Team,
 } from '../../types/cricketSuite';
 import { ProScoreboardBar } from './ProScoreboardBar';
-import { TataIplScoreboardBar } from './TataIplScoreboardBar';
+import {
+  TataIplScoreboardBar,
+  type ScoreboardPatiBanner,
+} from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { LightningProScoreboardBar } from './LightningProScoreboardBar';
 import { BroadcastMatchSummaryCard } from './BroadcastMatchSummaryCard';
@@ -370,18 +373,9 @@ export function BroadcastOverlayCanvas({
       </div>
     );
 
+    // Custom Message & Highlight render directly on the active scoreboard pati (renderBottomBar)
     if (card.kind === 'CUSTOM_MESSAGE') {
-      return (
-        <CardShell
-          title={card.heading || (card.tab === 'OTHER' ? 'ANNOUNCEMENT' : 'LIVE UPDATE')}
-          subtitle={tournament?.name || state.user.channelTitle}
-          wide={false}
-        >
-          <p className="text-lg sm:text-2xl font-display font-bold text-center py-6 leading-snug text-white">
-            {card.description || 'Welcome to live broadcast coverage'}
-          </p>
-        </CardShell>
-      );
+      return null;
     }
 
     if (card.kind === 'POINTS_TABLE') {
@@ -1047,7 +1041,30 @@ export function BroadcastOverlayCanvas({
 
   const renderBottomBar = () => {
     const mode = overlay.bottomScoreMode;
-    if (mode === 'EMPTY') return null;
+    const liveActiveEvent =
+      showTransition && activeTransition
+        ? { id: activeTransition.id, type: activeTransition.type }
+        : null;
+
+    const customMsgPatiBanner: ScoreboardPatiBanner | null =
+      overlay.mainCard.kind === 'CUSTOM_MESSAGE'
+        ? {
+            kind: overlay.mainCard.tab === 'OTHER' ? 'HIGHLIGHT' : 'MESSAGE',
+            badge: overlay.mainCard.tab === 'OTHER' ? 'HIGHLIGHT' : 'CUSTOM MSG',
+            headline: (
+              overlay.mainCard.heading ||
+              overlay.mainCard.description ||
+              (overlay.mainCard.tab === 'OTHER' ? 'MATCH HIGHLIGHT' : 'LIVE UPDATE')
+            ).toUpperCase(),
+            subline: (
+              overlay.mainCard.heading && overlay.mainCard.description
+                ? overlay.mainCard.description
+                : tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE'
+            ).toUpperCase(),
+          }
+        : null;
+
+    if (mode === 'EMPTY' && !customMsgPatiBanner && !liveActiveEvent) return null;
 
     if (!match || !activeInn) {
       if (useLightningProPatti) {
@@ -1077,11 +1094,8 @@ export function BroadcastOverlayCanvas({
               showBalls
               topHoodText="TARGET - 00"
               bottomTickerText={(tournament?.name || 'NEED 00 RUNS FROM 20 BALLS').toUpperCase()}
-              activeEvent={
-                showTransition && activeTransition
-                  ? { id: activeTransition.id, type: activeTransition.type }
-                  : null
-              }
+              patiBanner={customMsgPatiBanner}
+              activeEvent={liveActiveEvent}
             />
           </div>
         );
@@ -1112,11 +1126,8 @@ export function BroadcastOverlayCanvas({
               rateLabel="RUN RATE"
               rateValue="0.00"
               tickerText={(tournament?.name || 'LIVE SCORE WORLD CUP').toUpperCase()}
-              activeEvent={
-                showTransition && activeTransition
-                  ? { id: activeTransition.id, type: activeTransition.type }
-                  : null
-              }
+              patiBanner={customMsgPatiBanner}
+              activeEvent={liveActiveEvent}
             />
           </div>
         );
@@ -1145,11 +1156,35 @@ export function BroadcastOverlayCanvas({
               showBalls={false}
               targetText="CRR 0.00"
               matchTitle={(tournament?.name || state.user.channelTitle || 'LIVE CRICKET').toUpperCase()}
-              activeEvent={
-                showTransition && activeTransition
-                  ? { id: activeTransition.id, type: activeTransition.type }
-                  : null
-              }
+              patiBanner={customMsgPatiBanner}
+              activeEvent={liveActiveEvent}
+            />
+          </div>
+        );
+      }
+
+      if (theme.barStyle) {
+        return (
+          <div className="absolute bottom-4 inset-x-6 pointer-events-none">
+            <ProScoreboardBar
+              barStyle={theme.barStyle}
+              leftTeam="T1"
+              rightTeam="T2"
+              strikerName="BATTER 1"
+              strikerScore="0 (0)"
+              nonStrikerName="BATTER 2"
+              nonStrikerScore="0 (0)"
+              scoreText="0 - 0"
+              oversText="0.0 (20)"
+              bowlerName="BOWLER"
+              bowlerFigures="0-0 (0.0)"
+              balls={[]}
+              infoStrip={(tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE').toUpperCase()}
+              footerRight={state.user.watermarkText || 'STAREVENT.LIVE'}
+              accentColor={theme.accent}
+              primaryColor={theme.primary}
+              patiBanner={customMsgPatiBanner}
+              activeEvent={liveActiveEvent}
             />
           </div>
         );
@@ -1158,24 +1193,63 @@ export function BroadcastOverlayCanvas({
       return (
         <div className="absolute bottom-5 inset-x-8 pointer-events-none">
           <div
-            className="rounded-xl px-6 py-3 flex items-center justify-between text-white shadow-2xl border-t-2"
+            className="rounded-xl px-6 py-3 flex items-center justify-between gap-4 text-white shadow-2xl border-t-2"
             style={{
               background: `linear-gradient(90deg, ${theme.primary}, ${theme.surface})`,
               borderColor: theme.accent,
             }}
           >
-            <span className="font-display font-black text-base tracking-wide">
-              {tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE'}
-            </span>
-            <span className="text-xs font-bold uppercase" style={{ color: theme.accent }}>
-              READY FOR LIVE MATCH
-            </span>
+            {liveActiveEvent ? (
+              <div className="w-full flex items-center justify-center gap-4">
+                <span
+                  className="px-2.5 py-0.5 rounded font-display font-black text-xs uppercase tracking-widest text-slate-950"
+                  style={{ background: theme.accent }}
+                >
+                  {state.user.channelTitle || 'LIVE'}
+                </span>
+                <span
+                  className="font-display font-black text-2xl uppercase tracking-wider"
+                  style={{ color: theme.accent }}
+                >
+                  {liveActiveEvent.type}
+                </span>
+              </div>
+            ) : customMsgPatiBanner ? (
+              <div className="w-full flex items-center justify-between gap-4 min-w-0">
+                <span
+                  className="px-2.5 py-0.5 rounded font-display font-black text-[11px] uppercase tracking-widest text-slate-950 shrink-0"
+                  style={{ background: theme.accent }}
+                >
+                  {customMsgPatiBanner.badge}
+                </span>
+                <span className="font-display font-black text-base tracking-wide truncate flex-1 text-center">
+                  {customMsgPatiBanner.headline}
+                </span>
+                {customMsgPatiBanner.subline && (
+                  <span
+                    className="text-xs font-bold uppercase truncate max-w-[35%] shrink-0"
+                    style={{ color: theme.accent }}
+                  >
+                    {customMsgPatiBanner.subline}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <>
+                <span className="font-display font-black text-base tracking-wide">
+                  {tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE'}
+                </span>
+                <span className="text-xs font-bold uppercase" style={{ color: theme.accent }}>
+                  READY FOR LIVE MATCH
+                </span>
+              </>
+            )}
           </div>
         </div>
       );
     }
 
-    // Build inside-scoreboard animated Winner info when match is completed
+    // Build inside-scoreboard animated Winner / Versus / Toss / Tournament / Message / Highlight banner
     const isMatchCompleted = match.status === 'completed';
     const inn1BatTeam = inn1 ? teamMap.get(inn1.battingTeamId) : team1;
     const inn2BatTeam = inn2 ? teamMap.get(inn2.battingTeamId) : team2;
@@ -1196,63 +1270,52 @@ export function BroadcastOverlayCanvas({
         }
       : null;
 
-    // Specialized bottom ticker modes
-    if (
+    const tossWinnerTeam = teamMap.get(match.tossWinnerId) || team1;
+    const isMatchupMode =
       mode === 'Versus' ||
       mode === 'Versus With Logo' ||
       mode === 'Toss' ||
-      mode === 'Result' ||
-      mode === 'Tournament Name'
-    ) {
-      const centerText =
-        mode === 'Toss'
-          ? `TOSS: ${teamMap.get(match.tossWinnerId)?.name || team1?.name} WON & ELECTED TO ${match.tossDecision.toUpperCase()}`
-          : mode === 'Result'
-            ? match.resultText.toUpperCase()
-            : mode === 'Tournament Name'
-              ? (tournament?.name || state.user.channelTitle).toUpperCase()
-              : `${team1?.name || 'TEAM 1'}  VS  ${team2?.name || 'TEAM 2'}`;
+      mode === 'Tournament Name';
 
-      return (
-        <div className="absolute bottom-5 inset-x-8 pointer-events-none">
-          <div
-            className={`relative overflow-hidden rounded-xl px-6 py-3.5 flex items-center justify-center gap-4 text-white shadow-2xl border-2 ${
-              useTataIplPatti ? 'studio-strip-animated-bg suite-top-box-glow' : ''
-            }`}
-            style={{
-              background: useTataIplPatti
-                ? undefined
-                : `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})`,
-              borderColor: useTataIplPatti ? '#FFE600' : theme.accent,
-            }}
-          >
-            {useTataIplPatti && (
-              <>
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-[#FFE600]/25 to-transparent banner-sheen-animated"
-                />
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 bottom-0 h-[2px] overflow-hidden"
-                >
-                  <div className="h-full w-1/2 bg-gradient-to-r from-transparent via-[#EF1A1A] to-[#FFE600] opacity-90 topbar-beam-sweep" />
-                </div>
-              </>
-            )}
-            {mode === 'Versus With Logo' && renderTeamBadge(team1, 'w-10 h-10')}
-            <span
-              className={`relative z-10 font-display font-black text-base sm:text-xl tracking-wide text-center drop-shadow-[0_2px_8px_rgba(0,0,0,0.65)] ${
-                useTataIplPatti ? 'text-[#FFE600]' : 'text-white'
-              }`}
-            >
-              {centerText}
-            </span>
-            {mode === 'Versus With Logo' && renderTeamBadge(team2, 'w-10 h-10')}
-          </div>
-        </div>
-      );
+    let patiBanner: ScoreboardPatiBanner | null = customMsgPatiBanner;
+    if (!patiBanner) {
+      if (mode === 'Result' || (isMatchCompleted && mode === 'Score')) {
+        patiBanner = {
+          kind: 'WINNER',
+          badge: isMatchTied ? 'MATCH TIED' : 'WINNER',
+          headline: winnerHeadline,
+          subline: winnerSummaryLine,
+        };
+      } else if (mode === 'Versus' || mode === 'Versus With Logo') {
+        patiBanner = {
+          kind: 'VERSUS',
+          badge: (match.stageBadge || 'VERSUS').toUpperCase(),
+          headline: `${(team1?.name || 'TEAM 1').toUpperCase()} VS ${(team2?.name || 'TEAM 2').toUpperCase()}`,
+          leftTeamName: (team1?.name || team1?.shortName || 'TEAM 1').toUpperCase(),
+          rightTeamName: (team2?.name || team2?.shortName || 'TEAM 2').toUpperCase(),
+          subline: `${(tournament?.name || state.user.channelTitle || 'LIVE CRICKET').toUpperCase()}${match.matchLabel ? ` • ${match.matchLabel.toUpperCase()}` : ''}`,
+          forceShowLogos: mode === 'Versus With Logo',
+        };
+      } else if (mode === 'Toss') {
+        patiBanner = {
+          kind: 'TOSS',
+          badge: 'TOSS',
+          headline: `${(tossWinnerTeam?.name || 'TEAM').toUpperCase()} WON TOSS & CHOSE TO ${match.tossDecision.toUpperCase()}`,
+          subline: `${(team1?.shortName || 'T1').toUpperCase()} VS ${(team2?.shortName || 'T2').toUpperCase()} • ${(match.venue || tournament?.name || state.user.channelTitle || 'LIVE').toUpperCase()}`,
+        };
+      } else if (mode === 'Tournament Name') {
+        patiBanner = {
+          kind: 'TOURNAMENT',
+          badge: (match.stageBadge || 'TOURNAMENT').toUpperCase(),
+          headline: (tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE').toUpperCase(),
+          subline: `${(team1?.name || 'TEAM 1').toUpperCase()} VS ${(team2?.name || 'TEAM 2').toUpperCase()}${match.venue ? ` • ${match.venue.toUpperCase()}` : ''}`,
+        };
+      }
     }
+
+    const displayLeftTeam = isMatchupMode ? team1 ?? batTeam : batTeam;
+    const displayRightTeam = isMatchupMode ? team2 ?? bowlTeam : bowlTeam;
+    const displayShowLogo = mode === 'Versus With Logo' ? true : overlay.showTeamLogo;
 
     // Secondary strip text based on bottomScoreMode
     let infoStrip = `CRR ${crr}`;
@@ -1311,15 +1374,15 @@ export function BroadcastOverlayCanvas({
       return (
         <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
           <TataIplScoreboardBar
-            batTeamCode={batTeam?.shortName || 'BAT'}
-            batTeamLogo={batTeam?.logoUrl}
-            batTeamColor={batTeam?.customColor ? getTeamColorHex(batTeam) : undefined}
-            batTeamTextColor={batTeam?.customColor ? getTeamTextColorHex(batTeam) : undefined}
-            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
-            bowlTeamLogo={bowlTeam?.logoUrl}
-            bowlTeamColor={bowlTeam?.customColor ? getTeamColorHex(bowlTeam) : undefined}
-            bowlTeamTextColor={bowlTeam?.customColor ? getTeamTextColorHex(bowlTeam) : undefined}
-            showTeamLogo={overlay.showTeamLogo}
+            batTeamCode={displayLeftTeam?.shortName || 'BAT'}
+            batTeamLogo={displayLeftTeam?.logoUrl}
+            batTeamColor={displayLeftTeam?.customColor ? getTeamColorHex(displayLeftTeam) : undefined}
+            batTeamTextColor={displayLeftTeam?.customColor ? getTeamTextColorHex(displayLeftTeam) : undefined}
+            bowlTeamCode={displayRightTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={displayRightTeam?.logoUrl}
+            bowlTeamColor={displayRightTeam?.customColor ? getTeamColorHex(displayRightTeam) : undefined}
+            bowlTeamTextColor={displayRightTeam?.customColor ? getTeamTextColorHex(displayRightTeam) : undefined}
+            showTeamLogo={displayShowLogo}
             scoreText={`${activeInn.runs}-${activeInn.wickets}`}
             oversText={formatOvers(activeInn.legalBalls)}
             batter1Name={striker?.playerName || 'NEXT BATTER'}
@@ -1337,11 +1400,8 @@ export function BroadcastOverlayCanvas({
             targetText={pattiTargetText}
             matchTitle={pattiMatchTitle}
             winnerInfo={winnerInfo}
-            activeEvent={
-              showTransition && activeTransition
-                ? { id: activeTransition.id, type: activeTransition.type }
-                : null
-            }
+            patiBanner={patiBanner}
+            activeEvent={liveActiveEvent}
           />
         </div>
       );
@@ -1370,15 +1430,15 @@ export function BroadcastOverlayCanvas({
       return (
         <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
           <WorldCupScoreboardBar
-            batTeamCode={batTeam?.shortName || 'BAT'}
-            batTeamLogo={batTeam?.logoUrl}
-            batTeamColor={batTeam?.customColor ? getTeamColorHex(batTeam) : undefined}
-            batTeamTextColor={batTeam?.customColor ? getTeamTextColorHex(batTeam) : undefined}
-            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
-            bowlTeamLogo={bowlTeam?.logoUrl}
-            bowlTeamColor={bowlTeam?.customColor ? getTeamColorHex(bowlTeam) : undefined}
-            bowlTeamTextColor={bowlTeam?.customColor ? getTeamTextColorHex(bowlTeam) : undefined}
-            showTeamLogo={overlay.showTeamLogo}
+            batTeamCode={displayLeftTeam?.shortName || 'BAT'}
+            batTeamLogo={displayLeftTeam?.logoUrl}
+            batTeamColor={displayLeftTeam?.customColor ? getTeamColorHex(displayLeftTeam) : undefined}
+            batTeamTextColor={displayLeftTeam?.customColor ? getTeamTextColorHex(displayLeftTeam) : undefined}
+            bowlTeamCode={displayRightTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={displayRightTeam?.logoUrl}
+            bowlTeamColor={displayRightTeam?.customColor ? getTeamColorHex(displayRightTeam) : undefined}
+            bowlTeamTextColor={displayRightTeam?.customColor ? getTeamTextColorHex(displayRightTeam) : undefined}
+            showTeamLogo={displayShowLogo}
             runs={activeInn.runs}
             wickets={activeInn.wickets}
             oversText={formatOvers(activeInn.legalBalls)}
@@ -1398,11 +1458,8 @@ export function BroadcastOverlayCanvas({
             rateValue={wcRateValue}
             tickerText={wcTickerText}
             winnerInfo={winnerInfo}
-            activeEvent={
-              showTransition && activeTransition
-                ? { id: activeTransition.id, type: activeTransition.type }
-                : null
-            }
+            patiBanner={patiBanner}
+            activeEvent={liveActiveEvent}
           />
         </div>
       );
@@ -1432,13 +1489,13 @@ export function BroadcastOverlayCanvas({
       return (
         <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
           <LightningProScoreboardBar
-            batTeamName={batTeam?.name || batTeam?.shortName || 'BATTING'}
-            batTeamCode={batTeam?.shortName || 'BAT'}
-            batTeamLogo={batTeam?.logoUrl}
-            bowlTeamName={bowlTeam?.name || bowlTeam?.shortName || 'BOWLING'}
-            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
-            bowlTeamLogo={bowlTeam?.logoUrl}
-            showTeamLogo={overlay.showTeamLogo}
+            batTeamName={displayLeftTeam?.name || displayLeftTeam?.shortName || 'BATTING'}
+            batTeamCode={displayLeftTeam?.shortName || 'BAT'}
+            batTeamLogo={displayLeftTeam?.logoUrl}
+            bowlTeamName={displayRightTeam?.name || displayRightTeam?.shortName || 'BOWLING'}
+            bowlTeamCode={displayRightTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={displayRightTeam?.logoUrl}
+            showTeamLogo={displayShowLogo}
             runs={activeInn.runs}
             wickets={activeInn.wickets}
             oversText={formatOvers(activeInn.legalBalls)}
@@ -1458,11 +1515,8 @@ export function BroadcastOverlayCanvas({
             topHoodText={topHoodText}
             bottomTickerText={bottomTickerText}
             winnerInfo={winnerInfo}
-            activeEvent={
-              showTransition && activeTransition
-                ? { id: activeTransition.id, type: activeTransition.type }
-                : null
-            }
+            patiBanner={patiBanner}
+            activeEvent={liveActiveEvent}
           />
         </div>
       );
@@ -1478,12 +1532,37 @@ export function BroadcastOverlayCanvas({
         isExtra: b.extraType !== 'none',
       }));
 
+      const renderProBadge = (team: Team | undefined) => {
+        if (!displayShowLogo) return null;
+        if (team?.logoUrl) {
+          return (
+            <img
+              src={team.logoUrl}
+              alt={team.shortName}
+              referrerPolicy="no-referrer"
+              className="w-7 h-7 rounded-full object-cover border-2 border-white/60 shrink-0 bg-white"
+            />
+          );
+        }
+        return (
+          <div
+            className="w-7 h-7 rounded-full flex items-center justify-center font-display font-black text-[10px] border-2 border-white/60 shrink-0"
+            style={{
+              background: team?.customColor ? getTeamColorHex(team) : theme.secondary,
+              color: team?.customColor ? getTeamTextColorHex(team) : '#FFFFFF',
+            }}
+          >
+            {(team?.shortName || 'TM').slice(0, 3)}
+          </div>
+        );
+      };
+
       return (
         <div className="absolute bottom-4 inset-x-6 pointer-events-none">
           <ProScoreboardBar
             barStyle={theme.barStyle}
-            leftTeam={batTeam?.shortName || 'BAT'}
-            rightTeam={bowlTeam?.shortName || 'BOWL'}
+            leftTeam={displayLeftTeam?.shortName || 'BAT'}
+            rightTeam={displayRightTeam?.shortName || 'BOWL'}
             strikerName={striker?.playerName || 'Next Batter...'}
             strikerScore={striker ? `${striker.runs} (${striker.balls})` : ''}
             nonStrikerName={nonStriker?.playerName || 'Next Batter...'}
@@ -1493,16 +1572,31 @@ export function BroadcastOverlayCanvas({
             bowlerName={bowler?.playerName || 'Bowler'}
             bowlerFigures={`${bowler?.wickets ?? 0}-${bowler?.runs ?? 0} (${bowler?.overs ?? '0.0'})`}
             balls={ballList}
-            infoStrip={winnerInfo ? `🏆 ${winnerInfo.headline} · ${winnerInfo.summaryLine}` : infoStrip}
+            infoStrip={infoStrip}
             footerRight={`${match.matchLabel} · ${state.user.watermarkText || 'STAREVENT.LIVE'}`}
             accentColor={theme.accent}
             primaryColor={theme.primary}
-            leftBadgeExtra={renderTeamBadge(batTeam, 'w-7 h-7')}
-            rightBadgeExtra={renderTeamBadge(bowlTeam, 'w-7 h-7')}
+            leftBadgeExtra={renderProBadge(displayLeftTeam)}
+            rightBadgeExtra={renderProBadge(displayRightTeam)}
+            patiBanner={patiBanner}
+            activeEvent={liveActiveEvent}
           />
         </div>
       );
     }
+
+    const fallbackEventLabel = liveActiveEvent
+      ? (() => {
+          const u = liveActiveEvent.type.toUpperCase();
+          if (u === 'FOUR' || u === '4') return { badge: 'BOUNDARY', label: 'FOUR!', caption: '4 RUNS', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.accent}, ${theme.primary})` };
+          if (u === 'SIX' || u === '6') return { badge: 'MAXIMUM', label: 'SIX!', caption: '6 RUNS', bg: `linear-gradient(90deg, ${theme.secondary}, ${theme.primary}, ${theme.secondary})` };
+          if (u === 'WICKET' || u === 'OUT') return { badge: 'OUT', label: 'WICKET!', caption: 'BATTER DISMISSED', bg: 'linear-gradient(90deg, #7F1D1D, #DC2626, #7F1D1D)' };
+          if (u.includes('NO')) return { badge: 'EXTRA', label: 'NO BALL!', caption: 'FREE HIT COMING UP', bg: `linear-gradient(90deg, ${theme.primary}, #EA580C, ${theme.primary})` };
+          if (u.includes('WIDE')) return { badge: 'EXTRA', label: 'WIDE BALL!', caption: '+1 EXTRA RUN', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
+          if (u.includes('FREE')) return { badge: 'BONUS', label: 'FREE HIT!', caption: 'NO DISMISSAL OFF BAT', bg: `linear-gradient(90deg, #065F46, #059669, #065F46)` };
+          return { badge: 'LIVE', label: u, caption: state.user.channelTitle || 'STAR EVENT LIVE', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
+        })()
+      : null;
 
     return (
       <div className="absolute bottom-4 inset-x-6 pointer-events-none">
@@ -1513,112 +1607,175 @@ export function BroadcastOverlayCanvas({
             borderColor: theme.accent,
           }}
         >
-          <div className="grid grid-cols-[auto_1fr_1fr] items-stretch">
-            {/* Score Block */}
+          {fallbackEventLabel ? (
             <div
-              className="px-5 py-2.5 flex items-center gap-3"
+              key={liveActiveEvent?.id}
+              className="px-6 py-4 flex items-center justify-center gap-4"
+              style={{ background: fallbackEventLabel.bg }}
+            >
+              <span
+                className="px-2.5 py-0.5 rounded font-display font-black text-xs uppercase tracking-widest text-slate-950"
+                style={{ background: theme.accent }}
+              >
+                {fallbackEventLabel.badge}
+              </span>
+              <span className="font-display font-black text-2xl sm:text-3xl uppercase tracking-wider text-white">
+                {fallbackEventLabel.label}
+              </span>
+              <span className="text-xs font-extrabold uppercase tracking-widest text-white/85">
+                {fallbackEventLabel.caption}
+              </span>
+            </div>
+          ) : patiBanner ? (
+            <div
+              className="px-5 py-3 flex items-center justify-between gap-4"
               style={{
-                background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+                background: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})`,
               }}
             >
-              {renderTeamBadge(batTeam, 'w-10 h-10')}
-              <div>
-                <div className="flex items-baseline gap-2">
-                  <span className="font-display font-black text-base uppercase">
-                    {batTeam?.shortName || 'BAT'}
-                  </span>
-                  <span
-                    className="font-display font-black text-2xl sm:text-3xl tabular-nums"
-                    style={{ color: theme.accent }}
-                  >
-                    {activeInn.runs}-{activeInn.wickets}
-                  </span>
-                </div>
-                <p className="text-[11px] font-bold text-white/85 tabular-nums">
-                  OVERS {formatOvers(activeInn.legalBalls)} / {activeInn.maxOvers}
-                </p>
-              </div>
-            </div>
-
-            {/* Batters Block */}
-            <div className="px-4 py-2 flex flex-col justify-center gap-1 border-r border-white/15 bg-black/25">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-bold truncate inline-flex items-center gap-1.5 min-w-0">
-                  <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    className="w-4 h-4 shrink-0"
-                    style={{ color: theme.accent }}
-                    aria-label="On strike"
-                  >
-                    <path
-                      d="M16.5 7.5 20.5 3.5"
-                      stroke="currentColor"
-                      strokeWidth="2.6"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M14.4 6.4a1.2 1.2 0 0 1 1.7 0l1.5 1.5a1.2 1.2 0 0 1 0 1.7L9.3 17.9a2.2 2.2 0 0 1-3.1 0l-1.1-1.1a2.2 2.2 0 0 1 0-3.1l9.3-7.3Z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                  <span className="truncate">{striker?.playerName || 'Next Batter...'}</span>
-                </span>
-                <span className="font-black tabular-nums ml-2 shrink-0">
-                  {striker ? (
-                    <>
-                      {striker.runs}
-                      <span className="text-white/70 text-[11px] font-semibold">
-                        ({striker.balls})
-                      </span>
-                    </>
-                  ) : null}
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs sm:text-sm text-white/80">
-                <span className="font-semibold truncate pl-5.5">
-                  {nonStriker?.playerName || 'Next Batter...'}
-                </span>
-                <span className="font-bold tabular-nums ml-2 shrink-0">
-                  {nonStriker ? (
-                    <>
-                      {nonStriker.runs}
-                      <span className="text-white/60 text-[11px]">
-                        ({nonStriker.balls})
-                      </span>
-                    </>
-                  ) : null}
-                </span>
-              </div>
-            </div>
-
-            {/* Bowler & Balls Block */}
-            <div className="px-4 py-2 flex flex-col justify-center gap-1.5 bg-black/35">
-              <div className="flex items-center justify-between text-xs sm:text-sm">
-                <span className="font-bold truncate">
-                  {bowler?.playerName || 'Bowler'}
-                </span>
+              <div className="flex items-center gap-2 shrink-0">
+                {(displayShowLogo || patiBanner.forceShowLogos) && renderTeamBadge(displayLeftTeam, 'w-9 h-9')}
                 <span
-                  className="font-black tabular-nums ml-2"
-                  style={{ color: theme.accent }}
+                  className="px-2.5 py-0.5 rounded font-display font-black text-[11px] uppercase tracking-widest text-slate-950"
+                  style={{ background: theme.accent }}
                 >
-                  {bowler?.wickets ?? 0}-{bowler?.runs ?? 0} ({bowler?.overs ?? '0.0'})
+                  {patiBanner.badge}
                 </span>
               </div>
-              <div className="flex items-center gap-1 overflow-hidden">
-                {(mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map(
-                  renderBallDot
+              <div className="min-w-0 flex-1 text-center">
+                {patiBanner.kind === 'VERSUS' && patiBanner.leftTeamName && patiBanner.rightTeamName ? (
+                  <div className="flex items-center justify-center gap-3">
+                    <span className="font-display font-black text-lg uppercase truncate">
+                      {patiBanner.leftTeamName}
+                    </span>
+                    <span
+                      className="px-2 py-0.5 rounded font-display font-black text-xs text-slate-950"
+                      style={{ background: theme.accent }}
+                    >
+                      VS
+                    </span>
+                    <span className="font-display font-black text-lg uppercase truncate">
+                      {patiBanner.rightTeamName}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="font-display font-black text-lg sm:text-xl uppercase tracking-wide truncate">
+                    {patiBanner.headline}
+                  </p>
                 )}
               </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {(displayShowLogo || patiBanner.forceShowLogos) && renderTeamBadge(displayRightTeam, 'w-9 h-9')}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="grid grid-cols-[auto_1fr_1fr] items-stretch">
+              {/* Score Block */}
+              <div
+                className="px-5 py-2.5 flex items-center gap-3"
+                style={{
+                  background: `linear-gradient(135deg, ${theme.primary}, ${theme.secondary})`,
+                }}
+              >
+                {renderTeamBadge(batTeam, 'w-10 h-10')}
+                <div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="font-display font-black text-base uppercase">
+                      {batTeam?.shortName || 'BAT'}
+                    </span>
+                    <span
+                      className="font-display font-black text-2xl sm:text-3xl tabular-nums"
+                      style={{ color: theme.accent }}
+                    >
+                      {activeInn.runs}-{activeInn.wickets}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-bold text-white/85 tabular-nums">
+                    OVERS {formatOvers(activeInn.legalBalls)} / {activeInn.maxOvers}
+                  </p>
+                </div>
+              </div>
+
+              {/* Batters Block */}
+              <div className="px-4 py-2 flex flex-col justify-center gap-1 border-r border-white/15 bg-black/25">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="font-bold truncate inline-flex items-center gap-1.5 min-w-0">
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      className="w-4 h-4 shrink-0"
+                      style={{ color: theme.accent }}
+                      aria-label="On strike"
+                    >
+                      <path
+                        d="M16.5 7.5 20.5 3.5"
+                        stroke="currentColor"
+                        strokeWidth="2.6"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M14.4 6.4a1.2 1.2 0 0 1 1.7 0l1.5 1.5a1.2 1.2 0 0 1 0 1.7L9.3 17.9a2.2 2.2 0 0 1-3.1 0l-1.1-1.1a2.2 2.2 0 0 1 0-3.1l9.3-7.3Z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                    <span className="truncate">{striker?.playerName || 'Next Batter...'}</span>
+                  </span>
+                  <span className="font-black tabular-nums ml-2 shrink-0">
+                    {striker ? (
+                      <>
+                        {striker.runs}
+                        <span className="text-white/70 text-[11px] font-semibold">
+                          ({striker.balls})
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs sm:text-sm text-white/80">
+                  <span className="font-semibold truncate pl-5.5">
+                    {nonStriker?.playerName || 'Next Batter...'}
+                  </span>
+                  <span className="font-bold tabular-nums ml-2 shrink-0">
+                    {nonStriker ? (
+                      <>
+                        {nonStriker.runs}
+                        <span className="text-white/60 text-[11px]">
+                          ({nonStriker.balls})
+                        </span>
+                      </>
+                    ) : null}
+                  </span>
+                </div>
+              </div>
+
+              {/* Bowler & Balls Block */}
+              <div className="px-4 py-2 flex flex-col justify-center gap-1.5 bg-black/35">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
+                  <span className="font-bold truncate">
+                    {bowler?.playerName || 'Bowler'}
+                  </span>
+                  <span
+                    className="font-black tabular-nums ml-2"
+                    style={{ color: theme.accent }}
+                  >
+                    {bowler?.wickets ?? 0}-{bowler?.runs ?? 0} ({bowler?.overs ?? '0.0'})
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 overflow-hidden">
+                  {(mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map(
+                    renderBallDot
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Info Ticker Strip */}
           <div
             className="px-4 py-1 flex items-center justify-between text-[11px] font-bold tracking-wide"
             style={{ background: theme.primary }}
           >
-            <span className="truncate">{infoStrip}</span>
+            <span className="truncate">{patiBanner?.subline || infoStrip}</span>
             <span className="uppercase shrink-0 ml-4" style={{ color: theme.accent }}>
               {match.matchLabel} · {state.user.watermarkText || 'STAREVENT.LIVE'}
             </span>
@@ -1637,50 +1794,8 @@ export function BroadcastOverlayCanvas({
       {/* Main Graphic Card */}
       {renderMainCard()}
 
-      {/* Bottom Broadcast Scorebug */}
+      {/* Bottom Broadcast Scorebug (includes theme-matched 4/6/NB/WD/Wicket/Free Hit + Winner/Versus/Toss/Msg/Highlight) */}
       {renderBottomBar()}
-
-      {/* Transition Overlay Stinger Banner (for non-inline-stinger themes or when bar is hidden) */}
-      {showTransition &&
-        activeTransition &&
-        !(
-          (useTataIplPatti || useWorldCupPatti || useLightningProPatti) &&
-          overlay.bottomScoreMode !== 'EMPTY' &&
-          overlay.bottomScoreMode !== 'Versus' &&
-          overlay.bottomScoreMode !== 'Versus With Logo' &&
-          overlay.bottomScoreMode !== 'Toss' &&
-          overlay.bottomScoreMode !== 'Result' &&
-          overlay.bottomScoreMode !== 'Tournament Name' &&
-          !(match?.status === 'completed' && overlay.bottomScoreMode === 'Score')
-        ) && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
-          <motion.div
-            key={activeTransition.id}
-            initial={{ opacity: 0, scale: 0.72, y: 18 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 360, damping: 22 }}
-            className="relative overflow-hidden px-14 py-6 rounded-2xl border-4 shadow-2xl text-center studio-strip-animated-bg suite-top-box-glow"
-            style={{
-              background:
-                activeTransition.type === 'Wicket'
-                  ? 'linear-gradient(120deg, #7F030A 0%, #DC2626 48%, #450208 100%)'
-                  : undefined,
-              borderColor: '#FFE600',
-            }}
-          >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-[#FFE600]/30 to-transparent banner-sheen-animated"
-            />
-            <p className="relative z-10 text-xs font-bold uppercase tracking-[0.3em] text-amber-100/90">
-              {state.user.channelTitle || 'STAR EVENT LIVE'}
-            </p>
-            <p className="relative z-10 font-display font-black text-5xl sm:text-6xl uppercase tracking-wider drop-shadow-[0_4px_14px_rgba(0,0,0,0.75)] mt-1 text-[#FFE600]">
-              {activeTransition.type}
-            </p>
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 }

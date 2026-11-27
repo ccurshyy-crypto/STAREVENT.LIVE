@@ -1749,33 +1749,45 @@ body.overlay-chroma-blue #root {
 }
 
 .ipl-event-banner.theme-four {
-  background: linear-gradient(90deg, #0284c7 0%, #0ea5e9 25%, #38bdf8 50%, #0ea5e9 75%, #0284c7 100%);
-  border-top: 2px solid #e0f2fe;
-  border-bottom: 2px solid #0369a1;
+  background: linear-gradient(90deg, #07113b 0%, #0f257a 25%, #1d4ed8 50%, #0f257a 75%, #07113b 100%);
+  border-top: 2px solid #ffe600;
+  border-bottom: 2px solid #f5b800;
 }
 
 .ipl-event-banner.theme-six {
-  background: linear-gradient(90deg, #6d28d9 0%, #8b5cf6 25%, #f59e0b 50%, #8b5cf6 75%, #6d28d9 100%);
-  border-top: 2px solid #fef08a;
-  border-bottom: 2px solid #4c1d95;
+  background: linear-gradient(90deg, #4a0208 0%, #99040b 24%, #d97706 50%, #99040b 76%, #4a0208 100%);
+  border-top: 2px solid #fff04d;
+  border-bottom: 2px solid #ffe600;
 }
 
 .ipl-event-banner.theme-wicket {
-  background: linear-gradient(90deg, #991b1b 0%, #dc2626 28%, #ef4444 50%, #dc2626 72%, #991b1b 100%);
+  background: linear-gradient(90deg, #5c0307 0%, #b91c1c 28%, #ef4444 50%, #b91c1c 72%, #5c0307 100%);
   border-top: 2px solid #fecaca;
   border-bottom: 2px solid #7f1d1d;
 }
 
+.ipl-event-banner.theme-noball {
+  background: linear-gradient(90deg, #7f030a 0%, #d97706 28%, #ffe600 50%, #d97706 72%, #7f030a 100%);
+  border-top: 2px solid #fff04d;
+  border-bottom: 2px solid #99040b;
+}
+
+.ipl-event-banner.theme-wide {
+  background: linear-gradient(90deg, #070b28 0%, #172554 26%, #b45309 50%, #172554 74%, #070b28 100%);
+  border-top: 2px solid #fde047;
+  border-bottom: 2px solid #f59e0b;
+}
+
 .ipl-event-banner.theme-freehit {
-  background: linear-gradient(90deg, #b45309 0%, #f59e0b 28%, #fde047 50%, #f59e0b 72%, #b45309 100%);
+  background: linear-gradient(90deg, #92400e 0%, #f59e0b 28%, #fde047 50%, #f59e0b 72%, #92400e 100%);
   border-top: 2px solid #fef9c3;
   border-bottom: 2px solid #78350f;
 }
 
 .ipl-event-banner.theme-chased {
-  background: linear-gradient(90deg, #065f46 0%, #10b981 28%, #facc15 50%, #10b981 72%, #065f46 100%);
+  background: linear-gradient(90deg, #4a0208 0%, #99040b 26%, #facc15 50%, #99040b 74%, #4a0208 100%);
   border-top: 2px solid #fef08a;
-  border-bottom: 2px solid #064e3b;
+  border-bottom: 2px solid #7f030a;
 }
 
 .ipl-event-banner::before {
@@ -1802,57 +1814,129 @@ body.overlay-chroma-blue #root {
   z-index: 2;
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 28px;
+  gap: 16px;
+  padding: 0 24px;
 }
 
 .ipl-event-badge-pill {
-  background: #081024;
-  color: #facc15;
+  background: #070b28;
+  color: #ffe600;
   font-family: 'Oswald', sans-serif;
   font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 1.5px;
-  padding: 3px 13px;
+  font-size: 14px;
+  letter-spacing: 1.4px;
+  padding: 3px 12px;
   border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
+  border: 1.5px solid #ffe600;
   text-transform: uppercase;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.45);
+  white-space: nowrap;
 }
 
 .ipl-event-main-headline {
   font-family: 'Oswald', 'Roboto Condensed', sans-serif;
   font-weight: 700;
   font-style: italic;
-  font-size: 36px;
-  letter-spacing: 2.5px;
+  font-size: 34px;
+  letter-spacing: 2px;
   color: #ffffff;
   text-transform: uppercase;
-  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  text-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
   animation: iplEventHeadlineZoom 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+  white-space: nowrap;
+}
+
+.ipl-event-banner.theme-four .ipl-event-main-headline,
+.ipl-event-banner.theme-six .ipl-event-main-headline,
+.ipl-event-banner.theme-wide .ipl-event-main-headline {
+  color: #ffe600;
 }
 
 .ipl-event-banner.theme-freehit .ipl-event-main-headline,
+.ipl-event-banner.theme-noball .ipl-event-main-headline,
 .ipl-event-banner.theme-chased .ipl-event-main-headline {
-  color: #081024;
+  color: #070b28;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .ipl-event-sub-caption {
   font-family: 'Roboto Condensed', sans-serif;
   font-weight: 900;
-  font-size: 15px;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.95);
-  background: rgba(8, 16, 36, 0.45);
+  font-size: 14px;
+  letter-spacing: 0.9px;
+  color: rgba(255, 255, 255, 0.96);
+  background: rgba(7, 11, 40, 0.62);
+  border: 1px solid rgba(255, 230, 0, 0.35);
   padding: 4px 12px;
   border-radius: 3px;
   text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ipl-pati-banner-strip {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 0 18px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(90deg, #070b28 0%, #6b0208 26%, #99040b 50%, #6b0208 74%, #070b28 100%);
+}
+
+.ipl-pati-banner-strip.is-highlight {
+  background: linear-gradient(90deg, #4a0208 0%, #99040b 24%, #b45309 50%, #99040b 76%, #4a0208 100%);
+}
+
+.ipl-pati-banner-strip.is-versus {
+  background: linear-gradient(90deg, #070b28 0%, #101b52 28%, #6b0208 50%, #101b52 72%, #070b28 100%);
+}
+
+.ipl-pati-banner-badge {
+  background: linear-gradient(180deg, #fff04d 0%, #ffe600 55%, #f5b800 100%);
+  color: #070b28;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  padding: 2px 10px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.ipl-pati-banner-headline {
+  font-family: 'Oswald', 'Roboto Condensed', sans-serif;
+  font-weight: 800;
+  font-size: 20px;
+  letter-spacing: 0.9px;
+  color: #ffffff;
+  text-transform: uppercase;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ipl-pati-vs-pill {
+  background: linear-gradient(180deg, #fff04d 0%, #ffe600 55%, #d97706 100%);
+  color: #070b28;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 15px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 @keyframes iplEventHeadlineZoom {
   0% { transform: scale(1.65); letter-spacing: 8px; opacity: 0; }
-  100% { transform: scale(1); letter-spacing: 2.5px; opacity: 1; }
+  100% { transform: scale(1); letter-spacing: 2px; opacity: 1; }
 }
 
 /* Container-responsive adjustments for smaller preview monitors */

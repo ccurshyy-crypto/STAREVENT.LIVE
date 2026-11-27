@@ -2671,34 +2671,40 @@ export function ScoringDashboardView({
                       </motion.button>
                     ))}
 
-                    {/* 4 (Boundary - Vibrant Orange) */}
+                    {/* 4 (Boundary - Colored Golden Yellow -> triggers FOUR overlay) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
-                      title="Boundary 4"
+                      title="Boundary 4 (Triggers FOUR Overlay)"
                       whileHover={isScoringLocked ? undefined : { scale: 1.07, y: -2 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() =>
-                        recordDelivery({ runsOffBat: 4, isBoundary4: true }, 'FOUR! +4 Runs')
+                        recordDelivery(
+                          { runsOffBat: 4, isBoundary4: true, isBoundary6: false },
+                          'FOUR! +4 Runs'
+                        )
                       }
-                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-sm sm:text-base"
+                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] bg-gradient-to-b from-[#FDE047] via-[#FACC15] to-[#EAB308] hover:from-[#FEF08A] hover:to-[#CA8A04] border border-[#CA8A04] shadow-sm disabled:opacity-45 text-slate-950 font-display font-black text-sm sm:text-base transition-colors"
                     >
                       4
                     </motion.button>
 
-                    {/* 6 (Boundary - Vibrant Orange) */}
+                    {/* 6 (Boundary - Colored Orange-Crimson -> triggers SIXER overlay) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
-                      title="Boundary 6"
+                      title="Boundary 6 (Triggers SIXER Overlay)"
                       whileHover={isScoringLocked ? undefined : { scale: 1.07, y: -2 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() =>
-                        recordDelivery({ runsOffBat: 6, isBoundary6: true }, 'SIX! +6 Runs')
+                        recordDelivery(
+                          { runsOffBat: 6, isBoundary4: false, isBoundary6: true },
+                          'SIX! +6 Runs'
+                        )
                       }
-                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-primary disabled:opacity-45 text-white font-display font-black text-sm sm:text-base"
+                      className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] bg-gradient-to-b from-[#FF8C00] via-[#EA580C] to-[#C2410C] hover:from-[#FFA02E] hover:to-[#9A3412] border border-[#9A3412] shadow-sm disabled:opacity-45 text-white font-display font-black text-sm sm:text-base transition-colors"
                     >
                       6
                     </motion.button>
@@ -2706,16 +2712,19 @@ export function ScoringDashboardView({
 
                   {/* Row 2: 4 (Run), 5, 6 (Run), NB, WD, LB, BYE */}
                   <div className="grid grid-cols-7 sm:flex sm:flex-wrap items-center gap-1.5 sm:gap-2.5">
-                    {/* 4 (Running / Non-boundary) */}
+                    {/* 4 (Running / Non-boundary — counted in runs ONLY, no FOUR overlay) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
-                      title="4 Runs (Running)"
+                      title="4 Runs (Counted in runs only — no boundary overlay)"
                       whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() =>
-                        recordDelivery({ runsOffBat: 4, isBoundary4: false }, '+4 Runs')
+                        recordDelivery(
+                          { runsOffBat: 4, isBoundary4: false, isBoundary6: false },
+                          '+4 Runs'
+                        )
                       }
                       className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm sm:text-base"
                     >
@@ -2735,16 +2744,19 @@ export function ScoringDashboardView({
                       5
                     </motion.button>
 
-                    {/* 6 (Running / Non-boundary) */}
+                    {/* 6 (Running / Non-boundary — counted in runs ONLY, no SIXER overlay) */}
                     <motion.button
                       type="button"
                       disabled={isScoringLocked}
-                      title="6 Runs (Running / Overthrow)"
+                      title="6 Runs (Counted in runs only — no boundary overlay)"
                       whileHover={isScoringLocked ? undefined : { scale: 1.06, y: -2 }}
                       whileTap={isScoringLocked ? undefined : { scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() =>
-                        recordDelivery({ runsOffBat: 6, isBoundary6: false }, '+6 Runs')
+                        recordDelivery(
+                          { runsOffBat: 6, isBoundary4: false, isBoundary6: false },
+                          '+6 Runs'
+                        )
                       }
                       className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-secondary disabled:opacity-45 font-display font-bold text-sm sm:text-base"
                     >
@@ -3271,7 +3283,13 @@ export function ScoringDashboardView({
                         whileTap={isScoringLocked ? undefined : { scale: 0.95 }}
                         onClick={() => {
                           recordDelivery(
-                            { runsOffBat: r, extraType: 'none', isDcl: true },
+                            {
+                              runsOffBat: r,
+                              extraType: 'none',
+                              isDcl: true,
+                              isBoundary4: false,
+                              isBoundary6: false,
+                            },
                             `Declared ${r} runs`
                           );
                           setKeypadPanel('main');
