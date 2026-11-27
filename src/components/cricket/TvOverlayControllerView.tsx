@@ -84,7 +84,7 @@ export function TvOverlayControllerView({
   const [previewGreenBg, setPreviewGreenBg] = useState(false);
   const [previewScale, setPreviewScale] = useState(0.5);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
-  const [autoHideSeconds, setAutoHideSeconds] = useState<number>(8);
+  const [autoHideSeconds, setAutoHideSeconds] = useState<number>(0);
   const [autoHideRemaining, setAutoHideRemaining] = useState<number | null>(null);
   const [activeTransitionType, setActiveTransitionType] =
     useState<TransitionOverlayType | null>(null);

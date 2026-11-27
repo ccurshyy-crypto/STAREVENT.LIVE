@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
 import type {
+  ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
   TataIplEventBanner,
   TataIplWinnerInfo,
@@ -35,6 +36,7 @@ export interface LightningProScoreboardBarProps {
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
   patiBanner?: ScoreboardPatiBanner | null;
+  bottomNeed?: ScoreboardBottomNeedInfo | null;
   compact?: boolean;
 }
 
@@ -216,6 +218,7 @@ export function LightningProScoreboardBar({
   activeEvent = null,
   winnerInfo = null,
   patiBanner = null,
+  bottomNeed = null,
   compact = false,
 }: LightningProScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
@@ -751,9 +754,11 @@ export function LightningProScoreboardBar({
 
           <LightningDivider uid={`${uid}-3`} />
 
-          {/* 4. RIGHT-CENTER ROYAL BLUE METALLIC PANEL: BOWLER & OVER BALLS */}
+          {/* 4. RIGHT-CENTER ROYAL BLUE METALLIC PANEL: BOWLER & OVER BALLS OR OVERSIZED BOTTOM NEED */}
           <div
-            className="flex-1 min-w-[235px] flex flex-col justify-center px-5 relative overflow-hidden"
+            className={`flex-1 min-w-[235px] flex flex-col justify-center relative overflow-hidden ${
+              bottomNeed ? 'px-3' : 'px-5'
+            }`}
             style={{
               background:
                 'linear-gradient(180deg, #0044C7 0%, #002882 44%, #001A5C 52%, #001040 100%)',
@@ -764,6 +769,75 @@ export function LightningProScoreboardBar({
               aria-hidden="true"
               className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-sky-300/80 to-transparent"
             />
+            {bottomNeed ? (
+              <div
+                className="w-full h-full flex items-center justify-between tabular-nums"
+                aria-label={`${bottomNeed.runsValue} ${bottomNeed.middleTop} ${bottomNeed.middleBottom} ${bottomNeed.ballsValue} ${bottomNeed.rightLabel}`}
+              >
+                <div className="flex-1 flex items-center justify-center px-1">
+                  <span
+                    className="font-black italic leading-none tracking-tight"
+                    style={{
+                      color: '#FACC15',
+                      fontSize: '36px',
+                      textShadow: '0 2px 10px rgba(250, 204, 21, 0.45)',
+                    }}
+                  >
+                    {bottomNeed.runsValue}
+                  </span>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="h-[68%] w-[2px] shrink-0"
+                  style={{ background: 'rgba(125, 211, 252, 0.55)' }}
+                />
+                <div className="flex flex-col items-center justify-center px-2 leading-none shrink-0">
+                  <span
+                    className="font-black uppercase tracking-wider text-white"
+                    style={{ fontSize: '12px', lineHeight: 1.12 }}
+                  >
+                    {bottomNeed.middleTop}
+                  </span>
+                  <span
+                    className="font-black uppercase tracking-wider text-sky-200"
+                    style={{ fontSize: '12px', lineHeight: 1.12 }}
+                  >
+                    {bottomNeed.middleBottom}
+                  </span>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="h-[68%] w-[2px] shrink-0"
+                  style={{ background: 'rgba(125, 211, 252, 0.55)' }}
+                />
+                <div className="flex-1 flex items-center justify-center px-1">
+                  <span
+                    className="font-black italic leading-none tracking-tight"
+                    style={{
+                      color: '#FACC15',
+                      fontSize: '36px',
+                      textShadow: '0 2px 10px rgba(250, 204, 21, 0.45)',
+                    }}
+                  >
+                    {bottomNeed.ballsValue}
+                  </span>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="h-[68%] w-[2px] shrink-0"
+                  style={{ background: 'rgba(125, 211, 252, 0.55)' }}
+                />
+                <div className="flex items-center justify-center pl-2.5 pr-1 shrink-0">
+                  <span
+                    className="font-black uppercase tracking-wider text-white"
+                    style={{ fontSize: '15px', lineHeight: 1 }}
+                  >
+                    {bottomNeed.rightLabel}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Top Row: Bowler Name + Figures + Overs */}
             <div className="flex items-center justify-between gap-2 h-[33px] border-b border-sky-400/35">
               <span
@@ -856,6 +930,8 @@ export function LightningProScoreboardBar({
                 );
               })}
             </div>
+              </>
+            )}
           </div>
             </>
           )}

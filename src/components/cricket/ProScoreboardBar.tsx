@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import type { ScoreboardBarStyle } from '../../data/cricketSampleData';
 import type {
+  ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
   TataIplEventBanner,
 } from './TataIplScoreboardBar';
@@ -37,6 +38,7 @@ interface ProScoreboardBarProps {
   rightBadgeExtra?: ReactNode;
   activeEvent?: TataIplEventBanner | null;
   patiBanner?: ScoreboardPatiBanner | null;
+  bottomNeed?: ScoreboardBottomNeedInfo | null;
 }
 
 function renderBallCircle(
@@ -169,6 +171,7 @@ export function ProScoreboardBar({
   rightBadgeExtra,
   activeEvent = null,
   patiBanner = null,
+  bottomNeed = null,
 }: ProScoreboardBarProps) {
   const bowlerTextIsDark = barStyle.bowlerPanelText === '#0F172A';
   const isCricAstra = barStyle.ballMode === 'cric-astra';
@@ -436,42 +439,129 @@ export function ProScoreboardBar({
           </div>
         </div>
 
-        {/* 4. BOWLER + OVER BALLS PANEL */}
+        {/* 4. BOWLER + OVER BALLS PANEL OR OVERSIZED BOTTOM NEED BLOCK */}
         <div
           className={`flex-1 min-w-0 flex flex-col justify-center ${
-            compact ? 'pl-3 pr-2 py-0.5 text-[9px] leading-tight' : 'pl-6 pr-4 py-1.5 text-sm leading-snug'
+            bottomNeed
+              ? compact
+                ? 'pl-2 pr-1.5 py-0.5'
+                : 'pl-4 pr-3 py-1'
+              : compact
+                ? 'pl-3 pr-2 py-0.5 text-[9px] leading-tight'
+                : 'pl-6 pr-4 py-1.5 text-sm leading-snug'
           }`}
           style={{
             background: barStyle.bowlerPanelBg,
             color: barStyle.bowlerPanelText,
           }}
         >
-          <div className="flex items-center justify-between gap-1 font-bold">
-            <span className="truncate">{bowlerName}</span>
-            {bowlerFigures && (
-              <span className="tabular-nums font-black shrink-0">{bowlerFigures}</span>
-            )}
-          </div>
-          <div className="flex items-center justify-between gap-1.5 mt-0.5">
-            {secondaryRightText ? (
-              <span className="truncate font-semibold opacity-85">
-                {secondaryRightText}
-              </span>
-            ) : (
-              <span />
-            )}
-            {!isCricAstra && (
-              <div className="flex items-center gap-1 shrink-0">
-                {displayBalls.slice(0, compact ? 4 : 6).map((b) =>
-                  renderBallCircle(b, barStyle.ballMode, compact, bowlerTextIsDark)
+          {bottomNeed ? (
+            <div
+              className="w-full h-full flex items-center justify-between tabular-nums"
+              aria-label={`${bottomNeed.runsValue} ${bottomNeed.middleTop} ${bottomNeed.middleBottom} ${bottomNeed.ballsValue} ${bottomNeed.rightLabel}`}
+            >
+              <div className="flex-1 flex items-center justify-center px-1">
+                <span
+                  className="font-display font-black leading-none tracking-tight"
+                  style={{
+                    color: bowlerTextIsDark ? '#DC2626' : accentColor,
+                    fontSize: compact ? '18px' : '34px',
+                  }}
+                >
+                  {bottomNeed.runsValue}
+                </span>
+              </div>
+              <div
+                aria-hidden="true"
+                className="h-[68%] w-[1.5px] shrink-0"
+                style={{
+                  background: bowlerTextIsDark
+                    ? 'rgba(15, 23, 42, 0.55)'
+                    : 'rgba(255, 255, 255, 0.45)',
+                }}
+              />
+              <div className="flex flex-col items-center justify-center px-2 leading-none shrink-0">
+                <span
+                  className="font-display font-black uppercase tracking-wider"
+                  style={{ fontSize: compact ? '7px' : '12px', lineHeight: 1.08 }}
+                >
+                  {bottomNeed.middleTop}
+                </span>
+                <span
+                  className="font-display font-black uppercase tracking-wider opacity-90"
+                  style={{ fontSize: compact ? '7px' : '12px', lineHeight: 1.08 }}
+                >
+                  {bottomNeed.middleBottom}
+                </span>
+              </div>
+              <div
+                aria-hidden="true"
+                className="h-[68%] w-[1.5px] shrink-0"
+                style={{
+                  background: bowlerTextIsDark
+                    ? 'rgba(15, 23, 42, 0.55)'
+                    : 'rgba(255, 255, 255, 0.45)',
+                }}
+              />
+              <div className="flex-1 flex items-center justify-center px-1">
+                <span
+                  className="font-display font-black leading-none tracking-tight"
+                  style={{
+                    color: bowlerTextIsDark ? '#DC2626' : accentColor,
+                    fontSize: compact ? '18px' : '34px',
+                  }}
+                >
+                  {bottomNeed.ballsValue}
+                </span>
+              </div>
+              <div
+                aria-hidden="true"
+                className="h-[68%] w-[1.5px] shrink-0"
+                style={{
+                  background: bowlerTextIsDark
+                    ? 'rgba(15, 23, 42, 0.55)'
+                    : 'rgba(255, 255, 255, 0.45)',
+                }}
+              />
+              <div className="flex items-center justify-center pl-2.5 pr-1 shrink-0">
+                <span
+                  className="font-display font-black uppercase tracking-wider"
+                  style={{ fontSize: compact ? '9px' : '15px', lineHeight: 1 }}
+                >
+                  {bottomNeed.rightLabel}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-1 font-bold">
+                <span className="truncate">{bowlerName}</span>
+                {bowlerFigures && (
+                  <span className="tabular-nums font-black shrink-0">{bowlerFigures}</span>
                 )}
               </div>
-            )}
-          </div>
+              <div className="flex items-center justify-between gap-1.5 mt-0.5">
+                {secondaryRightText ? (
+                  <span className="truncate font-semibold opacity-85">
+                    {secondaryRightText}
+                  </span>
+                ) : (
+                  <span />
+                )}
+                {!isCricAstra && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {displayBalls.slice(0, compact ? 4 : 6).map((b) =>
+                      renderBallCircle(b, barStyle.ballMode, compact, bowlerTextIsDark)
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* 4B. CRICASTRA DEDICATED GOLD OVER-BALLS STRIP */}
-        {isCricAstra && (
+        {/* 4B. CRICASTRA DEDICATED GOLD OVER-BALLS STRIP (hidden while Bottom Need spans right panel) */}
+        {isCricAstra && !bottomNeed && (
           <div
             className={`flex items-center justify-center gap-1 shrink-0 ${
               compact ? 'px-2.5' : 'px-5 gap-2'

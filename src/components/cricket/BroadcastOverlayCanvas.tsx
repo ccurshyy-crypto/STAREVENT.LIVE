@@ -25,6 +25,7 @@ import {
 import { ProScoreboardBar } from './ProScoreboardBar';
 import {
   TataIplScoreboardBar,
+  type ScoreboardBottomNeedInfo,
   type ScoreboardPatiBanner,
 } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
@@ -1317,6 +1318,25 @@ export function BroadcastOverlayCanvas({
     const displayRightTeam = isMatchupMode ? team2 ?? bowlTeam : bowlTeam;
     const displayShowLogo = mode === 'Versus With Logo' ? true : overlay.showTeamLogo;
 
+    const bottomNeedInfo: ScoreboardBottomNeedInfo | null =
+      mode === 'Bottom Need' && !patiBanner
+        ? needRuns !== null
+          ? {
+              runsValue: String(needRuns),
+              middleTop: 'MORE',
+              middleBottom: 'FROM',
+              ballsValue: String(remBalls),
+              rightLabel: 'BALLS',
+            }
+          : {
+              runsValue: String(remBalls),
+              middleTop: 'BALLS',
+              middleBottom: 'LEFT',
+              ballsValue: crr,
+              rightLabel: 'CRR',
+            }
+        : null;
+
     // Secondary strip text based on bottomScoreMode
     let infoStrip = `CRR ${crr}`;
     if (mode === 'Bottom Need' || mode === 'Need') {
@@ -1401,6 +1421,7 @@ export function BroadcastOverlayCanvas({
             matchTitle={pattiMatchTitle}
             winnerInfo={winnerInfo}
             patiBanner={patiBanner}
+            bottomNeed={bottomNeedInfo}
             activeEvent={liveActiveEvent}
           />
         </div>
@@ -1459,6 +1480,7 @@ export function BroadcastOverlayCanvas({
             tickerText={wcTickerText}
             winnerInfo={winnerInfo}
             patiBanner={patiBanner}
+            bottomNeed={bottomNeedInfo}
             activeEvent={liveActiveEvent}
           />
         </div>
@@ -1516,6 +1538,7 @@ export function BroadcastOverlayCanvas({
             bottomTickerText={bottomTickerText}
             winnerInfo={winnerInfo}
             patiBanner={patiBanner}
+            bottomNeed={bottomNeedInfo}
             activeEvent={liveActiveEvent}
           />
         </div>
@@ -1579,6 +1602,7 @@ export function BroadcastOverlayCanvas({
             leftBadgeExtra={renderProBadge(displayLeftTeam)}
             rightBadgeExtra={renderProBadge(displayRightTeam)}
             patiBanner={patiBanner}
+            bottomNeed={bottomNeedInfo}
             activeEvent={liveActiveEvent}
           />
         </div>
@@ -1748,24 +1772,63 @@ export function BroadcastOverlayCanvas({
                 </div>
               </div>
 
-              {/* Bowler & Balls Block */}
+              {/* Bowler & Balls Block OR Oversized Bottom Need Block */}
               <div className="px-4 py-2 flex flex-col justify-center gap-1.5 bg-black/35">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="font-bold truncate">
-                    {bowler?.playerName || 'Bowler'}
-                  </span>
-                  <span
-                    className="font-black tabular-nums ml-2"
-                    style={{ color: theme.accent }}
-                  >
-                    {bowler?.wickets ?? 0}-{bowler?.runs ?? 0} ({bowler?.overs ?? '0.0'})
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 overflow-hidden">
-                  {(mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map(
-                    renderBallDot
-                  )}
-                </div>
+                {bottomNeedInfo ? (
+                  <div className="w-full h-full flex items-center justify-between tabular-nums">
+                    <div className="flex-1 flex items-center justify-center px-1">
+                      <span
+                        className="font-display font-black text-3xl leading-none"
+                        style={{ color: theme.accent }}
+                      >
+                        {bottomNeedInfo.runsValue}
+                      </span>
+                    </div>
+                    <div className="h-9 w-[1.5px] bg-white/35 shrink-0" aria-hidden="true" />
+                    <div className="flex flex-col items-center justify-center px-2 leading-none shrink-0">
+                      <span className="font-display font-black text-[11px] uppercase tracking-wider text-white">
+                        {bottomNeedInfo.middleTop}
+                      </span>
+                      <span className="font-display font-black text-[11px] uppercase tracking-wider text-white/90">
+                        {bottomNeedInfo.middleBottom}
+                      </span>
+                    </div>
+                    <div className="h-9 w-[1.5px] bg-white/35 shrink-0" aria-hidden="true" />
+                    <div className="flex-1 flex items-center justify-center px-1">
+                      <span
+                        className="font-display font-black text-3xl leading-none"
+                        style={{ color: theme.accent }}
+                      >
+                        {bottomNeedInfo.ballsValue}
+                      </span>
+                    </div>
+                    <div className="h-9 w-[1.5px] bg-white/35 shrink-0" aria-hidden="true" />
+                    <div className="flex items-center justify-center pl-2.5 pr-1 shrink-0">
+                      <span className="font-display font-black text-sm uppercase tracking-wider text-white">
+                        {bottomNeedInfo.rightLabel}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="font-bold truncate">
+                        {bowler?.playerName || 'Bowler'}
+                      </span>
+                      <span
+                        className="font-black tabular-nums ml-2"
+                        style={{ color: theme.accent }}
+                      >
+                        {bowler?.wickets ?? 0}-{bowler?.runs ?? 0} ({bowler?.overs ?? '0.0'})
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 overflow-hidden">
+                      {(mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map(
+                        renderBallDot
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}

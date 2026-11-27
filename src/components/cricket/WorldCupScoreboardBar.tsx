@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
 import type {
+  ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
   TataIplEventBanner,
   TataIplWinnerInfo,
@@ -37,6 +38,7 @@ export interface WorldCupScoreboardBarProps {
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
   patiBanner?: ScoreboardPatiBanner | null;
+  bottomNeed?: ScoreboardBottomNeedInfo | null;
   compact?: boolean;
 }
 
@@ -246,6 +248,7 @@ export function WorldCupScoreboardBar({
   activeEvent = null,
   winnerInfo = null,
   patiBanner = null,
+  bottomNeed = null,
   compact = false,
 }: WorldCupScoreboardBarProps) {
   const outerRef = useRef<HTMLDivElement | null>(null);
@@ -315,7 +318,7 @@ export function WorldCupScoreboardBar({
         activeEvent.caption
       )
     : null;
-  const showTopStrip = Boolean(!effectiveBanner && (eventPreset || visibleBalls.length > 0));
+  const showTopStrip = Boolean(!effectiveBanner && (eventPreset || (!bottomNeed && visibleBalls.length > 0)));
 
   const content = (
     <div
@@ -330,7 +333,9 @@ export function WorldCupScoreboardBar({
       <div
         className="grid items-stretch"
         style={{
-          gridTemplateColumns: '64px 78px 128px 72px minmax(360px, 1fr) 244px 64px',
+          gridTemplateColumns: bottomNeed
+            ? '64px 78px 128px 72px minmax(320px, 1fr) 284px 64px'
+            : '64px 78px 128px 72px minmax(360px, 1fr) 244px 64px',
         }}
       >
         {/* ================= ROW 1: TOP OVER BALLS OR EVENT STINGER (OVER BLUE PANEL ONLY) ================= */}
@@ -770,7 +775,7 @@ export function WorldCupScoreboardBar({
           )}
         </div>
 
-        {/* Col 6: Metallic Silver Bowler Panel */}
+        {/* Col 6: Metallic Silver Bowler Panel OR Oversized Bottom Need Block */}
         <div
           style={{
             gridColumn: '6 / 7',
@@ -782,18 +787,67 @@ export function WorldCupScoreboardBar({
             borderRight: '2px solid #FFFFFF',
             boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
           }}
-          className="flex items-center justify-center px-2.5 overflow-hidden"
+          className={`flex items-center justify-center overflow-hidden ${bottomNeed ? 'px-1' : 'px-2.5'}`}
         >
-          <span
-            className="font-extrabold uppercase truncate tabular-nums"
-            style={{
-              color: '#09090B',
-              fontSize: '16px',
-              lineHeight: 1.1,
-            }}
-          >
-            {bowlerName} - {bowlerFigs} ({bowlerOvers})
-          </span>
+          {bottomNeed ? (
+            <div
+              className="w-full h-full flex items-center justify-between tabular-nums"
+              aria-label={`${bottomNeed.runsValue} ${bottomNeed.middleTop} ${bottomNeed.middleBottom} ${bottomNeed.ballsValue} ${bottomNeed.rightLabel}`}
+            >
+              <div className="flex-1 flex items-center justify-center px-1">
+                <span
+                  className="font-black leading-none tracking-tight"
+                  style={{ color: '#DC2626', fontSize: '28px' }}
+                >
+                  {bottomNeed.runsValue}
+                </span>
+              </div>
+              <div className="h-[76%] w-[1.5px] bg-[#0F172A] shrink-0" aria-hidden="true" />
+              <div className="flex flex-col items-center justify-center px-2 leading-none shrink-0">
+                <span
+                  className="font-black uppercase tracking-tight"
+                  style={{ color: '#1E2952', fontSize: '11px', lineHeight: 1.08 }}
+                >
+                  {bottomNeed.middleTop}
+                </span>
+                <span
+                  className="font-black uppercase tracking-tight"
+                  style={{ color: '#1E2952', fontSize: '11px', lineHeight: 1.08 }}
+                >
+                  {bottomNeed.middleBottom}
+                </span>
+              </div>
+              <div className="h-[76%] w-[1.5px] bg-[#0F172A] shrink-0" aria-hidden="true" />
+              <div className="flex-1 flex items-center justify-center px-1">
+                <span
+                  className="font-black leading-none tracking-tight"
+                  style={{ color: '#DC2626', fontSize: '28px' }}
+                >
+                  {bottomNeed.ballsValue}
+                </span>
+              </div>
+              <div className="h-[76%] w-[1.5px] bg-[#0F172A] shrink-0" aria-hidden="true" />
+              <div className="flex items-center justify-center px-2 shrink-0">
+                <span
+                  className="font-black uppercase tracking-tight"
+                  style={{ color: '#1E2952', fontSize: '13px', lineHeight: 1 }}
+                >
+                  {bottomNeed.rightLabel}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <span
+              className="font-extrabold uppercase truncate tabular-nums"
+              style={{
+                color: '#09090B',
+                fontSize: '16px',
+                lineHeight: 1.1,
+              }}
+            >
+              {bowlerName} - {bowlerFigs} ({bowlerOvers})
+            </span>
+          )}
         </div>
           </>
         )}

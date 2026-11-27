@@ -439,15 +439,6 @@ export function CricketSuiteApp({
 
         <button
           type="button"
-          onClick={() => handleOpenMatchSummary(activeMatch?.id)}
-          className={navItemClass(activeRoute === 'match-summary')}
-        >
-          <Trophy className="w-4 h-4 shrink-0" aria-hidden="true" />
-          <span>MATCH SUMMARY</span>
-        </button>
-
-        <button
-          type="button"
           onClick={() => navigateTo('overlay')}
           className={navItemClass(activeRoute === 'overlay')}
         >

@@ -31,6 +31,14 @@ export interface ScoreboardPatiBanner {
   forceShowLogos?: boolean;
 }
 
+export interface ScoreboardBottomNeedInfo {
+  runsValue: string;
+  middleTop: string;
+  middleBottom: string;
+  ballsValue: string;
+  rightLabel: string;
+}
+
 export interface TataIplScoreboardBarProps {
   batTeamCode: string;
   batTeamLogo?: string;
@@ -60,6 +68,7 @@ export interface TataIplScoreboardBarProps {
   activeEvent?: TataIplEventBanner | null;
   winnerInfo?: TataIplWinnerInfo | null;
   patiBanner?: ScoreboardPatiBanner | null;
+  bottomNeed?: ScoreboardBottomNeedInfo | null;
   compact?: boolean;
 }
 
@@ -194,6 +203,7 @@ export function TataIplScoreboardBar({
   activeEvent = null,
   winnerInfo = null,
   patiBanner = null,
+  bottomNeed = null,
   compact = false,
 }: TataIplScoreboardBarProps) {
   const uid = useId().replace(/:/g, '');
@@ -457,44 +467,115 @@ export function TataIplScoreboardBar({
               </div>
             </div>
 
-            {/* 3. Right-Center: Magenta/Pink Bowler Bar */}
+            {/* 3. Right-Center: Magenta/Pink Bowler Bar OR Oversized Bottom Need Block */}
             <div className="ipl-seg-bowler">
-              <div className="ipl-bowler-info-left">
-                <span className="ipl-bowler-name">{bowlerName}</span>
-                {visibleBalls.length > 0 && (
-                  <div className="ipl-over-balls-strip">
-                    {visibleBalls.map((b) => {
-                      const up = String(b.label || '').toUpperCase();
-                      const cls = b.isWicket || up === 'W'
-                        ? 'ipl-ball-dot wicket'
-                        : b.isBoundary4 || b.isBoundary6
-                          ? 'ipl-ball-dot boundary'
-                          : 'ipl-ball-dot';
-                      return (
-                        <span key={b.id} className={cls}>
-                          {b.label === '•' ? '0' : b.label}
-                        </span>
-                      );
-                    })}
+              {bottomNeed ? (
+                <div
+                  className="w-full h-full flex items-center justify-between px-1 tabular-nums"
+                  aria-label={`${bottomNeed.runsValue} ${bottomNeed.middleTop} ${bottomNeed.middleBottom} ${bottomNeed.ballsValue} ${bottomNeed.rightLabel}`}
+                >
+                  <div className="flex-1 flex items-center justify-center px-1.5">
+                    <span
+                      className="font-black leading-none tracking-tight"
+                      style={{
+                        color: '#FFE600',
+                        fontSize: compact ? '20px' : '31px',
+                        textShadow: '0 2px 6px rgba(0,0,0,0.65)',
+                      }}
+                    >
+                      {bottomNeed.runsValue}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div className="ipl-bowler-figures-box tabular-nums">
-                <span
-                  className={`ipl-bowler-figs ${
-                    bfigBump ? 'ipl-num-bump' : ''
-                  }`}
-                >
-                  {bowlerFigs}
-                </span>
-                <span
-                  className={`ipl-bowler-overs ${
-                    bovBump ? 'ipl-num-bump' : ''
-                  }`}
-                >
-                  {bowlerOvers}
-                </span>
-              </div>
+                  <div
+                    aria-hidden="true"
+                    className="h-[72%] w-[1.5px] shrink-0"
+                    style={{ background: 'rgba(255, 230, 0, 0.5)' }}
+                  />
+                  <div className="flex flex-col items-center justify-center px-2 leading-none shrink-0">
+                    <span
+                      className="font-black uppercase tracking-wider text-white"
+                      style={{ fontSize: compact ? '8px' : '11px', lineHeight: 1.1 }}
+                    >
+                      {bottomNeed.middleTop}
+                    </span>
+                    <span
+                      className="font-black uppercase tracking-wider text-white/95"
+                      style={{ fontSize: compact ? '8px' : '11px', lineHeight: 1.1 }}
+                    >
+                      {bottomNeed.middleBottom}
+                    </span>
+                  </div>
+                  <div
+                    aria-hidden="true"
+                    className="h-[72%] w-[1.5px] shrink-0"
+                    style={{ background: 'rgba(255, 230, 0, 0.5)' }}
+                  />
+                  <div className="flex-1 flex items-center justify-center px-1.5">
+                    <span
+                      className="font-black leading-none tracking-tight"
+                      style={{
+                        color: '#FFE600',
+                        fontSize: compact ? '20px' : '31px',
+                        textShadow: '0 2px 6px rgba(0,0,0,0.65)',
+                      }}
+                    >
+                      {bottomNeed.ballsValue}
+                    </span>
+                  </div>
+                  <div
+                    aria-hidden="true"
+                    className="h-[72%] w-[1.5px] shrink-0"
+                    style={{ background: 'rgba(255, 230, 0, 0.5)' }}
+                  />
+                  <div className="flex items-center justify-center pl-2 pr-1 shrink-0">
+                    <span
+                      className="font-black uppercase tracking-wider text-white"
+                      style={{ fontSize: compact ? '10px' : '14px', lineHeight: 1 }}
+                    >
+                      {bottomNeed.rightLabel}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="ipl-bowler-info-left">
+                    <span className="ipl-bowler-name">{bowlerName}</span>
+                    {visibleBalls.length > 0 && (
+                      <div className="ipl-over-balls-strip">
+                        {visibleBalls.map((b) => {
+                          const up = String(b.label || '').toUpperCase();
+                          const cls = b.isWicket || up === 'W'
+                            ? 'ipl-ball-dot wicket'
+                            : b.isBoundary4 || b.isBoundary6
+                              ? 'ipl-ball-dot boundary'
+                              : 'ipl-ball-dot';
+                          return (
+                            <span key={b.id} className={cls}>
+                              {b.label === '•' ? '0' : b.label}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="ipl-bowler-figures-box tabular-nums">
+                    <span
+                      className={`ipl-bowler-figs ${
+                        bfigBump ? 'ipl-num-bump' : ''
+                      }`}
+                    >
+                      {bowlerFigs}
+                    </span>
+                    <span
+                      className={`ipl-bowler-overs ${
+                        bovBump ? 'ipl-num-bump' : ''
+                      }`}
+                    >
+                      {bowlerOvers}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
               </>
             )}

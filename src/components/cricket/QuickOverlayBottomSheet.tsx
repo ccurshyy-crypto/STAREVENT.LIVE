@@ -152,16 +152,22 @@ export function QuickOverlayBottomSheet({
   const { overlay } = state;
 
   const handleSelectBottomMode = (mode: BottomScoreMode) => {
+    const isAlreadyActive =
+      mode !== 'EMPTY' &&
+      overlay.bottomScoreMode === mode &&
+      overlay.mainCard.kind === 'NONE';
+    const nextMode: BottomScoreMode = mode === 'EMPTY' || isAlreadyActive ? 'EMPTY' : mode;
     updateState((prev) => ({
       ...prev,
       activeMatchId: match.id,
       overlay: {
         ...prev.overlay,
-        bottomScoreMode: mode,
-        mainCard: mode === 'EMPTY' ? { kind: 'NONE' } : prev.overlay.mainCard,
+        bottomScoreMode: nextMode,
+        mainCard: { kind: 'NONE' },
+        activeTransition: null,
       },
     }));
-    onToast(mode === 'EMPTY' ? 'Overlay cleared (EMPTY).' : `Bottom Score: ${mode}`);
+    onToast(nextMode === 'EMPTY' ? 'Overlay cleared (EMPTY).' : `Bottom Score: ${nextMode}`);
   };
 
   const handleTriggerBatsmanStats = (mode: BatsmanStatsMode, playerId?: string) => {
@@ -180,6 +186,8 @@ export function QuickOverlayBottomSheet({
       overlay: {
         ...prev.overlay,
         selectedBatsmanId: pid,
+        bottomScoreMode: 'EMPTY',
+        activeTransition: null,
         mainCard: isSameActive ? { kind: 'NONE' } : { kind: 'BATSMAN_STATS', mode, playerId: pid },
       },
     }));
@@ -202,6 +210,8 @@ export function QuickOverlayBottomSheet({
       overlay: {
         ...prev.overlay,
         selectedBowlerId: pid,
+        bottomScoreMode: 'EMPTY',
+        activeTransition: null,
         mainCard: isSameActive ? { kind: 'NONE' } : { kind: 'BOWLER_STATS', mode, playerId: pid },
       },
     }));
@@ -215,9 +225,9 @@ export function QuickOverlayBottomSheet({
       activeMatchId: match.id,
       overlay: {
         ...prev.overlay,
+        bottomScoreMode: 'EMPTY',
+        activeTransition: null,
         mainCard: isSame ? { kind: 'NONE' } : { kind: 'MATCH_STATS', mode },
-        bottomScoreMode:
-          mode === 'Match Summary' && !isSame ? 'Result' : prev.overlay.bottomScoreMode,
       },
     }));
     onToast(isSame ? `${mode} hidden from overlay.` : `${mode} live on overlay.`);
@@ -230,6 +240,8 @@ export function QuickOverlayBottomSheet({
       activeMatchId: match.id,
       overlay: {
         ...prev.overlay,
+        bottomScoreMode: 'EMPTY',
+        activeTransition: null,
         mainCard: isSame ? { kind: 'NONE' } : { kind: 'HIGHLIGHTS', mode },
       },
     }));
@@ -254,6 +266,8 @@ export function QuickOverlayBottomSheet({
       overlay: {
         ...prev.overlay,
         selectedPomPlayerId: pomId,
+        bottomScoreMode: 'EMPTY',
+        activeTransition: null,
         mainCard: isSame
           ? { kind: 'NONE' }
           : { kind: 'PLAYER_OF_MATCH', playerId: pomId, display: 'Stats' },
@@ -275,8 +289,8 @@ export function QuickOverlayBottomSheet({
       activeMatchId: match.id,
       overlay: {
         ...prev.overlay,
-        bottomScoreMode:
-          prev.overlay.bottomScoreMode === 'EMPTY' ? 'Score' : prev.overlay.bottomScoreMode,
+        bottomScoreMode: 'Score',
+        activeTransition: null,
         customMsgTab: mappedTab,
         customMsgHeading: cleanHeading,
         customMsgDescription: cleanDesc,
@@ -416,7 +430,9 @@ export function QuickOverlayBottomSheet({
                           key={mode}
                           type="button"
                           onClick={() => handleSelectBottomMode(mode)}
-                          className={orangeBtnClass(overlay.bottomScoreMode === mode)}
+                          className={orangeBtnClass(
+                            overlay.bottomScoreMode === mode && overlay.mainCard.kind === 'NONE'
+                          )}
                         >
                           {mode}
                         </button>
