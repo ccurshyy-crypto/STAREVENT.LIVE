@@ -41,7 +41,7 @@ import {
   type PaidThemeId,
   type WorldCupPaymentRecord,
   type WorldCupUnlockRecord,
-} from './server/cashfreePayments.js';
+} from './server/cashfreePayments.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,9 +49,25 @@ const __dirname = path.dirname(__filename);
 const PORT = Number(process.env.PORT) || 3000;
 const isProd = process.env.NODE_ENV === 'production';
 
-// Ephemeral per-process HMAC signing key fallback (overridden by ADMIN_SESSION_SECRET if set)
-const SESSION_SIGNING_SECRET =
-  process.env.ADMIN_SESSION_SECRET?.trim() || crypto.randomBytes(32).toString('hex');
+// Derive stable server-only HMAC signing key so customer/admin sessions survive restarts & serverless cold starts
+function resolveSessionSigningSecret(): string {
+  const explicit = process.env.ADMIN_SESSION_SECRET?.trim();
+  if (explicit) return explicit;
+  const seed =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ||
+    process.env.ADMIN_PASSCODE?.trim() ||
+    process.env.CASHFREE_SECRET_KEY?.trim() ||
+    '';
+  if (seed) {
+    return crypto
+      .createHmac('sha256', seed)
+      .update('star-event-live:session-signing-v1')
+      .digest('hex');
+  }
+  return crypto.randomBytes(32).toString('hex');
+}
+
+const SESSION_SIGNING_SECRET = resolveSessionSigningSecret();
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 // Owner Admin credential state (process.env.ADMIN_PASSCODE overrides any one-time claimed scrypt hash)
@@ -493,7 +509,7 @@ async function invokeAdminUsersEdgeFunction(
   return { status: upstream.status, data: parsed };
 }
 
-async function startServer() {
+export function createApiApp(): express.Express {
   const app = express();
   app.disable('x-powered-by');
 
@@ -524,11 +540,8 @@ async function startServer() {
       const timestamp = req.header('x-webhook-timestamp');
       const signature = req.header('x-webhook-signature');
 
-      const sigValid = verifyCashfreeWebhookSignature(
-        rawBody,
-        timestamp,
-        signature,
-        cfConfig.webhookSecret
+      const sigValid = cfConfig.webhookSecrets.some((secretCandidate) =>
+        verifyCashfreeWebhookSignature(rawBody, timestamp, signature, secretCandidate)
       );
       if (!sigValid) {
         res.status(401).json({ ok: false, error: 'Invalid Cashfree webhook signature.' });
@@ -1488,89 +1501,89 @@ async function startServer() {
 
   app.post('/api/payments/worldcup/create-order', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const customer = await resolveAuthenticatedCustomer(req, true);
-    if (!customer) {
-      res.status(401).json({
-        ok: false,
-        error: 'Please sign in again to initiate Cashfree payment.',
-      });
-      return;
-    }
-
-    const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
-    if (!product) {
-      res.status(400).json({
-        ok: false,
-        error: 'Unknown scoreboard theme product requested.',
-      });
-      return;
-    }
-
-    // Strictly reject any tampered amount or currency supplied by the client
-    if (
-      req.body &&
-      req.body.amount !== undefined &&
-      Number(req.body.amount) !== product.amountInr
-    ) {
-      res.status(400).json({
-        ok: false,
-        error: `Order amount for ${product.productName} is fixed at ₹${product.amountInr} ${product.currency} on the server.`,
-      });
-      return;
-    }
-    if (
-      req.body &&
-      req.body.currency !== undefined &&
-      String(req.body.currency).trim().toUpperCase() !== product.currency
-    ) {
-      res.status(400).json({
-        ok: false,
-        error: `Order currency is fixed at ${product.currency} on the server.`,
-      });
-      return;
-    }
-
-    const cfConfig = getCashfreeProductionConfig();
-    if (!cfConfig) {
-      res.status(503).json({
-        ok: false,
-        configRequired: true,
-        error:
-          'Cashfree Production keys (CASHFREE_APP_ID and CASHFREE_SECRET_KEY) are not configured on the server yet.',
-      });
-      return;
-    }
-
-    // Check if customer already has an active verified unlock for this exact theme
-    const existingUnlock = await getUnlockRecord(
-      getSupabaseAdminClient(),
-      customer.customerId,
-      product.productCode
-    );
-    if (isUnlockRecordActive(existingUnlock)) {
-      res.json({
-        ok: true,
-        alreadyUnlocked: true,
-        unlocked: true,
-        themeId: product.themeId,
-        orderId: existingUnlock?.order_id ?? null,
-      });
-      return;
-    }
-
-    const orderId = generateUniqueCashfreeOrderId(product.themeId);
-    const origin = resolvePublicOrigin(req);
-    const returnUrl = `${origin}/?cf_order_id=${encodeURIComponent(orderId)}&cf_theme=${encodeURIComponent(product.themeId)}`;
-    const notifyUrl = `${origin}/api/webhooks/cashfree`;
-
-    const customerPhone =
-      typeof req.body?.customerPhone === 'string' ? req.body.customerPhone : '';
-    const customerEmail =
-      typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
-        ? req.body.customerEmail.trim()
-        : customer.customerEmail;
-
     try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          error: 'Please sign in again to initiate Cashfree payment.',
+        });
+        return;
+      }
+
+      const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
+      if (!product) {
+        res.status(400).json({
+          ok: false,
+          error: 'Unknown scoreboard theme product requested.',
+        });
+        return;
+      }
+
+      // Strictly reject any tampered amount or currency supplied by the client
+      if (
+        req.body &&
+        req.body.amount !== undefined &&
+        Number(req.body.amount) !== product.amountInr
+      ) {
+        res.status(400).json({
+          ok: false,
+          error: `Order amount for ${product.productName} is fixed at ₹${product.amountInr} ${product.currency} on the server.`,
+        });
+        return;
+      }
+      if (
+        req.body &&
+        req.body.currency !== undefined &&
+        String(req.body.currency).trim().toUpperCase() !== product.currency
+      ) {
+        res.status(400).json({
+          ok: false,
+          error: `Order currency is fixed at ${product.currency} on the server.`,
+        });
+        return;
+      }
+
+      const cfConfig = getCashfreeProductionConfig();
+      if (!cfConfig) {
+        res.status(503).json({
+          ok: false,
+          configRequired: true,
+          error:
+            'Cashfree Production keys (CASHFREE_APP_ID and CASHFREE_SECRET_KEY) are not configured on the server yet.',
+        });
+        return;
+      }
+
+      // Check if customer already has an active verified unlock for this exact theme
+      const existingUnlock = await getUnlockRecord(
+        getSupabaseAdminClient(),
+        customer.customerId,
+        product.productCode
+      );
+      if (isUnlockRecordActive(existingUnlock)) {
+        res.json({
+          ok: true,
+          alreadyUnlocked: true,
+          unlocked: true,
+          themeId: product.themeId,
+          orderId: existingUnlock?.order_id ?? null,
+        });
+        return;
+      }
+
+      const orderId = generateUniqueCashfreeOrderId(product.themeId);
+      const origin = resolvePublicOrigin(req);
+      const returnUrl = `${origin}/?cf_order_id=${encodeURIComponent(orderId)}&cf_theme=${encodeURIComponent(product.themeId)}`;
+      const notifyUrl = `${origin}/api/webhooks/cashfree`;
+
+      const customerPhone =
+        typeof req.body?.customerPhone === 'string' ? req.body.customerPhone : '';
+      const customerEmail =
+        typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
+          ? req.body.customerEmail.trim()
+          : customer.customerEmail;
+
       const cfResult = await createCashfreeProductionOrder({
         config: cfConfig,
         orderId,
@@ -1586,6 +1599,8 @@ async function startServer() {
       if (!cfResult.ok || !cfResult.paymentSessionId) {
         res.status(502).json({
           ok: false,
+          httpStatus: cfResult.httpStatus,
+          cashfreeCode: cfResult.cashfreeCode,
           error: cfResult.error || 'Cashfree Production API could not create order.',
         });
         return;
@@ -1631,57 +1646,57 @@ async function startServer() {
 
   app.post('/api/payments/worldcup/verify', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const customer = await resolveAuthenticatedCustomer(req, true);
-    if (!customer) {
-      res.status(401).json({
-        ok: false,
-        unlocked: false,
-        error: 'Customer authentication required.',
-      });
-      return;
-    }
-
-    // Explicitly reject any legacy UTR, screenshot, or client-supplied payment/transaction ID attempts
-    if (
-      req.body &&
-      (req.body.utr ||
-        req.body.utrNumber ||
-        req.body.manualTransactionId ||
-        req.body.transactionId ||
-        req.body.paymentId ||
-        req.body.cfPaymentId ||
-        req.body.screenshot)
-    ) {
-      res.status(400).json({
-        ok: false,
-        unlocked: false,
-        error:
-          'Manual UTR, screenshot, or client-supplied payment ID verification is disabled. Payments are verified strictly with Cashfree Production servers.',
-      });
-      return;
-    }
-
-    const orderId = sanitizeOrderId(req.body?.orderId);
-    if (!orderId) {
-      res.status(400).json({
-        ok: false,
-        unlocked: false,
-        error: 'A valid Cashfree orderId is required for verification.',
-      });
-      return;
-    }
-
-    const cfConfig = getCashfreeProductionConfig();
-    if (!cfConfig) {
-      res.status(503).json({
-        ok: false,
-        unlocked: false,
-        error: 'Cashfree Production credentials are not configured on the server.',
-      });
-      return;
-    }
-
     try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          unlocked: false,
+          error: 'Customer authentication required.',
+        });
+        return;
+      }
+
+      // Explicitly reject any legacy UTR, screenshot, or client-supplied payment/transaction ID attempts
+      if (
+        req.body &&
+        (req.body.utr ||
+          req.body.utrNumber ||
+          req.body.manualTransactionId ||
+          req.body.transactionId ||
+          req.body.paymentId ||
+          req.body.cfPaymentId ||
+          req.body.screenshot)
+      ) {
+        res.status(400).json({
+          ok: false,
+          unlocked: false,
+          error:
+            'Manual UTR, screenshot, or client-supplied payment ID verification is disabled. Payments are verified strictly with Cashfree Production servers.',
+        });
+        return;
+      }
+
+      const orderId = sanitizeOrderId(req.body?.orderId);
+      if (!orderId) {
+        res.status(400).json({
+          ok: false,
+          unlocked: false,
+          error: 'A valid Cashfree orderId is required for verification.',
+        });
+        return;
+      }
+
+      const cfConfig = getCashfreeProductionConfig();
+      if (!cfConfig) {
+        res.status(503).json({
+          ok: false,
+          unlocked: false,
+          error: 'Cashfree Production credentials are not configured on the server.',
+        });
+        return;
+      }
+
       const supabaseAdmin = getSupabaseAdminClient();
       const outcome = await verifyOrderDirectlyWithCashfree({
         supabaseAdmin,
@@ -1732,57 +1747,57 @@ async function startServer() {
   // =========================================================================
   app.post('/api/payments/upi-qr/create-order', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const customer = await resolveAuthenticatedCustomer(req, true);
-    if (!customer) {
-      res.status(401).json({
-        ok: false,
-        error: 'Please sign in again to generate your UPI payment QR.',
-      });
-      return;
-    }
-
-    const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
-    if (!product) {
-      res.status(400).json({ ok: false, error: 'Unknown scoreboard theme product requested.' });
-      return;
-    }
-
-    if (
-      req.body &&
-      req.body.amount !== undefined &&
-      Number(req.body.amount) !== product.amountInr
-    ) {
-      res.status(400).json({
-        ok: false,
-        error: `Amount for ${product.productName} is fixed at ₹${product.amountInr} INR on the server.`,
-      });
-      return;
-    }
-
-    const supabaseAdmin = getSupabaseAdminClient();
-    const existingUnlock = await getUnlockRecord(
-      supabaseAdmin,
-      customer.customerId,
-      product.productCode
-    );
-    if (isUnlockRecordActive(existingUnlock)) {
-      res.json({
-        ok: true,
-        alreadyUnlocked: true,
-        unlocked: true,
-        themeId: product.themeId,
-        orderId: existingUnlock?.order_id ?? null,
-      });
-      return;
-    }
-
-    const orderId = generateUniqueUpiQrOrderId(product.themeId);
-    const customerEmail =
-      typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
-        ? req.body.customerEmail.trim()
-        : customer.customerEmail;
-
     try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          error: 'Please sign in again to generate your UPI payment QR.',
+        });
+        return;
+      }
+
+      const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
+      if (!product) {
+        res.status(400).json({ ok: false, error: 'Unknown scoreboard theme product requested.' });
+        return;
+      }
+
+      if (
+        req.body &&
+        req.body.amount !== undefined &&
+        Number(req.body.amount) !== product.amountInr
+      ) {
+        res.status(400).json({
+          ok: false,
+          error: `Amount for ${product.productName} is fixed at ₹${product.amountInr} INR on the server.`,
+        });
+        return;
+      }
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      const existingUnlock = await getUnlockRecord(
+        supabaseAdmin,
+        customer.customerId,
+        product.productCode
+      );
+      if (isUnlockRecordActive(existingUnlock)) {
+        res.json({
+          ok: true,
+          alreadyUnlocked: true,
+          unlocked: true,
+          themeId: product.themeId,
+          orderId: existingUnlock?.order_id ?? null,
+        });
+        return;
+      }
+
+      const orderId = generateUniqueUpiQrOrderId(product.themeId);
+      const customerEmail =
+        typeof req.body?.customerEmail === 'string' && EMAIL_REGEX.test(req.body.customerEmail.trim())
+          ? req.body.customerEmail.trim()
+          : customer.customerEmail;
+
       const intent = await buildOwnerUpiPaymentIntent({ orderId, product });
       const nowIso = new Date().toISOString();
       const paymentRecord: WorldCupPaymentRecord = {
@@ -1828,40 +1843,48 @@ async function startServer() {
 
   app.post('/api/payments/upi-qr/submit-proof', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    const customer = await resolveAuthenticatedCustomer(req, true);
-    if (!customer) {
-      res.status(401).json({
+    try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          unlocked: false,
+          error: 'Customer authentication required.',
+        });
+        return;
+      }
+
+      const result = await submitUpiQrUtrProof({
+        supabaseAdmin: getSupabaseAdminClient(),
+        orderId: req.body?.orderId,
+        customerId: customer.customerId,
+        utrRaw: req.body?.utr,
+      });
+
+      if (!result.ok) {
+        res.status(result.status).json({
+          ok: false,
+          unlocked: false,
+          error: result.error,
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        unlocked: result.unlocked,
+        paymentStatus: result.paymentStatus,
+        orderId: result.orderId,
+        utr: result.utr,
+        message: result.message,
+      });
+    } catch (err) {
+      res.status(500).json({
         ok: false,
         unlocked: false,
-        error: 'Customer authentication required.',
+        error: err instanceof Error ? err.message : 'Could not submit payment UTR reference.',
       });
-      return;
     }
-
-    const result = await submitUpiQrUtrProof({
-      supabaseAdmin: getSupabaseAdminClient(),
-      orderId: req.body?.orderId,
-      customerId: customer.customerId,
-      utrRaw: req.body?.utr,
-    });
-
-    if (!result.ok) {
-      res.status(result.status).json({
-        ok: false,
-        unlocked: false,
-        error: result.error,
-      });
-      return;
-    }
-
-    res.json({
-      ok: true,
-      unlocked: result.unlocked,
-      paymentStatus: result.paymentStatus,
-      orderId: result.orderId,
-      utr: result.utr,
-      message: result.message,
-    });
   });
 
   // =========================================================================
@@ -2056,6 +2079,54 @@ async function startServer() {
     res.json({ ok: true, unlock: revokedRec, auditLog: auditEntry });
   });
 
+  // Always return JSON for unknown /api/* routes (never fall through to SPA HTML)
+  app.use('/api', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(404).json({ ok: false, error: 'API endpoint not found.' });
+  });
+
+  // Guarantee JSON error responses for all /api/* middleware/body-parser/runtime errors
+  app.use(
+    (
+      err: unknown,
+      req: express.Request,
+      res: express.Response,
+      next: express.NextFunction
+    ) => {
+      if (res.headersSent) {
+        next(err);
+        return;
+      }
+      if (req.path.startsWith('/api')) {
+        const status =
+          typeof (err as { status?: unknown })?.status === 'number'
+            ? (err as { status: number }).status
+            : typeof (err as { statusCode?: unknown })?.statusCode === 'number'
+              ? (err as { statusCode: number }).statusCode
+              : 500;
+        const message =
+          status === 400
+            ? 'Malformed JSON request body.'
+            : err instanceof Error && err.message
+              ? err.message
+              : 'Internal payment server error.';
+        res.setHeader('Cache-Control', 'no-store');
+        res.status(status >= 400 && status < 600 ? status : 500).json({
+          ok: false,
+          error: message,
+        });
+        return;
+      }
+      next(err);
+    }
+  );
+
+  return app;
+}
+
+async function startServer() {
+  const app = createApiApp();
+
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -2077,4 +2148,10 @@ async function startServer() {
   });
 }
 
-startServer();
+const isDirectEntry =
+  typeof process.argv[1] === 'string' &&
+  path.resolve(process.argv[1]) === path.resolve(__filename);
+
+if (isDirectEntry) {
+  void startServer();
+}

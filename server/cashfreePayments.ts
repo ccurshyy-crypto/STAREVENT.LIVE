@@ -114,16 +114,57 @@ export interface CashfreeConfig {
   appId: string;
   secretKey: string;
   webhookSecret: string;
+  webhookSecrets: string[];
   apiVersion: string;
 }
 
+const VALID_CASHFREE_API_VERSION_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
 export function getCashfreeProductionConfig(): CashfreeConfig | null {
-  const appId = (process.env.CASHFREE_APP_ID || '').trim();
-  const secretKey = (process.env.CASHFREE_SECRET_KEY || '').trim();
+  const appId = (
+    process.env.CASHFREE_APP_ID ||
+    process.env.CASHFREE_CLIENT_ID ||
+    ''
+  ).trim();
+  const secretKey = (
+    process.env.CASHFREE_SECRET_KEY ||
+    process.env.CASHFREE_CLIENT_SECRET ||
+    ''
+  ).trim();
   if (!appId || !secretKey) return null;
-  const webhookSecret = (process.env.CASHFREE_WEBHOOK_SECRET || '').trim() || secretKey;
-  const apiVersion = (process.env.CASHFREE_API_VERSION || '').trim() || '2023-08-01';
-  return { appId, secretKey, webhookSecret, apiVersion };
+
+  const configuredWebhookSecret = (process.env.CASHFREE_WEBHOOK_SECRET || '').trim();
+  const isProdSecretKey = secretKey.startsWith('cfsk_ma_prod');
+  const isTestWebhookSecret = configuredWebhookSecret.startsWith('cfsk_ma_test');
+
+  // If CASHFREE_WEBHOOK_SECRET holds a stale sandbox/test secret while production keys are active,
+  // prefer the production secret key for webhook HMAC verification and still keep configured secret
+  // as an alternate only if it is not a sandbox key.
+  const primaryWebhookSecret =
+    configuredWebhookSecret && !(isProdSecretKey && isTestWebhookSecret)
+      ? configuredWebhookSecret
+      : secretKey;
+
+  const webhookSecrets = Array.from(
+    new Set(
+      [primaryWebhookSecret, secretKey].filter(
+        (candidate) => Boolean(candidate) && !(isProdSecretKey && candidate.startsWith('cfsk_ma_test'))
+      )
+    )
+  );
+
+  const rawApiVersion = (process.env.CASHFREE_API_VERSION || '').trim();
+  const apiVersion = VALID_CASHFREE_API_VERSION_REGEX.test(rawApiVersion)
+    ? rawApiVersion
+    : '2025-01-01';
+
+  return {
+    appId,
+    secretKey,
+    webhookSecret: primaryWebhookSecret,
+    webhookSecrets,
+    apiVersion,
+  };
 }
 
 export function isCashfreeConfigured(): boolean {
@@ -548,6 +589,8 @@ export interface CashfreeCreateOrderResult {
   orderStatus?: string;
   error?: string;
   httpStatus?: number;
+  cashfreeCode?: string;
+  cashfreeType?: string;
 }
 
 export async function createCashfreeProductionOrder(params: {
@@ -579,14 +622,16 @@ export async function createCashfreeProductionOrder(params: {
     ? customerEmail
     : 'customer@starevent.live';
 
-  const orderMeta: Record<string, string> = {
-    return_url: returnUrl,
-  };
+  // Cashfree Production requires HTTPS URLs for return_url and notify_url
+  const orderMeta: Record<string, string> = {};
+  if (returnUrl && returnUrl.startsWith('https://')) {
+    orderMeta.return_url = returnUrl;
+  }
   if (notifyUrl && notifyUrl.startsWith('https://')) {
     orderMeta.notify_url = notifyUrl;
   }
 
-  const payload = {
+  const payload: Record<string, unknown> = {
     order_id: orderId,
     order_amount: product.amountInr,
     order_currency: product.currency,
@@ -596,9 +641,11 @@ export async function createCashfreeProductionOrder(params: {
       customer_email: resolvedEmail,
       customer_phone: resolvedPhone,
     },
-    order_meta: orderMeta,
     order_note: `${product.productName} Unlock (${customerId})`,
   };
+  if (Object.keys(orderMeta).length > 0) {
+    payload.order_meta = orderMeta;
+  }
 
   const response = await fetch(`${CASHFREE_PRODUCTION_BASE_URL}/orders`, {
     method: 'POST',
@@ -612,23 +659,48 @@ export async function createCashfreeProductionOrder(params: {
     body: JSON.stringify(payload),
   });
 
-  const body = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+  const rawText = await response.text();
+  let body: Record<string, unknown> = {};
+  try {
+    const parsed = JSON.parse(rawText) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      body = parsed as Record<string, unknown>;
+    }
+  } catch {
+    body = {};
+  }
+
   if (!response.ok || typeof body.payment_session_id !== 'string') {
+    const cashfreeCode = typeof body.code === 'string' ? body.code : undefined;
+    const cashfreeType = typeof body.type === 'string' ? body.type : undefined;
+    const message =
+      typeof body.message === 'string' && body.message.trim()
+        ? body.message.trim()
+        : `Cashfree Production API returned HTTP ${response.status} without a payment session.`;
+
+    console.error('[Cashfree] Order creation rejected', {
+      httpStatus: response.status,
+      code: cashfreeCode || null,
+      type: cashfreeType || null,
+      apiVersion: config.apiVersion,
+      message,
+    });
+
     return {
       ok: false,
       httpStatus: response.status,
-      error:
-        typeof body.message === 'string'
-          ? body.message
-          : 'Cashfree rejected order creation. Please verify Production API keys.',
+      cashfreeCode,
+      cashfreeType,
+      error: message,
     };
   }
 
   return {
     ok: true,
-    cfOrderId: typeof body.cf_order_id === 'string' || typeof body.cf_order_id === 'number'
-      ? String(body.cf_order_id)
-      : undefined,
+    cfOrderId:
+      typeof body.cf_order_id === 'string' || typeof body.cf_order_id === 'number'
+        ? String(body.cf_order_id)
+        : undefined,
     paymentSessionId: body.payment_session_id,
     orderStatus: typeof body.order_status === 'string' ? body.order_status : 'ACTIVE',
   };

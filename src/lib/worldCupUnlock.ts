@@ -267,6 +267,43 @@ export async function fetchOverlayWorldCupEntitlement(uid: string): Promise<bool
   return res.worldcup;
 }
 
+async function parsePaymentApiResponse<T extends { ok?: boolean; error?: string }>(
+  res: Response,
+  actionLabel: string
+): Promise<{ parsed: T | null; fallbackError: string }> {
+  const rawText = await res.text().catch(() => '');
+  const trimmed = rawText.trim();
+  if (trimmed) {
+    try {
+      const json = JSON.parse(trimmed) as T;
+      if (json && typeof json === 'object') {
+        return { parsed: json, fallbackError: '' };
+      }
+    } catch {
+      // Non-JSON payload (e.g., HTML SPA rewrite or gateway error page)
+    }
+  }
+
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+  const looksLikeHtml =
+    contentType.includes('text/html') ||
+    trimmed.startsWith('<!doctype') ||
+    trimmed.startsWith('<html') ||
+    trimmed.startsWith('<!DOCTYPE');
+
+  if (looksLikeHtml) {
+    return {
+      parsed: null,
+      fallbackError: `Payment API returned HTML instead of JSON (HTTP ${res.status}) while ${actionLabel}. Please ensure the backend /api server is running.`,
+    };
+  }
+
+  return {
+    parsed: null,
+    fallbackError: `Unexpected server response (HTTP ${res.status}) while ${actionLabel}.`,
+  };
+}
+
 export async function createCashfreeWorldCupOrder(
   authHeaders: Record<string, string>,
   customerContact?: {
@@ -280,6 +317,7 @@ export async function createCashfreeWorldCupOrder(
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
     },
     body: JSON.stringify({
@@ -288,11 +326,21 @@ export async function createCashfreeWorldCupOrder(
       customerPhone: customerContact?.customerPhone || '',
     }),
   });
-  const json = (await res.json().catch(() => null)) as CreateCashfreeOrderResponse | null;
-  if (!json) {
-    return { ok: false, error: 'Invalid server response while creating Cashfree order.' };
+  const { parsed, fallbackError } = await parsePaymentApiResponse<CreateCashfreeOrderResponse>(
+    res,
+    'creating Cashfree order'
+  );
+  if (!parsed) {
+    return { ok: false, error: fallbackError };
   }
-  return json;
+  if (!res.ok && parsed.ok !== false) {
+    return {
+      ...parsed,
+      ok: false,
+      error: parsed.error || `Cashfree order creation failed (HTTP ${res.status}).`,
+    };
+  }
+  return parsed;
 }
 
 export async function verifyCashfreeWorldCupOrder(
@@ -304,19 +352,23 @@ export async function verifyCashfreeWorldCupOrder(
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
     },
     body: JSON.stringify({ orderId }),
   });
-  const json = (await res.json().catch(() => null)) as VerifyCashfreeOrderResponse | null;
-  if (!json) {
+  const { parsed, fallbackError } = await parsePaymentApiResponse<VerifyCashfreeOrderResponse>(
+    res,
+    'verifying Cashfree payment'
+  );
+  if (!parsed) {
     return {
       ok: false,
       unlocked: false,
-      error: 'Invalid server response while verifying Cashfree payment.',
+      error: fallbackError,
     };
   }
-  return json;
+  return parsed;
 }
 
 export interface CreateUpiQrOrderResponse {
@@ -355,6 +407,7 @@ export async function createOwnerUpiQrOrder(
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
     },
     body: JSON.stringify({
@@ -362,11 +415,14 @@ export async function createOwnerUpiQrOrder(
       customerEmail: params.customerEmail || '',
     }),
   });
-  const json = (await res.json().catch(() => null)) as CreateUpiQrOrderResponse | null;
-  if (!json) {
-    return { ok: false, error: 'Invalid server response while generating UPI QR code.' };
+  const { parsed, fallbackError } = await parsePaymentApiResponse<CreateUpiQrOrderResponse>(
+    res,
+    'generating UPI QR code'
+  );
+  if (!parsed) {
+    return { ok: false, error: fallbackError };
   }
-  return json;
+  return parsed;
 }
 
 export async function submitOwnerUpiQrProof(
@@ -378,6 +434,7 @@ export async function submitOwnerUpiQrProof(
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
+      Accept: 'application/json',
       ...authHeaders,
     },
     body: JSON.stringify({
@@ -385,15 +442,18 @@ export async function submitOwnerUpiQrProof(
       utr: params.utr,
     }),
   });
-  const json = (await res.json().catch(() => null)) as SubmitUpiQrProofResponse | null;
-  if (!json) {
+  const { parsed, fallbackError } = await parsePaymentApiResponse<SubmitUpiQrProofResponse>(
+    res,
+    'submitting payment UTR reference'
+  );
+  if (!parsed) {
     return {
       ok: false,
       unlocked: false,
-      error: 'Invalid server response while submitting payment UTR reference.',
+      error: fallbackError,
     };
   }
-  return json;
+  return parsed;
 }
 
 // Broadcast in-tab refresh event when a server-verified unlock succeeds
