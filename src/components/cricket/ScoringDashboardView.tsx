@@ -56,6 +56,12 @@ import {
   WicketType,
 } from '../../types/cricketSuite';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
+import { BroadcastMatchSummaryCard } from './BroadcastMatchSummaryCard';
+import {
+  MatchSummaryActionToolbar,
+  MatchSummaryFullscreenOverlay,
+  MatchSummaryModal,
+} from './MatchSummaryStudioView';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
   getPaidThemeConfig,
@@ -113,6 +119,8 @@ export function ScoringDashboardView({
   onToast,
 }: ScoringDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
+  const [matchSummaryModalOpen, setMatchSummaryModalOpen] = useState(false);
+  const [summaryFullscreenOpen, setSummaryFullscreenOpen] = useState(false);
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
   const [payModalThemeId, setPayModalThemeId] = useState<PaidThemeId>('worldcup');
   const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
@@ -1935,19 +1943,14 @@ export function ScoringDashboardView({
                 </button>
               )}
 
-              {match.status === 'completed' && match.matchCompletedConfirmed && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
-                    setActiveTab('overs');
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg wo-btn-primary text-white text-xs font-bold"
-                >
-                  <Trophy className="w-3.5 h-3.5 text-white" aria-hidden="true" />
-                  <span>Match Summary</span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setMatchSummaryModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0D47B8] hover:bg-[#0A3690] text-white text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                <Trophy className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                <span>View Match Summary</span>
+              </button>
 
               {match.status === 'completed' && (
                 <button
@@ -2497,16 +2500,25 @@ export function ScoringDashboardView({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
-                    setActiveTab('overs');
-                  }}
-                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
-                >
-                  OPEN MATCH SUMMARY
-                </button>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMatchSummaryModalOpen(true)}
+                    className="px-4 py-2 rounded-lg bg-[#0D47B8] hover:bg-[#0A3690] text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
+                  >
+                    VIEW MATCH SUMMARY
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOversInningsTab(inn2.balls.length > 0 ? 1 : 0);
+                      setActiveTab('overs');
+                    }}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
+                  >
+                    OVERS &amp; FULL SUMMARY
+                  </button>
+                </div>
               </motion.div>
             )}
 
@@ -3734,11 +3746,64 @@ export function ScoringDashboardView({
             : team2
           : undefined;
 
+        const matchGroup = match.groupId
+          ? state.groups.find((g) => g.id === match.groupId)
+          : undefined;
+        const isSummaryLiveOnOverlay =
+          state.activeMatchId === match.id &&
+          state.overlay.mainCard.kind === 'MATCH_STATS' &&
+          state.overlay.mainCard.mode === 'Match Summary';
+
         return (
           <div className="space-y-4">
-            {/* COMPLETE MATCH SUMMARY (Shown when match is completed) */}
+            {/* INTERNATIONAL BROADCAST MATCH SUMMARY (Auto-Generated from Live Scoring Data) */}
+            <div className="space-y-3">
+              <div className="no-print rounded-xl bg-white border border-slate-200 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-display font-bold text-sm text-slate-900">
+                    Broadcast Match Summary
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Download HD PNG, open Full Screen, share on WhatsApp, print, or push live to OBS/vMix.
+                  </p>
+                </div>
+                <MatchSummaryActionToolbar
+                  match={match}
+                  tournament={tournament}
+                  group={matchGroup}
+                  teamMap={teamMap}
+                  channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+                  isShowingOnOverlay={isSummaryLiveOnOverlay}
+                  onToggleLiveOverlay={() => {
+                    if (isSummaryLiveOnOverlay) {
+                      updateState((prev) => ({
+                        ...prev,
+                        overlay: { ...prev.overlay, mainCard: { kind: 'NONE' } },
+                      }));
+                      onToast('Match Summary hidden from Live Broadcast Overlay.');
+                    } else {
+                      handleShowSummaryOnOverlay();
+                    }
+                  }}
+                  onOpenFullscreen={() => setSummaryFullscreenOpen(true)}
+                  onToast={onToast}
+                />
+              </div>
+
+              <div className="match-summary-print-root">
+                <BroadcastMatchSummaryCard
+                  match={match}
+                  tournament={tournament}
+                  group={matchGroup}
+                  teamMap={teamMap}
+                  channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+                />
+              </div>
+            </div>
+
+            {/* COMPLETE MATCH SUMMARY DETAILS (Shown when match is completed) */}
             {match.status === 'completed' && (
-              <div className="rounded-2xl bg-white border-2 border-[#FF8C00] shadow-sm overflow-hidden">
+              <div className="no-print rounded-2xl bg-white border-2 border-[#FF8C00] shadow-sm overflow-hidden">
                 {/* Result & Trophy Banner */}
                 <div className="bg-gradient-to-r from-[#FF8C00] via-[#E87500] to-[#D97706] text-white px-5 py-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
@@ -6298,6 +6363,27 @@ export function ScoringDashboardView({
           }));
           onToast(`${unlockedProduct.productName} payment verified and activated live!`);
         }}
+      />
+
+      {matchSummaryModalOpen && (
+        <MatchSummaryModal
+          match={match}
+          state={state}
+          updateState={updateState}
+          onClose={() => setMatchSummaryModalOpen(false)}
+          onToast={onToast}
+        />
+      )}
+
+      <MatchSummaryFullscreenOverlay
+        open={summaryFullscreenOpen}
+        onClose={() => setSummaryFullscreenOpen(false)}
+        match={match}
+        tournament={tournament}
+        group={match.groupId ? state.groups.find((g) => g.id === match.groupId) : undefined}
+        teamMap={teamMap}
+        channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+        onToast={onToast}
       />
     </div>
   );

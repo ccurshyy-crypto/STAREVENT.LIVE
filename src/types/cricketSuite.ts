@@ -452,6 +452,7 @@ export type SidebarRoute =
   | 'tournament-teams'
   | 'team'
   | 'match'
+  | 'match-summary'
   | 'scoring'
   | 'overlay'
   | 'point-table'

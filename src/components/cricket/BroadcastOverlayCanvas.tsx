@@ -26,6 +26,7 @@ import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { LightningProScoreboardBar } from './LightningProScoreboardBar';
+import { BroadcastMatchSummaryCard } from './BroadcastMatchSummaryCard';
 import { type PaidThemeId } from '../../lib/worldCupUnlock';
 
 interface BroadcastOverlayCanvasProps {
@@ -924,7 +925,25 @@ export function BroadcastOverlayCanvas({
         );
       }
 
-      if (mMode === 'Match Summary' || mMode === 'Match Comparison') {
+      if (mMode === 'Match Summary') {
+        const matchGroup = match.groupId
+          ? state.groups.find((g) => g.id === match.groupId)
+          : undefined;
+        return (
+          <div className="w-[min(1040px,94vw)] max-h-[84%] overflow-hidden">
+            <BroadcastMatchSummaryCard
+              match={match}
+              tournament={activeMatchTournament}
+              group={matchGroup}
+              teamMap={teamMap}
+              channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+              compact
+            />
+          </div>
+        );
+      }
+
+      if (mMode === 'Match Comparison') {
         return (
           <CardShell title={mMode.toUpperCase()} subtitle={match.resultText}>
             <div className="grid grid-cols-2 gap-4">

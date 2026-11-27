@@ -2608,3 +2608,37 @@ body.overlay-chroma-blue #root {
     scroll-behavior: auto !important;
   }
 }
+
+@media print {
+  @page {
+    size: landscape;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .no-print,
+  header,
+  aside,
+  nav {
+    display: none !important;
+  }
+
+  .match-summary-print-root {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    break-inside: avoid !important;
+  }
+
+  .match-summary-broadcast-card {
+    box-shadow: none !important;
+    border-color: #0284c7 !important;
+  }
+}
+

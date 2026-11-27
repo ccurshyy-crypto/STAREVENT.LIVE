@@ -1,18 +1,22 @@
+import { motion } from 'motion/react';
 import { Trophy } from 'lucide-react';
 import {
-  computeBattingCard,
-  computeBowlingCard,
-  formatOvers,
   getTeamColorHex,
   getTeamTextColorHex,
 } from '../../data/cricketSampleData';
+import {
+  computeBroadcastMatchResult,
+  extractMatchSummaryData,
+  type SummaryInningsBlock,
+} from '../../lib/matchSummaryExport';
 import type {
   CricketMatch,
-  InningsState,
   Team,
   Tournament,
   TournamentGroup,
 } from '../../types/cricketSuite';
+
+export { computeBroadcastMatchResult };
 
 export interface BroadcastMatchSummaryCardProps {
   match: CricketMatch;
@@ -21,6 +25,7 @@ export interface BroadcastMatchSummaryCardProps {
   teamMap: Map<string, Team>;
   channelTitle?: string;
   compact?: boolean;
+  disableAnimation?: boolean;
 }
 
 function renderSummaryTeamFlag(team: Team | undefined, fallbackCode: string) {
@@ -81,6 +86,27 @@ function renderSummaryTeamFlag(team: Team | undefined, fallbackCode: string) {
     );
   }
 
+  if (code === 'ENG' || code === 'ENGLAND') {
+    return (
+      <svg viewBox="0 0 60 40" className="w-full h-full block" aria-label="ENG Flag">
+        <rect width="60" height="40" fill="#FFFFFF" />
+        <rect x="25" y="0" width="10" height="40" fill="#CF142B" />
+        <rect x="0" y="15" width="60" height="10" fill="#CF142B" />
+      </svg>
+    );
+  }
+
+  if (code === 'PAK' || code === 'PAKISTAN') {
+    return (
+      <svg viewBox="0 0 60 40" className="w-full h-full block" aria-label="PAK Flag">
+        <rect width="60" height="40" fill="#01411C" />
+        <rect width="15" height="40" fill="#FFFFFF" />
+        <circle cx="38" cy="20" r="10" fill="#FFFFFF" />
+        <circle cx="41" cy="18" r="8.5" fill="#01411C" />
+      </svg>
+    );
+  }
+
   const bg = team ? getTeamColorHex(team) : '#1D4ED8';
   const fg = team ? getTeamTextColorHex(team) : '#FFFFFF';
   return (
@@ -96,79 +122,6 @@ function renderSummaryTeamFlag(team: Team | undefined, fallbackCode: string) {
   );
 }
 
-/**
- * Automatically calculates broadcast match result from live scoring innings data.
- */
-export function computeBroadcastMatchResult(
-  match: CricketMatch,
-  inn1: InningsState,
-  inn2: InningsState,
-  inn1Team: Team | undefined,
-  inn2Team: Team | undefined
-): string {
-  const rawResult = (match.resultText || '').trim();
-  const rawUpper = rawResult.toUpperCase();
-
-  // Preserve explicit special outcomes (No Result, Drawn, Super Over)
-  if (
-    rawUpper.includes('NO RESULT') ||
-    rawUpper.includes('DRAWN') ||
-    rawUpper.includes('SUPER OVER') ||
-    rawUpper.includes('ABANDONED')
-  ) {
-    return rawUpper;
-  }
-
-  const t1Name = (inn1Team?.name || inn1Team?.shortName || 'TEAM 1').toUpperCase();
-  const t2Name = (inn2Team?.name || inn2Team?.shortName || 'TEAM 2').toUpperCase();
-  const maxWickets = Math.max(1, (inn2Team?.players?.length || 11) - 1);
-
-  const inn2HasStarted = inn2.balls.length > 0 || inn2.runs > 0 || inn2.wickets > 0 || inn2.completed;
-  const isFinished = match.status === 'completed' || (inn1.completed && inn2.completed);
-
-  if (isFinished) {
-    if (!inn2HasStarted) {
-      return rawUpper && rawUpper !== 'NOT STARTED' && rawUpper !== 'LIVE'
-        ? rawUpper
-        : 'NO RESULT';
-    }
-    if (inn1.runs > inn2.runs) {
-      const margin = inn1.runs - inn2.runs;
-      return `${t1Name} WON BY ${margin} ${margin === 1 ? 'RUN' : 'RUNS'}`;
-    }
-    if (inn2.runs > inn1.runs) {
-      const wicketsLeft = Math.max(1, maxWickets - inn2.wickets);
-      return `${t2Name} WON BY ${wicketsLeft} ${wicketsLeft === 1 ? 'WICKET' : 'WICKETS'}`;
-    }
-    return 'MATCH TIED';
-  }
-
-  // Mid-match live status calculation
-  if (inn2HasStarted || match.currentInningsIndex === 1) {
-    const target = inn2.target ?? inn1.runs + 1;
-    const needRuns = Math.max(0, target - inn2.runs);
-    const totalBalls = inn2.maxOvers * 6;
-    const remBalls = Math.max(0, totalBalls - inn2.legalBalls);
-    if (needRuns === 0 && inn2.runs >= target) {
-      const wicketsLeft = Math.max(1, maxWickets - inn2.wickets);
-      return `${t2Name} WON BY ${wicketsLeft} ${wicketsLeft === 1 ? 'WICKET' : 'WICKETS'}`;
-    }
-    return `${t2Name} NEED ${needRuns} ${needRuns === 1 ? 'RUN' : 'RUNS'} FROM ${remBalls} ${
-      remBalls === 1 ? 'BALL' : 'BALLS'
-    }`;
-  }
-
-  if (inn1.balls.length > 0 || inn1.runs > 0) {
-    return `${t1Name} ${inn1.runs}/${inn1.wickets} (${formatOvers(inn1.legalBalls)} OV) · 1ST INNINGS IN PROGRESS`;
-  }
-
-  return rawUpper && rawUpper !== 'NOT STARTED' ? rawUpper : 'MATCH YET TO START';
-}
-
-function formatScoreWithWickets(runs: number, wickets: number): string {
-  return wickets >= 10 ? `${runs}` : `${runs}/${wickets}`;
-}
-
 export function BroadcastMatchSummaryCard({
   match,
   tournament,
@@ -176,258 +129,345 @@ export function BroadcastMatchSummaryCard({
   teamMap,
   channelTitle = 'STAR EVENT LIVE',
   compact = false,
+  disableAnimation = false,
 }: BroadcastMatchSummaryCardProps) {
-  const inn1 = match.innings[0];
-  const inn2 = match.innings[1];
-  const inn1BatTeam = teamMap.get(inn1.battingTeamId);
-  const inn1BowlTeam = teamMap.get(inn1.bowlingTeamId);
-  const inn2BatTeam = teamMap.get(inn2.battingTeamId);
-  const inn2BowlTeam = teamMap.get(inn2.bowlingTeamId);
-
-  const inn1Batters = [...computeBattingCard(inn1, inn1BatTeam)]
-    .filter((b) => b.balls > 0 || b.runs > 0 || b.isOut)
-    .sort((a, b) => b.runs - a.runs || a.balls - b.balls)
-    .slice(0, 4);
-
-  const inn1Bowlers = [...computeBowlingCard(inn1, inn1BowlTeam)]
-    .filter((b) => b.legalBalls > 0 || b.runs > 0 || b.wickets > 0)
-    .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs || b.legalBalls - a.legalBalls)
-    .slice(0, 4);
-
-  const inn2Batters = [...computeBattingCard(inn2, inn2BatTeam)]
-    .filter((b) => b.balls > 0 || b.runs > 0 || b.isOut)
-    .sort((a, b) => b.runs - a.runs || a.balls - b.balls)
-    .slice(0, 4);
-
-  const inn2Bowlers = [...computeBowlingCard(inn2, inn2BowlTeam)]
-    .filter((b) => b.legalBalls > 0 || b.runs > 0 || b.wickets > 0)
-    .sort((a, b) => b.wickets - a.wickets || a.runs - b.runs || b.legalBalls - a.legalBalls)
-    .slice(0, 4);
-
-  const resultHeadline = computeBroadcastMatchResult(
+  const summary = extractMatchSummaryData(
     match,
-    inn1,
-    inn2,
-    inn1BatTeam,
-    inn2BatTeam
+    tournament,
+    group,
+    teamMap,
+    channelTitle
   );
 
-  const tournamentName = (tournament?.name || channelTitle || 'CRICKET TOURNAMENT').toUpperCase();
-  const groupLocationParts = [
-    group?.name ? group.name.toUpperCase() : match.stageBadge?.toUpperCase(),
-    (match.venue || tournament?.location || '').trim().toUpperCase(),
-  ].filter(Boolean);
-  const groupLocationLine = groupLocationParts.join(', ');
+  const renderInningsPanel = (inn: SummaryInningsBlock, delaySec: number) => {
+    const Wrapper = disableAnimation ? 'div' : motion.div;
+    const motionProps = disableAnimation
+      ? {}
+      : {
+          initial: { opacity: 0, y: 12 },
+          animate: { opacity: 1, y: 0 },
+          transition: { duration: 0.32, delay: delaySec, ease: [0.16, 1, 0.3, 1] as const },
+        };
 
-  const renderInningsBlock = (
-    inn: InningsState,
-    batTeam: Team | undefined,
-    bowlTeam: Team | undefined,
-    batters: ReturnType<typeof computeBattingCard>,
-    bowlers: ReturnType<typeof computeBowlingCard>,
-    inningsIndex: 0 | 1
-  ) => {
-    const teamLabel = (batTeam?.name || `TEAM ${inningsIndex + 1}`).toUpperCase();
-    const bowlLabel = (bowlTeam?.shortName || bowlTeam?.name || 'BOWLING').toUpperCase();
-    const oversFormatted = formatOvers(inn.legalBalls);
-    const hasScore = inn.balls.length > 0 || inn.runs > 0 || inn.wickets > 0 || inn.completed;
+    // Align row grid neatly (4 fixed slots on desktop when data exists, clean collapse on empty)
+    const maxRows = Math.max(inn.topBatters.length, inn.topBowlers.length);
 
     return (
-      <div className="rounded-xl overflow-hidden border border-sky-300/35 bg-[#061647]/80 shadow-lg">
-        {/* Innings Header Bar */}
+      <Wrapper
+        {...motionProps}
+        className="rounded-xl overflow-hidden bg-white border border-slate-300/90 shadow-md"
+      >
+        {/* TEAM HEADER STRIP: Royal Navy -> Cyan Broadcast Bar */}
         <div
-          className="px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 border-b border-sky-200/30"
+          className={`flex flex-wrap items-center justify-between gap-2.5 border-b border-sky-400/40 ${
+            compact ? 'px-3.5 py-2' : 'px-4 sm:px-5 py-2.5 sm:py-3'
+          }`}
           style={{
             background:
-              'linear-gradient(90deg, #0D2D8A 0%, #1542B8 48%, #0C287A 100%)',
+              'linear-gradient(90deg, #0B2268 0%, #1440AD 58%, #0284C7 100%)',
           }}
         >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-11 h-7 rounded-[4px] overflow-hidden border border-white/75 shadow-sm shrink-0 bg-slate-900">
-              {renderSummaryTeamFlag(batTeam, `T${inningsIndex + 1}`)}
+            <div
+              className={`rounded-[4px] overflow-hidden border-2 border-white/85 shadow-sm shrink-0 bg-slate-900 ${
+                compact ? 'w-9 h-6' : 'w-11 h-7 sm:w-12 sm:h-8'
+              }`}
+            >
+              {renderSummaryTeamFlag(inn.battingTeam, `T${inn.inningsIndex + 1}`)}
             </div>
-            <div className="min-w-0">
-              <h4
-                className={`font-display font-black uppercase tracking-wide text-white truncate ${
-                  compact ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'
-                }`}
-              >
-                {teamLabel}
-              </h4>
-            </div>
+            <h3
+              className={`font-display font-black uppercase tracking-wide text-white truncate ${
+                compact ? 'text-sm sm:text-base' : 'text-base sm:text-xl'
+              }`}
+            >
+              {inn.teamName}
+            </h3>
           </div>
 
-          <div className="flex items-baseline gap-3 tabular-nums">
-            <span className="text-xs sm:text-sm font-bold uppercase tracking-wider text-sky-200">
-              {hasScore ? `${oversFormatted} OV` : 'YET TO BAT'}
+          <div className="flex items-baseline gap-3 sm:gap-4 tabular-nums shrink-0">
+            <span
+              className={`font-bold uppercase tracking-wider text-sky-100 ${
+                compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'
+              }`}
+            >
+              {inn.hasScore ? `${inn.oversCompact} OV` : 'YET TO BAT'}
             </span>
             <span
-              className={`font-display font-black text-[#FFE600] tracking-tight ${
-                compact ? 'text-xl sm:text-2xl' : 'text-2xl sm:text-3xl'
+              className={`font-mono font-black text-white tracking-tight ${
+                compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-3xl'
               }`}
-              style={{ textShadow: '0 2px 6px rgba(0,0,0,0.45)' }}
+              style={{ textShadow: '0 2px 6px rgba(4, 15, 52, 0.45)' }}
             >
-              {hasScore ? formatScoreWithWickets(inn.runs, inn.wickets) : '0/0'}
+              {inn.hasScore ? inn.scoreLabel : '0/0'}
             </span>
           </div>
         </div>
 
-        {/* Split Body: Left = Top 4 Batsmen | Right = Best 4 Bowlers */}
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-sky-300/25">
-          {/* LEFT: BATTING SCORECARD (TOP 4) */}
-          <div className="p-3 sm:p-3.5 bg-[#071A52]/75">
-            <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-sky-300/90 pb-1.5 mb-1.5 border-b border-sky-300/20">
-              <span>TOP BATTERS</span>
+        {/* CRISP WHITE SCORECARD BODY: LEFT BATTING (TOP 4) | RIGHT BOWLING (BEST 4) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200 bg-white">
+          {/* LEFT SIDE: BATTING SCORECARD */}
+          <div className={compact ? 'px-3.5 py-2' : 'px-4 sm:px-5 py-2.5 sm:py-3'}>
+            <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.14em] text-sky-700 pb-1.5 border-b border-slate-200">
+              <span>BATTING</span>
               <span>RUNS (BALLS)</span>
             </div>
-            {batters.length === 0 ? (
-              <p className="text-xs text-sky-200/65 py-3 font-medium">
-                {hasScore ? 'No individual batting records yet.' : 'Innings not started yet.'}
+
+            {inn.topBatters.length === 0 ? (
+              <p className="text-xs sm:text-sm text-slate-500 py-4 font-medium">
+                {inn.hasScore
+                  ? 'No individual batting figures recorded yet.'
+                  : 'Innings not started yet.'}
               </p>
             ) : (
-              <div className="divide-y divide-white/10">
-                {batters.map((b) => (
-                  <div
-                    key={b.playerId}
-                    className="py-1.5 flex items-center justify-between gap-2 text-xs sm:text-sm"
-                  >
-                    <span className="font-display font-bold uppercase tracking-wide text-white truncate">
-                      {b.playerName}
-                    </span>
-                    <div className="flex items-baseline gap-1.5 shrink-0 tabular-nums">
-                      <span className="font-display font-black text-white text-sm sm:text-base">
-                        {b.runs}
-                        {!b.isOut ? (
-                          <span className="text-[#FFE600] ml-0.5">*</span>
-                        ) : null}
-                      </span>
-                      <span className="text-sky-200/85 font-semibold text-xs">
-                        ({b.balls})
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="divide-y divide-slate-200/90">
+                {Array.from({ length: Math.max(inn.topBatters.length, maxRows) }).map(
+                  (_, rowIdx) => {
+                    const batter = inn.topBatters[rowIdx];
+                    if (!batter) {
+                      return (
+                        <div
+                          key={`empty-bat-${inn.inningsIndex}-${rowIdx}`}
+                          className="hidden md:block py-2 text-sm select-none"
+                          aria-hidden="true"
+                        >
+                          &nbsp;
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={batter.playerId}
+                        className={`flex items-center justify-between gap-3 ${
+                          compact ? 'py-1.5 text-xs' : 'py-2 text-xs sm:text-sm'
+                        }`}
+                      >
+                        <span className="font-display font-extrabold uppercase tracking-wide text-[#0A1C4E] truncate">
+                          {batter.playerName}
+                        </span>
+                        <div className="flex items-baseline gap-1.5 shrink-0 font-mono tabular-nums">
+                          <span
+                            className={`font-black text-[#0A1C4E] ${
+                              compact ? 'text-sm' : 'text-sm sm:text-base'
+                            }`}
+                          >
+                            {batter.runs}
+                            {!batter.isOut && (
+                              <span
+                                className="text-[#0284C7] font-black ml-0.5"
+                                title="Not Out"
+                              >
+                                *
+                              </span>
+                            )}
+                          </span>
+                          <span className="text-slate-500 font-semibold text-xs sm:text-[13px] min-w-[3.2ch] text-right">
+                            ({batter.balls})
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
               </div>
             )}
           </div>
 
-          {/* RIGHT: BOWLING FIGURES (BEST 4) */}
-          <div className="p-3 sm:p-3.5 bg-[#051442]/80">
-            <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-widest text-sky-300/90 pb-1.5 mb-1.5 border-b border-sky-300/20">
-              <span>TOP BOWLERS · {bowlLabel}</span>
+          {/* RIGHT SIDE: BOWLING FIGURES */}
+          <div className={compact ? 'px-3.5 py-2' : 'px-4 sm:px-5 py-2.5 sm:py-3'}>
+            <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.14em] text-sky-700 pb-1.5 border-b border-slate-200">
+              <span>BOWLING · {inn.bowlingTeamShortName}</span>
               <span>W-R (OV)</span>
             </div>
-            {bowlers.length === 0 ? (
-              <p className="text-xs text-sky-200/65 py-3 font-medium">
-                {hasScore ? 'No bowling figures recorded yet.' : 'Bowling yet to begin.'}
+
+            {inn.topBowlers.length === 0 ? (
+              <p className="text-xs sm:text-sm text-slate-500 py-4 font-medium">
+                {inn.hasScore
+                  ? 'No bowling figures recorded yet.'
+                  : 'Bowling yet to begin.'}
               </p>
             ) : (
-              <div className="divide-y divide-white/10">
-                {bowlers.map((bw) => (
-                  <div
-                    key={bw.playerId}
-                    className="py-1.5 flex items-center justify-between gap-2 text-xs sm:text-sm"
-                  >
-                    <span className="font-display font-bold uppercase tracking-wide text-white truncate">
-                      {bw.playerName}
-                    </span>
-                    <div className="flex items-baseline gap-1.5 shrink-0 tabular-nums">
-                      <span className="font-display font-black text-[#FFE600] text-sm sm:text-base">
-                        {bw.wickets}-{bw.runs}
-                      </span>
-                      <span className="text-sky-200/85 font-semibold text-xs">
-                        ({bw.overs})
-                      </span>
-                    </div>
-                  </div>
-                ))}
+              <div className="divide-y divide-slate-200/90">
+                {Array.from({ length: Math.max(inn.topBowlers.length, maxRows) }).map(
+                  (_, rowIdx) => {
+                    const bowler = inn.topBowlers[rowIdx];
+                    if (!bowler) {
+                      return (
+                        <div
+                          key={`empty-bowl-${inn.inningsIndex}-${rowIdx}`}
+                          className="hidden md:block py-2 text-sm select-none"
+                          aria-hidden="true"
+                        >
+                          &nbsp;
+                        </div>
+                      );
+                    }
+                    return (
+                      <div
+                        key={bowler.playerId}
+                        className={`flex items-center justify-between gap-3 ${
+                          compact ? 'py-1.5 text-xs' : 'py-2 text-xs sm:text-sm'
+                        }`}
+                      >
+                        <span className="font-display font-extrabold uppercase tracking-wide text-[#0A1C4E] truncate">
+                          {bowler.playerName}
+                        </span>
+                        <div className="flex items-baseline gap-1.5 shrink-0 font-mono tabular-nums">
+                          <span
+                            className={`font-black text-[#0F389C] ${
+                              compact ? 'text-sm' : 'text-sm sm:text-base'
+                            }`}
+                          >
+                            {bowler.wickets}-{bowler.runs}
+                          </span>
+                          <span className="text-slate-500 font-semibold text-xs sm:text-[13px] min-w-[3.8ch] text-right">
+                            ({bowler.oversCompact})
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                )}
               </div>
             )}
           </div>
         </div>
-      </div>
+      </Wrapper>
     );
   };
 
+  const RootWrapper = disableAnimation ? 'div' : motion.div;
+  const rootMotionProps = disableAnimation
+    ? {}
+    : {
+        initial: { opacity: 0, scale: 0.985 },
+        animate: { opacity: 1, scale: 1 },
+        transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] as const },
+      };
+
   return (
-    <div
-      className="w-full rounded-2xl overflow-hidden border-2 border-sky-300/60 shadow-[0_24px_60px_rgba(3,10,36,0.75)] text-white select-none"
-      style={{
-        background:
-          'radial-gradient(circle at 18% 0%, rgba(56,189,248,0.28) 0%, transparent 48%), radial-gradient(circle at 85% 100%, rgba(250,204,21,0.16) 0%, transparent 45%), linear-gradient(155deg, #041036 0%, #0A2472 48%, #061545 100%)',
-      }}
+    <RootWrapper
+      {...rootMotionProps}
+      className="match-summary-broadcast-card w-full rounded-2xl overflow-hidden border-2 border-sky-400/70 shadow-[0_24px_60px_rgba(4,16,58,0.45)] select-none bg-[#F1F5F9]"
     >
-      {/* 1. INTERNATIONAL BROADCAST MATCH SUMMARY HEADER */}
+      {/* 1. INTERNATIONAL BROADCAST HEADER: BLUE & CYAN GRADIENT */}
       <div
-        className="px-4 sm:px-6 py-3.5 sm:py-4 border-b-2 border-[#FFE600]/80 flex flex-wrap items-center justify-between gap-3"
+        className={`relative overflow-hidden border-b-4 border-sky-400 ${
+          compact ? 'px-4 py-3' : 'px-4 sm:px-6 py-3.5 sm:py-4'
+        }`}
         style={{
           background:
-            'linear-gradient(90deg, #061852 0%, #1035A0 50%, #061852 100%)',
+            'linear-gradient(105deg, #061852 0%, #0E3CA8 52%, #0284C7 82%, #06B6D4 100%)',
         }}
       >
-        <div className="flex items-center gap-3 min-w-0">
-          {tournament?.logoUrl ? (
-            <img
-              src={tournament.logoUrl}
-              alt={tournamentName}
-              referrerPolicy="no-referrer"
-              className="w-11 h-11 rounded-lg object-cover border border-white/50 bg-white/10 shrink-0"
-            />
-          ) : (
-            <div className="w-10 h-10 rounded-lg bg-[#FFE600]/15 border border-[#FFE600]/50 flex items-center justify-center shrink-0">
-              <Trophy className="w-5 h-5 text-[#FFE600]" aria-hidden="true" />
-            </div>
-          )}
+        {/* Diagonal TV broadcast sheen accents */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-[18%] w-36 -skew-x-18 bg-white/10"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-[10%] w-12 -skew-x-18 bg-cyan-200/15"
+        />
 
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-display font-black uppercase tracking-[0.14em] text-lg sm:text-2xl text-white leading-none">
-                MATCH SUMMARY
-              </span>
-              <span className="px-2 py-0.5 rounded bg-[#FFE600] text-[#041036] font-black text-[10px] uppercase tracking-wider">
-                {channelTitle}
-              </span>
-            </div>
-            <p className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-sky-200 mt-1 truncate">
-              {tournamentName}
-              {groupLocationLine ? ` · ${groupLocationLine}` : ''}
-            </p>
-          </div>
-        </div>
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            {summary.tournamentLogoUrl ? (
+              <img
+                src={summary.tournamentLogoUrl}
+                alt={summary.tournamentName}
+                referrerPolicy="no-referrer"
+                className={`rounded-xl object-cover border-2 border-white/75 bg-white shrink-0 shadow-sm ${
+                  compact ? 'w-10 h-10' : 'w-12 h-12 sm:w-14 sm:h-14'
+                }`}
+              />
+            ) : (
+              <div
+                className={`rounded-xl bg-white/15 border border-sky-200/50 flex items-center justify-center shrink-0 ${
+                  compact ? 'w-10 h-10' : 'w-12 h-12 sm:w-14 sm:h-14'
+                }`}
+              >
+                <Trophy className="w-6 h-6 text-sky-200" aria-hidden="true" />
+              </div>
+            )}
 
-        {/* Both Team Flags / Logos */}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="w-10 h-6.5 rounded-[4px] overflow-hidden border border-white/75 shadow-sm">
-            {renderSummaryTeamFlag(inn1BatTeam, 'T1')}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                <h2
+                  className={`font-display font-black uppercase tracking-[0.12em] text-white leading-none ${
+                    compact ? 'text-lg sm:text-xl' : 'text-xl sm:text-3xl'
+                  }`}
+                >
+                  MATCH SUMMARY
+                </h2>
+                <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-cyan-200">
+                  {summary.channelTitle}
+                </span>
+              </div>
+              <p
+                className={`font-display font-bold uppercase tracking-wider text-sky-100 mt-1 truncate ${
+                  compact ? 'text-[11px] sm:text-xs' : 'text-xs sm:text-sm'
+                }`}
+              >
+                {summary.tournamentName}
+              </p>
+              {(summary.groupVenueLine || summary.matchLabel) && (
+                <p className="text-[11px] font-semibold uppercase tracking-widest text-cyan-200/95 truncate">
+                  {[summary.groupVenueLine, summary.matchLabel]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
+            </div>
           </div>
-          <span className="font-display font-black text-xs text-[#FFE600] uppercase">VS</span>
-          <div className="w-10 h-6.5 rounded-[4px] overflow-hidden border border-white/75 shadow-sm">
-            {renderSummaryTeamFlag(inn2BatTeam, 'T2')}
+
+          {/* Team Flags / Logos Lockup */}
+          <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
+            <div className="w-11 h-7 sm:w-13 sm:h-8 rounded-[5px] overflow-hidden border-2 border-white/85 shadow-md bg-slate-900">
+              {renderSummaryTeamFlag(summary.innings1.battingTeam, 'T1')}
+            </div>
+            <span className="font-display font-black text-xs sm:text-sm text-cyan-200 uppercase tracking-wider">
+              VS
+            </span>
+            <div className="w-11 h-7 sm:w-13 sm:h-8 rounded-[5px] overflow-hidden border-2 border-white/85 shadow-md bg-slate-900">
+              {renderSummaryTeamFlag(summary.innings2.battingTeam, 'T2')}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* 2 & 3. FIRST TEAM + 4 & 5. SECOND TEAM SCORECARDS */}
-      <div className="p-3.5 sm:p-5 space-y-3.5">
-        {renderInningsBlock(inn1, inn1BatTeam, inn1BowlTeam, inn1Batters, inn1Bowlers, 0)}
-        {renderInningsBlock(inn2, inn2BatTeam, inn2BowlTeam, inn2Batters, inn2Bowlers, 1)}
-      </div>
-
-      {/* 6. BOTTOM MATCH RESULT BANNER */}
+      {/* 2 & 3 (FIRST TEAM) + 4 & 5 (SECOND TEAM) WHITE SCORECARD STACK */}
       <div
-        className="px-4 sm:px-6 py-3 border-t-2 border-[#FFE600]/80 flex items-center justify-center text-center"
+        className={`space-y-3 sm:space-y-3.5 ${
+          compact ? 'p-3 sm:p-3.5' : 'p-3.5 sm:p-5'
+        }`}
         style={{
           background:
-            'linear-gradient(90deg, #071952 0%, #143DB3 35%, #1D4ED8 50%, #143DB3 65%, #071952 100%)',
+            'linear-gradient(180deg, #E2E8F0 0%, #F1F5F9 50%, #E2E8F0 100%)',
+        }}
+      >
+        {renderInningsPanel(summary.innings1, 0.06)}
+        {renderInningsPanel(summary.innings2, 0.14)}
+      </div>
+
+      {/* 6. BOTTOM BLUE BROADCAST MATCH RESULT BANNER */}
+      <div
+        className={`border-t-4 border-sky-400 text-center ${
+          compact ? 'px-4 py-2.5' : 'px-4 sm:px-6 py-3.5 sm:py-4'
+        }`}
+        style={{
+          background:
+            'linear-gradient(90deg, #061852 0%, #0E3CA8 32%, #0284C7 50%, #0E3CA8 68%, #061852 100%)',
         }}
       >
         <p
-          className="font-display font-black uppercase tracking-[0.12em] text-base sm:text-xl text-[#FFE600]"
-          style={{ textShadow: '0 2px 8px rgba(0,0,0,0.65)' }}
+          className={`font-display font-black uppercase tracking-[0.12em] text-white ${
+            compact ? 'text-sm sm:text-base' : 'text-base sm:text-2xl'
+          }`}
+          style={{ textShadow: '0 2px 10px rgba(3, 12, 42, 0.65)' }}
         >
-          {resultHeadline}
+          {summary.resultHeadline}
         </p>
       </div>
-    </div>
+    </RootWrapper>
   );
 }

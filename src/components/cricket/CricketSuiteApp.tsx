@@ -41,6 +41,7 @@ import { SidebarToolsViews } from './SidebarToolsViews';
 import { TeamManagerView } from './TeamManagerView';
 import { TournamentManagerView } from './TournamentManagerView';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
+import { MatchSummaryStudioView } from './MatchSummaryStudioView';
 import { KabaddiControlDashboard } from '../kabaddi/KabaddiControlDashboard';
 
 interface CricketSuiteAppProps {
@@ -71,6 +72,7 @@ export function CricketSuiteApp({
   );
 
   const [activeRoute, setActiveRoute] = useState<SidebarRoute>('home');
+  const [activeSummaryMatchId, setActiveSummaryMatchId] = useState<string | undefined>(undefined);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [tournamentMenuOpen, setTournamentMenuOpen] = useState(false);
@@ -242,6 +244,12 @@ export function CricketSuiteApp({
     [state.matches, state.tournaments, showToast, updateState]
   );
 
+  const handleOpenMatchSummary = useCallback((matchId?: string) => {
+    setActiveSummaryMatchId(matchId);
+    setActiveRoute('match-summary');
+    setDrawerOpen(false);
+  }, []);
+
   const handleRequestLogout = useCallback(() => {
     setShowLogoutConfirm(true);
   }, []);
@@ -262,6 +270,8 @@ export function CricketSuiteApp({
         return 'Team Management';
       case 'match':
         return activeTournament ? `Match / ${activeTournament.name}` : 'Match Management';
+      case 'match-summary':
+        return 'Match Summary';
       case 'scoring':
         return 'Scoring Dashboard';
       case 'overlay':
@@ -425,6 +435,15 @@ export function CricketSuiteApp({
         >
           <Radio className="w-4 h-4 shrink-0" aria-hidden="true" />
           <span>MATCH</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => handleOpenMatchSummary(activeMatch?.id)}
+          className={navItemClass(activeRoute === 'match-summary')}
+        >
+          <Trophy className="w-4 h-4 shrink-0" aria-hidden="true" />
+          <span>MATCH SUMMARY</span>
         </button>
 
         <button
@@ -747,6 +766,17 @@ export function CricketSuiteApp({
                     state={state}
                     updateState={updateState}
                     onOpenScoring={handleOpenScoring}
+                    onOpenSummary={handleOpenMatchSummary}
+                    onToast={showToast}
+                  />
+                )}
+
+                {activeRoute === 'match-summary' && (
+                  <MatchSummaryStudioView
+                    state={state}
+                    initialMatchId={activeSummaryMatchId}
+                    updateState={updateState}
+                    onNavigateToMatches={() => navigateTo('match')}
                     onToast={showToast}
                   />
                 )}
