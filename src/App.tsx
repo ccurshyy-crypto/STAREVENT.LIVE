@@ -7,6 +7,7 @@ import { Footer } from './components/Footer';
 import { HeroSection } from './components/HeroSection';
 import { HomeAnimatedBackground } from './components/HomeAnimatedBackground';
 import { Navbar, MainPageRoute } from './components/Navbar';
+import { NewThemesShowcaseSection } from './components/NewThemesShowcaseSection';
 import { OverlayAccessModal } from './components/OverlayAccessModal';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
@@ -319,6 +320,11 @@ export default function App() {
           ) : (
             <>
               <StingerOverlaysOfferSection
+                lang={lang}
+                onOpenOverlays={navigateToOverlays}
+              />
+
+              <NewThemesShowcaseSection
                 lang={lang}
                 onOpenOverlays={navigateToOverlays}
               />
