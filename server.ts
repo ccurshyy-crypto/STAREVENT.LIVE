@@ -42,6 +42,15 @@ import {
   type WorldCupPaymentRecord,
   type WorldCupUnlockRecord,
 } from './server/cashfreePayments.ts';
+import {
+  consumeTournamentUnlockPass,
+  generateTournamentUnlockCode,
+  getCustomerTournamentPasses,
+  listAllTournamentCodes,
+  redeemTournamentUnlockCode,
+  revokeTournamentUnlockCode,
+  TOURNAMENT_PRICE_PER_DAY_INR,
+} from './server/tournamentUnlockCodes.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2077,6 +2086,235 @@ export function createApiApp(): express.Express {
     });
 
     res.json({ ok: true, unlock: revokedRec, auditLog: auditEntry });
+  });
+
+  // =========================================================================
+  // 7. ADMIN-GENERATED TOURNAMENT UNLOCK CODES (₹99 / DAY, CUSTOM DAYS)
+  //    - Admin selects number of days -> generates unique single-use code.
+  //    - Customer redeems code -> unlocks tournament creation for N days.
+  //    - Scoreboards remain 100% unlocked; only tournament creation requires code.
+  // =========================================================================
+  app.get('/api/admin/tournament-codes', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const statusFilter = String(req.query.status || 'ALL').trim().toUpperCase();
+      const allCodes = await listAllTournamentCodes(getSupabaseAdminClient());
+      const codes =
+        statusFilter === 'ALL'
+          ? allCodes
+          : allCodes.filter((c) => c.status === statusFilter);
+      res.json({
+        ok: true,
+        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+        codes,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to load tournament unlock codes.',
+      });
+    }
+  });
+
+  app.post('/api/admin/tournament-codes/generate', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const durationDays = Number(req.body?.durationDays);
+      if (!Number.isFinite(durationDays) || Math.floor(durationDays) < 1 || Math.floor(durationDays) > 365) {
+        res.status(400).json({
+          ok: false,
+          error: 'Please enter valid number of days (between 1 and 365 days).',
+        });
+        return;
+      }
+
+      const assignedCustomerId =
+        typeof req.body?.assignedCustomerId === 'string'
+          ? req.body.assignedCustomerId.trim()
+          : null;
+      const customerLabel =
+        typeof req.body?.customerLabel === 'string' ? req.body.customerLabel.trim() : '';
+
+      const codeRecord = await generateTournamentUnlockCode({
+        supabaseAdmin: getSupabaseAdminClient(),
+        durationDays: Math.floor(durationDays),
+        assignedCustomerId,
+        customerLabel,
+      });
+
+      res.status(201).json({
+        ok: true,
+        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+        codeRecord,
+      });
+    } catch (err) {
+      res.status(400).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not generate tournament unlock code.',
+      });
+    }
+  });
+
+  app.post('/api/admin/tournament-codes/revoke', requireOwnerAdmin, async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const result = await revokeTournamentUnlockCode({
+        supabaseAdmin: getSupabaseAdminClient(),
+        code,
+      });
+      if (!result.ok) {
+        res.status(result.status).json({ ok: false, error: result.error });
+        return;
+      }
+      res.json({ ok: true, codeRecord: result.record });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not revoke tournament unlock code.',
+      });
+    }
+  });
+
+  app.get('/api/tournaments/unlock/status', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const customer = await resolveAuthenticatedCustomer(req, false);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          authenticated: false,
+          pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+          activePasses: [],
+          usedPasses: [],
+          error: 'Customer authentication required.',
+        });
+        return;
+      }
+      const { activePasses, usedPasses } = await getCustomerTournamentPasses(
+        getSupabaseAdminClient(),
+        customer.customerId
+      );
+      res.json({
+        ok: true,
+        authenticated: true,
+        customerId: customer.customerId,
+        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+        activePasses,
+        usedPasses,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not check tournament unlock status.',
+      });
+    }
+  });
+
+  app.post('/api/tournaments/unlock/redeem', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          error: 'Please sign in again to redeem a Tournament Unlock Code.',
+        });
+        return;
+      }
+
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const supabaseAdmin = getSupabaseAdminClient();
+      const result = await redeemTournamentUnlockCode({
+        supabaseAdmin,
+        code,
+        customerId: customer.customerId,
+        customerName: customer.customerName,
+      });
+
+      if (!result.ok || !result.pass) {
+        res.status(result.status).json({
+          ok: false,
+          error: result.error || 'Invalid Tournament Unlock Code.',
+        });
+        return;
+      }
+
+      const { activePasses, usedPasses } = await getCustomerTournamentPasses(
+        supabaseAdmin,
+        customer.customerId
+      );
+
+      res.json({
+        ok: true,
+        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+        pass: result.pass,
+        activePasses,
+        usedPasses,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not redeem tournament unlock code.',
+      });
+    }
+  });
+
+  app.post('/api/tournaments/unlock/consume', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const customer = await resolveAuthenticatedCustomer(req, true);
+      if (!customer) {
+        res.status(401).json({
+          ok: false,
+          error: 'Please sign in again to create a tournament.',
+        });
+        return;
+      }
+
+      const code = typeof req.body?.code === 'string' ? req.body.code : '';
+      const tournamentId = typeof req.body?.tournamentId === 'string' ? req.body.tournamentId : '';
+      const tournamentName =
+        typeof req.body?.tournamentName === 'string' ? req.body.tournamentName : '';
+      const selectedDates = Array.isArray(req.body?.selectedDates)
+        ? (req.body.selectedDates as string[])
+        : [];
+
+      const supabaseAdmin = getSupabaseAdminClient();
+      const result = await consumeTournamentUnlockPass({
+        supabaseAdmin,
+        code,
+        customerId: customer.customerId,
+        tournamentId,
+        tournamentName,
+        selectedDates,
+      });
+
+      if (!result.ok || !result.pass) {
+        res.status(result.status).json({
+          ok: false,
+          error: result.error || 'Tournament creation is locked. Please redeem an Admin code first.',
+        });
+        return;
+      }
+
+      const { activePasses, usedPasses } = await getCustomerTournamentPasses(
+        supabaseAdmin,
+        customer.customerId
+      );
+
+      res.json({
+        ok: true,
+        pass: result.pass,
+        activePasses,
+        usedPasses,
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Could not verify tournament creation pass.',
+      });
+    }
   });
 
   // Always return JSON for unknown /api/* routes (never fall through to SPA HTML)

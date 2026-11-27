@@ -97,8 +97,8 @@ export interface VerifyCashfreeOrderResponse {
   error?: string;
 }
 
-const EMPTY_DETAIL: ThemeEntitlementDetail = {
-  unlocked: false,
+const UNLOCKED_FREE_DETAIL: ThemeEntitlementDetail = {
+  unlocked: true,
   grantSource: null,
   orderId: null,
   cfPaymentId: null,
@@ -109,14 +109,14 @@ const EMPTY_DETAIL: ThemeEntitlementDetail = {
 function makeEmptyStatus(authenticated = false, loading = false): ServerWorldCupStatus {
   return {
     loading,
-    unlocked: false,
+    unlocked: true,
     unlockedThemes: {
-      worldcup: false,
-      'lightning-pro': false,
+      worldcup: true,
+      'lightning-pro': true,
     },
     themeEntitlements: {
-      worldcup: { ...EMPTY_DETAIL },
-      'lightning-pro': { ...EMPTY_DETAIL },
+      worldcup: { ...UNLOCKED_FREE_DETAIL },
+      'lightning-pro': { ...UNLOCKED_FREE_DETAIL },
     },
     authenticated,
     cashfreeConfigured: false,
@@ -130,10 +130,10 @@ function makeEmptyStatus(authenticated = false, loading = false): ServerWorldCup
 }
 
 function parseEntitlementDetail(raw: unknown): ThemeEntitlementDetail {
-  if (!raw || typeof raw !== 'object') return { ...EMPTY_DETAIL };
+  if (!raw || typeof raw !== 'object') return { ...UNLOCKED_FREE_DETAIL };
   const obj = raw as Record<string, unknown>;
   return {
-    unlocked: obj.unlocked === true,
+    unlocked: true,
     grantSource:
       obj.grantSource === 'cashfree' || obj.grantSource === 'admin_manual'
         ? obj.grantSource
@@ -145,12 +145,15 @@ function parseEntitlementDetail(raw: unknown): ThemeEntitlementDetail {
   };
 }
 
+/**
+ * All broadcast scoreboard themes are unlocked and free to use.
+ * Pricing applies only to tournament days (₹99/day via Admin Tournament Unlock Codes).
+ */
 export function isThemeUnlockedInStatus(
-  themeId: string,
-  status: Pick<ServerWorldCupStatus, 'unlockedThemes'>
+  _themeId: string,
+  _status: Pick<ServerWorldCupStatus, 'unlockedThemes'>
 ): boolean {
-  if (!isPaidThemeId(themeId)) return true;
-  return status.unlockedThemes[themeId] === true;
+  return true;
 }
 
 /**
@@ -191,7 +194,7 @@ export async function fetchServerWorldCupStatus(
     const wcDetail: ThemeEntitlementDetail = rawEntitlements.worldcup
       ? parseEntitlementDetail(rawEntitlements.worldcup)
       : {
-          unlocked: worldcupUnlocked,
+          unlocked: true,
           grantSource:
             json.grantSource === 'cashfree' || json.grantSource === 'admin_manual'
               ? json.grantSource
@@ -204,14 +207,14 @@ export async function fetchServerWorldCupStatus(
 
     const lpDetail: ThemeEntitlementDetail = rawEntitlements['lightning-pro']
       ? parseEntitlementDetail(rawEntitlements['lightning-pro'])
-      : { ...EMPTY_DETAIL, unlocked: lightningProUnlocked };
+      : { ...UNLOCKED_FREE_DETAIL };
 
     return {
       loading: false,
-      unlocked: worldcupUnlocked,
+      unlocked: true,
       unlockedThemes: {
-        worldcup: worldcupUnlocked,
-        'lightning-pro': lightningProUnlocked,
+        worldcup: true,
+        'lightning-pro': true,
       },
       themeEntitlements: {
         worldcup: wcDetail,
@@ -232,39 +235,16 @@ export async function fetchServerWorldCupStatus(
 }
 
 /**
- * Read-only backend entitlement check used by Standalone OBS / vMix overlay pages.
+ * All broadcast scoreboard themes are free and unlocked on OBS / vMix overlays.
  */
 export async function fetchOverlayThemeEntitlements(
-  uid: string
+  _uid: string
 ): Promise<Record<PaidThemeId, boolean>> {
-  const clean = String(uid || '').trim();
-  if (!clean) {
-    return { worldcup: false, 'lightning-pro': false };
-  }
-  try {
-    const res = await fetch(`/api/payments/worldcup/entitlement/${encodeURIComponent(clean)}`, {
-      method: 'GET',
-      cache: 'no-store',
-    });
-    if (!res.ok) return { worldcup: false, 'lightning-pro': false };
-    const json = (await res.json().catch(() => null)) as {
-      ok?: boolean;
-      unlocked?: boolean;
-      unlockedThemes?: Record<string, unknown>;
-    } | null;
-    if (!json?.ok) return { worldcup: false, 'lightning-pro': false };
-    return {
-      worldcup: Boolean(json.unlockedThemes?.worldcup === true || json.unlocked === true),
-      'lightning-pro': Boolean(json.unlockedThemes?.['lightning-pro'] === true),
-    };
-  } catch {
-    return { worldcup: false, 'lightning-pro': false };
-  }
+  return { worldcup: true, 'lightning-pro': true };
 }
 
-export async function fetchOverlayWorldCupEntitlement(uid: string): Promise<boolean> {
-  const res = await fetchOverlayThemeEntitlements(uid);
-  return res.worldcup;
+export async function fetchOverlayWorldCupEntitlement(_uid: string): Promise<boolean> {
+  return true;
 }
 
 async function parsePaymentApiResponse<T extends { ok?: boolean; error?: string }>(

@@ -3,17 +3,30 @@ import {
   AlertTriangle,
   Calendar,
   Camera,
+  CheckCircle2,
   Edit3,
   FolderPlus,
+  KeyRound,
+  Loader2,
   Lock,
   Play,
   Plus,
   Search,
+  ShieldCheck,
   Trash2,
   Trophy,
   Users,
   X,
 } from 'lucide-react';
+import { useOverlayAccess } from '../../context/OverlayAccessContext';
+import {
+  consumeTournamentUnlockPass,
+  emitTournamentUnlockRefresh,
+  redeemTournamentUnlockCode,
+  TOURNAMENT_PRICE_PER_DAY_INR,
+  type TournamentUnlockPass,
+  useTournamentUnlockStatus,
+} from '../../lib/tournamentUnlock';
 import {
   computePointTableRows,
   expandDateRange,
@@ -40,6 +53,16 @@ import {
   TournamentGroup,
   TournamentType,
 } from '../../types/cricketSuite';
+
+function addDaysToIsoDate(isoDate: string, daysToAdd: number): string {
+  const parts = isoDate.split('-').map(Number);
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return isoDate;
+  const dt = new Date(parts[0], parts[1] - 1, parts[2] + daysToAdd);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, '0');
+  const d = String(dt.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 interface TournamentManagerViewProps {
   mode: 'tournament' | 'tournament-groups' | 'tournament-teams';
@@ -109,7 +132,24 @@ export function TournamentManagerView({
   const effectiveTour = state.tournaments.find((t) => t.id === effectiveTourId);
   const isEffectiveTourExpired = isTournamentExpired(effectiveTour);
 
-  const openCreateTournament = () => {
+  const { getPaymentAuthHeaders } = useOverlayAccess();
+  const { status: unlockStatus, refresh: refreshUnlockStatus } = useTournamentUnlockStatus();
+
+  // Tournament Unlock Code modal state (Admin-generated code @ ₹99/day)
+  const [unlockModalOpen, setUnlockModalOpen] = useState(false);
+  const [unlockCodeInput, setUnlockCodeInput] = useState('');
+  const [redeemingCode, setRedeemingCode] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
+  const [selectedPassCode, setSelectedPassCode] = useState<string>('');
+  const [savingTournament, setSavingTournament] = useState(false);
+
+  const activePass: TournamentUnlockPass | null =
+    unlockStatus.activePasses.find((p) => p.code === selectedPassCode) ??
+    unlockStatus.activePasses[0] ??
+    null;
+
+  const openCreateModalWithPass = (pass: TournamentUnlockPass) => {
+    setSelectedPassCode(pass.code);
     setEditingId(null);
     setTFormError(null);
     setTName('');
@@ -121,12 +161,55 @@ export function TournamentManagerView({
     setTBallType('Tennis');
     setTFormat('T10');
     const today = getTodayLocalDateStr();
+    const defaultEnd = addDaysToIsoDate(today, Math.max(0, pass.duration_days - 1));
+    const initialDates = expandDateRange(today, defaultEnd);
     setTStartDate(today);
-    setTEndDate(today);
-    setTSelectedDates([today]);
-    setTAddDateInput(today);
+    setTEndDate(defaultEnd);
+    setTSelectedDates(initialDates);
+    setTAddDateInput(defaultEnd);
     setTStatus('active');
     setModalOpen(true);
+  };
+
+  const openCreateTournament = () => {
+    if (activePass) {
+      openCreateModalWithPass(activePass);
+      return;
+    }
+    setUnlockError(null);
+    setUnlockCodeInput('');
+    setUnlockModalOpen(true);
+  };
+
+  const handleRedeemUnlockCode = async (e: FormEvent) => {
+    e.preventDefault();
+    setUnlockError(null);
+    const cleanCode = unlockCodeInput.trim().toUpperCase();
+    if (!cleanCode) {
+      setUnlockError('Please enter the Tournament Unlock Code provided by Admin.');
+      return;
+    }
+    setRedeemingCode(true);
+    try {
+      const authHeaders = await getPaymentAuthHeaders();
+      const res = await redeemTournamentUnlockCode(authHeaders, cleanCode);
+      if (!res.ok || !res.pass) {
+        setUnlockError(res.error || 'Invalid Tournament Unlock Code.');
+        return;
+      }
+      emitTournamentUnlockRefresh();
+      await refreshUnlockStatus();
+      setUnlockModalOpen(false);
+      setUnlockCodeInput('');
+      onToast(
+        `Tournament unlocked for ${res.pass.duration_days} day${res.pass.duration_days === 1 ? '' : 's'} (₹${res.pass.total_price_inr} @ ₹${res.pass.price_per_day_inr}/day)!`
+      );
+      openCreateModalWithPass(res.pass);
+    } catch {
+      setUnlockError('Network error while verifying unlock code. Please try again.');
+    } finally {
+      setRedeemingCode(false);
+    }
   };
 
   const openEditTournament = (t: Tournament) => {
@@ -156,9 +239,16 @@ export function TournamentManagerView({
   const handleStartDateChange = (nextStart: string) => {
     setTFormError(null);
     setTStartDate(nextStart);
-    const nextEnd = nextStart && tEndDate && tEndDate < nextStart ? nextStart : tEndDate || nextStart;
+    if (!isValidIsoDateStr(nextStart)) return;
+    if (!editingId && activePass) {
+      const autoEnd = addDaysToIsoDate(nextStart, Math.max(0, activePass.duration_days - 1));
+      setTEndDate(autoEnd);
+      setTSelectedDates(expandDateRange(nextStart, autoEnd));
+      return;
+    }
+    const nextEnd = tEndDate && tEndDate < nextStart ? nextStart : tEndDate || nextStart;
     setTEndDate(nextEnd);
-    if (isValidIsoDateStr(nextStart) && isValidIsoDateStr(nextEnd)) {
+    if (isValidIsoDateStr(nextEnd)) {
       setTSelectedDates(expandDateRange(nextStart, nextEnd));
     }
   };
@@ -169,7 +259,13 @@ export function TournamentManagerView({
     const nextStart = tStartDate && nextEnd && nextEnd < tStartDate ? nextEnd : tStartDate || nextEnd;
     setTStartDate(nextStart);
     if (isValidIsoDateStr(nextStart) && isValidIsoDateStr(nextEnd)) {
-      setTSelectedDates(expandDateRange(nextStart, nextEnd));
+      const range = expandDateRange(nextStart, nextEnd);
+      if (!editingId && activePass && range.length > activePass.duration_days) {
+        setTFormError(
+          `Your unlock code (${activePass.code}) allows up to ${activePass.duration_days} day${activePass.duration_days === 1 ? '' : 's'} (₹${activePass.total_price_inr} @ ₹${TOURNAMENT_PRICE_PER_DAY_INR}/day). You selected ${range.length} days.`
+        );
+      }
+      setTSelectedDates(range);
     }
   };
 
@@ -182,6 +278,12 @@ export function TournamentManagerView({
       return;
     }
     const merged = normalizeTournamentDates([...tSelectedDates, tAddDateInput]);
+    if (!editingId && activePass && merged.length > activePass.duration_days) {
+      setTFormError(
+        `Your unlock code allows maximum ${activePass.duration_days} day${activePass.duration_days === 1 ? '' : 's'}. Remove a date or use a longer Admin code.`
+      );
+      return;
+    }
     setTSelectedDates(merged);
     if (merged.length > 0) {
       setTStartDate(merged[0]);
@@ -215,7 +317,7 @@ export function TournamentManagerView({
     reader.readAsDataURL(file);
   };
 
-  const handleSaveTournament = (e: FormEvent) => {
+  const handleSaveTournament = async (e: FormEvent) => {
     e.preventDefault();
     setTFormError(null);
     const cleanName = tName.trim();
@@ -250,7 +352,14 @@ export function TournamentManagerView({
         ),
       }));
       onToast(`Tournament "${cleanName}" updated.`);
+      setModalOpen(false);
     } else {
+      if (!activePass) {
+        setModalOpen(false);
+        setUnlockModalOpen(true);
+        return;
+      }
+
       const normalizedDates = normalizeTournamentDates(
         tSelectedDates.length > 0
           ? tSelectedDates
@@ -260,6 +369,13 @@ export function TournamentManagerView({
         setTFormError('Please select at least one tournament date.');
         return;
       }
+      if (normalizedDates.length > activePass.duration_days) {
+        setTFormError(
+          `Your unlock code (${activePass.code}) allows up to ${activePass.duration_days} day${activePass.duration_days === 1 ? '' : 's'} (₹${activePass.total_price_inr} @ ₹${TOURNAMENT_PRICE_PER_DAY_INR}/day). Reduce dates to ${activePass.duration_days} or fewer.`
+        );
+        return;
+      }
+
       const today = getTodayLocalDateStr();
       const firstDate = normalizedDates[0];
       const lastDate = normalizedDates[normalizedDates.length - 1];
@@ -271,38 +387,64 @@ export function TournamentManagerView({
       }
 
       const newId = `tour_${Date.now()}`;
-      const computedStatus: Tournament['status'] =
-        firstDate > today ? 'upcoming' : 'active';
-      const newTour: Tournament = {
-        id: newId,
-        name: cleanName,
-        shortName: tShort.trim() || cleanName.slice(0, 12),
-        logoUrl: tLogoUrl,
-        location: tVenue.trim() || 'Main Ground',
-        tournamentType: tType,
-        oversPerInnings: overs,
-        ballType: tBallType,
-        matchFormat: tFormat,
-        startDate: firstDate,
-        endDate: lastDate,
-        tournamentDates: normalizedDates,
-        isActive: true,
-        status: computedStatus,
-      };
-      updateState((prev) => ({
-        ...prev,
-        activeTournamentId: newId,
-        tournaments: [
-          newTour,
-          ...prev.tournaments.map((t) => ({ ...t, isActive: false })),
-        ],
-      }));
-      setSelectedTourId(newId);
-      onToast(
-        `Tournament "${cleanName}" created (active until ${formatSingleDateHuman(lastDate)}).`
-      );
+      setSavingTournament(true);
+      try {
+        const authHeaders = await getPaymentAuthHeaders();
+        const consumeRes = await consumeTournamentUnlockPass(authHeaders, {
+          code: activePass.code,
+          tournamentId: newId,
+          tournamentName: cleanName,
+          selectedDates: normalizedDates,
+        });
+        if (!consumeRes.ok) {
+          setTFormError(
+            consumeRes.error || 'Could not verify your Tournament Unlock Code on the server.'
+          );
+          return;
+        }
+
+        emitTournamentUnlockRefresh();
+        await refreshUnlockStatus();
+
+        const computedStatus: Tournament['status'] =
+          firstDate > today ? 'upcoming' : 'active';
+        const newTour: Tournament = {
+          id: newId,
+          name: cleanName,
+          shortName: tShort.trim() || cleanName.slice(0, 12),
+          logoUrl: tLogoUrl,
+          location: tVenue.trim() || 'Main Ground',
+          tournamentType: tType,
+          oversPerInnings: overs,
+          ballType: tBallType,
+          matchFormat: tFormat,
+          startDate: firstDate,
+          endDate: lastDate,
+          tournamentDates: normalizedDates,
+          unlockCode: activePass.code,
+          unlockedDays: activePass.duration_days,
+          isActive: true,
+          status: computedStatus,
+        };
+        updateState((prev) => ({
+          ...prev,
+          activeTournamentId: newId,
+          tournaments: [
+            newTour,
+            ...prev.tournaments.map((t) => ({ ...t, isActive: false })),
+          ],
+        }));
+        setSelectedTourId(newId);
+        setModalOpen(false);
+        onToast(
+          `Tournament "${cleanName}" created using code ${activePass.code} (active until ${formatSingleDateHuman(lastDate)}).`
+        );
+      } catch {
+        setTFormError('Network error while verifying your tournament unlock pass. Please retry.');
+      } finally {
+        setSavingTournament(false);
+      }
     }
-    setModalOpen(false);
   };
 
   const handleDeleteTournament = (id: string) => {
@@ -361,6 +503,71 @@ export function TournamentManagerView({
 
     return (
       <div className="space-y-4">
+        {/* Tournament Unlock Pass Status Banner (₹99 / Day · Admin Code Unlock) */}
+        <div
+          className={`rounded-xl border p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3 shadow-xs ${
+            activePass
+              ? 'bg-emerald-50 border-emerald-200'
+              : 'bg-amber-50/90 border-amber-300'
+          }`}
+        >
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div
+              className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                activePass
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-[#FF8C00] text-white'
+              }`}
+            >
+              {activePass ? (
+                <ShieldCheck className="w-5 h-5" aria-hidden="true" />
+              ) : (
+                <KeyRound className="w-5 h-5" aria-hidden="true" />
+              )}
+            </div>
+            <div className="min-w-0">
+              {activePass ? (
+                <>
+                  <p className="text-xs sm:text-sm font-extrabold text-emerald-950">
+                    Tournament Unlocked · {activePass.duration_days} Day
+                    {activePass.duration_days === 1 ? '' : 's'} Pass Ready
+                  </p>
+                  <p className="text-[11px] text-emerald-800 mt-0.5">
+                    Code <span className="font-mono font-bold">{activePass.code}</span> · ₹
+                    {activePass.total_price_inr} (₹{TOURNAMENT_PRICE_PER_DAY_INR}/day) · Select up
+                    to {activePass.duration_days} day{activePass.duration_days === 1 ? '' : 's'}.
+                    All scoreboard themes are free!
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs sm:text-sm font-extrabold text-slate-900">
+                    Tournament Creation · ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day (Admin Unlock Code Required)
+                  </p>
+                  <p className="text-[11px] text-slate-700 mt-0.5">
+                    Get a Tournament Unlock Code from Star Event Live Admin for the exact number of
+                    days you need (1 Day = ₹99, 3 Days = ₹297, 5 Days = ₹495). All scoreboard themes
+                    are 100% free &amp; unlocked.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setUnlockError(null);
+              setUnlockCodeInput('');
+              setUnlockModalOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold uppercase tracking-wider shrink-0"
+          >
+            <KeyRound className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+            <span>{activePass ? 'Enter Another Code' : 'Enter Unlock Code'}</span>
+          </button>
+        </div>
+
         <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
           <div className="relative w-full sm:flex-1 sm:min-w-[220px]">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -378,8 +585,16 @@ export function TournamentManagerView({
             onClick={openCreateTournament}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider whitespace-nowrap"
           >
-            <Plus className="w-4 h-4" />
-            <span>CREATE TOURNAMENT</span>
+            {activePass ? (
+              <Plus className="w-4 h-4" />
+            ) : (
+              <Lock className="w-4 h-4" aria-hidden="true" />
+            )}
+            <span>
+              {activePass
+                ? `CREATE TOURNAMENT (${activePass.duration_days}D UNLOCKED)`
+                : `UNLOCK & CREATE TOURNAMENT (₹${TOURNAMENT_PRICE_PER_DAY_INR}/DAY)`}
+            </span>
           </button>
         </div>
 
@@ -819,12 +1034,53 @@ export function TournamentManagerView({
                     </div>
                   )}
 
-                  {/* Tournament Dates Section — Selectable on Create, Strictly Locked After Creation */}
+                  {/* Active Unlock Pass Summary when Creating */}
+                  {!editingId && activePass && (
+                    <div className="sm:col-span-2 rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
+                        <span>
+                          Unlock Pass:{' '}
+                          <span className="font-mono">{activePass.code}</span> · Max{' '}
+                          <strong>
+                            {activePass.duration_days} Day{activePass.duration_days === 1 ? '' : 's'}
+                          </strong>{' '}
+                          (₹{activePass.total_price_inr} @ ₹{TOURNAMENT_PRICE_PER_DAY_INR}/day)
+                        </span>
+                      </div>
+                      {unlockStatus.activePasses.length > 1 && (
+                        <select
+                          value={activePass.code}
+                          onChange={(e) => {
+                            const nextPass = unlockStatus.activePasses.find(
+                              (p) => p.code === e.target.value
+                            );
+                            if (nextPass) openCreateModalWithPass(nextPass);
+                          }}
+                          aria-label="Choose unlocked tournament pass"
+                          className="px-2 py-1 rounded-md bg-white border border-emerald-300 text-[11px] font-bold text-emerald-950"
+                        >
+                          {unlockStatus.activePasses.map((p) => (
+                            <option key={p.code} value={p.code}>
+                              {p.code} ({p.duration_days}d · ₹{p.total_price_inr})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tournament Dates Section — Selectable on Create (capped at pass days), Strictly Locked After Creation */}
                   <div className="sm:col-span-2 rounded-xl bg-slate-50 border border-slate-200 p-3.5 space-y-3">
                     <div className="flex items-center justify-between gap-2">
                       <label className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wide">
                         <Calendar className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                        <span>Tournament Dates *</span>
+                        <span>
+                          Tournament Dates *
+                          {!editingId && activePass
+                            ? ` (${tSelectedDates.length} / ${activePass.duration_days} Days)`
+                            : ''}
+                        </span>
                       </label>
                       {editingId && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-200 text-slate-600 text-[10px] font-bold uppercase">
@@ -1053,9 +1309,146 @@ export function TournamentManagerView({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wider"
+                  disabled={
+                    savingTournament ||
+                    (!editingId &&
+                      Boolean(activePass) &&
+                      tSelectedDates.length > (activePass?.duration_days ?? 0))
+                  }
+                  className="px-5 py-2 rounded-lg wo-btn-primary disabled:opacity-55 text-xs font-extrabold uppercase tracking-wider inline-flex items-center gap-1.5"
                 >
-                  {editingId ? 'Save Changes' : 'Save Tournament'}
+                  {savingTournament && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                  <span>
+                    {savingTournament
+                      ? 'Creating...'
+                      : editingId
+                        ? 'Save Changes'
+                        : 'Save Tournament'}
+                  </span>
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Admin Tournament Unlock Code Modal (₹99 / Day) */}
+        {unlockModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs overflow-y-auto"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tournament-unlock-modal-title"
+          >
+            <form
+              onSubmit={handleRedeemUnlockCode}
+              className="w-full max-w-md rounded-2xl bg-white border-2 border-[#FF8C00] shadow-2xl overflow-hidden my-auto"
+            >
+              <div className="px-5 py-4 wo-header text-white flex items-start justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-orange-100">
+                    <KeyRound className="w-3.5 h-3.5 text-[#FFE600]" aria-hidden="true" />
+                    <span>Admin Code Verification</span>
+                  </div>
+                  <h3
+                    id="tournament-unlock-modal-title"
+                    className="font-display font-black text-lg text-white leading-tight"
+                  >
+                    Unlock Tournament Creation
+                  </h3>
+                  <p className="text-xs text-orange-50 font-medium">
+                    Tournament Price: ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day · All Scoreboards Free
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUnlockModalOpen(false)}
+                  aria-label="Close unlock code modal"
+                  className="p-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-white shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                {/* Transparent ₹99/day Pricing Breakdown */}
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 space-y-2">
+                  <p className="text-xs font-extrabold text-slate-900">
+                    Tournament Day Pricing (₹{TOURNAMENT_PRICE_PER_DAY_INR} per Day)
+                  </p>
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    {[1, 3, 5].map((days) => (
+                      <div
+                        key={days}
+                        className="rounded-lg bg-white border border-amber-200 px-2 py-1.5"
+                      >
+                        <p className="text-[11px] font-bold text-slate-700">
+                          {days} Day{days === 1 ? '' : 's'}
+                        </p>
+                        <p className="font-mono font-black text-sm text-[#E87500] tabular-nums">
+                          ₹{days * TOURNAMENT_PRICE_PER_DAY_INR}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    Contact Star Event Live Admin (<strong>9890175727</strong>) to pay for your
+                    required tournament days and receive your unique single-use unlock code.
+                  </p>
+                </div>
+
+                {unlockError && (
+                  <div
+                    role="alert"
+                    className="rounded-lg bg-red-50 border border-red-200 px-3.5 py-2.5 text-xs font-semibold text-red-700 flex items-start gap-2"
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+                    <span>{unlockError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="tournament-unlock-code-input"
+                    className="block text-xs font-bold text-slate-800"
+                  >
+                    Enter Admin Tournament Unlock Code *
+                  </label>
+                  <input
+                    id="tournament-unlock-code-input"
+                    type="text"
+                    required
+                    autoFocus
+                    value={unlockCodeInput}
+                    onChange={(e) => setUnlockCodeInput(e.target.value.toUpperCase())}
+                    placeholder="e.g. TRN-3D-XXXX-XXXX"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none font-mono font-bold text-sm tracking-widest uppercase text-slate-900"
+                  />
+                  <p className="text-[11px] text-slate-500">
+                    Your tournament will unlock for the exact number of days set by Admin and
+                    expire automatically after those dates.
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUnlockModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-white border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={redeemingCode}
+                  className="px-5 py-2 rounded-lg wo-btn-primary disabled:opacity-60 text-xs font-extrabold uppercase tracking-wider inline-flex items-center gap-1.5"
+                >
+                  {redeemingCode ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  <span>{redeemingCode ? 'Verifying...' : 'Verify & Unlock'}</span>
                 </button>
               </div>
             </form>

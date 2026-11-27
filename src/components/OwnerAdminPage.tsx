@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { AdminAccessKeysPanel } from './AdminAccessKeysPanel';
 import { AdminPaymentsPanel } from './AdminPaymentsPanel';
+import { AdminTournamentCodesPanel } from './AdminTournamentCodesPanel';
 import { GenerateUserPanel } from './GenerateUserPanel';
 
 interface OwnerAdminPageProps {
@@ -536,8 +537,8 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
 
   const [adminToken, setAdminToken] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'access-keys' | 'overlay-accounts' | 'generate-users' | 'payments'
-  >('access-keys');
+    'tournament-codes' | 'access-keys' | 'overlay-accounts' | 'generate-users' | 'payments'
+  >('tournament-codes');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -727,6 +728,17 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                 <div className="flex flex-wrap items-center gap-2 p-1.5 rounded-xl bg-[#0B0618]/80 border border-[#FACC15]/25">
                   <button
                     type="button"
+                    onClick={() => setActiveTab('tournament-codes')}
+                    className={`flex-1 min-w-[185px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
+                      activeTab === 'tournament-codes'
+                        ? 'overlay-home-btn-active text-white'
+                        : 'overlay-home-btn'
+                    }`}
+                  >
+                    Tournament Codes (₹99/Day)
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setActiveTab('access-keys')}
                     className={`flex-1 min-w-[180px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
                       activeTab === 'access-keys'
@@ -761,13 +773,13 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   <button
                     type="button"
                     onClick={() => setActiveTab('payments')}
-                    className={`flex-1 min-w-[170px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
+                    className={`flex-1 min-w-[160px] px-4 py-2.5 rounded-lg text-xs font-extrabold transition-all ${
                       activeTab === 'payments'
                         ? 'overlay-home-btn-active text-white'
                         : 'overlay-home-btn'
                     }`}
                   >
-                    Cashfree Payments
+                    Payments Ledger
                   </button>
                   {!authStatus.configured && (
                     <button
@@ -843,7 +855,12 @@ export function OwnerAdminPage({ onBackHome }: OwnerAdminPageProps) {
                   </form>
                 )}
 
-                {activeTab === 'access-keys' ? (
+                {activeTab === 'tournament-codes' ? (
+                  <AdminTournamentCodesPanel
+                    adminToken={adminToken}
+                    onLockAdmin={() => void handleLockAdmin()}
+                  />
+                ) : activeTab === 'access-keys' ? (
                   <AdminAccessKeysPanel onLockAdmin={() => void handleLockAdmin()} />
                 ) : activeTab === 'overlay-accounts' ? (
                   <OverlayAccountsManager

@@ -585,3 +585,37 @@ exception
     return jsonb_build_object('ok', false, 'code', 'DUPLICATE_PAYMENT_ID', 'message', 'Payment ID unique constraint violation.');
 end;
 $$;
+
+-- =============================================================================
+-- 8. ADMIN-GENERATED TOURNAMENT UNLOCK CODES (₹99 / DAY, CUSTOM DURATION)
+--    Strictly backend service_role managed; no direct client writes.
+-- =============================================================================
+create table if not exists public.tournament_unlock_codes (
+  code text primary key,
+  duration_days integer not null check (duration_days >= 1 and duration_days <= 365),
+  price_per_day_inr integer not null default 99 check (price_per_day_inr = 99),
+  total_price_inr integer not null check (total_price_inr = duration_days * 99),
+  assigned_customer_id text,
+  customer_label text not null default '',
+  status text not null check (status in ('ACTIVE', 'REDEEMED', 'USED', 'REVOKED')) default 'ACTIVE',
+  created_by text not null default 'owner_admin',
+  created_at timestamptz not null default now(),
+  redeemed_by_customer_id text,
+  redeemed_by_name text,
+  redeemed_at timestamptz,
+  consumed_tournament_id text,
+  consumed_tournament_name text,
+  consumed_dates text[],
+  consumed_at timestamptz,
+  revoked_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists idx_tournament_unlock_codes_status
+  on public.tournament_unlock_codes (status, created_at desc);
+
+create index if not exists idx_tournament_unlock_codes_redeemed_by
+  on public.tournament_unlock_codes (redeemed_by_customer_id, status);
+
+alter table public.tournament_unlock_codes enable row level security;
+

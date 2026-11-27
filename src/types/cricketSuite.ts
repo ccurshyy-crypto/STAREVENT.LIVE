@@ -125,6 +125,8 @@ export interface Tournament {
   startDate: string;
   endDate: string;
   tournamentDates?: string[];
+  unlockCode?: string;
+  unlockedDays?: number;
   isActive: boolean;
   status: 'active' | 'completed' | 'upcoming' | 'expired';
 }

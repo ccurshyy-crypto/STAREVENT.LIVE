@@ -26,11 +26,7 @@ import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { LightningProScoreboardBar } from './LightningProScoreboardBar';
-import {
-  fetchOverlayThemeEntitlements,
-  isPaidThemeId,
-  type PaidThemeId,
-} from '../../lib/worldCupUnlock';
+import { type PaidThemeId } from '../../lib/worldCupUnlock';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
@@ -44,53 +40,8 @@ export function BroadcastOverlayCanvas({
   state,
   matchId,
   bgMode = 'transparent',
-  worldCupUnlocked: worldCupUnlockedProp,
-  unlockedThemes: unlockedThemesProp,
 }: BroadcastOverlayCanvasProps) {
   const [visibleTransitionId, setVisibleTransitionId] = useState<number | null>(null);
-  const [serverUnlockedThemes, setServerUnlockedThemes] = useState<Record<PaidThemeId, boolean>>({
-    worldcup: false,
-    'lightning-pro': false,
-  });
-
-  const stateUid = state?.uid || '';
-  const wantsPaidTheme = isPaidThemeId(state?.user?.userTheme);
-
-  useEffect(() => {
-    if (unlockedThemesProp) {
-      setServerUnlockedThemes(unlockedThemesProp);
-      return;
-    }
-    if (!stateUid) {
-      setServerUnlockedThemes({
-        worldcup: Boolean(worldCupUnlockedProp),
-        'lightning-pro': false,
-      });
-      return;
-    }
-    let active = true;
-    const checkEntitlement = async () => {
-      const allowed = await fetchOverlayThemeEntitlements(stateUid);
-      if (active) {
-        setServerUnlockedThemes({
-          worldcup:
-            typeof worldCupUnlockedProp === 'boolean'
-              ? worldCupUnlockedProp
-              : allowed.worldcup,
-          'lightning-pro': allowed['lightning-pro'],
-        });
-      }
-    };
-    void checkEntitlement();
-    const pollMs = wantsPaidTheme ? 15000 : 30000;
-    const timer = window.setInterval(() => {
-      void checkEntitlement();
-    }, pollMs);
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [unlockedThemesProp, worldCupUnlockedProp, stateUid, wantsPaidTheme]);
 
   const activeTransition = state?.overlay.activeTransition ?? null;
 
@@ -151,32 +102,16 @@ export function BroadcastOverlayCanvas({
   }
 
   const { overlay } = state;
-  const resolvedUnlockedThemes: Record<PaidThemeId, boolean> = unlockedThemesProp
-    ? unlockedThemesProp
-    : {
-        worldcup:
-          typeof worldCupUnlockedProp === 'boolean'
-            ? worldCupUnlockedProp
-            : serverUnlockedThemes.worldcup,
-        'lightning-pro': serverUnlockedThemes['lightning-pro'],
-      };
-  const worldCupUnlocked = resolvedUnlockedThemes.worldcup;
-  const lightningProUnlocked = resolvedUnlockedThemes['lightning-pro'];
-  const effectiveThemeId =
-    isPaidThemeId(state.user.userTheme) && !resolvedUnlockedThemes[state.user.userTheme]
-      ? 'tata-ipl-2022'
-      : state.user.userTheme;
+  const effectiveThemeId = state.user.userTheme;
   const theme = getThemePalette(effectiveThemeId, state.user.customThemeColors);
   const useTataIplPatti =
     !state.user.customThemeColors?.enabled &&
     (theme.id === 'tata-ipl-2022' || Boolean(theme.barStyle?.isTataIpl2022));
   const useWorldCupPatti =
     !state.user.customThemeColors?.enabled &&
-    worldCupUnlocked &&
     (theme.id === 'worldcup' || Boolean(theme.barStyle?.isWorldCup));
   const useLightningProPatti =
     !state.user.customThemeColors?.enabled &&
-    lightningProUnlocked &&
     (theme.id === 'lightning-pro' || Boolean(theme.barStyle?.isLightningPro));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
