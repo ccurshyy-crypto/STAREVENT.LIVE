@@ -19,7 +19,11 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
   const { session, isUnlocked, isReady, unlockWithCredentials, lockAndLogout } =
     useOverlayAccess();
 
-  const [accessIdInput, setAccessIdInput] = useState('');
+  const [accessIdInput, setAccessIdInput] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    return (params.get('id') || '').trim();
+  });
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginBusy, setLoginBusy] = useState(false);

@@ -108,6 +108,8 @@ interface OverlayAccessContextValue {
   session: UnlockedOverlaySession | null;
   isUnlocked: boolean;
   isReady: boolean;
+  isOwnerAccount: boolean;
+  ownerGateToken: string;
   unlockWithCredentials: (loginId: string, password: string) => Promise<UnlockResult>;
   lockAndLogout: () => void;
   getPaymentAuthHeaders: () => Promise<Record<string, string>>;
@@ -120,11 +122,15 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
     loadStoredSession()
   );
   const [customerBearerToken, setCustomerBearerToken] = useState<string>('');
+  const [isOwnerAccount, setIsOwnerAccount] = useState<boolean>(false);
+  const [ownerGateToken, setOwnerGateToken] = useState<string>('');
   const [isReady, setIsReady] = useState(false);
 
   const lockAndLogout = useCallback(() => {
     setSession(null);
     setCustomerBearerToken('');
+    setIsOwnerAccount(false);
+    setOwnerGateToken('');
     persistSession(null);
     void fetch('/api/customer-auth/logout', {
       method: 'POST',
@@ -177,11 +183,33 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
 
     const verifySession = async () => {
       try {
+        // 0. Always check server-verified HttpOnly owner gate cookie (never trust localStorage)
+        let serverOwnerAuthorized = false;
+        try {
+          const gateRes = await fetch('/api/admin/gate-status', {
+            cache: 'no-store',
+            credentials: 'include',
+          });
+          const gateJson = (await gateRes.json().catch(() => null)) as {
+            authorized?: boolean;
+          } | null;
+          serverOwnerAuthorized = Boolean(gateRes.ok && gateJson?.authorized);
+        } catch {
+          serverOwnerAuthorized = false;
+        }
+        if (!active) return;
+        setIsOwnerAccount(serverOwnerAuthorized);
+
         const supabase = getSupabaseClient();
         const current = loadStoredSession();
 
         // 1. If stored session is an overlay_access_keys session, re-verify it directly
         if (current && current.authType !== 'supabase_auth') {
+          if (serverOwnerAuthorized) {
+            setSession(current);
+            return;
+          }
+
           const cleanId = current.accessId.trim();
           const { data, error } = await supabase
             .from(SUPABASE_ACCESS_KEYS_TABLE)
@@ -303,9 +331,54 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
 
       const supabase = getSupabaseClient();
 
+      const hasWildcardChars = /[*%]/.test(trimmedId);
+
+      // 0. Check server-side single Owner Admin account authentication first (no secrets in browser)
+      if (!hasWildcardChars && !trimmedId.includes('@')) {
+        try {
+          const srvRes = await fetch('/api/customer-auth/login', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({ loginId: trimmedId, password: trimmedPass }),
+          });
+          const srvJson = (await srvRes.json().catch(() => null)) as {
+            ok?: boolean;
+            token?: string;
+            customerId?: string;
+            label?: string;
+            isOwnerAccount?: boolean;
+            ownerGateToken?: string;
+          } | null;
+
+          if (srvRes.ok && srvJson?.ok && srvJson.isOwnerAccount === true) {
+            if (typeof srvJson.token === 'string') {
+              setCustomerBearerToken(srvJson.token);
+            }
+            setIsOwnerAccount(true);
+            setOwnerGateToken(
+              typeof srvJson.ownerGateToken === 'string' ? srvJson.ownerGateToken : ''
+            );
+            const nextSession: UnlockedOverlaySession = {
+              accessId: String(srvJson.customerId || trimmedId).trim().toUpperCase(),
+              label: typeof srvJson.label === 'string' ? srvJson.label : '',
+              unlockedAt: Date.now(),
+              authType: 'access_key',
+            };
+            setSession(nextSession);
+            persistSession(nextSession);
+            return { ok: true, session: nextSession };
+          }
+        } catch {
+          // Continue to Supabase client key verification below
+        }
+      }
+
       // 1. Primary unified verification directly against Supabase `overlay_access_keys`
       //    (`.ilike('access_id', inputId.trim())` with wildcard protection, `is_active === true`, and trimmed password match)
-      const hasWildcardChars = /[*%]/.test(trimmedId);
       if (!hasWildcardChars) {
         try {
           const { data, error } = await supabase
@@ -339,6 +412,8 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
               }
 
               const canonicalAccessId = String(matched.access_id).trim();
+              setIsOwnerAccount(false);
+              setOwnerGateToken('');
               // Establish server-verified customer session (HttpOnly cookie + in-memory Bearer token)
               try {
                 const srvRes = await fetch('/api/customer-auth/login', {
@@ -478,11 +553,21 @@ export function OverlayAccessProvider({ children }: { children: ReactNode }) {
       session,
       isUnlocked: Boolean(session),
       isReady,
+      isOwnerAccount,
+      ownerGateToken,
       unlockWithCredentials,
       lockAndLogout,
       getPaymentAuthHeaders,
     }),
-    [session, isReady, unlockWithCredentials, lockAndLogout, getPaymentAuthHeaders]
+    [
+      session,
+      isReady,
+      isOwnerAccount,
+      ownerGateToken,
+      unlockWithCredentials,
+      lockAndLogout,
+      getPaymentAuthHeaders,
+    ]
   );
 
   return (

@@ -24,7 +24,8 @@ export function OverlayAccessModal({
   onUnlockedSuccess,
   onOpenOwnerAdmin,
 }: OverlayAccessModalProps) {
-  const { session, isUnlocked, unlockWithCredentials, lockAndLogout } = useOverlayAccess();
+  const { session, isUnlocked, isOwnerAccount, unlockWithCredentials, lockAndLogout } =
+    useOverlayAccess();
   const [accessId, setAccessId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -124,6 +125,22 @@ export function OverlayAccessModal({
                   Lock / Logout
                 </button>
               </div>
+
+              {isOwnerAccount && onOpenOwnerAdmin && (
+                <div className="pt-3 border-t border-slate-200 flex items-center justify-between gap-3 text-left">
+                  <span className="text-[11px] font-semibold text-slate-500">
+                    Owner Admin Controls
+                  </span>
+                  <button
+                    type="button"
+                    onClick={onOpenOwnerAdmin}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                    <span>Open Admin Panel</span>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-5">
@@ -162,7 +179,7 @@ export function OverlayAccessModal({
                     autoComplete="username"
                     value={accessId}
                     onChange={(e) => setAccessId(e.target.value)}
-                    placeholder="e.g. STAREVENTLIVE35484"
+                    placeholder="e.g. STAR-1001"
                     className="w-full px-4 py-3 rounded-xl bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-sm font-mono text-slate-900 placeholder:text-slate-400"
                   />
                 </div>
@@ -208,22 +225,6 @@ export function OverlayAccessModal({
                   <span>{submitting ? 'Verifying...' : 'Unlock Overlays'}</span>
                 </button>
               </form>
-            </div>
-          )}
-
-          {onOpenOwnerAdmin && (
-            <div className="mt-5 pt-4 border-t border-slate-200 flex items-center justify-between gap-3">
-              <span className="text-[11px] text-slate-500">
-                Main Admin? Create &amp; manage user IDs:
-              </span>
-              <button
-                type="button"
-                onClick={onOpenOwnerAdmin}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg wo-btn-soft text-xs font-bold whitespace-nowrap"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                <span>Open Admin Panel</span>
-              </button>
             </div>
           )}
         </div>

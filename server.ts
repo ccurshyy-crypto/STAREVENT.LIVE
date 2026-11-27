@@ -79,8 +79,23 @@ function resolveSessionSigningSecret(): string {
 const SESSION_SIGNING_SECRET = resolveSessionSigningSecret();
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 
-// Owner Admin credential state (process.env.ADMIN_PASSCODE overrides any one-time claimed scrypt hash)
-let claimedAdminCredential: { salt: string; hashHex: string } | null = null;
+// Locked single Owner Admin cryptographic digests (salted scrypt — never plaintext in code).
+// Server-side process.env overrides (OWNER_ADMIN_CLIENT, OWNER_ADMIN_ACCESS_ID, OWNER_ADMIN_PASSWORD/ADMIN_PASSCODE)
+// take precedence if configured in Settings -> Secrets.
+const LOCKED_OWNER_TUPLE_HASH = {
+  salt: '4b158288288ed7f28fb8e1daff2f0f15',
+  hashHex:
+    '99691d7a1e755677591ffa79b99d8a9fe5859ba54ac0b3303b3f778d4bf715afb63b386d66378c420eb31ba116445dd7d4bc25ad61cfb9848f676c51fe9fb397',
+} as const;
+
+const LOCKED_OWNER_PAIR_HASH = {
+  salt: '8323492ff633da03ddf6ba733b7282da',
+  hashHex:
+    '4a54d8ee4f34afb906c3090e822ace0acaa68031073d4b5d43fef2ce9fb9248907baa64c06f01a82b215fafd67fa1d9c8d2dbed4ba4e19faa189b31efe9577c9',
+} as const;
+
+const PUBLIC_HOME_REDIRECT_URL = 'https://starevent.live/';
+
 const revokedTokenIds = new Set<string>();
 
 // Server-side hashed Scoreboard Overlay Control accounts (NEVER plaintext passwords)
@@ -102,8 +117,53 @@ const RATE_WINDOW_MS = 15 * 60 * 1000;
 const RATE_MAX_ATTEMPTS = 15;
 const authAttempts = new Map<string, { count: number; resetAt: number }>();
 
-function getConfiguredPasscode(): string {
-  return (process.env.ADMIN_PASSCODE || '').trim();
+function getConfiguredOwnerOverrides(): {
+  client: string;
+  accessId: string;
+  password: string;
+} {
+  return {
+    client: (process.env.OWNER_ADMIN_CLIENT || '').trim().toUpperCase(),
+    accessId: (process.env.OWNER_ADMIN_ACCESS_ID || '').trim().toUpperCase(),
+    password: (process.env.OWNER_ADMIN_PASSWORD || process.env.ADMIN_PASSCODE || '').trim(),
+  };
+}
+
+function verifyOwnerAdminTriple(client: string, accessId: string, password: string): boolean {
+  const normClient = client.trim().toUpperCase();
+  const normAccessId = accessId.trim().toUpperCase();
+  const normPassword = password.trim();
+  if (!normClient || !normAccessId || !normPassword) return false;
+
+  const overrides = getConfiguredOwnerOverrides();
+  if (overrides.client && overrides.accessId && overrides.password) {
+    return (
+      timingSafeTextEqual(normClient, overrides.client) &&
+      timingSafeTextEqual(normAccessId, overrides.accessId) &&
+      timingSafeTextEqual(normPassword, overrides.password)
+    );
+  }
+
+  return verifyScryptPassword(
+    `${normClient}::${normAccessId}::${normPassword}`,
+    LOCKED_OWNER_TUPLE_HASH
+  );
+}
+
+function verifyOwnerAdminPair(accessId: string, password: string): boolean {
+  const normAccessId = accessId.trim().toUpperCase();
+  const normPassword = password.trim();
+  if (!normAccessId || !normPassword) return false;
+
+  const overrides = getConfiguredOwnerOverrides();
+  if (overrides.accessId && overrides.password) {
+    return (
+      timingSafeTextEqual(normAccessId, overrides.accessId) &&
+      timingSafeTextEqual(normPassword, overrides.password)
+    );
+  }
+
+  return verifyScryptPassword(`${normAccessId}::${normPassword}`, LOCKED_OWNER_PAIR_HASH);
 }
 
 function getClientIp(req: express.Request): string {
@@ -171,7 +231,7 @@ function issueSignedToken(payload: Record<string, unknown>): string {
 
 function verifySignedToken(
   token: string,
-  expectedRole: 'owner_admin' | 'overlay_controller' | 'customer_session'
+  expectedRole: 'owner_admin' | 'owner_gate' | 'overlay_controller' | 'customer_session'
 ): {
   valid: boolean;
   jti?: string;
@@ -244,6 +304,7 @@ function extractBearerToken(req: express.Request): string {
 }
 
 const CUSTOMER_SESSION_COOKIE = 'sel_customer_session';
+const OWNER_GATE_COOKIE = 'sel_owner_gate';
 
 function parseCookieHeader(headerValue: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
@@ -277,17 +338,49 @@ function verifyCookieOriginOrCsrfHeader(req: express.Request): boolean {
 }
 
 function setCustomerSessionCookie(res: express.Response, token: string): void {
-  res.setHeader(
+  res.append(
     'Set-Cookie',
     `${CUSTOMER_SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`
   );
 }
 
 function clearCustomerSessionCookie(res: express.Response): void {
-  res.setHeader(
+  res.append(
     'Set-Cookie',
     `${CUSTOMER_SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`
   );
+}
+
+function setOwnerGateCookie(res: express.Response, token: string): void {
+  res.append(
+    'Set-Cookie',
+    `${OWNER_GATE_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}`
+  );
+}
+
+function clearOwnerGateCookie(res: express.Response): void {
+  res.append(
+    'Set-Cookie',
+    `${OWNER_GATE_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=None; Partitioned; Max-Age=0`
+  );
+}
+
+function hasValidOwnerGate(req: express.Request): boolean {
+  const bearer = extractBearerToken(req);
+  if (bearer) {
+    if (
+      verifySignedToken(bearer, 'owner_admin').valid ||
+      verifySignedToken(bearer, 'owner_gate').valid
+    ) {
+      return true;
+    }
+  }
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const gateCookie = cookies[OWNER_GATE_COOKIE];
+  if (gateCookie && verifySignedToken(gateCookie, 'owner_gate').valid) {
+    return true;
+  }
+  return false;
 }
 
 function getServerSupabasePublicAnonKey(): string {
@@ -593,48 +686,32 @@ export function createApiApp(): express.Express {
   });
 
   // =========================================================================
-  // 1. OWNER-ONLY ADMIN AUTH ENDPOINTS
+  // 1. STRICT SINGLE-OWNER ADMIN AUTH ENDPOINTS (NO FIRST-RUN CLAIM)
   // =========================================================================
   app.get('/api/admin/status', (_req, res) => {
-    const envConfigured = getConfiguredPasscode().length > 0;
-    const claimed = Boolean(claimedAdminCredential);
     res.setHeader('Cache-Control', 'no-store');
     res.json({
-      configured: envConfigured,
-      claimed,
-      requiresClaim: !envConfigured && !claimed,
+      configured: true,
+      claimed: true,
+      requiresClaim: false,
+      strictTripleAuth: true,
     });
   });
 
-  app.post('/api/admin/claim', (req, res) => {
-    const ip = getClientIp(req);
-    if (isRateLimited(ip)) {
-      res.status(429).json({ ok: false, error: 'Too many attempts. Please try again later.' });
-      return;
-    }
-
-    if (getConfiguredPasscode().length > 0 || claimedAdminCredential) {
-      res.status(409).json({
-        ok: false,
-        error: 'Owner admin credentials are already configured. Please sign in.',
-      });
-      return;
-    }
-
-    const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
-    if (password.length < 4 || password.length > 128) {
-      res.status(400).json({
-        ok: false,
-        error: 'Owner PIN / password must be between 4 and 128 characters.',
-      });
-      return;
-    }
-
-    claimedAdminCredential = hashPasswordScrypt(password);
-    resetRateLimit(ip);
-    const token = issueSignedToken({ role: 'owner_admin' });
+  app.get('/api/admin/gate-status', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ ok: true, token });
+    res.json({
+      ok: true,
+      authorized: hasValidOwnerGate(req),
+    });
+  });
+
+  app.post('/api/admin/claim', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(403).json({
+      ok: false,
+      error: 'First-run admin setup is permanently disabled.',
+    });
   });
 
   app.post('/api/admin/login', (req, res) => {
@@ -644,34 +721,45 @@ export function createApiApp(): express.Express {
       return;
     }
 
+    const client = typeof req.body?.client === 'string' ? req.body.client.trim() : '';
+    const accessId = typeof req.body?.accessId === 'string' ? req.body.accessId.trim() : '';
     const password = typeof req.body?.password === 'string' ? req.body.password.trim() : '';
-    if (!password || password.length > 128) {
-      res.status(400).json({ ok: false, error: 'Please enter your owner admin password.' });
-      return;
-    }
 
-    const configuredPasscode = getConfiguredPasscode();
-    let authorized = false;
-
-    if (configuredPasscode.length > 0) {
-      authorized = timingSafeTextEqual(password, configuredPasscode);
-    } else if (claimedAdminCredential) {
-      authorized = verifyScryptPassword(password, claimedAdminCredential);
-    } else {
-      res.status(409).json({
+    if (
+      !client ||
+      !accessId ||
+      !password ||
+      client.length > 64 ||
+      accessId.length > 64 ||
+      password.length > 128
+    ) {
+      res.status(400).json({
         ok: false,
-        error: 'Owner admin password is not claimed yet. Complete first-run setup first.',
+        error: 'Client, Access ID, and Password are all required.',
       });
       return;
     }
 
-    if (!authorized) {
-      res.status(401).json({ ok: false, error: 'Invalid owner admin password.' });
+    if (!verifyOwnerAdminTriple(client, accessId, password)) {
+      res.status(401).json({
+        ok: false,
+        error: 'Access denied. Invalid Owner Admin credentials.',
+      });
       return;
     }
 
     resetRateLimit(ip);
-    const token = issueSignedToken({ role: 'owner_admin' });
+    const gateToken = issueSignedToken({
+      role: 'owner_gate',
+      loginId: accessId.toUpperCase(),
+      assignedUser: client.toUpperCase(),
+    });
+    const token = issueSignedToken({
+      role: 'owner_admin',
+      loginId: accessId.toUpperCase(),
+      assignedUser: client.toUpperCase(),
+    });
+    setOwnerGateCookie(res, gateToken);
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true, token });
   });
@@ -693,6 +781,15 @@ export function createApiApp(): express.Express {
     if (result.valid && result.jti) {
       revokedTokenIds.add(result.jti);
     }
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const gateCookie = cookies[OWNER_GATE_COOKIE];
+    if (gateCookie) {
+      const verifiedGate = verifySignedToken(gateCookie, 'owner_gate');
+      if (verifiedGate.valid && verifiedGate.jti) {
+        revokedTokenIds.add(verifiedGate.jti);
+      }
+    }
+    clearOwnerGateCookie(res);
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true });
   });
@@ -710,42 +807,12 @@ export function createApiApp(): express.Express {
     next();
   };
 
-  app.post('/api/admin/change-password', requireOwnerAdmin, (req, res) => {
-    const ip = getClientIp(req);
-    if (isRateLimited(ip)) {
-      res.status(429).json({ ok: false, error: 'Too many attempts. Please wait and retry.' });
-      return;
-    }
+  app.post('/api/admin/change-password', requireOwnerAdmin, (_req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-
-    if (getConfiguredPasscode().length > 0) {
-      res.status(409).json({
-        ok: false,
-        error: 'Owner passcode is managed by the ADMIN_PASSCODE environment secret. Update it in Settings -> Secrets.',
-      });
-      return;
-    }
-
-    const currentPassword =
-      typeof req.body?.currentPassword === 'string' ? req.body.currentPassword.trim() : '';
-    const newPassword =
-      typeof req.body?.newPassword === 'string' ? req.body.newPassword.trim() : '';
-
-    if (!currentPassword || !claimedAdminCredential || !verifyScryptPassword(currentPassword, claimedAdminCredential)) {
-      res.status(401).json({ ok: false, error: 'Current owner PIN / password is incorrect.' });
-      return;
-    }
-    if (newPassword.length < 4 || newPassword.length > 128) {
-      res.status(400).json({
-        ok: false,
-        error: 'New owner PIN / password must be between 4 and 128 characters.',
-      });
-      return;
-    }
-
-    claimedAdminCredential = hashPasswordScrypt(newPassword);
-    resetRateLimit(ip);
-    res.json({ ok: true });
+    res.status(403).json({
+      ok: false,
+      error: 'Owner admin credentials are locked on the server.',
+    });
   });
 
   app.get('/api/admin/overlay-accounts', requireOwnerAdmin, (_req, res) => {
@@ -1223,8 +1290,7 @@ export function createApiApp(): express.Express {
     res.setHeader('Cache-Control', 'no-store');
     res.json({
       hasOverlayAccounts: overlayAccounts.size > 0,
-      ownerPasscodeConfigured:
-        getConfiguredPasscode().length > 0 || Boolean(claimedAdminCredential),
+      ownerPasscodeConfigured: true,
     });
   });
 
@@ -1273,37 +1339,27 @@ export function createApiApp(): express.Express {
       return;
     }
 
-    // 2. Also allow owner admin credentials (loginId === 'ADMIN' or 'OWNER') when configured/claimed
-    if (loginId === 'ADMIN' || loginId === 'OWNER') {
-      const configuredPasscode = getConfiguredPasscode();
-      const ownerOk =
-        configuredPasscode.length > 0
-          ? timingSafeTextEqual(password, configuredPasscode)
-          : claimedAdminCredential
-            ? verifyScryptPassword(password, claimedAdminCredential)
-            : false;
-
-      if (ownerOk) {
-        resetRateLimit(ip);
-        const token = issueSignedToken({
-          role: 'overlay_controller',
+    // 2. Allow exact locked Owner Access ID + Password
+    if (verifyOwnerAdminPair(loginId, password)) {
+      resetRateLimit(ip);
+      const token = issueSignedToken({
+        role: 'overlay_controller',
+        loginId,
+        assignedUser: 'Star Event Live Owner',
+        uid: loginId,
+      });
+      res.setHeader('Cache-Control', 'no-store');
+      res.json({
+        ok: true,
+        token,
+        account: {
           loginId,
-          assignedUser: 'Star Event Live Admin',
+          assignedUser: 'Star Event Live Owner',
           uid: loginId,
-        });
-        res.setHeader('Cache-Control', 'no-store');
-        res.json({
-          ok: true,
-          token,
-          account: {
-            loginId,
-            assignedUser: 'Star Event Live Admin',
-            uid: loginId,
-            isActive: true,
-          },
-        });
-        return;
-      }
+          isActive: true,
+        },
+      });
+      return;
     }
 
     res.status(401).json({
@@ -1358,6 +1414,39 @@ export function createApiApp(): express.Express {
       return;
     }
 
+    // 1. Check strict single Owner Admin Access ID + Password pair on the server
+    if (verifyOwnerAdminPair(loginId, password)) {
+      resetRateLimit(ip);
+      const canonicalUid = sanitizeCustomerId(loginId);
+      const overrides = getConfiguredOwnerOverrides();
+      const ownerLabel = overrides.client || 'Owner Admin';
+
+      const customerToken = issueSignedToken({
+        role: 'customer_session',
+        uid: canonicalUid,
+        loginId: canonicalUid,
+        assignedUser: ownerLabel,
+      });
+      const ownerGateToken = issueSignedToken({
+        role: 'owner_gate',
+        uid: canonicalUid,
+        loginId: canonicalUid,
+        assignedUser: ownerLabel,
+      });
+
+      setCustomerSessionCookie(res, customerToken);
+      setOwnerGateCookie(res, ownerGateToken);
+      res.json({
+        ok: true,
+        token: customerToken,
+        customerId: canonicalUid,
+        label: ownerLabel,
+        isOwnerAccount: true,
+        ownerGateToken,
+      });
+      return;
+    }
+
     try {
       const sbClient =
         getSupabaseAdminClient() ||
@@ -1372,6 +1461,7 @@ export function createApiApp(): express.Express {
         .ilike('access_id', escaped);
 
       if (error || !Array.isArray(data) || data.length === 0) {
+        clearOwnerGateCookie(res);
         res.status(401).json({ ok: false, error: 'Invalid Login ID or Password.' });
         return;
       }
@@ -1383,10 +1473,12 @@ export function createApiApp(): express.Express {
       );
 
       if (!exactRow) {
+        clearOwnerGateCookie(res);
         res.status(401).json({ ok: false, error: 'Invalid Login ID or Password.' });
         return;
       }
       if (exactRow.is_active !== true) {
+        clearOwnerGateCookie(res);
         res.status(403).json({ ok: false, error: 'This account is inactive.' });
         return;
       }
@@ -1403,8 +1495,15 @@ export function createApiApp(): express.Express {
         loginId: canonicalUid,
         assignedUser: label,
       });
+      clearOwnerGateCookie(res);
       setCustomerSessionCookie(res, token);
-      res.json({ ok: true, token, customerId: canonicalUid, label });
+      res.json({
+        ok: true,
+        token,
+        customerId: canonicalUid,
+        label,
+        isOwnerAccount: false,
+      });
     } catch {
       res.status(500).json({ ok: false, error: 'Could not verify customer session.' });
     }
@@ -1420,7 +1519,15 @@ export function createApiApp(): express.Express {
         revokedTokenIds.add(verified.jti);
       }
     }
+    const gateCookie = cookies[OWNER_GATE_COOKIE];
+    if (gateCookie) {
+      const verifiedGate = verifySignedToken(gateCookie, 'owner_gate');
+      if (verifiedGate.valid && verifiedGate.jti) {
+        revokedTokenIds.add(verifiedGate.jti);
+      }
+    }
     clearCustomerSessionCookie(res);
+    clearOwnerGateCookie(res);
     res.setHeader('Cache-Control', 'no-store');
     res.json({ ok: true });
   });
@@ -2364,6 +2471,16 @@ export function createApiApp(): express.Express {
 
 async function startServer() {
   const app = createApiApp();
+
+  // Strictly block direct unauthenticated or non-owner access to /owner-admin and /admin routes
+  app.get(/^\/(owner-admin|admin)(\/.*)?$/i, (req, res, next) => {
+    if (!hasValidOwnerGate(req)) {
+      res.setHeader('Cache-Control', 'no-store');
+      res.redirect(302, PUBLIC_HOME_REDIRECT_URL);
+      return;
+    }
+    next();
+  });
 
   if (!isProd) {
     const { createServer: createViteServer } = await import('vite');

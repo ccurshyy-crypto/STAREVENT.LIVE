@@ -239,7 +239,7 @@ export function AdminAccessKeysPanel({ onLockAdmin }: AdminAccessKeysPanelProps)
       row.label ? `Client: ${row.label}` : null,
       `Access ID: ${row.access_id}`,
       `Password: ${row.password}`,
-      `Dashboard & Scoreboard Control: ${origin}/overlays`,
+      `Scoreboard Control: ${origin}/control?id=${encodeURIComponent(row.access_id)}`,
       `vMix / OBS Overlay URL (1920x1080): ${origin}/overlay?id=${encodeURIComponent(row.access_id)}`,
     ]
       .filter(Boolean)

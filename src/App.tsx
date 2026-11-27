@@ -38,7 +38,7 @@ function isStandaloneKabaddiOverlayRoute(): boolean {
 
 function isOwnerAdminRoute(): boolean {
   if (typeof window === 'undefined') return false;
-  return /^\/owner-admin\/?$/i.test(window.location.pathname);
+  return /^\/(owner-admin|admin)(\/.*)?$/i.test(window.location.pathname);
 }
 
 function getOverlayUidFromUrl(): string {
@@ -56,7 +56,12 @@ function getOverlayMatchIdFromUrl(): string {
 function getInitialPage(): PageRoute {
   if (typeof window === 'undefined') return 'home';
   if (window.location.pathname.startsWith('/services')) return 'services';
-  if (window.location.pathname.startsWith('/overlays')) return 'overlays';
+  if (
+    window.location.pathname.startsWith('/overlays') ||
+    window.location.pathname.startsWith('/control')
+  ) {
+    return 'overlays';
+  }
   if (window.location.pathname.startsWith('/kabaddi')) return 'kabaddi';
   if (window.location.pathname.startsWith('/packages')) return 'packages';
   if (window.location.pathname.startsWith('/booking')) return 'booking';
@@ -84,8 +89,14 @@ export default function App() {
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
   const [accessModalOpen, setAccessModalOpen] = useState(false);
-  const { session, isUnlocked } = useOverlayAccess();
+  const { session, isUnlocked, isReady, isOwnerAccount, ownerGateToken } = useOverlayAccess();
   const isDashboardFullscreen = currentPage === 'overlays' && isUnlocked;
+
+  useEffect(() => {
+    if (ownerAdminRoute && isReady && !isOwnerAccount) {
+      window.location.replace('https://starevent.live/');
+    }
+  }, [ownerAdminRoute, isReady, isOwnerAccount]);
 
   useEffect(() => {
     document.documentElement.lang = lang;
@@ -231,6 +242,10 @@ export default function App() {
   };
 
   const navigateToOwnerAdmin = () => {
+    if (!isOwnerAccount) {
+      window.location.replace('https://starevent.live/');
+      return;
+    }
     setAccessModalOpen(false);
     setStandaloneOverlay(false);
     if (window.location.pathname !== '/owner-admin') {
@@ -254,7 +269,15 @@ export default function App() {
   }
 
   if (ownerAdminRoute) {
-    return <OwnerAdminPage onBackHome={() => navigateHome('top')} />;
+    if (!isReady || !isOwnerAccount) {
+      return null;
+    }
+    return (
+      <OwnerAdminPage
+        ownerGateToken={ownerGateToken}
+        onBackHome={() => navigateHome('top')}
+      />
+    );
   }
 
   return (
@@ -381,7 +404,7 @@ export default function App() {
           onNavigateOverlays={navigateToOverlays}
           onNavigatePackages={navigateToPackages}
           onNavigateBooking={navigateToBooking}
-          onOpenOwnerAdmin={navigateToOwnerAdmin}
+          onOpenOwnerAdmin={isOwnerAccount ? navigateToOwnerAdmin : undefined}
         />
       )}
 
@@ -398,7 +421,7 @@ export default function App() {
         open={accessModalOpen}
         onClose={() => setAccessModalOpen(false)}
         onUnlockedSuccess={navigateToOverlays}
-        onOpenOwnerAdmin={navigateToOwnerAdmin}
+        onOpenOwnerAdmin={isOwnerAccount ? navigateToOwnerAdmin : undefined}
       />
     </div>
   );
