@@ -62,6 +62,7 @@ import {
   MatchSummaryFullscreenOverlay,
   MatchSummaryModal,
 } from './MatchSummaryStudioView';
+import { QuickOverlayBottomSheet } from './QuickOverlayBottomSheet';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
   getPaidThemeConfig,
@@ -121,6 +122,7 @@ export function ScoringDashboardView({
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
   const [matchSummaryModalOpen, setMatchSummaryModalOpen] = useState(false);
   const [summaryFullscreenOpen, setSummaryFullscreenOpen] = useState(false);
+  const [quickOverlaySheetOpen, setQuickOverlaySheetOpen] = useState(false);
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
   const [payModalThemeId, setPayModalThemeId] = useState<PaidThemeId>('worldcup');
   const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
@@ -2838,12 +2840,12 @@ export function ScoringDashboardView({
                     {/* Overlay Button right inside Number Keypad */}
                     <motion.button
                       type="button"
-                      title="Open Overlay Control"
-                      aria-label="Open Overlay Control"
+                      title="Open Quick Overlay Controls"
+                      aria-label="Open Quick Overlay Controls"
                       whileHover={{ scale: 1.04, y: -2 }}
                       whileTap={{ scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
-                      onClick={() => setActiveTab('overlay')}
+                      onClick={() => setQuickOverlaySheetOpen(true)}
                       className="flex-[1.8] sm:flex-none sm:min-w-[116px] h-[44px] sm:h-[48px] px-3 sm:px-5 rounded-[11px] bg-[#1F9D8B] hover:bg-[#178273] text-white shadow-sm font-display font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap transition-colors"
                     >
                       overlay
@@ -6397,6 +6399,16 @@ export function ScoringDashboardView({
         group={match.groupId ? state.groups.find((g) => g.id === match.groupId) : undefined}
         teamMap={teamMap}
         channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+        onToast={onToast}
+      />
+
+      <QuickOverlayBottomSheet
+        open={quickOverlaySheetOpen}
+        onClose={() => setQuickOverlaySheetOpen(false)}
+        state={state}
+        match={match}
+        teamMap={teamMap}
+        updateState={updateState}
         onToast={onToast}
       />
     </div>
