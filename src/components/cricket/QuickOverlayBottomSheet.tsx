@@ -304,11 +304,12 @@ export function QuickOverlayBottomSheet({
     onToast('Overlay popup card hidden.');
   };
 
-  const tealBtnClass = (active: boolean) =>
-    `px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[6px] text-[12px] sm:text-[13px] font-semibold leading-tight transition-all border whitespace-nowrap ${
+  // Orange & White Theme Button Styling (matches STAR EVENT LIVE dashboard)
+  const orangeBtnClass = (active: boolean) =>
+    `px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-[8px] text-[12px] sm:text-[13px] font-bold leading-tight transition-all border whitespace-nowrap ${
       active
-        ? 'bg-[#0F6E61] text-white border-[#0A4D44] ring-2 ring-[#FACC15] shadow-sm'
-        : 'bg-[#26A69A] hover:bg-[#1E8E83] text-white border-[#1B7E74] shadow-2xs'
+        ? 'bg-gradient-to-r from-[#FF8C00] to-[#EA580C] text-white border-[#C2410C] ring-2 ring-[#FDBA74] shadow-sm'
+        : 'bg-white hover:bg-[#FFF3E0] text-[#C25900] border-[#FF8C00]/55 hover:border-[#FF8C00] shadow-2xs'
     }`;
 
   return (
@@ -330,16 +331,16 @@ export function QuickOverlayBottomSheet({
             className="fixed inset-0 bg-slate-950/50"
           />
 
-          {/* Bottom Sheet Container */}
+          {/* Bottom Sheet Container (Orange & White Theme) */}
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="relative z-10 w-full max-w-2xl mx-auto bg-white shadow-[0_-16px_45px_rgba(2,6,23,0.45)] overflow-hidden rounded-t-xl sm:rounded-t-2xl max-h-[82vh] flex flex-col"
+            className="relative z-10 w-full max-w-2xl mx-auto bg-white border-t-2 border-x border-[#FF8C00] shadow-[0_-16px_45px_rgba(2,6,23,0.45)] overflow-hidden rounded-t-xl sm:rounded-t-2xl max-h-[82vh] flex flex-col"
           >
-            {/* Royal Blue 3-Tab Header (Matches Reference Screenshots) */}
-            <div className="bg-[#2D3A9E] flex items-stretch relative shrink-0">
+            {/* Orange & White 3-Tab Header */}
+            <div className="wo-header flex items-stretch relative shrink-0">
               {(
                 [
                   { id: 'BOTTOM_SCORE', label: 'BOTTOM SCORE' },
@@ -355,8 +356,8 @@ export function QuickOverlayBottomSheet({
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex-1 py-3 px-2 text-center font-display font-extrabold text-[11px] sm:text-xs tracking-wider uppercase transition-colors border-b-[3px] whitespace-nowrap ${
                       isActive
-                        ? 'bg-[#2B67C9] text-[#FDE047] border-[#FACC15]'
-                        : 'text-white/95 hover:bg-white/10 border-transparent'
+                        ? 'bg-white text-[#E87500] border-[#FF8C00]'
+                        : 'text-white/95 hover:bg-white/15 border-transparent'
                     }`}
                   >
                     {tab.label}
@@ -368,18 +369,18 @@ export function QuickOverlayBottomSheet({
                 type="button"
                 onClick={onClose}
                 aria-label="Close overlay drawer"
-                className="px-3 text-white/85 hover:text-white hover:bg-white/10 transition-colors flex items-center justify-center shrink-0"
+                className="px-3 text-white/90 hover:text-white hover:bg-white/15 transition-colors flex items-center justify-center shrink-0"
               >
                 <X className="w-4 h-4" aria-hidden="true" />
               </button>
             </div>
 
-            {/* Active Main Card Quick Hide Strip (only shown when a card is active on air) */}
+            {/* Active Main Card Quick Hide Strip */}
             {overlay.mainCard.kind !== 'NONE' && (
-              <div className="px-3 py-1.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between gap-2 text-[11px] text-slate-700 shrink-0">
+              <div className="px-3 py-1.5 bg-[#FFF3E0] border-b border-[#FF8C00]/30 flex items-center justify-between gap-2 text-[11px] text-slate-800 shrink-0">
                 <span className="font-semibold truncate">
-                  Active on Overlay:{' '}
-                  <strong className="text-[#0D47B8]">
+                  Live on Overlay:{' '}
+                  <strong className="text-[#C2410C]">
                     {overlay.mainCard.kind === 'MATCH_STATS'
                       ? overlay.mainCard.mode
                       : overlay.mainCard.kind === 'HIGHLIGHTS'
@@ -392,7 +393,7 @@ export function QuickOverlayBottomSheet({
                 <button
                   type="button"
                   onClick={handleHideMainCard}
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shrink-0"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold shrink-0"
                 >
                   <EyeOff className="w-3 h-3" aria-hidden="true" />
                   <span>Hide Card</span>
@@ -400,20 +401,20 @@ export function QuickOverlayBottomSheet({
               </div>
             )}
 
-            {/* Scrollable Body */}
+            {/* Scrollable White Body */}
             <div className="p-3 sm:p-4 overflow-y-auto space-y-2.5 bg-white">
               {/* ================= TAB 1: BOTTOM SCORE ================= */}
               {activeTab === 'BOTTOM_SCORE' && (
                 <>
                   {/* Main Bottom Score Mode Buttons Box */}
-                  <div className="rounded-md border border-slate-300 p-2.5 sm:p-3 bg-white">
+                  <div className="rounded-lg border border-orange-200 p-2.5 sm:p-3 bg-[#FFFBF5]">
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {SHEET_BOTTOM_SCORE_MODES.map((mode) => (
                         <button
                           key={mode}
                           type="button"
                           onClick={() => handleSelectBottomMode(mode)}
-                          className={tealBtnClass(overlay.bottomScoreMode === mode)}
+                          className={orangeBtnClass(overlay.bottomScoreMode === mode)}
                         >
                           {mode}
                         </button>
@@ -422,7 +423,7 @@ export function QuickOverlayBottomSheet({
                   </div>
 
                   {/* Bottom Box: Batsman Stats & Bowler Stats */}
-                  <div className="rounded-md border border-slate-300 p-2.5 sm:p-3 bg-white space-y-2.5">
+                  <div className="rounded-lg border border-orange-200 p-2.5 sm:p-3 bg-white space-y-2.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <button
                         type="button"
@@ -432,7 +433,7 @@ export function QuickOverlayBottomSheet({
                           );
                           handleTriggerBatsmanStats('batsman');
                         }}
-                        className={tealBtnClass(
+                        className={orangeBtnClass(
                           playerStatsDrawer === 'batsman' ||
                             overlay.mainCard.kind === 'BATSMAN_STATS'
                         )}
@@ -447,7 +448,7 @@ export function QuickOverlayBottomSheet({
                           );
                           handleTriggerBowlerStats('bowler');
                         }}
-                        className={tealBtnClass(
+                        className={orangeBtnClass(
                           playerStatsDrawer === 'bowler' ||
                             overlay.mainCard.kind === 'BOWLER_STATS'
                         )}
@@ -458,15 +459,15 @@ export function QuickOverlayBottomSheet({
 
                     {/* Inline Batsman Stats Selector */}
                     {playerStatsDrawer === 'batsman' && (
-                      <div className="pt-2 border-t border-slate-200 space-y-2">
+                      <div className="pt-2 border-t border-orange-100 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className="text-[11px] font-bold text-slate-600 uppercase">
+                          <label className="text-[11px] font-bold text-[#C25900] uppercase">
                             Batsman:
                           </label>
                           <select
                             value={selectedBatsmanId}
                             onChange={(e) => setSelectedBatsmanId(e.target.value)}
-                            className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded border border-slate-300 bg-slate-50 text-xs font-semibold text-slate-900"
+                            className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded-lg border border-orange-300 bg-[#FFFBF5] text-xs font-semibold text-slate-900 focus:border-[#FF8C00] focus:outline-none"
                           >
                             {(batTeam?.players ?? []).map((p) => (
                               <option key={p.id} value={p.id}>
@@ -483,7 +484,7 @@ export function QuickOverlayBottomSheet({
                               key={m}
                               type="button"
                               onClick={() => handleTriggerBatsmanStats(m, selectedBatsmanId)}
-                              className={tealBtnClass(
+                              className={orangeBtnClass(
                                 overlay.mainCard.kind === 'BATSMAN_STATS' &&
                                   overlay.mainCard.mode === m &&
                                   overlay.mainCard.playerId === selectedBatsmanId
@@ -498,15 +499,15 @@ export function QuickOverlayBottomSheet({
 
                     {/* Inline Bowler Stats Selector */}
                     {playerStatsDrawer === 'bowler' && (
-                      <div className="pt-2 border-t border-slate-200 space-y-2">
+                      <div className="pt-2 border-t border-orange-100 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <label className="text-[11px] font-bold text-slate-600 uppercase">
+                          <label className="text-[11px] font-bold text-[#C25900] uppercase">
                             Bowler:
                           </label>
                           <select
                             value={selectedBowlerId}
                             onChange={(e) => setSelectedBowlerId(e.target.value)}
-                            className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded border border-slate-300 bg-slate-50 text-xs font-semibold text-slate-900"
+                            className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded-lg border border-orange-300 bg-[#FFFBF5] text-xs font-semibold text-slate-900 focus:border-[#FF8C00] focus:outline-none"
                           >
                             {(bowlTeam?.players ?? []).map((p) => (
                               <option key={p.id} value={p.id}>
@@ -522,7 +523,7 @@ export function QuickOverlayBottomSheet({
                               key={m}
                               type="button"
                               onClick={() => handleTriggerBowlerStats(m, selectedBowlerId)}
-                              className={tealBtnClass(
+                              className={orangeBtnClass(
                                 overlay.mainCard.kind === 'BOWLER_STATS' &&
                                   overlay.mainCard.mode === m &&
                                   overlay.mainCard.playerId === selectedBowlerId
@@ -542,14 +543,14 @@ export function QuickOverlayBottomSheet({
               {activeTab === 'MATCH_STATS' && (
                 <>
                   {/* Top Box: Match Stats Buttons */}
-                  <div className="rounded-md border border-slate-300 p-2.5 sm:p-3 bg-white">
+                  <div className="rounded-lg border border-orange-200 p-2.5 sm:p-3 bg-[#FFFBF5]">
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {SHEET_MATCH_STATS_MODES.map((mode) => (
                         <button
                           key={mode}
                           type="button"
                           onClick={() => handleToggleMatchStat(mode)}
-                          className={tealBtnClass(
+                          className={orangeBtnClass(
                             overlay.mainCard.kind === 'MATCH_STATS' &&
                               overlay.mainCard.mode === mode
                           )}
@@ -561,14 +562,14 @@ export function QuickOverlayBottomSheet({
                   </div>
 
                   {/* Bottom Box: Highlights + Player Of The Match */}
-                  <div className="rounded-md border border-slate-300 p-2.5 sm:p-3 bg-white">
+                  <div className="rounded-lg border border-orange-200 p-2.5 sm:p-3 bg-white">
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
                       {SHEET_HIGHLIGHT_MODES.map((mode) => (
                         <button
                           key={mode}
                           type="button"
                           onClick={() => handleToggleHighlight(mode)}
-                          className={tealBtnClass(
+                          className={orangeBtnClass(
                             overlay.mainCard.kind === 'HIGHLIGHTS' &&
                               overlay.mainCard.mode === mode
                           )}
@@ -579,7 +580,7 @@ export function QuickOverlayBottomSheet({
                       <button
                         type="button"
                         onClick={handleTogglePom}
-                        className={tealBtnClass(overlay.mainCard.kind === 'PLAYER_OF_MATCH')}
+                        className={orangeBtnClass(overlay.mainCard.kind === 'PLAYER_OF_MATCH')}
                       >
                         Player Of The Match
                       </button>
@@ -590,16 +591,16 @@ export function QuickOverlayBottomSheet({
 
               {/* ================= TAB 3: MESSAGE ================= */}
               {activeTab === 'MESSAGE' && (
-                <div className="rounded-md border border-slate-300 p-3 sm:p-4 bg-white space-y-4">
-                  {/* Sub-tabs: CUSTOM MSG | HIGHLIGHT */}
-                  <div className="grid grid-cols-2 overflow-hidden rounded-sm">
+                <div className="rounded-lg border border-orange-200 p-3 sm:p-4 bg-white space-y-4">
+                  {/* Sub-tabs: CUSTOM MSG | HIGHLIGHT (Orange & White) */}
+                  <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-orange-200">
                     <button
                       type="button"
                       onClick={() => setMsgSubTab('CUSTOM MSG')}
-                      className={`py-2.5 text-center font-display font-extrabold text-xs tracking-wider uppercase border-b-[3px] transition-colors ${
+                      className={`py-2.5 text-center font-display font-extrabold text-xs tracking-wider uppercase transition-colors ${
                         msgSubTab === 'CUSTOM MSG'
-                          ? 'bg-[#2B67C9] text-[#FDE047] border-[#FACC15]'
-                          : 'bg-[#2D3A9E] text-white/95 border-transparent hover:bg-[#253185]'
+                          ? 'bg-gradient-to-r from-[#FF8C00] to-[#EA580C] text-white'
+                          : 'bg-[#FFF3E0] text-[#C25900] hover:bg-[#FFE4BD]'
                       }`}
                     >
                       CUSTOM MSG
@@ -607,22 +608,22 @@ export function QuickOverlayBottomSheet({
                     <button
                       type="button"
                       onClick={() => setMsgSubTab('HIGHLIGHT')}
-                      className={`py-2.5 text-center font-display font-extrabold text-xs tracking-wider uppercase border-b-[3px] transition-colors ${
+                      className={`py-2.5 text-center font-display font-extrabold text-xs tracking-wider uppercase transition-colors ${
                         msgSubTab === 'HIGHLIGHT'
-                          ? 'bg-[#2B67C9] text-[#FDE047] border-[#FACC15]'
-                          : 'bg-[#2D3A9E] text-white/95 border-transparent hover:bg-[#253185]'
+                          ? 'bg-gradient-to-r from-[#FF8C00] to-[#EA580C] text-white'
+                          : 'bg-[#FFF3E0] text-[#C25900] hover:bg-[#FFE4BD]'
                       }`}
                     >
                       HIGHLIGHT
                     </button>
                   </div>
 
-                  {/* Clean Material Underline Inputs (Heading + Description) */}
+                  {/* Clean Underline Inputs (Heading + Description) */}
                   <div className="space-y-4 px-1">
                     <div>
                       <label
                         htmlFor="quick-overlay-msg-heading"
-                        className="block text-[11px] font-medium text-slate-500 mb-0.5"
+                        className="block text-[11px] font-bold text-[#C25900] uppercase tracking-wider mb-0.5"
                       >
                         Heading
                       </label>
@@ -632,14 +633,14 @@ export function QuickOverlayBottomSheet({
                         value={msgHeading}
                         onChange={(e) => setMsgHeading(e.target.value)}
                         placeholder={tournament?.name || 'Enter broadcast heading...'}
-                        className="w-full py-1.5 border-b border-slate-300 focus:border-[#2196F3] focus:outline-none text-sm font-medium text-slate-900 bg-transparent"
+                        className="w-full py-1.5 border-b-2 border-orange-200 focus:border-[#FF8C00] focus:outline-none text-sm font-semibold text-slate-900 bg-transparent"
                       />
                     </div>
 
                     <div>
                       <label
                         htmlFor="quick-overlay-msg-desc"
-                        className="block text-[11px] font-medium text-slate-500 mb-0.5"
+                        className="block text-[11px] font-bold text-[#C25900] uppercase tracking-wider mb-0.5"
                       >
                         Description
                       </label>
@@ -649,7 +650,7 @@ export function QuickOverlayBottomSheet({
                         value={msgDescription}
                         onChange={(e) => setMsgDescription(e.target.value)}
                         placeholder={state.user.channelTitle || 'STAR EVENT LIVE'}
-                        className="w-full py-1.5 border-b border-slate-300 focus:border-[#2196F3] focus:outline-none text-sm font-medium text-slate-900 bg-transparent"
+                        className="w-full py-1.5 border-b-2 border-orange-200 focus:border-[#FF8C00] focus:outline-none text-sm font-semibold text-slate-900 bg-transparent"
                       />
                     </div>
 
@@ -657,7 +658,7 @@ export function QuickOverlayBottomSheet({
                       <button
                         type="button"
                         onClick={handleSendCustomMessage}
-                        className="px-6 py-2.5 rounded-[4px] bg-[#2196F3] hover:bg-[#1976D2] text-white font-display font-bold text-xs uppercase tracking-wider shadow-sm transition-colors"
+                        className="px-6 py-2.5 rounded-lg wo-btn-primary text-white font-display font-extrabold text-xs uppercase tracking-wider shadow-sm transition-colors"
                       >
                         {msgSubTab === 'CUSTOM MSG' ? 'CUSTOM MESSAGE' : 'SHOW HIGHLIGHT'}
                       </button>
@@ -666,7 +667,7 @@ export function QuickOverlayBottomSheet({
                         <button
                           type="button"
                           onClick={handleHideMainCard}
-                          className="px-4 py-2.5 rounded-[4px] bg-slate-200 hover:bg-slate-300 text-slate-800 font-display font-bold text-xs uppercase tracking-wider transition-colors"
+                          className="px-4 py-2.5 rounded-lg wo-btn-soft font-display font-bold text-xs uppercase tracking-wider transition-colors"
                         >
                           HIDE
                         </button>

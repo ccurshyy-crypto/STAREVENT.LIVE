@@ -1948,9 +1948,9 @@ export function ScoringDashboardView({
               <button
                 type="button"
                 onClick={() => setMatchSummaryModalOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#0D47B8] hover:bg-[#0A3690] text-white text-xs font-bold transition-colors whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg wo-btn-soft text-xs font-extrabold transition-colors whitespace-nowrap"
               >
-                <Trophy className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                <Trophy className="w-3.5 h-3.5 text-[#EA580C]" aria-hidden="true" />
                 <span>View Match Summary</span>
               </button>
 
@@ -2506,7 +2506,7 @@ export function ScoringDashboardView({
                   <button
                     type="button"
                     onClick={() => setMatchSummaryModalOpen(true)}
-                    className="px-4 py-2 rounded-lg bg-[#0D47B8] hover:bg-[#0A3690] text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
+                    className="px-4 py-2 rounded-lg wo-btn-primary text-white font-display font-bold text-xs tracking-wide shadow-xs shrink-0"
                   >
                     VIEW MATCH SUMMARY
                   </button>
@@ -2790,7 +2790,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.92 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setKeypadPanel('MORE')}
-                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] bg-[#1F9D8B] hover:bg-[#178273] text-white shadow-sm font-display font-extrabold text-xs sm:text-sm transition-colors"
+                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-soft font-display font-extrabold text-xs sm:text-sm transition-colors"
                     >
                       More
                     </motion.button>
@@ -2817,7 +2817,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => openEditScoreModal(innIdx)}
-                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-primary text-white inline-flex items-center justify-center"
+                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-soft inline-flex items-center justify-center"
                     >
                       <Pencil className="w-4 h-4 sm:w-5 sm:h-5 fill-current" aria-hidden="true" />
                     </motion.button>
@@ -2832,12 +2832,12 @@ export function ScoringDashboardView({
                       whileTap={!match.undoStack.length ? undefined : { scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={handleUndo}
-                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-primary text-white disabled:opacity-45 inline-flex items-center justify-center"
+                      className="flex-1 sm:flex-none sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] wo-btn-soft disabled:opacity-45 inline-flex items-center justify-center"
                     >
                       <Undo2 className="w-4 h-4 sm:w-5 sm:h-5 stroke-[2.6]" aria-hidden="true" />
                     </motion.button>
 
-                    {/* Overlay Button right inside Number Keypad */}
+                    {/* Overlay Button right inside Number Keypad (Orange & White Theme) */}
                     <motion.button
                       type="button"
                       title="Open Quick Overlay Controls"
@@ -2846,7 +2846,7 @@ export function ScoringDashboardView({
                       whileTap={{ scale: 0.94 }}
                       transition={{ type: 'spring', stiffness: 460, damping: 22 }}
                       onClick={() => setQuickOverlaySheetOpen(true)}
-                      className="flex-[1.8] sm:flex-none sm:min-w-[116px] h-[44px] sm:h-[48px] px-3 sm:px-5 rounded-[11px] bg-[#1F9D8B] hover:bg-[#178273] text-white shadow-sm font-display font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap transition-colors"
+                      className="flex-[1.8] sm:flex-none sm:min-w-[116px] h-[44px] sm:h-[48px] px-3 sm:px-5 rounded-[11px] wo-btn-active text-white shadow-sm font-display font-extrabold text-xs sm:text-sm tracking-wide whitespace-nowrap transition-colors"
                     >
                       overlay
                     </motion.button>

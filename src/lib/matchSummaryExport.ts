@@ -1,12 +1,20 @@
 import {
+  calcRunRate,
   computeBattingCard,
   computeBowlingCard,
+  computeOversBreakdown,
+  formatOvers,
   getTeamColorHex,
   getTeamTextColorHex,
+  type BattingRowStats,
+  type BowlingRowStats,
 } from '../data/cricketSampleData';
 import type {
+  BallEvent,
   CricketMatch,
+  FallOfWicket,
   InningsState,
+  Player,
   Team,
   Tournament,
   TournamentGroup,
@@ -64,6 +72,127 @@ export interface MatchSummaryData {
   tossLine: string;
 }
 
+export interface PartnershipRow {
+  wicketNumber: number;
+  batter1Id: string;
+  batter1Name: string;
+  batter2Id: string;
+  batter2Name: string;
+  runs: number;
+  balls: number;
+  isUnbroken: boolean;
+}
+
+export interface OverByOverRow {
+  overNumber: number;
+  runsInOver: number;
+  wicketsInOver: number;
+  totalRuns: number;
+  totalWickets: number;
+  totalScoreLabel: string;
+  crr: string;
+  balls: BallEvent[];
+}
+
+export interface FullInningsReport {
+  inningsIndex: 0 | 1;
+  battingTeam?: Team;
+  bowlingTeam?: Team;
+  teamName: string;
+  teamShortName: string;
+  bowlingTeamName: string;
+  bowlingTeamShortName: string;
+  runs: number;
+  wickets: number;
+  legalBalls: number;
+  maxOvers: number;
+  oversDisplay: string;
+  oversCompact: string;
+  scoreLabel: string;
+  runRate: string;
+  hasScore: boolean;
+  battingCard: BattingRowStats[];
+  didNotBat: Player[];
+  bowlingCard: BowlingRowStats[];
+  extras: {
+    byes: number;
+    legByes: number;
+    wides: number;
+    noBalls: number;
+    penalty: number;
+    total: number;
+  };
+  fallOfWickets: FallOfWicket[];
+  partnerships: PartnershipRow[];
+  overByOver: OverByOverRow[];
+  fours: number;
+  sixes: number;
+  powerplayOvers: number;
+  powerplayScore: { runs: number; wickets: number } | null;
+}
+
+export interface PlayerOfMatchSummary {
+  playerId: string;
+  playerName: string;
+  teamName: string;
+  teamShortName: string;
+  runs: number;
+  balls: number;
+  batted: boolean;
+  isOut: boolean;
+  wickets: number;
+  runsConceded: number;
+  bowlingOvers: string;
+  bowled: boolean;
+  bowlingFigures: string;
+  performanceSummary: string;
+}
+
+export interface MatchStatisticsSummary {
+  highestIndividualScore: {
+    playerName: string;
+    teamShortName: string;
+    runs: number;
+    balls: number;
+    isOut: boolean;
+  } | null;
+  bestBowlingFigures: {
+    playerName: string;
+    teamShortName: string;
+    wickets: number;
+    runs: number;
+    overs: string;
+  } | null;
+  totalSixes: number;
+  totalFours: number;
+  totalBoundaries: number;
+  highestPartnership: {
+    runs: number;
+    balls: number;
+    batter1Name: string;
+    batter2Name: string;
+    teamShortName: string;
+  } | null;
+  totalRuns: number;
+  totalWickets: number;
+  powerplayOvers: number;
+  powerplayInn1: { teamShortName: string; runs: number; wickets: number } | null;
+  powerplayInn2: { teamShortName: string; runs: number; wickets: number } | null;
+}
+
+export interface FullMatchReport {
+  summary: MatchSummaryData;
+  matchFormat: string;
+  tossWinnerName: string;
+  tossDecisionLabel: string;
+  teamAName: string;
+  teamBName: string;
+  innings1: FullInningsReport;
+  innings2: FullInningsReport;
+  statistics: MatchStatisticsSummary;
+  playerOfMatch: PlayerOfMatchSummary | null;
+}
+
 /**
  * Formats overs like international TV broadcasts:
  * 54 legal balls -> "9", 47 legal balls -> "7.5", 281 legal balls -> "46.5"
@@ -95,12 +224,14 @@ export function computeBroadcastMatchResult(
   const rawResult = (match.resultText || '').trim();
   const rawUpper = rawResult.toUpperCase();
 
-  // Preserve explicit special outcomes (No Result, Drawn, Super Over, Abandoned)
+  // Preserve explicit special outcomes (No Result, Drawn, Super Over, DLS, Abandoned)
   if (
     rawUpper.includes('NO RESULT') ||
     rawUpper.includes('DRAWN') ||
     rawUpper.includes('DRAW') ||
     rawUpper.includes('SUPER OVER') ||
+    rawUpper.includes('DLS') ||
+    rawUpper.includes('D/L') ||
     rawUpper.includes('ABANDONED')
   ) {
     return rawUpper;
@@ -301,6 +432,427 @@ export function extractMatchSummaryData(
   };
 }
 
+// =============================================================================
+// COMPLETE BALL-BY-BALL FULL MATCH REPORT ENGINE (ALL 13 SECTIONS)
+// =============================================================================
+
+function getPowerplayOversCount(maxOvers: number): number {
+  if (maxOvers <= 4) return 1;
+  if (maxOvers <= 6) return 2;
+  if (maxOvers <= 10) return 3;
+  if (maxOvers <= 25) return 6;
+  return 10;
+}
+
+function deriveFallOfWickets(
+  inn: InningsState,
+  battingTeam: Team | undefined
+): FallOfWicket[] {
+  if (Array.isArray(inn.fallOfWickets) && inn.fallOfWickets.length > 0) {
+    return inn.fallOfWickets;
+  }
+  const playerMap = new Map<string, string>();
+  battingTeam?.players.forEach((p) => playerMap.set(p.id, p.name));
+
+  const out: FallOfWicket[] = [];
+  let cumRuns = 0;
+  let cumWickets = 0;
+  let cumLegal = 0;
+  for (const b of inn.balls) {
+    cumRuns += b.totalRuns;
+    if (b.isLegal) cumLegal += 1;
+    if (b.isWicket && b.wicketType !== 'Retired Hurt') {
+      cumWickets += 1;
+      const pid = b.dismissedPlayerId || b.strikerId;
+      out.push({
+        wicketNumber: cumWickets,
+        scoreAtFall: cumRuns,
+        oversAtFall: formatOvers(cumLegal),
+        playerId: pid,
+        playerName: playerMap.get(pid) || 'Batter',
+        wicketType: b.wicketType || 'Bowled',
+      });
+    }
+  }
+  return out;
+}
+
+function computePartnershipsFromBalls(
+  inn: InningsState,
+  battingTeam: Team | undefined
+): PartnershipRow[] {
+  if (inn.balls.length === 0) return [];
+  const playerMap = new Map<string, string>();
+  battingTeam?.players.forEach((p) => playerMap.set(p.id, p.name));
+
+  const rows: PartnershipRow[] = [];
+  let wicketNumber = 1;
+  let currentRuns = 0;
+  let currentBalls = 0;
+  let b1 = inn.balls[0]?.strikerId || inn.strikerId || '';
+  let b2 = inn.balls[0]?.nonStrikerId || inn.nonStrikerId || '';
+  let hasActivity = false;
+
+  for (const ball of inn.balls) {
+    if (!b1 && ball.strikerId) b1 = ball.strikerId;
+    if (!b2 && ball.nonStrikerId) b2 = ball.nonStrikerId;
+    if (b1 && b2 && b1 === b2 && ball.nonStrikerId && ball.nonStrikerId !== b1) {
+      b2 = ball.nonStrikerId;
+    }
+
+    currentRuns += ball.totalRuns;
+    if (ball.isLegal) currentBalls += 1;
+    hasActivity = true;
+
+    if (ball.isWicket && ball.wicketType !== 'Retired Hurt') {
+      const p1Id = ball.strikerId || b1;
+      const p2Id = ball.nonStrikerId || b2;
+      rows.push({
+        wicketNumber,
+        batter1Id: p1Id,
+        batter1Name: playerMap.get(p1Id) || 'Batter 1',
+        batter2Id: p2Id,
+        batter2Name: playerMap.get(p2Id) || 'Batter 2',
+        runs: currentRuns,
+        balls: currentBalls,
+        isUnbroken: false,
+      });
+      wicketNumber += 1;
+      currentRuns = 0;
+      currentBalls = 0;
+      b1 = '';
+      b2 = '';
+      hasActivity = false;
+    }
+  }
+
+  if (hasActivity) {
+    const p1Id = b1 || inn.strikerId;
+    const p2Id = b2 || inn.nonStrikerId;
+    rows.push({
+      wicketNumber,
+      batter1Id: p1Id,
+      batter1Name: playerMap.get(p1Id) || 'Batter 1',
+      batter2Id: p2Id,
+      batter2Name: playerMap.get(p2Id) || 'Batter 2',
+      runs: currentRuns,
+      balls: currentBalls,
+      isUnbroken: true,
+    });
+  }
+
+  return rows;
+}
+
+function computeFullOverByOver(inn: InningsState): OverByOverRow[] {
+  const breakdown = computeOversBreakdown(inn);
+  if (breakdown.length === 0) return [];
+  const rows: OverByOverRow[] = [];
+  let cumRuns = 0;
+  let cumWickets = 0;
+  let cumLegalBalls = 0;
+
+  for (const ov of breakdown) {
+    cumRuns += ov.runsInOver;
+    cumWickets += ov.wicketsInOver;
+    const legalInOver = ov.balls.filter((b) => b.isLegal).length;
+    cumLegalBalls += legalInOver;
+    rows.push({
+      overNumber: ov.overNumber,
+      runsInOver: ov.runsInOver,
+      wicketsInOver: ov.wicketsInOver,
+      totalRuns: cumRuns,
+      totalWickets: cumWickets,
+      totalScoreLabel: `${cumRuns}/${cumWickets}`,
+      crr: calcRunRate(cumRuns, cumLegalBalls),
+      balls: ov.balls,
+    });
+  }
+  return rows;
+}
+
+function computePowerplayScore(
+  inn: InningsState,
+  ppOvers: number
+): { runs: number; wickets: number } | null {
+  if (inn.balls.length === 0 || ppOvers <= 0) return null;
+  let runs = 0;
+  let wickets = 0;
+  let hasBallInPp = false;
+  for (const b of inn.balls) {
+    if (b.over < ppOvers) {
+      hasBallInPp = true;
+      runs += b.totalRuns;
+      if (b.isWicket && b.wicketType !== 'Retired Hurt') {
+        wickets += 1;
+      }
+    }
+  }
+  return hasBallInPp ? { runs, wickets } : null;
+}
+
+function buildFullInningsReport(
+  match: CricketMatch,
+  inn: InningsState,
+  inningsIndex: 0 | 1,
+  teamMap: Map<string, Team>
+): FullInningsReport {
+  const battingTeam = teamMap.get(inn.battingTeamId);
+  const bowlingTeam = teamMap.get(inn.bowlingTeamId);
+
+  const battingCard = computeBattingCard(inn, battingTeam);
+  const bowlingCard = computeBowlingCard(inn, bowlingTeam).filter(
+    (bw) => bw.legalBalls > 0 || bw.runs > 0 || bw.wickets > 0 || bw.wides > 0 || bw.noBalls > 0
+  );
+
+  const battedIds = new Set(battingCard.map((b) => b.playerId));
+  const xiIds =
+    (inn.battingTeamId === match.team1Id ? match.playingXI1 : match.playingXI2) ?? [];
+  const squadPool =
+    battingTeam?.players.filter((p) =>
+      xiIds.length > 0 ? xiIds.includes(p.id) : true
+    ) ?? [];
+  const didNotBat = squadPool.filter((p) => !battedIds.has(p.id));
+
+  const extrasObj = inn.extras ?? { bye: 0, lb: 0, wd: 0, nb: 0, penalty: 0 };
+  const extrasTotal =
+    (extrasObj.bye || 0) +
+    (extrasObj.lb || 0) +
+    (extrasObj.wd || 0) +
+    (extrasObj.nb || 0) +
+    (extrasObj.penalty || 0);
+
+  const fours = battingCard.reduce((acc, b) => acc + b.fours, 0);
+  const sixes = battingCard.reduce((acc, b) => acc + b.sixes, 0);
+  const ppOvers = getPowerplayOversCount(inn.maxOvers || match.oversPerInnings || 20);
+  const hasScore =
+    inn.balls.length > 0 || inn.runs > 0 || inn.wickets > 0 || inn.completed;
+
+  return {
+    inningsIndex,
+    battingTeam,
+    bowlingTeam,
+    teamName: (battingTeam?.name || `TEAM ${inningsIndex + 1}`).toUpperCase(),
+    teamShortName: (
+      battingTeam?.shortName ||
+      battingTeam?.name?.slice(0, 3) ||
+      `T${inningsIndex + 1}`
+    ).toUpperCase(),
+    bowlingTeamName: (bowlingTeam?.name || 'BOWLING TEAM').toUpperCase(),
+    bowlingTeamShortName: (
+      bowlingTeam?.shortName ||
+      bowlingTeam?.name?.slice(0, 3) ||
+      'BWL'
+    ).toUpperCase(),
+    runs: inn.runs,
+    wickets: inn.wickets,
+    legalBalls: inn.legalBalls,
+    maxOvers: inn.maxOvers,
+    oversDisplay: formatOvers(inn.legalBalls),
+    oversCompact: formatBroadcastOvers(inn.legalBalls),
+    scoreLabel: formatBroadcastTeamScore(inn.runs, inn.wickets),
+    runRate: calcRunRate(inn.runs, inn.legalBalls),
+    hasScore,
+    battingCard,
+    didNotBat,
+    bowlingCard,
+    extras: {
+      byes: extrasObj.bye || 0,
+      legByes: extrasObj.lb || 0,
+      wides: extrasObj.wd || 0,
+      noBalls: extrasObj.nb || 0,
+      penalty: extrasObj.penalty || 0,
+      total: extrasTotal,
+    },
+    fallOfWickets: deriveFallOfWickets(inn, battingTeam),
+    partnerships: computePartnershipsFromBalls(inn, battingTeam),
+    overByOver: computeFullOverByOver(inn),
+    fours,
+    sixes,
+    powerplayOvers: ppOvers,
+    powerplayScore: computePowerplayScore(inn, ppOvers),
+  };
+}
+
+export function computeFullMatchReport(
+  match: CricketMatch,
+  tournament: Tournament | undefined,
+  group: TournamentGroup | undefined,
+  teamMap: Map<string, Team>,
+  channelTitle = 'STAR EVENT LIVE'
+): FullMatchReport {
+  const summary = extractMatchSummaryData(match, tournament, group, teamMap, channelTitle);
+  const innings1 = buildFullInningsReport(match, match.innings[0], 0, teamMap);
+  const innings2 = buildFullInningsReport(match, match.innings[1], 1, teamMap);
+
+  // Match Statistics across both innings
+  const allBatters = [
+    ...innings1.battingCard.map((b) => ({
+      ...b,
+      teamShortName: innings1.teamShortName,
+    })),
+    ...innings2.battingCard.map((b) => ({
+      ...b,
+      teamShortName: innings2.teamShortName,
+    })),
+  ].filter((b) => b.balls > 0 || b.runs > 0);
+
+  allBatters.sort((a, b) => b.runs - a.runs || a.balls - b.balls);
+  const topBatter = allBatters[0] ?? null;
+
+  const allBowlers = [
+    ...innings1.bowlingCard.map((bw) => ({
+      ...bw,
+      teamShortName: innings1.bowlingTeamShortName,
+    })),
+    ...innings2.bowlingCard.map((bw) => ({
+      ...bw,
+      teamShortName: innings2.bowlingTeamShortName,
+    })),
+  ].filter((bw) => bw.legalBalls > 0 || bw.wickets > 0 || bw.runs > 0);
+
+  allBowlers.sort(
+    (a, b) => b.wickets - a.wickets || a.runs - b.runs || b.legalBalls - a.legalBalls
+  );
+  const bestBowler = allBowlers[0] ?? null;
+
+  const allPartnerships = [
+    ...innings1.partnerships.map((p) => ({
+      ...p,
+      teamShortName: innings1.teamShortName,
+    })),
+    ...innings2.partnerships.map((p) => ({
+      ...p,
+      teamShortName: innings2.teamShortName,
+    })),
+  ];
+  allPartnerships.sort((a, b) => b.runs - a.runs || a.balls - b.balls);
+  const bestPartnership = allPartnerships[0] ?? null;
+
+  const totalFours = innings1.fours + innings2.fours;
+  const totalSixes = innings1.sixes + innings2.sixes;
+  const ppOvers = getPowerplayOversCount(match.oversPerInnings || innings1.maxOvers || 20);
+
+  const statistics: MatchStatisticsSummary = {
+    highestIndividualScore: topBatter
+      ? {
+          playerName: topBatter.playerName,
+          teamShortName: topBatter.teamShortName,
+          runs: topBatter.runs,
+          balls: topBatter.balls,
+          isOut: topBatter.isOut,
+        }
+      : null,
+    bestBowlingFigures: bestBowler
+      ? {
+          playerName: bestBowler.playerName,
+          teamShortName: bestBowler.teamShortName,
+          wickets: bestBowler.wickets,
+          runs: bestBowler.runs,
+          overs: formatBroadcastOvers(bestBowler.legalBalls),
+        }
+      : null,
+    totalSixes,
+    totalFours,
+    totalBoundaries: totalFours + totalSixes,
+    highestPartnership: bestPartnership
+      ? {
+          runs: bestPartnership.runs,
+          balls: bestPartnership.balls,
+          batter1Name: bestPartnership.batter1Name,
+          batter2Name: bestPartnership.batter2Name,
+          teamShortName: bestPartnership.teamShortName,
+        }
+      : null,
+    totalRuns: innings1.runs + innings2.runs,
+    totalWickets: innings1.wickets + innings2.wickets,
+    powerplayOvers: ppOvers,
+    powerplayInn1: innings1.powerplayScore
+      ? { teamShortName: innings1.teamShortName, ...innings1.powerplayScore }
+      : null,
+    powerplayInn2: innings2.powerplayScore
+      ? { teamShortName: innings2.teamShortName, ...innings2.powerplayScore }
+      : null,
+  };
+
+  // Player of the Match performance aggregation
+  let playerOfMatch: PlayerOfMatchSummary | null = null;
+  if (match.playerOfMatchId) {
+    const t1 = teamMap.get(match.team1Id);
+    const t2 = teamMap.get(match.team2Id);
+    const p1 = t1?.players.find((p) => p.id === match.playerOfMatchId);
+    const p2 = t2?.players.find((p) => p.id === match.playerOfMatchId);
+    const player = p1 || p2;
+    const team = p1 ? t1 : t2;
+    if (player) {
+      const batRow =
+        innings1.battingCard.find((b) => b.playerId === player.id) ||
+        innings2.battingCard.find((b) => b.playerId === player.id);
+      const bowlRow =
+        innings1.bowlingCard.find((bw) => bw.playerId === player.id) ||
+        innings2.bowlingCard.find((bw) => bw.playerId === player.id);
+
+      const batted = Boolean(batRow && (batRow.balls > 0 || batRow.runs > 0 || batRow.isOut));
+      const bowled = Boolean(bowlRow && (bowlRow.legalBalls > 0 || bowlRow.wickets > 0));
+      const runs = batRow?.runs ?? 0;
+      const balls = batRow?.balls ?? 0;
+      const isOut = batRow?.isOut ?? false;
+      const wickets = bowlRow?.wickets ?? 0;
+      const runsConceded = bowlRow?.runs ?? 0;
+      const bowlingOvers = bowlRow ? formatBroadcastOvers(bowlRow.legalBalls) : '0';
+      const bowlingFigures = bowled ? `${wickets}-${runsConceded} (${bowlingOvers})` : '—';
+
+      const perfParts: string[] = [];
+      if (batted) perfParts.push(`${runs}${!isOut ? '*' : ''} (${balls}b)`);
+      if (bowled) perfParts.push(`${wickets}/${runsConceded} (${bowlingOvers} ov)`);
+
+      playerOfMatch = {
+        playerId: player.id,
+        playerName: player.name,
+        teamName: team?.name || 'Team',
+        teamShortName: team?.shortName || 'TM',
+        runs,
+        balls,
+        batted,
+        isOut,
+        wickets,
+        runsConceded,
+        bowlingOvers,
+        bowled,
+        bowlingFigures,
+        performanceSummary: perfParts.length > 0 ? perfParts.join('  &  ') : 'Match Impact Player',
+      };
+    }
+  }
+
+  const tossWinner = teamMap.get(match.tossWinnerId);
+  const teamA = teamMap.get(match.team1Id);
+  const teamB = teamMap.get(match.team2Id);
+  const formatLabel =
+    tournament?.matchFormat ||
+    (match.oversPerInnings === 10
+      ? 'T10'
+      : match.oversPerInnings === 20
+        ? 'T20'
+        : match.oversPerInnings === 50
+          ? 'ODI'
+          : `${match.oversPerInnings} Overs`);
+
+  return {
+    summary,
+    matchFormat: formatLabel,
+    tossWinnerName: tossWinner?.name || 'Not Recorded',
+    tossDecisionLabel:
+      match.tossDecision === 'Bat' ? 'Batting' : match.tossDecision === 'Bowl' ? 'Bowling' : '—',
+    teamAName: teamA?.name || 'Team A',
+    teamBName: teamB?.name || 'Team B',
+    innings1,
+    innings2,
+    statistics,
+    playerOfMatch,
+  };
+}
+
 export function buildWhatsAppMatchSummaryText(data: MatchSummaryData): string {
   const lines: string[] = [];
   lines.push(`*MATCH SUMMARY — ${data.tournamentName}*`);
@@ -347,7 +899,7 @@ export function getWhatsAppShareUrl(data: MatchSummaryData): string {
 }
 
 // =============================================================================
-// 1920 x 1080 HD BROADCAST PNG EXPORTER (Native HTML5 Canvas — Zero External Deps)
+// 1920 x 1080 HD BROADCAST PNG & MULTI-PAGE PDF EXPORTER (Zero External Deps)
 // =============================================================================
 
 function loadImageSafe(url?: string): Promise<HTMLImageElement | null> {
@@ -476,9 +1028,9 @@ function fitCanvasText(
   return `${out}…`;
 }
 
-export async function renderMatchSummaryToPngBlob(
+async function renderBroadcastSummaryCanvas(
   data: MatchSummaryData
-): Promise<Blob> {
+): Promise<HTMLCanvasElement> {
   const W = 1920;
   const H = 1080;
   const canvas = document.createElement('canvas');
@@ -504,7 +1056,6 @@ export async function renderMatchSummaryToPngBlob(
   ctx.fillStyle = bgGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Diagonal broadcast light streaks
   ctx.save();
   ctx.fillStyle = 'rgba(56, 189, 248, 0.10)';
   ctx.beginPath();
@@ -525,7 +1076,6 @@ export async function renderMatchSummaryToPngBlob(
   ctx.fill();
   ctx.restore();
 
-  // Main Broadcast Frame Container
   const frameX = 64;
   const frameY = 44;
   const frameW = W - 128;
@@ -540,7 +1090,6 @@ export async function renderMatchSummaryToPngBlob(
   ctx.fill();
   ctx.restore();
 
-  // Clip everything inside the rounded broadcast frame
   ctx.save();
   drawRoundedRect(ctx, frameX, frameY, frameW, frameH, 22);
   ctx.clip();
@@ -554,11 +1103,9 @@ export async function renderMatchSummaryToPngBlob(
   ctx.fillStyle = hdrGrad;
   ctx.fillRect(frameX, frameY, frameW, headerH);
 
-  // Subtle cyan accent line under header
   ctx.fillStyle = '#38BDF8';
   ctx.fillRect(frameX, frameY + headerH - 5, frameW, 5);
 
-  // Left: Tournament logo / emblem
   let textStartX = frameX + 46;
   if (tourLogo) {
     const logoSize = 96;
@@ -572,7 +1119,6 @@ export async function renderMatchSummaryToPngBlob(
     ctx.restore();
     textStartX += logoSize + 28;
   } else {
-    // Sleek Broadcast Monogram Emblem
     const emblemSize = 86;
     const emblemY = frameY + (headerH - emblemSize) / 2;
     ctx.save();
@@ -591,7 +1137,6 @@ export async function renderMatchSummaryToPngBlob(
     textStartX += emblemSize + 26;
   }
 
-  // Heading: MATCH SUMMARY + Tournament + Group/Venue
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#FFFFFF';
@@ -600,8 +1145,7 @@ export async function renderMatchSummaryToPngBlob(
 
   ctx.fillStyle = '#E0F2FE';
   ctx.font = '800 24px "Plus Jakarta Sans", system-ui, sans-serif';
-  const tourTitleFit = fitCanvasText(ctx, data.tournamentName, 940);
-  ctx.fillText(tourTitleFit, textStartX, frameY + 114);
+  ctx.fillText(fitCanvasText(ctx, data.tournamentName, 940), textStartX, frameY + 114);
 
   if (data.groupVenueLine) {
     ctx.fillStyle = '#7DD3FC';
@@ -613,7 +1157,6 @@ export async function renderMatchSummaryToPngBlob(
     );
   }
 
-  // Right side of header: Team Flags + VS + Channel Branding
   const flagW = 94;
   const flagH = 60;
   const flagY = frameY + 38;
@@ -641,7 +1184,6 @@ export async function renderMatchSummaryToPngBlob(
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(data.channelTitle, rightPad, frameY + 136);
 
-  // 3. BODY AREA: TWO CRISP WHITE SCORECARD SECTIONS
   const resultBannerH = 98;
   const bodyY = frameY + headerH;
   const bodyH = frameH - headerH - resultBannerH;
@@ -661,7 +1203,6 @@ export async function renderMatchSummaryToPngBlob(
     const cardY = sectionTopY + 18;
     const cardH = sectionH - 26;
 
-    // White Scorecard Container
     ctx.save();
     drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 14);
     ctx.fillStyle = '#FFFFFF';
@@ -671,7 +1212,6 @@ export async function renderMatchSummaryToPngBlob(
     ctx.stroke();
     ctx.clip();
 
-    // Team Header Bar (Broadcast Royal Navy / Blue Strip)
     const stripH = 74;
     const stripGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY);
     stripGrad.addColorStop(0, '#0C246B');
@@ -680,7 +1220,6 @@ export async function renderMatchSummaryToPngBlob(
     ctx.fillStyle = stripGrad;
     ctx.fillRect(cardX, cardY, cardW, stripH);
 
-    // Team Flag + Name
     drawFlagOrBadge(ctx, inn.battingTeam, teamFlagImg, `T${inn.inningsIndex + 1}`, cardX + 24, cardY + 15, 68, 44);
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '900 34px "Plus Jakarta Sans", system-ui, sans-serif';
@@ -688,7 +1227,6 @@ export async function renderMatchSummaryToPngBlob(
     ctx.textBaseline = 'middle';
     ctx.fillText(fitCanvasText(ctx, inn.teamName, 920), cardX + 112, cardY + stripH / 2 + 1);
 
-    // Right side: Overs + Score
     ctx.textAlign = 'right';
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '900 40px "JetBrains Mono", "Plus Jakarta Sans", monospace';
@@ -701,12 +1239,10 @@ export async function renderMatchSummaryToPngBlob(
     const ovStr = inn.hasScore ? `${inn.oversCompact} OVERS` : 'YET TO BAT';
     ctx.fillText(ovStr, cardX + cardW - 28 - scoreWidth - 32, cardY + stripH / 2 + 2);
 
-    // Split Left (Batting) & Right (Bowling)
     const tableTopY = cardY + stripH;
     const tableH = cardH - stripH;
     const midX = cardX + cardW / 2;
 
-    // Vertical Center Divider
     ctx.strokeStyle = '#CBD5E1';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -717,7 +1253,6 @@ export async function renderMatchSummaryToPngBlob(
     const rowCount = 4;
     const rowH = tableH / rowCount;
 
-    // Horizontal Row Separators across both columns
     for (let i = 1; i < rowCount; i++) {
       const ry = tableTopY + rowH * i;
       ctx.strokeStyle = '#E2E8F0';
@@ -728,7 +1263,6 @@ export async function renderMatchSummaryToPngBlob(
       ctx.stroke();
     }
 
-    // Left: Top 4 Batters
     if (inn.topBatters.length === 0) {
       ctx.fillStyle = '#64748B';
       ctx.font = '600 24px "DM Sans", system-ui, sans-serif';
@@ -742,7 +1276,6 @@ export async function renderMatchSummaryToPngBlob(
     } else {
       inn.topBatters.forEach((b, idx) => {
         const cy = tableTopY + rowH * idx + rowH / 2 + 1;
-        // Alternate faint row tint
         if (idx % 2 === 1) {
           ctx.fillStyle = '#F8FAFC';
           ctx.fillRect(cardX, tableTopY + rowH * idx, cardW / 2 - 1, rowH);
@@ -753,7 +1286,6 @@ export async function renderMatchSummaryToPngBlob(
         ctx.font = '800 27px "Plus Jakarta Sans", system-ui, sans-serif';
         ctx.fillText(fitCanvasText(ctx, b.playerName.toUpperCase(), cardW / 2 - 260), cardX + 32, cy);
 
-        // Balls in brackets on far right of left pane
         ctx.textAlign = 'right';
         ctx.fillStyle = '#475569';
         ctx.font = '700 24px "JetBrains Mono", monospace';
@@ -761,7 +1293,6 @@ export async function renderMatchSummaryToPngBlob(
         ctx.fillText(ballsStr, midX - 28, cy);
         const ballsW = ctx.measureText(ballsStr).width;
 
-        // Runs + optional * for not out
         ctx.fillStyle = '#0A1C4E';
         ctx.font = '900 30px "JetBrains Mono", monospace';
         const runsStr = `${b.runs}${!b.isOut ? '*' : ''}`;
@@ -769,7 +1300,6 @@ export async function renderMatchSummaryToPngBlob(
       });
     }
 
-    // Right: Best 4 Bowlers
     if (inn.topBowlers.length === 0) {
       ctx.fillStyle = '#64748B';
       ctx.font = '600 24px "DM Sans", system-ui, sans-serif';
@@ -797,7 +1327,6 @@ export async function renderMatchSummaryToPngBlob(
           cy
         );
 
-        // Overs in brackets
         ctx.textAlign = 'right';
         ctx.fillStyle = '#475569';
         ctx.font = '700 24px "JetBrains Mono", monospace';
@@ -805,7 +1334,6 @@ export async function renderMatchSummaryToPngBlob(
         ctx.fillText(ovText, cardX + cardW - 28, cy);
         const ovW = ctx.measureText(ovText).width;
 
-        // Wickets-Runs
         ctx.fillStyle = '#0C3194';
         ctx.font = '900 30px "JetBrains Mono", monospace';
         ctx.fillText(`${bw.wickets}-${bw.runs}`, cardX + cardW - 28 - ovW - 14, cy);
@@ -819,7 +1347,6 @@ export async function renderMatchSummaryToPngBlob(
   drawInningsSection(data.innings1, flag1, bodyY, halfBodyH);
   drawInningsSection(data.innings2, flag2, bodyY + halfBodyH - 4, halfBodyH);
 
-  // 4. BOTTOM BLUE RESULT BANNER
   const bannerY = frameY + frameH - resultBannerH;
   const resGrad = ctx.createLinearGradient(frameX, bannerY, frameX + frameW, bannerY);
   resGrad.addColorStop(0, '#071B5E');
@@ -845,7 +1372,6 @@ export async function renderMatchSummaryToPngBlob(
 
   ctx.restore();
 
-  // Outer Frame Border
   ctx.save();
   drawRoundedRect(ctx, frameX, frameY, frameW, frameH, 22);
   ctx.strokeStyle = 'rgba(125, 211, 252, 0.75)';
@@ -853,6 +1379,375 @@ export async function renderMatchSummaryToPngBlob(
   ctx.stroke();
   ctx.restore();
 
+  return canvas;
+}
+
+function renderDetailedScorecardPageCanvas(
+  report: FullMatchReport,
+  inn: FullInningsReport
+): HTMLCanvasElement {
+  const W = 1920;
+  const H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.fillStyle = '#F8FAFC';
+  ctx.fillRect(0, 0, W, H);
+
+  // Header Strip
+  const hdrGrad = ctx.createLinearGradient(0, 0, W, 110);
+  hdrGrad.addColorStop(0, '#071B5E');
+  hdrGrad.addColorStop(0.6, '#0E3CA8');
+  hdrGrad.addColorStop(1, '#0284C7');
+  ctx.fillStyle = hdrGrad;
+  ctx.fillRect(0, 0, W, 112);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 34px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(
+    `${inn.inningsIndex === 0 ? '1ST INNINGS' : '2ND INNINGS'} SCORECARD — ${inn.teamName}`,
+    48,
+    46
+  );
+
+  ctx.fillStyle = '#BAE6FD';
+  ctx.font = '700 20px "DM Sans", system-ui, sans-serif';
+  ctx.fillText(
+    `${report.summary.tournamentName}  ·  ${report.summary.matchLabel}  ·  ${report.summary.dateLabel}`,
+    48,
+    84
+  );
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 42px "JetBrains Mono", monospace';
+  ctx.fillText(`${inn.scoreLabel} (${inn.oversDisplay} OV)`, W - 48, 50);
+  ctx.fillStyle = '#BAE6FD';
+  ctx.font = '700 18px "JetBrains Mono", monospace';
+  ctx.fillText(`RUN RATE: ${inn.runRate}`, W - 48, 86);
+
+  // Left: Batting Table (1080px wide)
+  const batX = 48;
+  const batY = 136;
+  const batW = 1080;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(batX, batY, batW, 690);
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(batX, batY, batW, 690);
+
+  ctx.fillStyle = '#0C246B';
+  ctx.fillRect(batX, batY, batW, 46);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 18px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('BATSMAN', batX + 18, batY + 24);
+  ctx.fillText('HOW OUT', batX + 340, batY + 24);
+  ctx.textAlign = 'right';
+  ctx.fillText('R', batX + 710, batY + 24);
+  ctx.fillText('B', batX + 785, batY + 24);
+  ctx.fillText('4s', batX + 860, batY + 24);
+  ctx.fillText('6s', batX + 935, batY + 24);
+  ctx.fillText('SR', batX + batW - 18, batY + 24);
+
+  const visibleBat = inn.battingCard.slice(0, 11);
+  visibleBat.forEach((b, idx) => {
+    const ry = batY + 46 + idx * 46;
+    if (idx % 2 === 1) {
+      ctx.fillStyle = '#F8FAFC';
+      ctx.fillRect(batX + 1, ry, batW - 2, 46);
+    }
+    ctx.strokeStyle = '#E2E8F0';
+    ctx.beginPath();
+    ctx.moveTo(batX, ry + 46);
+    ctx.lineTo(batX + batW, ry + 46);
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0A1C4E';
+    ctx.font = '800 20px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.fillText(
+      fitCanvasText(ctx, `${b.playerName.toUpperCase()}${!b.isOut ? ' *' : ''}`, 305),
+      batX + 18,
+      ry + 24
+    );
+    ctx.fillStyle = '#475569';
+    ctx.font = '600 17px "DM Sans", system-ui, sans-serif';
+    ctx.fillText(fitCanvasText(ctx, b.dismissalText, 300), batX + 340, ry + 24);
+
+    ctx.textAlign = 'right';
+    ctx.font = '800 20px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#0A1C4E';
+    ctx.fillText(String(b.runs), batX + 710, ry + 24);
+    ctx.fillStyle = '#334155';
+    ctx.font = '600 19px "JetBrains Mono", monospace';
+    ctx.fillText(String(b.balls), batX + 785, ry + 24);
+    ctx.fillText(String(b.fours), batX + 860, ry + 24);
+    ctx.fillText(String(b.sixes), batX + 935, ry + 24);
+    ctx.fillText(b.sr, batX + batW - 18, ry + 24);
+  });
+
+  // Extras & Total footer inside batting card
+  const footerY = batY + 572;
+  ctx.fillStyle = '#EFF6FF';
+  ctx.fillRect(batX + 1, footerY, batW - 2, 54);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = '#0A1C4E';
+  ctx.font = '800 19px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText(
+    `EXTRAS: ${inn.extras.total}  (B ${inn.extras.byes}, LB ${inn.extras.legByes}, WD ${inn.extras.wides}, NB ${inn.extras.noBalls}, P ${inn.extras.penalty})`,
+    batX + 18,
+    footerY + 28
+  );
+
+  ctx.fillStyle = '#0C246B';
+  ctx.fillRect(batX + 1, footerY + 54, batW - 2, 62);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '900 24px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText(
+    `TOTAL: ${inn.scoreLabel}  (${inn.oversDisplay} OVERS, RR ${inn.runRate})`,
+    batX + 18,
+    footerY + 86
+  );
+
+  // Right: Bowling Table + Fall of Wickets + Partnerships
+  const rightX = batX + batW + 32;
+  const rightW = W - rightX - 48;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(rightX, batY, rightW, 400);
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.strokeRect(rightX, batY, rightW, 400);
+
+  ctx.fillStyle = '#0C246B';
+  ctx.fillRect(rightX, batY, rightW, 46);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 18px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(`BOWLING (${inn.bowlingTeamShortName})`, rightX + 16, batY + 24);
+  ctx.textAlign = 'right';
+  ctx.fillText('O', rightX + 345, batY + 24);
+  ctx.fillText('M', rightX + 405, batY + 24);
+  ctx.fillText('R', rightX + 470, batY + 24);
+  ctx.fillText('W', rightX + 530, batY + 24);
+  ctx.fillText('ECO', rightX + 615, batY + 24);
+  ctx.fillText('WD/NB', rightX + rightW - 14, batY + 24);
+
+  inn.bowlingCard.slice(0, 7).forEach((bw, idx) => {
+    const ry = batY + 46 + idx * 48;
+    if (idx % 2 === 1) {
+      ctx.fillStyle = '#F8FAFC';
+      ctx.fillRect(rightX + 1, ry, rightW - 2, 48);
+    }
+    ctx.strokeStyle = '#E2E8F0';
+    ctx.beginPath();
+    ctx.moveTo(rightX, ry + 48);
+    ctx.lineTo(rightX + rightW, ry + 48);
+    ctx.stroke();
+
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#0A1C4E';
+    ctx.font = '800 19px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.fillText(fitCanvasText(ctx, bw.playerName.toUpperCase(), 265), rightX + 16, ry + 25);
+
+    ctx.textAlign = 'right';
+    ctx.font = '600 18px "JetBrains Mono", monospace';
+    ctx.fillStyle = '#334155';
+    ctx.fillText(bw.overs, rightX + 345, ry + 25);
+    ctx.fillText(String(bw.maidens), rightX + 405, ry + 25);
+    ctx.fillText(String(bw.runs), rightX + 470, ry + 25);
+    ctx.fillStyle = '#0D47B8';
+    ctx.font = '900 20px "JetBrains Mono", monospace';
+    ctx.fillText(String(bw.wickets), rightX + 530, ry + 25);
+    ctx.fillStyle = '#334155';
+    ctx.font = '600 18px "JetBrains Mono", monospace';
+    ctx.fillText(bw.economy, rightX + 615, ry + 25);
+    ctx.fillText(`${bw.wides}/${bw.noBalls}`, rightX + rightW - 14, ry + 25);
+  });
+
+  // Fall of Wickets box
+  const fowY = batY + 422;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(rightX, fowY, rightW, 268);
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.strokeRect(rightX, fowY, rightW, 268);
+
+  ctx.fillStyle = '#0284C7';
+  ctx.fillRect(rightX, fowY, rightW, 42);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 18px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('FALL OF WICKETS', rightX + 16, fowY + 22);
+
+  ctx.fillStyle = '#0A1C4E';
+  ctx.font = '700 18px "DM Sans", system-ui, sans-serif';
+  if (inn.fallOfWickets.length === 0) {
+    ctx.fillStyle = '#64748B';
+    ctx.fillText('No wickets fell in this innings.', rightX + 16, fowY + 80);
+  } else {
+    inn.fallOfWickets.slice(0, 10).forEach((f, idx) => {
+      const col = idx % 2;
+      const row = Math.floor(idx / 2);
+      const fx = rightX + 16 + col * (rightW / 2 - 8);
+      const fy = fowY + 72 + row * 38;
+      ctx.fillStyle = '#0A1C4E';
+      ctx.fillText(
+        fitCanvasText(
+          ctx,
+          `${f.wicketNumber}-${f.scoreAtFall} (${f.playerName}, ${f.oversAtFall})`,
+          rightW / 2 - 24
+        ),
+        fx,
+        fy
+      );
+    });
+  }
+
+  // Bottom Banner: Result + POM
+  const bottomY = 856;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(48, bottomY, W - 96, 176);
+  ctx.strokeStyle = '#CBD5E1';
+  ctx.strokeRect(48, bottomY, W - 96, 176);
+
+  ctx.fillStyle = '#0C246B';
+  ctx.fillRect(48, bottomY, W - 96, 46);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 20px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('MATCH RESULT & HIGHLIGHTS', 68, bottomY + 24);
+
+  ctx.fillStyle = '#0D47B8';
+  ctx.font = '900 30px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText(report.summary.resultHeadline, 68, bottomY + 92);
+
+  ctx.fillStyle = '#334155';
+  ctx.font = '700 20px "DM Sans", system-ui, sans-serif';
+  const pomLine = report.playerOfMatch
+    ? `Player of the Match: ${report.playerOfMatch.playerName} (${report.playerOfMatch.teamShortName}) — ${report.playerOfMatch.performanceSummary}`
+    : `Toss: ${report.tossWinnerName} elected to ${report.tossDecisionLabel}  ·  Format: ${report.matchFormat}`;
+  ctx.fillText(fitCanvasText(ctx, pomLine, W - 140), 68, bottomY + 138);
+
+  return canvas;
+}
+
+/**
+ * Pure TypeScript PDF 1.4 multi-page JPEG builder (zero dependencies).
+ * Bundles 16:9 landscape Canvas renders into a crisp downloadable .pdf file.
+ */
+function buildPdfBlobFromJpegPages(jpegBytesList: Uint8Array[], widthPx: number, heightPx: number): Blob {
+  // Landscape A4-ish 16:9 points: 842 x 473.625 pt
+  const pageW = 842;
+  const pageH = Math.round((pageW * heightPx) / widthPx * 100) / 100;
+
+  const chunks: Uint8Array[] = [];
+  const encoder = new TextEncoder();
+  const offsets: number[] = [0]; // object 0
+  let totalLen = 0;
+
+  const pushStr = (s: string) => {
+    const b = encoder.encode(s);
+    chunks.push(b);
+    totalLen += b.length;
+  };
+  const pushBytes = (b: Uint8Array) => {
+    chunks.push(b);
+    totalLen += b.length;
+  };
+
+  pushStr('%PDF-1.4\n%\xFF\xFF\xFF\xFF\n');
+
+  // Object layout:
+  // 1: Catalog
+  // 2: Pages
+  // For each page i (0..n-1):
+  //   pageObj = 3 + i*3
+  //   imgObj  = 4 + i*3
+  //   cntObj  = 5 + i*3
+  const n = jpegBytesList.length;
+  const pageIds: number[] = [];
+  for (let i = 0; i < n; i++) pageIds.push(3 + i * 3);
+
+  const startObj = (id: number) => {
+    offsets[id] = totalLen;
+    pushStr(`${id} 0 obj\n`);
+  };
+
+  startObj(1);
+  pushStr('<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+
+  startObj(2);
+  pushStr(`<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${n} >>\nendobj\n`);
+
+  for (let i = 0; i < n; i++) {
+    const pageId = 3 + i * 3;
+    const imgId = 4 + i * 3;
+    const cntId = 5 + i * 3;
+    const imgBytes = jpegBytesList[i];
+    const contentStream = `q\n${pageW} 0 0 ${pageH} 0 0 cm\n/Im0 Do\nQ\n`;
+    const contentBytes = encoder.encode(contentStream);
+
+    startObj(pageId);
+    pushStr(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /XObject << /Im0 ${imgId} 0 R >> >> /Contents ${cntId} 0 R >>\nendobj\n`
+    );
+
+    startObj(imgId);
+    pushStr(
+      `<< /Type /XObject /Subtype /Image /Width ${widthPx} /Height ${heightPx} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imgBytes.length} >>\nstream\n`
+    );
+    pushBytes(imgBytes);
+    pushStr('\nendstream\nendobj\n');
+
+    startObj(cntId);
+    pushStr(`<< /Length ${contentBytes.length} >>\nstream\n`);
+    pushBytes(contentBytes);
+    pushStr('endstream\nendobj\n');
+  }
+
+  const xrefOffset = totalLen;
+  const totalObjs = 2 + n * 3;
+  pushStr(`xref\n0 ${totalObjs + 1}\n`);
+  pushStr('0000000000 65535 f \n');
+  for (let id = 1; id <= totalObjs; id++) {
+    pushStr(`${String(offsets[id]).padStart(10, '0')} 00000 n \n`);
+  }
+  pushStr(`trailer\n<< /Size ${totalObjs + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+  const merged = new Uint8Array(totalLen);
+  let pos = 0;
+  for (const c of chunks) {
+    merged.set(c, pos);
+    pos += c.length;
+  }
+  return new Blob([merged], { type: 'application/pdf' });
+}
+
+function canvasToJpegBytes(canvas: HTMLCanvasElement, quality = 0.92): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      async (blob) => {
+        if (!blob) {
+          reject(new Error('Could not encode JPEG page.'));
+          return;
+        }
+        const buf = await blob.arrayBuffer();
+        resolve(new Uint8Array(buf));
+      },
+      'image/jpeg',
+      quality
+    );
+  });
+}
+
+export async function renderMatchSummaryToPngBlob(
+  data: MatchSummaryData
+): Promise<Blob> {
+  const canvas = await renderBroadcastSummaryCanvas(data);
   return new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
       if (!blob) {
@@ -874,6 +1769,32 @@ export async function downloadMatchSummaryPng(data: MatchSummaryData): Promise<v
   const a = document.createElement('a');
   a.href = url;
   a.download = `match-summary-${slug}.png`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+export async function downloadMatchSummaryPdf(report: FullMatchReport): Promise<void> {
+  const page1Canvas = await renderBroadcastSummaryCanvas(report.summary);
+  const page2Canvas = renderDetailedScorecardPageCanvas(report, report.innings1);
+  const page3Canvas = renderDetailedScorecardPageCanvas(report, report.innings2);
+
+  const [jpg1, jpg2, jpg3] = await Promise.all([
+    canvasToJpegBytes(page1Canvas, 0.93),
+    canvasToJpegBytes(page2Canvas, 0.92),
+    canvasToJpegBytes(page3Canvas, 0.92),
+  ]);
+
+  const pdfBlob = buildPdfBlobFromJpegPages([jpg1, jpg2, jpg3], 1920, 1080);
+  const url = URL.createObjectURL(pdfBlob);
+  const slug = `${report.summary.innings1.teamShortName}-vs-${report.summary.innings2.teamShortName}-${report.summary.matchLabel}`
+    .replace(/[^A-Za-z0-9_-]+/g, '-')
+    .replace(/-+/g, '-')
+    .toLowerCase();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `match-summary-${slug}.pdf`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
