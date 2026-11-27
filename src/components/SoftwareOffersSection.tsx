@@ -76,6 +76,21 @@ const SOFTWARE_OFFERS: readonly SoftwareOfferItem[] = [
     },
     highlights: ['All Pro Effects Unlocked', 'Auto Captions & AI Tools', 'No Watermark 4K Export'],
   },
+  {
+    id: 'adobe-photoshop',
+    name: 'Adobe Photoshop',
+    imagePath: '/assets/aistudio/image_8dd93048.png',
+    originalPrice: 6899,
+    offerPrice: 2999,
+    savingsPercent: 57,
+    tagLine: {
+      en: 'Pro Photo Editing & Banner Design',
+      mr: 'प्रो फोटो एडिटिंग आणि बॅनर डिझाइन',
+      hi: 'प्रो फोटो एडिटिंग और बैनर डिज़ाइन',
+      gu: 'પ્રો ફોટો એડિટિંગ અને બેનર ડિઝાઇન',
+    },
+    highlights: ['Tournament Posters & Thumbnails', 'AI Retouch & Background Cut', 'Full Lifetime Setup Support'],
+  },
 ];
 
 interface SoftwareOffersSectionProps {
@@ -96,12 +111,12 @@ export function SoftwareOffersSection({ lang }: SoftwareOffersSectionProps) {
 
   const sectionSubtitle =
     lang === 'mr'
-      ? 'vMix Pro, Premiere Pro, After Effects आणि CapCut Pro — थेट इन्स्टॉलेशन सपोर्टसह खास सवलतीच्या दरात.'
+      ? 'vMix Pro, Premiere Pro, After Effects, CapCut Pro आणि Adobe Photoshop — थेट इन्स्टॉलेशन सपोर्टसह खास सवलतीच्या दरात.'
       : lang === 'hi'
-        ? 'vMix Pro, Premiere Pro, After Effects और CapCut Pro — तुरंत सेटअप सपोर्ट के साथ स्पेशल डिस्काउंट प्राइस पर।'
+        ? 'vMix Pro, Premiere Pro, After Effects, CapCut Pro और Adobe Photoshop — तुरंत सेटअप सपोर्ट के साथ स्पेशल डिस्काउंट प्राइस पर।'
         : lang === 'gu'
-          ? 'vMix Pro, Premiere Pro, After Effects અને CapCut Pro — ઇન્સ્ટન્ટ સેટઅપ સપોર્ટ સાથે સ્પેશિયલ ડિસ્કાઉન્ટ ભાવે.'
-          : 'vMix Pro, Premiere Pro, After Effects, and CapCut Pro at special discounted prices with full installation support.';
+          ? 'vMix Pro, Premiere Pro, After Effects, CapCut Pro અને Adobe Photoshop — ઇન્સ્ટન્ટ સેટઅપ સપોર્ટ સાથે સ્પેશિયલ ડિસ્કાઉન્ટ ભાવે.'
+          : 'vMix Pro, Premiere Pro, After Effects, CapCut Pro, and Adobe Photoshop at special discounted prices with full installation support.';
 
   const orderLabel =
     lang === 'mr'
@@ -147,8 +162,8 @@ export function SoftwareOffersSection({ lang }: SoftwareOffersSectionProps) {
           </p>
         </div>
 
-        {/* 4 Highlighted Product Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* 5 Highlighted Product Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-5">
           {SOFTWARE_OFFERS.map((item) => {
             const whatsappHref = `https://wa.me/${STUDIO_CONTACT.whatsappNumber}?text=${encodeURIComponent(
               `Hello Star Event Live, I want to buy ${item.name} at the special offer price of ₹${item.offerPrice.toLocaleString('en-IN')} Only (Original ₹${item.originalPrice.toLocaleString('en-IN')}). Please share installation details.`
@@ -263,7 +278,7 @@ export function SoftwareOffersSection({ lang }: SoftwareOffersSectionProps) {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 text-center">
           <p className="text-xs sm:text-sm font-semibold text-rose-100/90">
             Instant Remote Installation &amp; Activation Support Available ·{' '}
-            <span className="text-[#FFE600] font-bold">All 4 Software Deals Active Today</span>
+            <span className="text-[#FFE600] font-bold">All 5 Software Deals Active Today</span>
           </p>
           <a
             href={STUDIO_CONTACT.phoneHref}
