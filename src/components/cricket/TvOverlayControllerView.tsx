@@ -33,8 +33,11 @@ import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
+  getPaidThemeConfig,
+  isPaidThemeId,
+  isThemeUnlockedInStatus,
+  type PaidThemeId,
   useWorldCupServerUnlock,
-  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
 
 interface TvOverlayControllerViewProps {
@@ -68,6 +71,7 @@ export function TvOverlayControllerView({
 
   // Controller UI State
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
+  const [payModalThemeId, setPayModalThemeId] = useState<PaidThemeId>('worldcup');
   const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
     useWorldCupServerUnlock();
   const [showPreviewMonitor, setShowPreviewMonitor] = useState(true);
@@ -522,13 +526,17 @@ export function TvOverlayControllerView({
 
             <select
               value={
-                state.user.userTheme === 'worldcup' && !worldCupStatus.unlocked
-                  ? 'tata-ipl-2022'
-                  : state.user.userTheme
+                isThemeUnlockedInStatus(state.user.userTheme, worldCupStatus)
+                  ? state.user.userTheme
+                  : 'tata-ipl-2022'
               }
               onChange={(e) => {
                 const nextThemeId = e.target.value as OverlayThemeId;
-                if (nextThemeId === 'worldcup' && !worldCupStatus.unlocked) {
+                if (
+                  isPaidThemeId(nextThemeId) &&
+                  !isThemeUnlockedInStatus(nextThemeId, worldCupStatus)
+                ) {
+                  setPayModalThemeId(nextThemeId);
                   setWorldCupPayModalOpen(true);
                   return;
                 }
@@ -557,11 +565,15 @@ export function TvOverlayControllerView({
               className={`${homeSelectClass} w-full sm:w-auto max-w-full`}
             >
               {BROADCAST_THEMES.map((t) => {
-                const locked = t.id === 'worldcup' && !worldCupStatus.unlocked;
+                const locked =
+                  isPaidThemeId(t.id) && !isThemeUnlockedInStatus(t.id, worldCupStatus);
+                const priceLabel = isPaidThemeId(t.id)
+                  ? ` (Unlock ₹${getPaidThemeConfig(t.id).priceInr})`
+                  : '';
                 return (
                   <option key={t.id} value={t.id}>
                     Theme: {t.name}
-                    {locked ? ` (Unlock ₹${WORLDCUP_FIXED_PRICE_INR})` : ''}
+                    {locked ? priceLabel : ''}
                   </option>
                 );
               })}
@@ -713,6 +725,7 @@ export function TvOverlayControllerView({
                 matchId={activeMatch?.id}
                 bgMode={previewGreenBg ? 'green' : 'transparent'}
                 worldCupUnlocked={worldCupStatus.unlocked}
+                unlockedThemes={worldCupStatus.unlockedThemes}
               />
             </div>
           </div>
@@ -1325,14 +1338,16 @@ export function TvOverlayControllerView({
 
       <WorldCupUnlockModal
         open={worldCupPayModalOpen}
+        themeId={payModalThemeId}
         onClose={() => setWorldCupPayModalOpen(false)}
-        onUnlockSuccess={({ orderId, cfPaymentId }) => {
+        onUnlockSuccess={({ themeId: unlockedId, orderId, cfPaymentId }) => {
           void refreshWorldCupStatus();
+          const unlockedProduct = getPaidThemeConfig(unlockedId);
           updateState((prev) => ({
             ...prev,
             user: {
               ...prev.user,
-              userTheme: 'worldcup',
+              userTheme: unlockedId,
               worldcupLastPaymentRef: cfPaymentId || orderId,
               customThemeColors: {
                 ...prev.user.customThemeColors,
@@ -1347,7 +1362,7 @@ export function TvOverlayControllerView({
                   : prev.overlay.bottomScoreMode,
             },
           }));
-          onToast('WorldCup Scoreboard payment verified and activated live!');
+          onToast(`${unlockedProduct.productName} payment verified and activated live!`);
         }}
       />
     </div>

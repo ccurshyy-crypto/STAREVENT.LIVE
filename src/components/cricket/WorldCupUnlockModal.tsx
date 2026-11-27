@@ -15,9 +15,9 @@ import {
   createCashfreeWorldCupOrder,
   emitWorldCupUnlockRefresh,
   fetchServerWorldCupStatus,
+  getPaidThemeConfig,
+  type PaidThemeId,
   verifyCashfreeWorldCupOrder,
-  WORLDCUP_FIXED_CURRENCY,
-  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
 
 declare global {
@@ -33,8 +33,10 @@ declare global {
 
 export interface WorldCupUnlockModalProps {
   open: boolean;
+  themeId?: PaidThemeId;
   onClose: () => void;
   onUnlockSuccess: (payload: {
+    themeId: PaidThemeId;
     orderId: string;
     cfPaymentId: string | null;
   }) => void;
@@ -42,16 +44,19 @@ export interface WorldCupUnlockModalProps {
 
 export function WorldCupUnlockModal({
   open,
+  themeId = 'worldcup',
   onClose,
   onUnlockSuccess,
 }: WorldCupUnlockModalProps) {
   const { session, getPaymentAuthHeaders } = useOverlayAccess();
+  const product = getPaidThemeConfig(themeId);
   const [creatingOrder, setCreatingOrder] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [activeOrderId, setActiveOrderId] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [verifiedSuccess, setVerifiedSuccess] = useState<{
+    themeId: PaidThemeId;
     orderId: string;
     cfPaymentId: string | null;
   } | null>(null);
@@ -62,7 +67,8 @@ export function WorldCupUnlockModal({
     setErrorMsg(null);
     setStatusMessage(null);
     setVerifiedSuccess(null);
-  }, [open]);
+    setActiveOrderId(null);
+  }, [open, themeId]);
 
   const verifyWithBackend = useCallback(
     async (orderIdToVerify: string) => {
@@ -74,11 +80,13 @@ export function WorldCupUnlockModal({
         const verifyRes = await verifyCashfreeWorldCupOrder(authHeaders, orderIdToVerify);
 
         if (verifyRes.ok && verifyRes.unlocked && verifyRes.paymentStatus === 'PAID') {
+          const verifiedThemeId: PaidThemeId = verifyRes.themeId || themeId;
           // Double-confirm entitlement directly from backend database
           const serverStatus = await fetchServerWorldCupStatus(authHeaders);
-          if (serverStatus.unlocked) {
+          if (serverStatus.unlockedThemes[verifiedThemeId]) {
             emitWorldCupUnlockRefresh();
             const payload = {
+              themeId: verifiedThemeId,
               orderId: verifyRes.orderId || orderIdToVerify,
               cfPaymentId: verifyRes.cfPaymentId ?? null,
             };
@@ -102,7 +110,7 @@ export function WorldCupUnlockModal({
         setVerifying(false);
       }
     },
-    [getPaymentAuthHeaders, onUnlockSuccess]
+    [getPaymentAuthHeaders, onUnlockSuccess, themeId]
   );
 
   // If redirected back from Cashfree Checkout with ?cf_order_id=..., verify immediately on backend
@@ -110,11 +118,16 @@ export function WorldCupUnlockModal({
     if (!open || typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const returnedOrderId = params.get('cf_order_id');
-    if (returnedOrderId && returnedOrderId.trim()) {
+    const returnedTheme = params.get('cf_theme');
+    if (
+      returnedOrderId &&
+      returnedOrderId.trim() &&
+      (!returnedTheme || returnedTheme === themeId)
+    ) {
       setActiveOrderId(returnedOrderId.trim());
       void verifyWithBackend(returnedOrderId.trim());
     }
-  }, [open, verifyWithBackend]);
+  }, [open, themeId, verifyWithBackend]);
 
   if (!open) return null;
 
@@ -126,6 +139,7 @@ export function WorldCupUnlockModal({
     try {
       const authHeaders = await getPaymentAuthHeaders();
       const orderRes = await createCashfreeWorldCupOrder(authHeaders, {
+        themeId,
         customerEmail: session?.email || '',
         customerPhone: customerPhone.trim(),
       });
@@ -133,6 +147,7 @@ export function WorldCupUnlockModal({
       if (orderRes.ok && orderRes.alreadyUnlocked && orderRes.unlocked) {
         emitWorldCupUnlockRefresh();
         const payload = {
+          themeId,
           orderId: orderRes.orderId || 'VERIFIED',
           cfPaymentId: null,
         };
@@ -199,7 +214,7 @@ export function WorldCupUnlockModal({
               id="worldcup-unlock-modal-title"
               className="font-display font-black text-lg leading-tight text-white"
             >
-              Unlock WorldCup Scoreboard – ₹{WORLDCUP_FIXED_PRICE_INR}
+              Unlock {product.productName} – ₹{product.priceInr}
             </h3>
             <p className="text-xs text-orange-50 font-medium">
               Server-verified Cashfree Production payment · Instant unlock on SUCCESS
@@ -226,8 +241,8 @@ export function WorldCupUnlockModal({
                 Payment Verified · Unlocked!
               </h4>
               <p className="text-xs text-slate-600">
-                Cashfree confirmed your ₹{WORLDCUP_FIXED_PRICE_INR} {WORLDCUP_FIXED_CURRENCY}{' '}
-                payment on the server. WorldCup Scoreboard is now active live on OBS &amp; vMix.
+                Cashfree confirmed your ₹{product.priceInr} {product.currency}{' '}
+                payment on the server. {product.productName} is now active live on OBS &amp; vMix.
               </p>
             </div>
             <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 text-xs text-emerald-900 space-y-1 text-left">
@@ -246,7 +261,7 @@ export function WorldCupUnlockModal({
               onClick={onClose}
               className="w-full py-3 rounded-xl wo-btn-primary text-white font-display font-black text-sm uppercase tracking-wider"
             >
-              Start Using WorldCup Theme
+              Start Using {product.shortName} Theme
             </button>
           </div>
         ) : (
@@ -255,14 +270,14 @@ export function WorldCupUnlockModal({
             <div className="rounded-xl bg-[#FFF8EE] border border-[#FF8C00]/35 px-4 py-3.5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-wider text-[#C25E00]">
-                  WorldCup Broadcast Theme
+                  {product.productName}
                 </p>
                 <div className="flex items-baseline gap-2 mt-0.5">
-                  <span className="font-display font-black text-2xl text-slate-900">
-                    ₹{WORLDCUP_FIXED_PRICE_INR}
+                  <span className="font-display font-black text-2xl text-slate-900 tabular-nums">
+                    ₹{product.priceInr}
                   </span>
                   <span className="text-xs font-bold text-slate-500">
-                    {WORLDCUP_FIXED_CURRENCY} · Server Fixed Price
+                    {product.currency} · Server Fixed Price
                   </span>
                 </div>
               </div>
@@ -323,7 +338,7 @@ export function WorldCupUnlockModal({
               ) : (
                 <>
                   <CreditCard className="w-4 h-4" aria-hidden="true" />
-                  <span>Unlock WorldCup Scoreboard – ₹{WORLDCUP_FIXED_PRICE_INR}</span>
+                  <span>Unlock {product.productName} – ₹{product.priceInr}</span>
                 </>
               )}
             </button>
@@ -351,8 +366,8 @@ export function WorldCupUnlockModal({
               <p>
                 Supports UPI, GPay, PhonePe, Paytm, Cards &amp; NetBanking. Access unlocks
                 automatically only after Cashfree confirms{' '}
-                <strong className="text-slate-900">SUCCESS</strong> for ₹{WORLDCUP_FIXED_PRICE_INR}{' '}
-                INR.
+                <strong className="text-slate-900">SUCCESS</strong> for ₹{product.priceInr}{' '}
+                {product.currency}.
               </p>
             </div>
           </div>

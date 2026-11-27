@@ -67,6 +67,7 @@ function hasMeaningfulUserData(state: CricketSuiteState | null | undefined): boo
     state.pointTableOverrides.length > 0 ||
     Boolean(state.user?.channelLogoUrl?.trim()) ||
     state.user?.userTheme === 'worldcup' ||
+    state.user?.userTheme === 'lightning-pro' ||
     Boolean(state.user?.worldcupUnlockExpiresAt) ||
     Boolean(state.user?.customThemeColors?.enabled)
   );
@@ -133,7 +134,9 @@ function normalizeLoadedState(
       ...base.user,
       ...(raw.user || {}),
       userTheme:
-        raw.user?.userTheme === 'worldcup' || raw.user?.userTheme === 'tata-ipl-2022'
+        raw.user?.userTheme === 'worldcup' ||
+        raw.user?.userTheme === 'lightning-pro' ||
+        raw.user?.userTheme === 'tata-ipl-2022'
           ? (raw.user.userTheme as OverlayThemeId)
           : 'tata-ipl-2022',
       customThemeColors: {

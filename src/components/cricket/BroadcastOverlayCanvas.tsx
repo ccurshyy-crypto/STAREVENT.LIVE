@@ -24,13 +24,19 @@ import {
 import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
-import { fetchOverlayWorldCupEntitlement } from '../../lib/worldCupUnlock';
+import { LightningProScoreboardBar } from './LightningProScoreboardBar';
+import {
+  fetchOverlayThemeEntitlements,
+  isPaidThemeId,
+  type PaidThemeId,
+} from '../../lib/worldCupUnlock';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
   matchId?: string;
   bgMode?: 'transparent' | 'green';
   worldCupUnlocked?: boolean;
+  unlockedThemes?: Record<PaidThemeId, boolean>;
 }
 
 export function BroadcastOverlayCanvas({
@@ -38,29 +44,44 @@ export function BroadcastOverlayCanvas({
   matchId,
   bgMode = 'transparent',
   worldCupUnlocked: worldCupUnlockedProp,
+  unlockedThemes: unlockedThemesProp,
 }: BroadcastOverlayCanvasProps) {
   const [visibleTransitionId, setVisibleTransitionId] = useState<number | null>(null);
-  const [serverWorldCupUnlocked, setServerWorldCupUnlocked] = useState<boolean>(false);
+  const [serverUnlockedThemes, setServerUnlockedThemes] = useState<Record<PaidThemeId, boolean>>({
+    worldcup: false,
+    'lightning-pro': false,
+  });
 
   const stateUid = state?.uid || '';
-  const wantsWorldCupTheme = state?.user?.userTheme === 'worldcup';
+  const wantsPaidTheme = isPaidThemeId(state?.user?.userTheme);
 
   useEffect(() => {
-    if (typeof worldCupUnlockedProp === 'boolean') {
-      setServerWorldCupUnlocked(worldCupUnlockedProp);
+    if (unlockedThemesProp) {
+      setServerUnlockedThemes(unlockedThemesProp);
       return;
     }
     if (!stateUid) {
-      setServerWorldCupUnlocked(false);
+      setServerUnlockedThemes({
+        worldcup: Boolean(worldCupUnlockedProp),
+        'lightning-pro': false,
+      });
       return;
     }
     let active = true;
     const checkEntitlement = async () => {
-      const allowed = await fetchOverlayWorldCupEntitlement(stateUid);
-      if (active) setServerWorldCupUnlocked(allowed);
+      const allowed = await fetchOverlayThemeEntitlements(stateUid);
+      if (active) {
+        setServerUnlockedThemes({
+          worldcup:
+            typeof worldCupUnlockedProp === 'boolean'
+              ? worldCupUnlockedProp
+              : allowed.worldcup,
+          'lightning-pro': allowed['lightning-pro'],
+        });
+      }
     };
     void checkEntitlement();
-    const pollMs = wantsWorldCupTheme ? 15000 : 30000;
+    const pollMs = wantsPaidTheme ? 15000 : 30000;
     const timer = window.setInterval(() => {
       void checkEntitlement();
     }, pollMs);
@@ -68,7 +89,7 @@ export function BroadcastOverlayCanvas({
       active = false;
       window.clearInterval(timer);
     };
-  }, [worldCupUnlockedProp, stateUid, wantsWorldCupTheme]);
+  }, [unlockedThemesProp, worldCupUnlockedProp, stateUid, wantsPaidTheme]);
 
   const activeTransition = state?.overlay.activeTransition ?? null;
 
@@ -116,12 +137,19 @@ export function BroadcastOverlayCanvas({
   }
 
   const { overlay } = state;
-  const worldCupUnlocked =
-    typeof worldCupUnlockedProp === 'boolean'
-      ? worldCupUnlockedProp
-      : serverWorldCupUnlocked;
+  const resolvedUnlockedThemes: Record<PaidThemeId, boolean> = unlockedThemesProp
+    ? unlockedThemesProp
+    : {
+        worldcup:
+          typeof worldCupUnlockedProp === 'boolean'
+            ? worldCupUnlockedProp
+            : serverUnlockedThemes.worldcup,
+        'lightning-pro': serverUnlockedThemes['lightning-pro'],
+      };
+  const worldCupUnlocked = resolvedUnlockedThemes.worldcup;
+  const lightningProUnlocked = resolvedUnlockedThemes['lightning-pro'];
   const effectiveThemeId =
-    state.user.userTheme === 'worldcup' && !worldCupUnlocked
+    isPaidThemeId(state.user.userTheme) && !resolvedUnlockedThemes[state.user.userTheme]
       ? 'tata-ipl-2022'
       : state.user.userTheme;
   const theme = getThemePalette(effectiveThemeId, state.user.customThemeColors);
@@ -132,6 +160,10 @@ export function BroadcastOverlayCanvas({
     !state.user.customThemeColors?.enabled &&
     worldCupUnlocked &&
     (theme.id === 'worldcup' || Boolean(theme.barStyle?.isWorldCup));
+  const useLightningProPatti =
+    !state.user.customThemeColors?.enabled &&
+    lightningProUnlocked &&
+    (theme.id === 'lightning-pro' || Boolean(theme.barStyle?.isLightningPro));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
 
@@ -1050,6 +1082,43 @@ export function BroadcastOverlayCanvas({
     if (mode === 'EMPTY') return null;
 
     if (!match || !activeInn) {
+      if (useLightningProPatti) {
+        return (
+          <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+            <LightningProScoreboardBar
+              batTeamName="MAMDAPURWADI"
+              batTeamCode="MDPW"
+              bowlTeamName="PETARWADI"
+              bowlTeamCode="PTRWD"
+              showTeamLogo={overlay.showTeamLogo}
+              runs={0}
+              wickets={0}
+              oversText="0.0"
+              maxOvers={20}
+              batter1Name="PAPPYA"
+              batter1Runs={0}
+              batter1Balls={0}
+              batter2Name="SURAJ"
+              batter2Runs={0}
+              batter2Balls={0}
+              strikerIndex={1}
+              bowlerName="CRUSHYY"
+              bowlerFigs="0 - 0"
+              bowlerOvers="0.0"
+              balls={[]}
+              showBalls
+              topHoodText="TARGET - 00"
+              bottomTickerText={(tournament?.name || 'NEED 00 RUNS FROM 20 BALLS').toUpperCase()}
+              activeEvent={
+                showTransition && activeTransition
+                  ? { id: activeTransition.id, type: activeTransition.type }
+                  : null
+              }
+            />
+          </div>
+        );
+      }
+
       if (useWorldCupPatti) {
         return (
           <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
@@ -1371,6 +1440,66 @@ export function BroadcastOverlayCanvas({
       );
     }
 
+    if (useLightningProPatti) {
+      const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
+        id: b.id,
+        label: getBallPillLabel(b),
+        isBoundary4: b.isBoundary4,
+        isBoundary6: b.isBoundary6,
+        isWicket: b.isWicket,
+        isExtra: b.extraType !== 'none',
+      }));
+
+      const isChasing = match.currentInningsIndex === 1 && target !== null && needRuns !== null;
+      const topHoodText = isChasing
+        ? `TARGET - ${target}`
+        : `CRR - ${crr}`;
+      const bottomTickerText =
+        mode === 'Score'
+          ? isChasing
+            ? `NEED ${needRuns} RUNS FROM ${remBalls} BALLS`
+            : (tournament?.name || `${batTeam?.name || 'BATTING'} VS ${bowlTeam?.name || 'BOWLING'}`).toUpperCase()
+          : infoStrip;
+
+      return (
+        <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
+          <LightningProScoreboardBar
+            batTeamName={batTeam?.name || batTeam?.shortName || 'BATTING'}
+            batTeamCode={batTeam?.shortName || 'BAT'}
+            batTeamLogo={batTeam?.logoUrl}
+            bowlTeamName={bowlTeam?.name || bowlTeam?.shortName || 'BOWLING'}
+            bowlTeamCode={bowlTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={bowlTeam?.logoUrl}
+            showTeamLogo={overlay.showTeamLogo}
+            runs={activeInn.runs}
+            wickets={activeInn.wickets}
+            oversText={formatOvers(activeInn.legalBalls)}
+            maxOvers={activeInn.maxOvers}
+            batter1Name={striker?.playerName || 'NEXT BATTER'}
+            batter1Runs={striker ? striker.runs : 0}
+            batter1Balls={striker ? striker.balls : 0}
+            batter2Name={nonStriker?.playerName || 'NEXT BATTER'}
+            batter2Runs={nonStriker ? nonStriker.runs : 0}
+            batter2Balls={nonStriker ? nonStriker.balls : 0}
+            strikerIndex={1}
+            bowlerName={bowler?.playerName || 'BOWLER'}
+            bowlerFigs={`${bowler?.wickets ?? 0} - ${bowler?.runs ?? 0}`}
+            bowlerOvers={bowler?.overs ?? '0.0'}
+            balls={ballList}
+            showBalls
+            topHoodText={topHoodText}
+            bottomTickerText={bottomTickerText}
+            winnerInfo={winnerInfo}
+            activeEvent={
+              showTransition && activeTransition
+                ? { id: activeTransition.id, type: activeTransition.type }
+                : null
+            }
+          />
+        </div>
+      );
+    }
+
     if (theme.barStyle) {
       const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
         id: b.id,
@@ -1547,7 +1676,7 @@ export function BroadcastOverlayCanvas({
       {showTransition &&
         activeTransition &&
         !(
-          (useTataIplPatti || useWorldCupPatti) &&
+          (useTataIplPatti || useWorldCupPatti || useLightningProPatti) &&
           overlay.bottomScoreMode !== 'EMPTY' &&
           overlay.bottomScoreMode !== 'Versus' &&
           overlay.bottomScoreMode !== 'Versus With Logo' &&

@@ -386,7 +386,7 @@ create table if not exists public.worldcup_payments (
   customer_name text,
   product_code text not null default 'worldcup_scoreboard',
   product_name text not null default 'WorldCup Scoreboard',
-  expected_amount numeric(10,2) not null check (expected_amount = 149.00),
+  expected_amount numeric(10,2) not null,
   currency text not null default 'INR' check (currency = 'INR'),
   cf_order_id text,
   cf_payment_id text unique,
@@ -395,8 +395,23 @@ create table if not exists public.worldcup_payments (
   unlock_status text not null check (unlock_status in ('LOCKED', 'UNLOCKED')) default 'LOCKED',
   verified_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint chk_worldcup_payments_catalog_price check (
+    (product_code = 'worldcup_scoreboard' and expected_amount = 149.00)
+    or (product_code = 'lightning_pro_scoreboard' and expected_amount = 79.00)
+  )
 );
+
+-- Safe migration for existing deployments adding Lightning Premier ₹79 pricing
+alter table public.worldcup_payments
+  drop constraint if exists worldcup_payments_expected_amount_check;
+alter table public.worldcup_payments
+  drop constraint if exists chk_worldcup_payments_catalog_price;
+alter table public.worldcup_payments
+  add constraint chk_worldcup_payments_catalog_price check (
+    (product_code = 'worldcup_scoreboard' and expected_amount = 149.00)
+    or (product_code = 'lightning_pro_scoreboard' and expected_amount = 79.00)
+  );
 
 create index if not exists idx_worldcup_payments_customer_id
   on public.worldcup_payments (customer_id, created_at desc);
@@ -405,7 +420,7 @@ create index if not exists idx_worldcup_payments_status
   on public.worldcup_payments (payment_status, created_at desc);
 
 create table if not exists public.worldcup_unlocks (
-  customer_id text primary key,
+  customer_id text not null,
   product_code text not null default 'worldcup_scoreboard',
   unlock_status text not null check (unlock_status in ('LOCKED', 'UNLOCKED')) default 'LOCKED',
   grant_source text not null check (grant_source in ('cashfree', 'admin_manual')),
@@ -415,8 +430,15 @@ create table if not exists public.worldcup_unlocks (
   expires_at timestamptz,
   granted_by text,
   grant_reason text,
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  primary key (customer_id, product_code)
 );
+
+-- Safe migration to composite primary key (customer_id, product_code) for existing databases
+alter table public.worldcup_unlocks
+  drop constraint if exists worldcup_unlocks_pkey;
+alter table public.worldcup_unlocks
+  add primary key (customer_id, product_code);
 
 create table if not exists public.payment_admin_audit_logs (
   id uuid primary key default gen_random_uuid(),
@@ -447,7 +469,7 @@ alter table public.worldcup_unlocks enable row level security;
 alter table public.payment_admin_audit_logs enable row level security;
 alter table public.cashfree_webhook_events enable row level security;
 
--- Atomic PostgreSQL transaction to verify constraints and mark a payment PAID + UNLOCKED
+-- Atomic PostgreSQL transaction to verify catalog price & uniqueness and mark a payment PAID + UNLOCKED
 create or replace function public.complete_worldcup_payment_tx(
   p_order_id text,
   p_customer_id text,
@@ -463,6 +485,7 @@ as $$
 declare
   v_payment public.worldcup_payments%rowtype;
   v_existing_order text;
+  v_valid_price boolean;
 begin
   select *
   into v_payment
@@ -478,7 +501,12 @@ begin
     return jsonb_build_object('ok', false, 'code', 'CUSTOMER_MISMATCH', 'message', 'Order customer mismatch.');
   end if;
 
-  if v_payment.expected_amount <> 149.00 or upper(v_payment.currency) <> 'INR' then
+  v_valid_price := (
+    (v_payment.product_code = 'worldcup_scoreboard' and v_payment.expected_amount = 149.00)
+    or (v_payment.product_code = 'lightning_pro_scoreboard' and v_payment.expected_amount = 79.00)
+  );
+
+  if not v_valid_price or upper(v_payment.currency) <> 'INR' then
     return jsonb_build_object('ok', false, 'code', 'AMOUNT_MISMATCH', 'message', 'Order amount/currency mismatch.');
   end if;
 
@@ -529,7 +557,7 @@ begin
   )
   values (
     p_customer_id,
-    'worldcup_scoreboard',
+    v_payment.product_code,
     'UNLOCKED',
     'cashfree',
     p_order_id,
@@ -540,7 +568,7 @@ begin
     null,
     p_verified_at
   )
-  on conflict (customer_id) do update
+  on conflict (customer_id, product_code) do update
   set unlock_status = 'UNLOCKED',
       grant_source = 'cashfree',
       order_id = excluded.order_id,

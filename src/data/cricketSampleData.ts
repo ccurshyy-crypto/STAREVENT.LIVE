@@ -187,6 +187,7 @@ export interface ScoreboardBarStyle {
   isWidescreen?: boolean;
   isTataIpl2022?: boolean;
   isWorldCup?: boolean;
+  isLightningPro?: boolean;
 }
 
 export interface BroadcastThemeConfig {
@@ -263,6 +264,37 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
       ballMode: 'outline',
       isWidescreen: true,
       isWorldCup: true,
+    },
+  },
+  // ================= LIGHTNING PREMIER ELECTRIC BLUE & MAGENTA PATTI (₹79) =================
+  {
+    id: 'lightning-pro',
+    name: 'Lightning Premier',
+    subtitle: 'Electric Royal Blue · Hot Magenta Score Pill · Golden Lightning Chevron Broadcast Patti',
+    primary: '#002882',
+    secondary: '#CC0A7B',
+    accent: '#FACC15',
+    surface: '#08123D',
+    textOnPrimary: '#FFFFFF',
+    category: 'pro-scoreboard',
+    barStyle: {
+      number: 2,
+      outerBorder: '#D946EF',
+      outerGlow: 'rgba(217, 70, 239, 0.5)',
+      leftBadgeBg: 'linear-gradient(180deg, #FFFFFF, #DCE4F0)',
+      leftBadgeText: '#09154A',
+      batterPanelBg: 'linear-gradient(180deg, #0044C7, #001040)',
+      batterPanelText: '#FFFFFF',
+      scorePillBg: 'linear-gradient(180deg, #F61A9A, #8E0456)',
+      scorePillText: '#FFFFFF',
+      scorePillBorder: '#E879F9',
+      bowlerPanelBg: 'linear-gradient(180deg, #0044C7, #001040)',
+      bowlerPanelText: '#FFFFFF',
+      rightBadgeBg: 'linear-gradient(180deg, #FFFFFF, #DCE4F0)',
+      rightBadgeText: '#09154A',
+      ballMode: 'colored',
+      isWidescreen: true,
+      isLightningPro: true,
     },
   },
 ];

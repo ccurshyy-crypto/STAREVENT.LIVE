@@ -99,7 +99,9 @@ export function CricketSuiteApp({
     if (window.localStorage.getItem(flagKey) === '1') return;
     window.localStorage.setItem(flagKey, '1');
     const isValidTheme =
-      state.user.userTheme === 'tata-ipl-2022' || state.user.userTheme === 'worldcup';
+      state.user.userTheme === 'tata-ipl-2022' ||
+      state.user.userTheme === 'worldcup' ||
+      state.user.userTheme === 'lightning-pro';
     if (!isValidTheme || state.user.customThemeColors?.enabled) {
       updateState((prev) => ({
         ...prev,

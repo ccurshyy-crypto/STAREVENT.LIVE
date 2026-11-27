@@ -9,24 +9,28 @@ import {
   createCashfreeProductionOrder,
   generateUniqueCashfreeOrderId,
   getCashfreeProductionConfig,
+  getCustomerThemeEntitlements,
   getUnlockRecord,
   isCashfreeConfigured,
   isUnlockRecordActive,
   listAdminAuditLogs,
   listAllPaymentRecords,
   listAllUnlockRecords,
+  PAID_THEME_PRODUCTS,
   persistPaymentRecord,
   persistUnlockRecord,
   processVerifiedCashfreeWebhook,
   recordAdminAuditLog,
+  resolvePaidThemeProduct,
+  resolvePaidThemeProductByCode,
   sanitizeCustomerId,
   sanitizeOrderId,
   verifyCashfreeWebhookSignature,
   verifyOrderDirectlyWithCashfree,
   WORLDCUP_FIXED_AMOUNT_INR,
   WORLDCUP_FIXED_CURRENCY,
-  WORLDCUP_PRODUCT_CODE,
   WORLDCUP_PRODUCT_NAME,
+  type PaidThemeId,
   type WorldCupPaymentRecord,
   type WorldCupUnlockRecord,
 } from './server/cashfreePayments.js';
@@ -1393,7 +1397,7 @@ async function startServer() {
 
   // =========================================================================
   // 5. CASHFREE PRODUCTION PAYMENT & SERVER-SIDE UNLOCK ENDPOINTS
-  //    - Fixed amount ₹149 INR enforced strictly on the server.
+  //    - Fixed server-side prices: WorldCup ₹149 INR, Lightning Premier ₹79 INR.
   //    - Zero UTR/manual client unlocking. Zero sandbox/demo bypasses.
   // =========================================================================
   app.get('/api/payments/worldcup/status', async (req, res) => {
@@ -1403,27 +1407,50 @@ async function startServer() {
       res.status(401).json({
         ok: false,
         unlocked: false,
+        unlockedThemes: { worldcup: false, 'lightning-pro': false },
         error: 'Customer authentication required.',
       });
       return;
     }
 
-    const unlockRec = await getUnlockRecord(getSupabaseAdminClient(), customer.customerId);
-    const unlocked = isUnlockRecordActive(unlockRec);
+    const { unlockedThemes, records } = await getCustomerThemeEntitlements(
+      getSupabaseAdminClient(),
+      customer.customerId
+    );
+    const wcRec = records.worldcup;
+    const wcUnlocked = unlockedThemes.worldcup;
+
+    const buildThemeDetail = (themeId: PaidThemeId) => {
+      const rec = records[themeId];
+      const active = unlockedThemes[themeId];
+      return {
+        unlocked: active,
+        grantSource: active ? rec?.grant_source ?? null : null,
+        orderId: active ? rec?.order_id ?? null : null,
+        cfPaymentId: active ? rec?.cf_payment_id ?? null : null,
+        unlockedAt: active ? rec?.unlocked_at ?? null : null,
+        expiresAt: active ? rec?.expires_at ?? null : null,
+      };
+    };
 
     res.json({
       ok: true,
-      unlocked,
+      unlocked: wcUnlocked,
+      unlockedThemes,
+      themeEntitlements: {
+        worldcup: buildThemeDetail('worldcup'),
+        'lightning-pro': buildThemeDetail('lightning-pro'),
+      },
       customerId: customer.customerId,
       productName: WORLDCUP_PRODUCT_NAME,
       amount: WORLDCUP_FIXED_AMOUNT_INR,
       currency: WORLDCUP_FIXED_CURRENCY,
       cashfreeConfigured: isCashfreeConfigured(),
-      grantSource: unlocked ? unlockRec?.grant_source ?? null : null,
-      orderId: unlocked ? unlockRec?.order_id ?? null : null,
-      cfPaymentId: unlocked ? unlockRec?.cf_payment_id ?? null : null,
-      unlockedAt: unlocked ? unlockRec?.unlocked_at ?? null : null,
-      expiresAt: unlocked ? unlockRec?.expires_at ?? null : null,
+      grantSource: wcUnlocked ? wcRec?.grant_source ?? null : null,
+      orderId: wcUnlocked ? wcRec?.order_id ?? null : null,
+      cfPaymentId: wcUnlocked ? wcRec?.cf_payment_id ?? null : null,
+      unlockedAt: wcUnlocked ? wcRec?.unlocked_at ?? null : null,
+      expiresAt: wcUnlocked ? wcRec?.expires_at ?? null : null,
     });
   });
 
@@ -1432,14 +1459,22 @@ async function startServer() {
     res.setHeader('Cache-Control', 'no-store');
     const uid = sanitizeCustomerId(req.params.uid);
     if (!uid) {
-      res.status(400).json({ ok: false, unlocked: false });
+      res.status(400).json({
+        ok: false,
+        unlocked: false,
+        unlockedThemes: { worldcup: false, 'lightning-pro': false },
+      });
       return;
     }
-    const unlockRec = await getUnlockRecord(getSupabaseAdminClient(), uid);
+    const { unlockedThemes } = await getCustomerThemeEntitlements(
+      getSupabaseAdminClient(),
+      uid
+    );
     res.json({
       ok: true,
       uid,
-      unlocked: isUnlockRecordActive(unlockRec),
+      unlocked: unlockedThemes.worldcup,
+      unlockedThemes,
     });
   });
 
@@ -1454,26 +1489,35 @@ async function startServer() {
       return;
     }
 
+    const product = resolvePaidThemeProduct(req.body?.themeId ?? 'worldcup');
+    if (!product) {
+      res.status(400).json({
+        ok: false,
+        error: 'Unknown scoreboard theme product requested.',
+      });
+      return;
+    }
+
     // Strictly reject any tampered amount or currency supplied by the client
     if (
       req.body &&
       req.body.amount !== undefined &&
-      Number(req.body.amount) !== WORLDCUP_FIXED_AMOUNT_INR
+      Number(req.body.amount) !== product.amountInr
     ) {
       res.status(400).json({
         ok: false,
-        error: `Order amount is fixed at ₹${WORLDCUP_FIXED_AMOUNT_INR} ${WORLDCUP_FIXED_CURRENCY} on the server.`,
+        error: `Order amount for ${product.productName} is fixed at ₹${product.amountInr} ${product.currency} on the server.`,
       });
       return;
     }
     if (
       req.body &&
       req.body.currency !== undefined &&
-      String(req.body.currency).trim().toUpperCase() !== WORLDCUP_FIXED_CURRENCY
+      String(req.body.currency).trim().toUpperCase() !== product.currency
     ) {
       res.status(400).json({
         ok: false,
-        error: `Order currency is fixed at ${WORLDCUP_FIXED_CURRENCY} on the server.`,
+        error: `Order currency is fixed at ${product.currency} on the server.`,
       });
       return;
     }
@@ -1489,21 +1533,26 @@ async function startServer() {
       return;
     }
 
-    // Check if customer already has an active verified unlock
-    const existingUnlock = await getUnlockRecord(getSupabaseAdminClient(), customer.customerId);
+    // Check if customer already has an active verified unlock for this exact theme
+    const existingUnlock = await getUnlockRecord(
+      getSupabaseAdminClient(),
+      customer.customerId,
+      product.productCode
+    );
     if (isUnlockRecordActive(existingUnlock)) {
       res.json({
         ok: true,
         alreadyUnlocked: true,
         unlocked: true,
+        themeId: product.themeId,
         orderId: existingUnlock?.order_id ?? null,
       });
       return;
     }
 
-    const orderId = generateUniqueCashfreeOrderId();
+    const orderId = generateUniqueCashfreeOrderId(product.themeId);
     const origin = resolvePublicOrigin(req);
-    const returnUrl = `${origin}/?cf_order_id=${encodeURIComponent(orderId)}`;
+    const returnUrl = `${origin}/?cf_order_id=${encodeURIComponent(orderId)}&cf_theme=${encodeURIComponent(product.themeId)}`;
     const notifyUrl = `${origin}/api/webhooks/cashfree`;
 
     const customerPhone =
@@ -1523,6 +1572,7 @@ async function startServer() {
         customerPhone,
         returnUrl,
         notifyUrl,
+        product,
       });
 
       if (!cfResult.ok || !cfResult.paymentSessionId) {
@@ -1539,10 +1589,10 @@ async function startServer() {
         customer_id: customer.customerId,
         customer_email: customerEmail,
         customer_name: customer.customerName,
-        product_code: WORLDCUP_PRODUCT_CODE,
-        product_name: WORLDCUP_PRODUCT_NAME,
-        expected_amount: WORLDCUP_FIXED_AMOUNT_INR,
-        currency: WORLDCUP_FIXED_CURRENCY,
+        product_code: product.productCode,
+        product_name: product.productName,
+        expected_amount: product.amountInr,
+        currency: product.currency,
         cf_order_id: cfResult.cfOrderId || null,
         cf_payment_id: null,
         payment_status: 'PENDING',
@@ -1556,10 +1606,11 @@ async function startServer() {
 
       res.status(201).json({
         ok: true,
+        themeId: product.themeId,
         orderId,
         paymentSessionId: cfResult.paymentSessionId,
-        amount: WORLDCUP_FIXED_AMOUNT_INR,
-        currency: WORLDCUP_FIXED_CURRENCY,
+        amount: product.amountInr,
+        currency: product.currency,
         mode: 'production',
       });
     } catch (err) {
@@ -1623,8 +1674,9 @@ async function startServer() {
     }
 
     try {
+      const supabaseAdmin = getSupabaseAdminClient();
       const outcome = await verifyOrderDirectlyWithCashfree({
-        supabaseAdmin: getSupabaseAdminClient(),
+        supabaseAdmin,
         config: cfConfig,
         orderId,
         expectedCustomerId: customer.customerId,
@@ -1639,9 +1691,14 @@ async function startServer() {
         return;
       }
 
+      const product = resolvePaidThemeProductByCode(outcome.record.product_code);
+      const entitlements = await getCustomerThemeEntitlements(supabaseAdmin, customer.customerId);
+
       res.json({
         ok: outcome.verified,
         unlocked: outcome.unlocked,
+        themeId: product?.themeId || 'worldcup',
+        unlockedThemes: entitlements.unlockedThemes,
         paymentStatus: outcome.paymentStatus,
         orderId: outcome.record.order_id,
         cfPaymentId: outcome.cfPaymentId,
@@ -1682,6 +1739,7 @@ async function startServer() {
       ok: true,
       cashfreeConfigured: isCashfreeConfigured(),
       fixedAmountInr: WORLDCUP_FIXED_AMOUNT_INR,
+      products: PAID_THEME_PRODUCTS,
       payments,
       unlocks: allUnlocks,
       auditLogs,
@@ -1691,6 +1749,7 @@ async function startServer() {
   app.post('/api/admin/payments/worldcup/manual-grant', requireOwnerAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const customerId = sanitizeCustomerId(req.body?.customerId);
+    const product = resolvePaidThemeProduct(req.body?.themeId ?? req.body?.productCode ?? 'worldcup');
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 240) : '';
     const durationDaysRaw = req.body?.durationDays;
     const durationDays =
@@ -1698,6 +1757,10 @@ async function startServer() {
         ? Math.min(365, Math.floor(durationDaysRaw))
         : null;
 
+    if (!product) {
+      res.status(400).json({ ok: false, error: 'Invalid scoreboard theme product.' });
+      return;
+    }
     if (customerId.length < 3) {
       res.status(400).json({ ok: false, error: 'Valid Customer ID / Access ID is required.' });
       return;
@@ -1718,7 +1781,7 @@ async function startServer() {
     const supabaseAdmin = getSupabaseAdminClient();
     const unlockRec: WorldCupUnlockRecord = {
       customer_id: customerId,
-      product_code: WORLDCUP_PRODUCT_CODE,
+      product_code: product.productCode,
       unlock_status: 'UNLOCKED',
       grant_source: 'admin_manual',
       order_id: null,
@@ -1738,7 +1801,9 @@ async function startServer() {
       reason,
       ip_address: getClientIp(req),
       metadata: {
-        product_code: WORLDCUP_PRODUCT_CODE,
+        theme_id: product.themeId,
+        product_code: product.productCode,
+        product_name: product.productName,
         expires_at: expiresAt,
       },
     });
@@ -1749,8 +1814,13 @@ async function startServer() {
   app.post('/api/admin/payments/worldcup/revoke', requireOwnerAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     const customerId = sanitizeCustomerId(req.body?.customerId);
+    const product = resolvePaidThemeProduct(req.body?.themeId ?? req.body?.productCode ?? 'worldcup');
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 240) : '';
 
+    if (!product) {
+      res.status(400).json({ ok: false, error: 'Invalid scoreboard theme product.' });
+      return;
+    }
     if (customerId.length < 3) {
       res.status(400).json({ ok: false, error: 'Valid Customer ID is required.' });
       return;
@@ -1762,10 +1832,10 @@ async function startServer() {
 
     const nowIso = new Date().toISOString();
     const supabaseAdmin = getSupabaseAdminClient();
-    const existing = await getUnlockRecord(supabaseAdmin, customerId);
+    const existing = await getUnlockRecord(supabaseAdmin, customerId, product.productCode);
     const revokedRec: WorldCupUnlockRecord = {
       customer_id: customerId,
-      product_code: WORLDCUP_PRODUCT_CODE,
+      product_code: product.productCode,
       unlock_status: 'LOCKED',
       grant_source: existing?.grant_source || 'admin_manual',
       order_id: existing?.order_id || null,
@@ -1784,7 +1854,11 @@ async function startServer() {
       customer_id: customerId,
       reason,
       ip_address: getClientIp(req),
-      metadata: { product_code: WORLDCUP_PRODUCT_CODE },
+      metadata: {
+        theme_id: product.themeId,
+        product_code: product.productCode,
+        product_name: product.productName,
+      },
     });
 
     res.json({ ok: true, unlock: revokedRec, auditLog: auditEntry });

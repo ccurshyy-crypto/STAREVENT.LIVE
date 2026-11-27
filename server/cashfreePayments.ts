@@ -5,7 +5,57 @@ export const CASHFREE_PRODUCTION_BASE_URL = 'https://api.cashfree.com/pg';
 export const WORLDCUP_PRODUCT_CODE = 'worldcup_scoreboard';
 export const WORLDCUP_PRODUCT_NAME = 'WorldCup Scoreboard';
 export const WORLDCUP_FIXED_AMOUNT_INR = 149;
+export const LIGHTNING_PRO_PRODUCT_CODE = 'lightning_pro_scoreboard';
+export const LIGHTNING_PRO_PRODUCT_NAME = 'Lightning Premier Scoreboard';
+export const LIGHTNING_PRO_FIXED_AMOUNT_INR = 79;
 export const WORLDCUP_FIXED_CURRENCY = 'INR';
+
+export type PaidThemeId = 'worldcup' | 'lightning-pro';
+
+export interface PaidThemeProductConfig {
+  themeId: PaidThemeId;
+  productCode: string;
+  productName: string;
+  amountInr: number;
+  currency: 'INR';
+  orderPrefix: string;
+}
+
+export const PAID_THEME_PRODUCTS: Record<PaidThemeId, PaidThemeProductConfig> = {
+  worldcup: {
+    themeId: 'worldcup',
+    productCode: WORLDCUP_PRODUCT_CODE,
+    productName: WORLDCUP_PRODUCT_NAME,
+    amountInr: WORLDCUP_FIXED_AMOUNT_INR,
+    currency: 'INR',
+    orderPrefix: 'WC',
+  },
+  'lightning-pro': {
+    themeId: 'lightning-pro',
+    productCode: LIGHTNING_PRO_PRODUCT_CODE,
+    productName: LIGHTNING_PRO_PRODUCT_NAME,
+    amountInr: LIGHTNING_PRO_FIXED_AMOUNT_INR,
+    currency: 'INR',
+    orderPrefix: 'LP',
+  },
+};
+
+export function resolvePaidThemeProduct(raw: unknown): PaidThemeProductConfig | null {
+  const val = String(raw || '').trim().toLowerCase();
+  if (!val || val === 'worldcup' || val === WORLDCUP_PRODUCT_CODE) {
+    return PAID_THEME_PRODUCTS.worldcup;
+  }
+  if (val === 'lightning-pro' || val === LIGHTNING_PRO_PRODUCT_CODE) {
+    return PAID_THEME_PRODUCTS['lightning-pro'];
+  }
+  return null;
+}
+
+export function resolvePaidThemeProductByCode(productCode: string): PaidThemeProductConfig | null {
+  if (productCode === WORLDCUP_PRODUCT_CODE) return PAID_THEME_PRODUCTS.worldcup;
+  if (productCode === LIGHTNING_PRO_PRODUCT_CODE) return PAID_THEME_PRODUCTS['lightning-pro'];
+  return null;
+}
 
 export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED' | 'CANCELLED';
 export type UnlockStatus = 'LOCKED' | 'UNLOCKED';
@@ -89,10 +139,11 @@ export function sanitizeOrderId(raw: unknown): string {
     .slice(0, 50);
 }
 
-export function generateUniqueCashfreeOrderId(): string {
+export function generateUniqueCashfreeOrderId(themeId: PaidThemeId = 'worldcup'): string {
+  const prefix = PAID_THEME_PRODUCTS[themeId]?.orderPrefix || 'WC';
   const ts = Date.now();
   const rand = crypto.randomBytes(6).toString('hex').toUpperCase();
-  return `WC_${ts}_${rand}`;
+  return `${prefix}_${ts}_${rand}`;
 }
 
 /**
@@ -130,9 +181,13 @@ export function verifyCashfreeWebhookSignature(
 // Authoritative server-side stores (backed by Supabase PostgreSQL when SUPABASE_SERVICE_ROLE_KEY is configured)
 const paymentRecordsByOrderId = new Map<string, WorldCupPaymentRecord>();
 const usedCfPaymentIds = new Map<string, string>(); // cf_payment_id -> order_id (unique constraint)
-const unlockRecordsByCustomerId = new Map<string, WorldCupUnlockRecord>();
+const unlockRecordsByCustomerProduct = new Map<string, WorldCupUnlockRecord>(); // `${customerId}::${productCode}`
 const processedWebhookKeys = new Set<string>();
 const adminAuditLogs: PaymentAdminAuditLog[] = [];
+
+function unlockKey(customerId: string, productCode: string): string {
+  return `${sanitizeCustomerId(customerId)}::${productCode}`;
+}
 
 // Per-order mutex to prevent concurrent verify + webhook race conditions
 const orderLocks = new Map<string, Promise<void>>();
@@ -303,12 +358,24 @@ export async function persistUnlockRecord(
   supabaseAdmin: SupabaseClient | null,
   record: WorldCupUnlockRecord
 ): Promise<void> {
-  unlockRecordsByCustomerId.set(record.customer_id, record);
+  const productCode = record.product_code || WORLDCUP_PRODUCT_CODE;
+  const normalized: WorldCupUnlockRecord = {
+    ...record,
+    customer_id: sanitizeCustomerId(record.customer_id),
+    product_code: productCode,
+  };
+  unlockRecordsByCustomerProduct.set(unlockKey(normalized.customer_id, productCode), normalized);
   if (!supabaseAdmin) return;
   try {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('worldcup_unlocks')
-      .upsert(record, { onConflict: 'customer_id' });
+      .upsert(normalized, { onConflict: 'customer_id,product_code' });
+    if (error && productCode === WORLDCUP_PRODUCT_CODE) {
+      // Legacy fallback if composite PK migration has not yet been applied
+      await supabaseAdmin
+        .from('worldcup_unlocks')
+        .upsert(normalized, { onConflict: 'customer_id' });
+    }
   } catch {
     // Ignore if table not yet migrated
   }
@@ -316,7 +383,8 @@ export async function persistUnlockRecord(
 
 export async function getUnlockRecord(
   supabaseAdmin: SupabaseClient | null,
-  customerId: string
+  customerId: string,
+  productCode: string = WORLDCUP_PRODUCT_CODE
 ): Promise<WorldCupUnlockRecord | null> {
   const cleanId = sanitizeCustomerId(customerId);
   if (!cleanId) return null;
@@ -327,17 +395,41 @@ export async function getUnlockRecord(
         .from('worldcup_unlocks')
         .select('*')
         .eq('customer_id', cleanId)
+        .eq('product_code', productCode)
         .maybeSingle();
       if (!error && data) {
         const rec = data as WorldCupUnlockRecord;
-        unlockRecordsByCustomerId.set(rec.customer_id, rec);
+        unlockRecordsByCustomerProduct.set(unlockKey(rec.customer_id, rec.product_code || productCode), rec);
         return rec;
       }
     } catch {
       // Fallback to server memory index
     }
   }
-  return unlockRecordsByCustomerId.get(cleanId) ?? null;
+  return unlockRecordsByCustomerProduct.get(unlockKey(cleanId, productCode)) ?? null;
+}
+
+export async function getCustomerThemeEntitlements(
+  supabaseAdmin: SupabaseClient | null,
+  customerId: string
+): Promise<{
+  unlockedThemes: Record<PaidThemeId, boolean>;
+  records: Record<PaidThemeId, WorldCupUnlockRecord | null>;
+}> {
+  const [wcRec, lpRec] = await Promise.all([
+    getUnlockRecord(supabaseAdmin, customerId, WORLDCUP_PRODUCT_CODE),
+    getUnlockRecord(supabaseAdmin, customerId, LIGHTNING_PRO_PRODUCT_CODE),
+  ]);
+  return {
+    unlockedThemes: {
+      worldcup: isUnlockRecordActive(wcRec),
+      'lightning-pro': isUnlockRecordActive(lpRec),
+    },
+    records: {
+      worldcup: wcRec,
+      'lightning-pro': lpRec,
+    },
+  };
 }
 
 export async function recordAdminAuditLog(
@@ -403,7 +495,10 @@ export async function listAllUnlockRecords(
         .limit(200);
       if (!error && Array.isArray(data)) {
         for (const row of data as WorldCupUnlockRecord[]) {
-          unlockRecordsByCustomerId.set(row.customer_id, row);
+          unlockRecordsByCustomerProduct.set(
+            unlockKey(row.customer_id, row.product_code || WORLDCUP_PRODUCT_CODE),
+            row
+          );
         }
         return data as WorldCupUnlockRecord[];
       }
@@ -411,7 +506,7 @@ export async function listAllUnlockRecords(
       // Fallback to memory index
     }
   }
-  return Array.from(unlockRecordsByCustomerId.values()).sort((a, b) =>
+  return Array.from(unlockRecordsByCustomerProduct.values()).sort((a, b) =>
     b.updated_at.localeCompare(a.updated_at)
   );
 }
@@ -451,6 +546,7 @@ export interface CashfreeCreateOrderResult {
 
 export async function createCashfreeProductionOrder(params: {
   config: CashfreeConfig;
+  product?: PaidThemeProductConfig;
   orderId: string;
   customerId: string;
   customerName: string;
@@ -459,7 +555,17 @@ export async function createCashfreeProductionOrder(params: {
   returnUrl: string;
   notifyUrl?: string;
 }): Promise<CashfreeCreateOrderResult> {
-  const { config, orderId, customerId, customerName, customerEmail, customerPhone, returnUrl, notifyUrl } = params;
+  const {
+    config,
+    product = PAID_THEME_PRODUCTS.worldcup,
+    orderId,
+    customerId,
+    customerName,
+    customerEmail,
+    customerPhone,
+    returnUrl,
+    notifyUrl,
+  } = params;
 
   const safePhone = customerPhone.replace(/\D/g, '').slice(-10);
   const resolvedPhone = safePhone.length === 10 ? safePhone : '9890175727';
@@ -476,8 +582,8 @@ export async function createCashfreeProductionOrder(params: {
 
   const payload = {
     order_id: orderId,
-    order_amount: WORLDCUP_FIXED_AMOUNT_INR,
-    order_currency: WORLDCUP_FIXED_CURRENCY,
+    order_amount: product.amountInr,
+    order_currency: product.currency,
     customer_details: {
       customer_id: customerId,
       customer_name: customerName.slice(0, 80) || customerId,
@@ -485,7 +591,7 @@ export async function createCashfreeProductionOrder(params: {
       customer_phone: resolvedPhone,
     },
     order_meta: orderMeta,
-    order_note: `${WORLDCUP_PRODUCT_NAME} Unlock (${customerId})`,
+    order_note: `${product.productName} Unlock (${customerId})`,
   };
 
   const response = await fetch(`${CASHFREE_PRODUCTION_BASE_URL}/orders`, {
@@ -581,7 +687,11 @@ export async function verifyOrderDirectlyWithCashfree(params: {
 
     // Already verified & paid -> idempotent return
     if (existing.payment_status === 'PAID' && existing.unlock_status === 'UNLOCKED') {
-      const unlockRec = await getUnlockRecord(supabaseAdmin, existing.customer_id);
+      const unlockRec = await getUnlockRecord(
+        supabaseAdmin,
+        existing.customer_id,
+        existing.product_code || WORLDCUP_PRODUCT_CODE
+      );
       if (isUnlockRecordActive(unlockRec)) {
         return {
           verified: true,
@@ -647,6 +757,27 @@ export async function evaluateAndPersistCashfreeVerification(params: {
   const { supabaseAdmin, existing, cfOrder, cfPayments } = params;
   const nowIso = new Date().toISOString();
 
+  // Strictly resolve authoritative server catalog price for this product
+  const catalogProduct = resolvePaidThemeProductByCode(
+    existing.product_code || WORLDCUP_PRODUCT_CODE
+  );
+  if (
+    !catalogProduct ||
+    Math.round(Number(existing.expected_amount) * 100) !== catalogProduct.amountInr * 100
+  ) {
+    return {
+      verified: false,
+      unlocked: false,
+      paymentStatus: 'FAILED',
+      cfPaymentId: null,
+      reason: 'Order does not match an authorized server product price.',
+      record: existing,
+    };
+  }
+
+  const expectedAmountInr = catalogProduct.amountInr;
+  const expectedCurrency = catalogProduct.currency;
+
   // Check order ID, amount, currency, and customer ownership on Cashfree order object
   if (cfOrder) {
     if (cfOrder.order_id && cfOrder.order_id !== existing.order_id) {
@@ -661,7 +792,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
     }
     if (
       typeof cfOrder.order_amount === 'number' &&
-      Math.round(cfOrder.order_amount * 100) !== WORLDCUP_FIXED_AMOUNT_INR * 100
+      Math.round(cfOrder.order_amount * 100) !== expectedAmountInr * 100
     ) {
       const updated: WorldCupPaymentRecord = {
         ...existing,
@@ -676,13 +807,13 @@ export async function evaluateAndPersistCashfreeVerification(params: {
         unlocked: false,
         paymentStatus: 'FAILED',
         cfPaymentId: null,
-        reason: `Expected ₹${WORLDCUP_FIXED_AMOUNT_INR} INR, received mismatched order amount.`,
+        reason: `Expected ₹${expectedAmountInr} ${expectedCurrency}, received mismatched order amount.`,
         record: updated,
       };
     }
     if (
       cfOrder.order_currency &&
-      cfOrder.order_currency.toUpperCase() !== WORLDCUP_FIXED_CURRENCY
+      cfOrder.order_currency.toUpperCase() !== expectedCurrency
     ) {
       const updated: WorldCupPaymentRecord = {
         ...existing,
@@ -697,7 +828,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
         unlocked: false,
         paymentStatus: 'FAILED',
         cfPaymentId: null,
-        reason: 'Currency mismatch (expected INR).',
+        reason: `Currency mismatch (expected ${expectedCurrency}).`,
         record: updated,
       };
     }
@@ -716,10 +847,13 @@ export async function evaluateAndPersistCashfreeVerification(params: {
     }
   }
 
-  // Locate a strictly valid SUCCESS payment
+  // Locate a strictly valid SUCCESS payment matching exact catalog amount & currency
   const successPayment = cfPayments.find((p) => {
     const status = String(p.payment_status || '').toUpperCase();
-    const pid = p.cf_payment_id !== undefined && p.cf_payment_id !== null ? String(p.cf_payment_id).trim() : '';
+    const pid =
+      p.cf_payment_id !== undefined && p.cf_payment_id !== null
+        ? String(p.cf_payment_id).trim()
+        : '';
     const pOrderId = String(p.order_id || '').trim();
     const pAmount = Number(p.payment_amount ?? p.order_amount ?? 0);
     const pCurrency = String(p.payment_currency || '').toUpperCase();
@@ -728,8 +862,8 @@ export async function evaluateAndPersistCashfreeVerification(params: {
       status === 'SUCCESS' &&
       pid.length > 0 &&
       pOrderId === existing.order_id &&
-      Math.round(pAmount * 100) === WORLDCUP_FIXED_AMOUNT_INR * 100 &&
-      pCurrency === WORLDCUP_FIXED_CURRENCY
+      Math.round(pAmount * 100) === expectedAmountInr * 100 &&
+      pCurrency === expectedCurrency
     );
   });
 
@@ -776,7 +910,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
 
     const unlockRecord: WorldCupUnlockRecord = {
       customer_id: existing.customer_id,
-      product_code: WORLDCUP_PRODUCT_CODE,
+      product_code: catalogProduct.productCode,
       unlock_status: 'UNLOCKED',
       grant_source: 'cashfree',
       order_id: existing.order_id,
@@ -824,7 +958,10 @@ export async function evaluateAndPersistCashfreeVerification(params: {
           committedViaRpc = true;
           paymentRecordsByOrderId.set(paidRecord.order_id, paidRecord);
           usedCfPaymentIds.set(cfPaymentId, paidRecord.order_id);
-          unlockRecordsByCustomerId.set(unlockRecord.customer_id, unlockRecord);
+          unlockRecordsByCustomerProduct.set(
+            unlockKey(unlockRecord.customer_id, unlockRecord.product_code),
+            unlockRecord
+          );
         }
       } catch {
         // Fall through to checked upsert fallback when RPC is not yet migrated
@@ -859,7 +996,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
       unlocked: true,
       paymentStatus: 'PAID',
       cfPaymentId,
-      reason: 'Cashfree payment verified successfully. WorldCup Scoreboard unlocked.',
+      reason: `Cashfree payment verified successfully. ${catalogProduct.productName} unlocked.`,
       record: paidRecord,
     };
   }
@@ -876,7 +1013,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
   if (rawStatus === 'SUCCESS') {
     // Reached here only if SUCCESS had wrong amount, wrong currency, or mismatched order ID
     mappedStatus = 'FAILED';
-    reason = `Payment failed validation (must be exactly ₹${WORLDCUP_FIXED_AMOUNT_INR} INR for this order).`;
+    reason = `Payment failed validation (must be exactly ₹${expectedAmountInr} ${expectedCurrency} for this order).`;
   } else if (rawStatus === 'FAILED' || rawStatus === 'FLAGGED') {
     mappedStatus = 'FAILED';
     reason = latestAttempt?.payment_message || 'Payment failed on Cashfree.';

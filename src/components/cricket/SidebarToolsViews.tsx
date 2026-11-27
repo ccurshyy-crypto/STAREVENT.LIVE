@@ -39,11 +39,15 @@ import {
 } from '../../types/cricketSuite';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
+import { LightningProScoreboardBar } from './LightningProScoreboardBar';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
   formatUnlockTimestamp,
+  getPaidThemeConfig,
+  isPaidThemeId,
+  isThemeUnlockedInStatus,
+  type PaidThemeId,
   useWorldCupServerUnlock,
-  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
 
 interface SidebarToolsViewsProps {
@@ -68,8 +72,9 @@ export function SidebarToolsViews({
   onResetDemoData,
   onToast,
 }: SidebarToolsViewsProps) {
-  // ===== WORLDCUP UNLOCK PAYMENT MODAL =====
+  // ===== PAID THEME UNLOCK PAYMENT MODAL (WORLDCUP ₹149 & LIGHTNING PREMIER ₹79) =====
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
+  const [payModalThemeId, setPayModalThemeId] = useState<PaidThemeId>('worldcup');
   const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
     useWorldCupServerUnlock();
 
@@ -888,20 +893,17 @@ export function SidebarToolsViews({
   // ================= 4. THEME SETUP (BROADCAST SCOREBOARD THEMES) =================
   if (route === 'theme') {
     const customColors = state.user.customThemeColors;
-    const worldCupUnlocked = worldCupStatus.unlocked;
-    const effectiveThemeId: OverlayThemeId =
-      state.user.userTheme === 'worldcup' && !worldCupUnlocked
-        ? 'tata-ipl-2022'
-        : state.user.userTheme;
+    const effectiveThemeId: OverlayThemeId = isThemeUnlockedInStatus(
+      state.user.userTheme,
+      worldCupStatus
+    )
+      ? state.user.userTheme
+      : 'tata-ipl-2022';
     const activePalette = getThemePalette(effectiveThemeId, customColors);
-    const worldCupStatusBadge = worldCupStatus.expiresAt
-      ? `Valid till ${formatUnlockTimestamp(worldCupStatus.expiresAt)}`
-      : worldCupStatus.grantSource === 'admin_manual'
-        ? 'Admin Verified'
-        : 'Cashfree Verified';
 
     const handleSelectTheme = (themeId: OverlayThemeId, themeName: string) => {
-      if (themeId === 'worldcup' && !worldCupUnlocked) {
+      if (isPaidThemeId(themeId) && !isThemeUnlockedInStatus(themeId, worldCupStatus)) {
+        setPayModalThemeId(themeId);
         setWorldCupPayModalOpen(true);
         return;
       }
@@ -926,19 +928,22 @@ export function SidebarToolsViews({
       onToast(`Theme active: ${themeName} (live on OBS / vMix overlay).`);
     };
 
-    const handleWorldCupUnlocked = ({
+    const handleThemeUnlocked = ({
+      themeId: unlockedId,
       orderId,
       cfPaymentId,
     }: {
+      themeId: PaidThemeId;
       orderId: string;
       cfPaymentId: string | null;
     }) => {
       void refreshWorldCupStatus();
+      const unlockedProduct = getPaidThemeConfig(unlockedId);
       updateState((prev) => ({
         ...prev,
         user: {
           ...prev.user,
-          userTheme: 'worldcup',
+          userTheme: unlockedId,
           worldcupLastPaymentRef: cfPaymentId || orderId,
           customThemeColors: {
             ...prev.user.customThemeColors,
@@ -953,7 +958,7 @@ export function SidebarToolsViews({
               : prev.overlay.bottomScoreMode,
         },
       }));
-      onToast('WorldCup Scoreboard payment verified and activated live!');
+      onToast(`${unlockedProduct.productName} payment verified and activated live!`);
     };
 
     const previewZeroBalls = [
@@ -963,6 +968,11 @@ export function SidebarToolsViews({
       { id: 'wc-b4', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
       { id: 'wc-b5', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
       { id: 'wc-b6', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
+    ];
+
+    const previewLightningBalls = [
+      { id: 'lp-b1', label: 'W', isBoundary4: false, isBoundary6: false, isWicket: true, isExtra: false },
+      { id: 'lp-b2', label: '0', isBoundary4: false, isBoundary6: false, isWicket: false, isExtra: false },
     ];
 
     return (
@@ -1000,8 +1010,18 @@ export function SidebarToolsViews({
 
           {BROADCAST_THEMES.map((theme) => {
             const isWorldCup = theme.id === 'worldcup';
-            const isLocked = isWorldCup && !worldCupUnlocked;
+            const isLightningPro = theme.id === 'lightning-pro';
+            const paidThemeId: PaidThemeId | null = isPaidThemeId(theme.id) ? theme.id : null;
+            const isPaid = paidThemeId !== null;
+            const paidConfig = paidThemeId ? getPaidThemeConfig(paidThemeId) : null;
+            const themeDetail = paidThemeId ? worldCupStatus.themeEntitlements[paidThemeId] : null;
+            const isLocked = paidThemeId !== null && !isThemeUnlockedInStatus(paidThemeId, worldCupStatus);
             const isSelected = effectiveThemeId === theme.id && !customColors.enabled;
+            const unlockedStatusBadge = themeDetail?.expiresAt
+              ? `Valid till ${formatUnlockTimestamp(themeDetail.expiresAt)}`
+              : themeDetail?.grantSource === 'admin_manual'
+                ? 'Admin Verified'
+                : 'Cashfree Verified';
 
             return (
               <div
@@ -1020,32 +1040,34 @@ export function SidebarToolsViews({
                   style={{
                     background: isWorldCup
                       ? 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 55%, #CBD5E1 100%)'
-                      : 'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
+                      : isLightningPro
+                        ? 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 55%, #E2E8F0 100%)'
+                        : 'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
                   }}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span
                       className={`font-display font-black text-xs sm:text-sm tracking-wide inline-flex items-center gap-1.5 ${
-                        isWorldCup ? 'text-slate-900' : 'text-white'
+                        isWorldCup || isLightningPro ? 'text-slate-900' : 'text-white'
                       }`}
                     >
                       {isLocked && <Lock className="w-3.5 h-3.5 text-[#EA580C]" aria-hidden="true" />}
                       <span>★ {theme.name}</span>
                     </span>
                     <div className="flex items-center gap-2">
-                      {isLocked ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-900 text-white text-[11px] font-extrabold tracking-wide">
-                          <span className="text-[#FFE600]">₹{WORLDCUP_FIXED_PRICE_INR}</span>
+                      {isLocked && paidConfig ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-900 text-white text-[11px] font-extrabold tracking-wide tabular-nums">
+                          <span className="text-[#FFE600]">₹{paidConfig.priceInr}</span>
                           <span className="text-orange-200">· Cashfree Verified</span>
                         </span>
-                      ) : isWorldCup ? (
+                      ) : isPaid ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                          {worldCupStatus.expiresAt ? (
+                          {themeDetail?.expiresAt ? (
                             <Clock className="w-3 h-3" aria-hidden="true" />
                           ) : (
                             <ShieldCheck className="w-3 h-3" aria-hidden="true" />
                           )}
-                          Unlocked · {worldCupStatusBadge}
+                          Unlocked · {unlockedStatusBadge}
                         </span>
                       ) : null}
                       {isSelected && (
@@ -1080,6 +1102,32 @@ export function SidebarToolsViews({
                       tickerText="LIVE SCORE WORLD CUP"
                       compact
                     />
+                  ) : isLightningPro ? (
+                    <LightningProScoreboardBar
+                      batTeamName="MAMDAPURWADI"
+                      batTeamCode="MDPW"
+                      bowlTeamName="PETARWADI"
+                      bowlTeamCode="PTRWD"
+                      runs={0}
+                      wickets={0}
+                      oversText="0.0"
+                      maxOvers={20}
+                      batter1Name="PAPPYA"
+                      batter1Runs={0}
+                      batter1Balls={0}
+                      batter2Name="SURAJ"
+                      batter2Runs={0}
+                      batter2Balls={0}
+                      strikerIndex={1}
+                      bowlerName="CRUSHYY"
+                      bowlerFigs="0 - 0"
+                      bowlerOvers="0.0"
+                      balls={previewLightningBalls}
+                      showBalls
+                      topHoodText="TARGET - 00"
+                      bottomTickerText="NEED 00 RUNS FROM 20 BALLS"
+                      compact
+                    />
                   ) : (
                     <TataIplScoreboardBar
                       batTeamCode="GT"
@@ -1107,24 +1155,29 @@ export function SidebarToolsViews({
                 <div className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-white">
                   <div className="min-w-0 space-y-0.5">
                     <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
-                    {isLocked && (
+                    {isLocked && paidConfig && (
                       <p className="text-[11px] font-bold text-[#C25E00]">
-                        Unlock WorldCup Scoreboard —{' '}
-                        <span className="text-slate-900 font-black">
-                          ₹{WORLDCUP_FIXED_PRICE_INR} INR
+                        Unlock {paidConfig.productName} —{' '}
+                        <span className="text-slate-900 font-black tabular-nums">
+                          ₹{paidConfig.priceInr} {paidConfig.currency}
                         </span>{' '}
                         (Server-Verified Cashfree Checkout)
                       </p>
                     )}
                   </div>
-                  {isLocked ? (
+                  {isLocked && paidConfig && paidThemeId ? (
                     <button
                       type="button"
-                      onClick={() => setWorldCupPayModalOpen(true)}
+                      onClick={() => {
+                        setPayModalThemeId(paidThemeId);
+                        setWorldCupPayModalOpen(true);
+                      }}
                       className="px-4 py-2 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-sm"
                     >
                       <CreditCard className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>UNLOCK WORLDCUP SCOREBOARD – ₹{WORLDCUP_FIXED_PRICE_INR}</span>
+                      <span>
+                        UNLOCK {paidConfig.shortName.toUpperCase()} – ₹{paidConfig.priceInr}
+                      </span>
                     </button>
                   ) : (
                     <button
@@ -1146,8 +1199,9 @@ export function SidebarToolsViews({
 
         <WorldCupUnlockModal
           open={worldCupPayModalOpen}
+          themeId={payModalThemeId}
           onClose={() => setWorldCupPayModalOpen(false)}
-          onUnlockSuccess={handleWorldCupUnlocked}
+          onUnlockSuccess={handleThemeUnlocked}
         />
 
         {/* Custom Theme Color Selection */}

@@ -11,13 +11,18 @@ import {
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
-import { formatUnlockTimestamp } from '../lib/worldCupUnlock';
+import {
+  formatUnlockTimestamp,
+  PAID_THEME_CATALOG,
+  type PaidThemeId,
+} from '../lib/worldCupUnlock';
 
 interface AdminPaymentRow {
   order_id: string;
   customer_id: string;
   customer_email: string;
   customer_name: string;
+  product_code?: string;
   product_name: string;
   expected_amount: number;
   currency: string;
@@ -32,6 +37,7 @@ interface AdminPaymentRow {
 
 interface AdminUnlockRow {
   customer_id: string;
+  product_code?: string;
   unlock_status: 'LOCKED' | 'UNLOCKED';
   grant_source: 'cashfree' | 'admin_manual';
   order_id: string | null;
@@ -70,6 +76,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
 
   // Manual Grant Form (Admin-only with mandatory audit reason)
   const [grantCustomerId, setGrantCustomerId] = useState('');
+  const [grantThemeId, setGrantThemeId] = useState<PaidThemeId>('worldcup');
   const [grantReason, setGrantReason] = useState('');
   const [grantDurationDays, setGrantDurationDays] = useState('');
   const [granting, setGranting] = useState(false);
@@ -125,6 +132,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
     setGranting(true);
     try {
       const daysNum = grantDurationDays.trim() ? Number(grantDurationDays.trim()) : undefined;
+      const selectedProduct = PAID_THEME_CATALOG[grantThemeId];
       const res = await fetch('/api/admin/payments/worldcup/manual-grant', {
         method: 'POST',
         headers: {
@@ -133,6 +141,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
         },
         body: JSON.stringify({
           customerId: grantCustomerId.trim(),
+          themeId: grantThemeId,
           reason: grantReason.trim(),
           durationDays: Number.isFinite(daysNum) && (daysNum as number) > 0 ? daysNum : undefined,
         }),
@@ -149,7 +158,9 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
         setErrorMsg(json?.error || 'Failed to grant manual access.');
         return;
       }
-      setFeedbackMsg(`Manual WorldCup unlock granted to ${grantCustomerId.trim().toUpperCase()} (audit logged).`);
+      setFeedbackMsg(
+        `Manual ${selectedProduct.productName} unlock granted to ${grantCustomerId.trim().toUpperCase()} (audit logged).`
+      );
       setGrantCustomerId('');
       setGrantReason('');
       setGrantDurationDays('');
@@ -161,9 +172,12 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
     }
   };
 
-  const handleRevokeUnlock = async (customerId: string) => {
+  const handleRevokeUnlock = async (customerId: string, productCode?: string) => {
     setErrorMsg(null);
     setFeedbackMsg(null);
+    const themeId: PaidThemeId =
+      productCode === 'lightning_pro_scoreboard' ? 'lightning-pro' : 'worldcup';
+    const product = PAID_THEME_CATALOG[themeId];
     try {
       const res = await fetch('/api/admin/payments/worldcup/revoke', {
         method: 'POST',
@@ -173,7 +187,8 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
         },
         body: JSON.stringify({
           customerId,
-          reason: `Admin revoked WorldCup Scoreboard unlock for ${customerId}`,
+          themeId,
+          reason: `Admin revoked ${product.productName} unlock for ${customerId}`,
         }),
       });
       if (res.status === 401) {
@@ -185,7 +200,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
         setErrorMsg(json?.error || 'Failed to revoke unlock.');
         return;
       }
-      setFeedbackMsg(`Revoked WorldCup Scoreboard access for ${customerId} (audit logged).`);
+      setFeedbackMsg(`Revoked ${product.productName} access for ${customerId} (audit logged).`);
       await loadData();
     } catch {
       setErrorMsg('Network error while revoking access.');
@@ -205,7 +220,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
               Cashfree Production Payments &amp; Audit Ledger
             </h3>
             <p className="text-xs text-zinc-400">
-              Server-verified ₹149 INR orders · Webhook HMAC-SHA256 verified · Zero UTR bypass
+              Server-verified ₹149 WorldCup &amp; ₹79 Lightning Premier orders · Webhook HMAC-SHA256 verified · Zero UTR bypass
             </p>
           </div>
         </div>
@@ -289,6 +304,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
                   <th className="py-2 pr-3">Order ID</th>
                   <th className="py-2 pr-3">Cashfree Payment ID</th>
                   <th className="py-2 pr-3">Customer</th>
+                  <th className="py-2 pr-3">Theme</th>
                   <th className="py-2 pr-3">Amount</th>
                   <th className="py-2 pr-3">Status</th>
                   <th className="py-2 pr-3">Unlock</th>
@@ -304,6 +320,9 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
                     </td>
                     <td className="py-2.5 pr-3">
                       <span className="font-bold text-white">{p.customer_id}</span>
+                    </td>
+                    <td className="py-2.5 pr-3 font-semibold text-zinc-200">
+                      {p.product_name || 'WorldCup Scoreboard'}
                     </td>
                     <td className="py-2.5 pr-3 font-bold tabular-nums">
                       ₹{p.expected_amount} {p.currency}
@@ -366,7 +385,7 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
           </div>
         </div>
 
-        <form onSubmit={handleManualGrant} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <form onSubmit={handleManualGrant} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <div>
             <label
               htmlFor="admin-grant-customer-id"
@@ -383,6 +402,23 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
               placeholder="e.g. STAR-1001"
               className="w-full px-3 py-2 rounded-lg bg-zinc-950/90 border border-white/15 text-xs font-mono text-white"
             />
+          </div>
+          <div>
+            <label
+              htmlFor="admin-grant-theme"
+              className="block text-[11px] font-bold uppercase text-zinc-300 mb-1"
+            >
+              Scoreboard Theme
+            </label>
+            <select
+              id="admin-grant-theme"
+              value={grantThemeId}
+              onChange={(e) => setGrantThemeId(e.target.value as PaidThemeId)}
+              className="w-full px-3 py-2 rounded-lg bg-zinc-950/90 border border-white/15 text-xs font-semibold text-white"
+            >
+              <option value="worldcup">WorldCup Scoreboard (₹149)</option>
+              <option value="lightning-pro">Lightning Premier Scoreboard (₹79)</option>
+            </select>
           </div>
           <div>
             <label
@@ -420,14 +456,18 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
               className="w-full px-3 py-2 rounded-lg bg-zinc-950/90 border border-white/15 text-xs text-white"
             />
           </div>
-          <div className="sm:col-span-3">
+          <div className="sm:col-span-2 lg:col-span-4">
             <button
               type="submit"
               disabled={granting}
               className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#FFE600] hover:bg-yellow-300 text-slate-950 text-xs font-black uppercase tracking-wider disabled:opacity-60"
             >
               <LockOpen className="w-3.5 h-3.5" aria-hidden="true" />
-              <span>{granting ? 'Granting...' : 'Grant WorldCup Access (Log Audit)'}</span>
+              <span>
+                {granting
+                  ? 'Granting...'
+                  : `Grant ${PAID_THEME_CATALOG[grantThemeId].shortName} Access (Log Audit)`}
+              </span>
             </button>
           </div>
         </form>
@@ -439,38 +479,52 @@ export function AdminPaymentsPanel({ adminToken, onLockAdmin }: AdminPaymentsPan
               Customer Unlock Records ({unlocks.length})
             </p>
             <div className="space-y-1.5">
-              {unlocks.map((u) => (
-                <div
-                  key={u.customer_id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-950/70 border border-white/10 px-3 py-2 text-xs"
-                >
-                  <div className="space-y-0.5">
-                    <span className="font-mono font-bold text-white">{u.customer_id}</span>
-                    <span
-                      className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        u.unlock_status === 'UNLOCKED'
-                          ? 'bg-emerald-500/20 text-emerald-300'
-                          : 'bg-red-500/20 text-red-300'
-                      }`}
-                    >
-                      {u.unlock_status}
-                    </span>
-                    <span className="ml-2 text-[11px] text-zinc-400">
-                      Source: {u.grant_source}
-                      {u.grant_reason ? ` · ${u.grant_reason}` : ''}
-                    </span>
+              {unlocks.map((u) => {
+                const isLightning = u.product_code === 'lightning_pro_scoreboard';
+                const productLabel = isLightning ? 'Lightning Premier ₹79' : 'WorldCup ₹149';
+                const rowKey = `${u.customer_id}::${u.product_code || 'worldcup_scoreboard'}`;
+                return (
+                  <div
+                    key={rowKey}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-950/70 border border-white/10 px-3 py-2 text-xs"
+                  >
+                    <div className="space-y-0.5">
+                      <span className="font-mono font-bold text-white">{u.customer_id}</span>
+                      <span
+                        className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          isLightning
+                            ? 'bg-fuchsia-500/20 text-fuchsia-300'
+                            : 'bg-sky-500/20 text-sky-300'
+                        }`}
+                      >
+                        {productLabel}
+                      </span>
+                      <span
+                        className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                          u.unlock_status === 'UNLOCKED'
+                            ? 'bg-emerald-500/20 text-emerald-300'
+                            : 'bg-red-500/20 text-red-300'
+                        }`}
+                      >
+                        {u.unlock_status}
+                      </span>
+                      <span className="ml-2 text-[11px] text-zinc-400">
+                        Source: {u.grant_source}
+                        {u.grant_reason ? ` · ${u.grant_reason}` : ''}
+                      </span>
+                    </div>
+                    {u.unlock_status === 'UNLOCKED' && (
+                      <button
+                        type="button"
+                        onClick={() => void handleRevokeUnlock(u.customer_id, u.product_code)}
+                        className="px-2.5 py-1 rounded bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 text-[11px] font-bold"
+                      >
+                        Revoke
+                      </button>
+                    )}
                   </div>
-                  {u.unlock_status === 'UNLOCKED' && (
-                    <button
-                      type="button"
-                      onClick={() => void handleRevokeUnlock(u.customer_id)}
-                      className="px-2.5 py-1 rounded bg-red-950/80 hover:bg-red-900 border border-red-500/40 text-red-200 text-[11px] font-bold"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}

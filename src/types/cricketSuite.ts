@@ -53,7 +53,7 @@ export const WICKET_TYPES = [
 
 export type WicketType = (typeof WICKET_TYPES)[number];
 
-export type OverlayThemeId = 'tata-ipl-2022' | 'worldcup';
+export type OverlayThemeId = 'tata-ipl-2022' | 'worldcup' | 'lightning-pro';
 
 export interface CustomThemeColors {
   enabled: boolean;
