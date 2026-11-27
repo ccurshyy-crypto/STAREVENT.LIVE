@@ -7,7 +7,7 @@ import {
   Users,
 } from 'lucide-react';
 import { getThemePalette } from '../../data/cricketSampleData';
-import { isWorldCupUnlocked } from '../../lib/worldCupUnlock';
+import { useWorldCupServerUnlock } from '../../lib/worldCupUnlock';
 import { CricketSuiteState, SidebarRoute } from '../../types/cricketSuite';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 
@@ -24,9 +24,10 @@ export function CricketHomeView({
   onCopyOverlayUrl,
   onNavigate,
 }: CricketHomeViewProps) {
+  const { status: worldCupStatus } = useWorldCupServerUnlock();
 
   const effectiveThemeId =
-    state.user.userTheme === 'worldcup' && !isWorldCupUnlocked(state.user)
+    state.user.userTheme === 'worldcup' && !worldCupStatus.unlocked
       ? 'tata-ipl-2022'
       : state.user.userTheme;
   const activeTheme = getThemePalette(effectiveThemeId, state.user.customThemeColors);

@@ -432,7 +432,128 @@ create table if not exists public.payment_admin_audit_logs (
 create index if not exists idx_payment_admin_audit_logs_customer
   on public.payment_admin_audit_logs (customer_id, created_at desc);
 
+-- Webhook event deduplication table (prevents duplicate webhook processing across restarts)
+create table if not exists public.cashfree_webhook_events (
+  event_key text primary key,
+  order_id text not null,
+  cf_payment_id text,
+  event_type text,
+  processed_at timestamptz not null default now()
+);
+
 -- Enable RLS with NO anon/authenticated write policies (backend service_role ONLY)
 alter table public.worldcup_payments enable row level security;
 alter table public.worldcup_unlocks enable row level security;
 alter table public.payment_admin_audit_logs enable row level security;
+alter table public.cashfree_webhook_events enable row level security;
+
+-- Atomic PostgreSQL transaction to verify constraints and mark a payment PAID + UNLOCKED
+create or replace function public.complete_worldcup_payment_tx(
+  p_order_id text,
+  p_customer_id text,
+  p_cf_order_id text,
+  p_cf_payment_id text,
+  p_verified_at timestamptz
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_payment public.worldcup_payments%rowtype;
+  v_existing_order text;
+begin
+  select *
+  into v_payment
+  from public.worldcup_payments
+  where order_id = p_order_id
+  for update;
+
+  if not found then
+    return jsonb_build_object('ok', false, 'code', 'ORDER_NOT_FOUND', 'message', 'Order not found.');
+  end if;
+
+  if v_payment.customer_id <> p_customer_id then
+    return jsonb_build_object('ok', false, 'code', 'CUSTOMER_MISMATCH', 'message', 'Order customer mismatch.');
+  end if;
+
+  if v_payment.expected_amount <> 149.00 or upper(v_payment.currency) <> 'INR' then
+    return jsonb_build_object('ok', false, 'code', 'AMOUNT_MISMATCH', 'message', 'Order amount/currency mismatch.');
+  end if;
+
+  if v_payment.payment_status = 'PAID' and v_payment.unlock_status = 'UNLOCKED' then
+    return jsonb_build_object('ok', true, 'already_paid', true, 'cf_payment_id', v_payment.cf_payment_id);
+  end if;
+
+  select order_id
+  into v_existing_order
+  from public.worldcup_payments
+  where cf_payment_id = p_cf_payment_id
+    and order_id <> p_order_id
+  limit 1;
+
+  if found then
+    update public.worldcup_payments
+    set payment_status = 'FAILED',
+        cashfree_raw_status = 'DUPLICATE_PAYMENT_ID_REJECTED',
+        unlock_status = 'LOCKED',
+        updated_at = p_verified_at
+    where order_id = p_order_id;
+
+    return jsonb_build_object('ok', false, 'code', 'DUPLICATE_PAYMENT_ID', 'message', 'Payment ID already used.');
+  end if;
+
+  update public.worldcup_payments
+  set cf_order_id = coalesce(p_cf_order_id, cf_order_id),
+      cf_payment_id = p_cf_payment_id,
+      payment_status = 'PAID',
+      cashfree_raw_status = 'SUCCESS',
+      unlock_status = 'UNLOCKED',
+      verified_at = p_verified_at,
+      updated_at = p_verified_at
+  where order_id = p_order_id;
+
+  insert into public.worldcup_unlocks (
+    customer_id,
+    product_code,
+    unlock_status,
+    grant_source,
+    order_id,
+    cf_payment_id,
+    unlocked_at,
+    expires_at,
+    granted_by,
+    grant_reason,
+    updated_at
+  )
+  values (
+    p_customer_id,
+    'worldcup_scoreboard',
+    'UNLOCKED',
+    'cashfree',
+    p_order_id,
+    p_cf_payment_id,
+    p_verified_at,
+    null,
+    null,
+    null,
+    p_verified_at
+  )
+  on conflict (customer_id) do update
+  set unlock_status = 'UNLOCKED',
+      grant_source = 'cashfree',
+      order_id = excluded.order_id,
+      cf_payment_id = excluded.cf_payment_id,
+      unlocked_at = excluded.unlocked_at,
+      expires_at = null,
+      granted_by = null,
+      grant_reason = null,
+      updated_at = excluded.updated_at;
+
+  return jsonb_build_object('ok', true, 'already_paid', false, 'cf_payment_id', p_cf_payment_id);
+exception
+  when unique_violation then
+    return jsonb_build_object('ok', false, 'code', 'DUPLICATE_PAYMENT_ID', 'message', 'Payment ID unique constraint violation.');
+end;
+$$;

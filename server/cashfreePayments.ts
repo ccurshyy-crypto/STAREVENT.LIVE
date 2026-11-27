@@ -165,18 +165,81 @@ export function isUnlockRecordActive(record: WorldCupUnlockRecord | null | undef
 export async function persistPaymentRecord(
   supabaseAdmin: SupabaseClient | null,
   record: WorldCupPaymentRecord
-): Promise<void> {
+): Promise<{ ok: boolean; duplicatePaymentId?: boolean }> {
+  if (record.cf_payment_id) {
+    const existingOwner = usedCfPaymentIds.get(record.cf_payment_id);
+    if (existingOwner && existingOwner !== record.order_id) {
+      return { ok: false, duplicatePaymentId: true };
+    }
+  }
+
+  if (supabaseAdmin) {
+    try {
+      const { error } = await supabaseAdmin
+        .from('worldcup_payments')
+        .upsert(record, { onConflict: 'order_id' });
+      if (error) {
+        if (error.code === '23505') {
+          return { ok: false, duplicatePaymentId: true };
+        }
+        // Table may not yet be migrated in Supabase; continue updating server store below
+      }
+    } catch {
+      // Table may not yet be migrated in Supabase; server-side store remains authoritative
+    }
+  }
+
   paymentRecordsByOrderId.set(record.order_id, record);
   if (record.cf_payment_id) {
     usedCfPaymentIds.set(record.cf_payment_id, record.order_id);
   }
+  return { ok: true };
+}
+
+async function hasProcessedWebhookEvent(
+  supabaseAdmin: SupabaseClient | null,
+  eventKey: string
+): Promise<boolean> {
+  if (processedWebhookKeys.has(eventKey)) {
+    return true;
+  }
+  if (supabaseAdmin) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('cashfree_webhook_events')
+        .select('event_key')
+        .eq('event_key', eventKey)
+        .maybeSingle();
+      if (!error && data) {
+        processedWebhookKeys.add(eventKey);
+        return true;
+      }
+    } catch {
+      // Fallback to in-memory deduplication set if table not yet migrated
+    }
+  }
+  return false;
+}
+
+async function markWebhookEventProcessed(
+  supabaseAdmin: SupabaseClient | null,
+  params: { eventKey: string; orderId: string; cfPaymentId: string | null; eventType: string }
+): Promise<void> {
+  processedWebhookKeys.add(params.eventKey);
   if (!supabaseAdmin) return;
   try {
-    await supabaseAdmin
-      .from('worldcup_payments')
-      .upsert(record, { onConflict: 'order_id' });
+    await supabaseAdmin.from('cashfree_webhook_events').upsert(
+      {
+        event_key: params.eventKey,
+        order_id: params.orderId,
+        cf_payment_id: params.cfPaymentId,
+        event_type: params.eventType || null,
+        processed_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_key' }
+    );
   } catch {
-    // Table may not yet be migrated in Supabase; server-side store remains authoritative
+    // Fallback to in-memory set if table not yet migrated
   }
 }
 
@@ -698,7 +761,7 @@ export async function evaluateAndPersistCashfreeVerification(params: {
       };
     }
 
-    // All conditions verified -> mark PAID & UNLOCKED
+    // All conditions verified -> atomically mark PAID & UNLOCKED (using DB transaction RPC when available)
     const paidRecord: WorldCupPaymentRecord = {
       ...existing,
       cf_order_id:
@@ -710,7 +773,6 @@ export async function evaluateAndPersistCashfreeVerification(params: {
       verified_at: nowIso,
       updated_at: nowIso,
     };
-    await persistPaymentRecord(supabaseAdmin, paidRecord);
 
     const unlockRecord: WorldCupUnlockRecord = {
       customer_id: existing.customer_id,
@@ -725,7 +787,72 @@ export async function evaluateAndPersistCashfreeVerification(params: {
       grant_reason: null,
       updated_at: nowIso,
     };
-    await persistUnlockRecord(supabaseAdmin, unlockRecord);
+
+    let committedViaRpc = false;
+    if (supabaseAdmin) {
+      try {
+        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc(
+          'complete_worldcup_payment_tx',
+          {
+            p_order_id: existing.order_id,
+            p_customer_id: existing.customer_id,
+            p_cf_order_id: paidRecord.cf_order_id,
+            p_cf_payment_id: cfPaymentId,
+            p_verified_at: nowIso,
+          }
+        );
+        if (!rpcError && rpcData && typeof rpcData === 'object') {
+          const resObj = rpcData as { ok?: boolean; code?: string; message?: string };
+          if (resObj.ok === false) {
+            const rejected: WorldCupPaymentRecord = {
+              ...existing,
+              payment_status: 'FAILED',
+              cashfree_raw_status: resObj.code || 'TX_REJECTED',
+              unlock_status: 'LOCKED',
+              updated_at: nowIso,
+            };
+            paymentRecordsByOrderId.set(rejected.order_id, rejected);
+            return {
+              verified: false,
+              unlocked: false,
+              paymentStatus: 'FAILED',
+              cfPaymentId: null,
+              reason: resObj.message || 'Payment verification rejected by database constraints.',
+              record: rejected,
+            };
+          }
+          committedViaRpc = true;
+          paymentRecordsByOrderId.set(paidRecord.order_id, paidRecord);
+          usedCfPaymentIds.set(cfPaymentId, paidRecord.order_id);
+          unlockRecordsByCustomerId.set(unlockRecord.customer_id, unlockRecord);
+        }
+      } catch {
+        // Fall through to checked upsert fallback when RPC is not yet migrated
+      }
+    }
+
+    if (!committedViaRpc) {
+      const persisted = await persistPaymentRecord(supabaseAdmin, paidRecord);
+      if (!persisted.ok && persisted.duplicatePaymentId) {
+        const duplicateRejected: WorldCupPaymentRecord = {
+          ...existing,
+          payment_status: 'FAILED',
+          cashfree_raw_status: 'DUPLICATE_PAYMENT_ID_REJECTED',
+          unlock_status: 'LOCKED',
+          updated_at: nowIso,
+        };
+        await persistPaymentRecord(supabaseAdmin, duplicateRejected);
+        return {
+          verified: false,
+          unlocked: false,
+          paymentStatus: 'FAILED',
+          cfPaymentId: null,
+          reason: 'Payment ID was already used for another order.',
+          record: duplicateRejected,
+        };
+      }
+      await persistUnlockRecord(supabaseAdmin, unlockRecord);
+    }
 
     return {
       verified: true,
@@ -828,7 +955,7 @@ export async function processVerifiedCashfreeWebhook(params: {
   }
 
   const dedupeKey = `${eventType}:${orderId}:${cfPaymentId || 'none'}:${paymentStatusRaw}:${webhookTimestamp}`;
-  if (processedWebhookKeys.has(dedupeKey)) {
+  if (await hasProcessedWebhookEvent(supabaseAdmin, dedupeKey)) {
     return { ok: true, duplicate: true, message: 'Duplicate webhook ignored.' };
   }
 
@@ -840,15 +967,24 @@ export async function processVerifiedCashfreeWebhook(params: {
 
     // Already processed & paid -> idempotent no-op
     if (existing.payment_status === 'PAID' && existing.unlock_status === 'UNLOCKED') {
-      processedWebhookKeys.add(dedupeKey);
+      await markWebhookEventProcessed(supabaseAdmin, {
+        eventKey: dedupeKey,
+        orderId,
+        cfPaymentId: cfPaymentId || null,
+        eventType,
+      });
       return { ok: true, duplicate: true, unlocked: true, message: 'Order already paid.' };
     }
+
+    const isSuccessEvent =
+      paymentStatusRaw === 'SUCCESS' &&
+      (!eventType || eventType === 'PAYMENT_SUCCESS_WEBHOOK');
 
     const cfOrder: CashfreeOrderDetails = {
       order_id: orderId,
       order_amount: Number.isFinite(orderAmount) ? orderAmount : undefined,
       order_currency: currency || undefined,
-      order_status: paymentStatusRaw === 'SUCCESS' ? 'PAID' : 'ACTIVE',
+      order_status: isSuccessEvent ? 'PAID' : 'ACTIVE',
       customer_details: {
         customer_id:
           typeof customerObj.customer_id === 'string' ? customerObj.customer_id : undefined,
@@ -859,11 +995,12 @@ export async function processVerifiedCashfreeWebhook(params: {
       {
         cf_payment_id: cfPaymentId || undefined,
         order_id: orderId,
-        payment_status:
-          eventType === 'PAYMENT_SUCCESS_WEBHOOK' || paymentStatusRaw === 'SUCCESS'
-            ? paymentStatusRaw
-            : eventType === 'PAYMENT_USER_DROPPED_WEBHOOK'
-              ? 'USER_DROPPED'
+        payment_status: isSuccessEvent
+          ? 'SUCCESS'
+          : eventType === 'PAYMENT_USER_DROPPED_WEBHOOK'
+            ? 'USER_DROPPED'
+            : paymentStatusRaw === 'SUCCESS'
+              ? 'FAILED'
               : paymentStatusRaw || 'FAILED',
         payment_amount: Number.isFinite(paymentAmount) ? paymentAmount : 0,
         order_amount: Number.isFinite(orderAmount) ? orderAmount : 0,
@@ -882,7 +1019,12 @@ export async function processVerifiedCashfreeWebhook(params: {
       cfPayments,
     });
 
-    processedWebhookKeys.add(dedupeKey);
+    await markWebhookEventProcessed(supabaseAdmin, {
+      eventKey: dedupeKey,
+      orderId,
+      cfPaymentId: cfPaymentId || null,
+      eventType,
+    });
     return {
       ok: true,
       unlocked: outcome.unlocked,

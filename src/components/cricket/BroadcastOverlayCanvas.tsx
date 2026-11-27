@@ -24,20 +24,51 @@ import {
 import { ProScoreboardBar } from './ProScoreboardBar';
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
-import { isWorldCupUnlocked } from '../../lib/worldCupUnlock';
+import { fetchOverlayWorldCupEntitlement } from '../../lib/worldCupUnlock';
 
 interface BroadcastOverlayCanvasProps {
   state: CricketSuiteState | null;
   matchId?: string;
   bgMode?: 'transparent' | 'green';
+  worldCupUnlocked?: boolean;
 }
 
 export function BroadcastOverlayCanvas({
   state,
   matchId,
   bgMode = 'transparent',
+  worldCupUnlocked: worldCupUnlockedProp,
 }: BroadcastOverlayCanvasProps) {
   const [visibleTransitionId, setVisibleTransitionId] = useState<number | null>(null);
+  const [serverWorldCupUnlocked, setServerWorldCupUnlocked] = useState<boolean>(false);
+
+  const stateUid = state?.uid || '';
+  const wantsWorldCupTheme = state?.user?.userTheme === 'worldcup';
+
+  useEffect(() => {
+    if (typeof worldCupUnlockedProp === 'boolean') {
+      setServerWorldCupUnlocked(worldCupUnlockedProp);
+      return;
+    }
+    if (!stateUid) {
+      setServerWorldCupUnlocked(false);
+      return;
+    }
+    let active = true;
+    const checkEntitlement = async () => {
+      const allowed = await fetchOverlayWorldCupEntitlement(stateUid);
+      if (active) setServerWorldCupUnlocked(allowed);
+    };
+    void checkEntitlement();
+    const pollMs = wantsWorldCupTheme ? 15000 : 30000;
+    const timer = window.setInterval(() => {
+      void checkEntitlement();
+    }, pollMs);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [worldCupUnlockedProp, stateUid, wantsWorldCupTheme]);
 
   const activeTransition = state?.overlay.activeTransition ?? null;
 
@@ -85,7 +116,10 @@ export function BroadcastOverlayCanvas({
   }
 
   const { overlay } = state;
-  const worldCupUnlocked = isWorldCupUnlocked(state.user);
+  const worldCupUnlocked =
+    typeof worldCupUnlockedProp === 'boolean'
+      ? worldCupUnlockedProp
+      : serverWorldCupUnlocked;
   const effectiveThemeId =
     state.user.userTheme === 'worldcup' && !worldCupUnlocked
       ? 'tata-ipl-2022'

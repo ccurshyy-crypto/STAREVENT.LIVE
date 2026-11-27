@@ -6,15 +6,16 @@ import {
   Calculator,
   Check,
   Clock,
+  CreditCard,
   Crosshair,
   Edit3,
   History,
   Lock,
   Palette,
-  QrCode,
   RotateCcw,
   Save,
   Settings,
+  ShieldCheck,
   Table2,
   Upload,
   UserCircle,
@@ -40,10 +41,9 @@ import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
-  formatWorldCupRemainingTime,
-  isWorldCupUnlocked,
-  WORLDCUP_OFFER_PRICE_INR,
-  WORLDCUP_ORIGINAL_PRICE_INR,
+  formatUnlockTimestamp,
+  useWorldCupServerUnlock,
+  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
 
 interface SidebarToolsViewsProps {
@@ -70,6 +70,8 @@ export function SidebarToolsViews({
 }: SidebarToolsViewsProps) {
   // ===== WORLDCUP UNLOCK PAYMENT MODAL =====
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
+  const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
+    useWorldCupServerUnlock();
 
   // ===== EDIT POINT TABLE STATE =====
   const [ptTournamentId, setPtTournamentId] = useState<string>(
@@ -886,13 +888,17 @@ export function SidebarToolsViews({
   // ================= 4. THEME SETUP (BROADCAST SCOREBOARD THEMES) =================
   if (route === 'theme') {
     const customColors = state.user.customThemeColors;
-    const worldCupUnlocked = isWorldCupUnlocked(state.user);
+    const worldCupUnlocked = worldCupStatus.unlocked;
     const effectiveThemeId: OverlayThemeId =
       state.user.userTheme === 'worldcup' && !worldCupUnlocked
         ? 'tata-ipl-2022'
         : state.user.userTheme;
     const activePalette = getThemePalette(effectiveThemeId, customColors);
-    const worldCupRemaining = formatWorldCupRemainingTime(state.user.worldcupUnlockExpiresAt);
+    const worldCupStatusBadge = worldCupStatus.expiresAt
+      ? `Valid till ${formatUnlockTimestamp(worldCupStatus.expiresAt)}`
+      : worldCupStatus.grantSource === 'admin_manual'
+        ? 'Admin Verified'
+        : 'Cashfree Verified';
 
     const handleSelectTheme = (themeId: OverlayThemeId, themeName: string) => {
       if (themeId === 'worldcup' && !worldCupUnlocked) {
@@ -921,20 +927,19 @@ export function SidebarToolsViews({
     };
 
     const handleWorldCupUnlocked = ({
-      expiresAt,
-      utr,
+      orderId,
+      cfPaymentId,
     }: {
-      expiresAt: string;
-      utr: string;
       orderId: string;
+      cfPaymentId: string | null;
     }) => {
+      void refreshWorldCupStatus();
       updateState((prev) => ({
         ...prev,
         user: {
           ...prev.user,
           userTheme: 'worldcup',
-          worldcupUnlockExpiresAt: expiresAt,
-          worldcupLastPaymentRef: utr,
+          worldcupLastPaymentRef: cfPaymentId || orderId,
           customThemeColors: {
             ...prev.user.customThemeColors,
             enabled: false,
@@ -948,7 +953,7 @@ export function SidebarToolsViews({
               : prev.overlay.bottomScoreMode,
         },
       }));
-      onToast('WorldCup Scoreboard unlocked for 1 Day and activated live!');
+      onToast('WorldCup Scoreboard payment verified and activated live!');
     };
 
     const previewZeroBalls = [
@@ -1030,16 +1035,17 @@ export function SidebarToolsViews({
                     <div className="flex items-center gap-2">
                       {isLocked ? (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded bg-slate-900 text-white text-[11px] font-extrabold tracking-wide">
-                          <span className="text-slate-400 line-through">
-                            ₹{WORLDCUP_ORIGINAL_PRICE_INR}
-                          </span>
-                          <span className="text-[#FFE600]">₹{WORLDCUP_OFFER_PRICE_INR}</span>
-                          <span className="text-orange-200">· 1 Day</span>
+                          <span className="text-[#FFE600]">₹{WORLDCUP_FIXED_PRICE_INR}</span>
+                          <span className="text-orange-200">· Cashfree Verified</span>
                         </span>
                       ) : isWorldCup ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold uppercase tracking-wider">
-                          <Clock className="w-3 h-3" aria-hidden="true" />
-                          Unlocked · {worldCupRemaining}
+                          {worldCupStatus.expiresAt ? (
+                            <Clock className="w-3 h-3" aria-hidden="true" />
+                          ) : (
+                            <ShieldCheck className="w-3 h-3" aria-hidden="true" />
+                          )}
+                          Unlocked · {worldCupStatusBadge}
                         </span>
                       ) : null}
                       {isSelected && (
@@ -1103,14 +1109,11 @@ export function SidebarToolsViews({
                     <p className="text-xs text-slate-600 truncate">{theme.subtitle}</p>
                     {isLocked && (
                       <p className="text-[11px] font-bold text-[#C25E00]">
-                        Unlock WorldCup for 1 Day —{' '}
-                        <span className="line-through text-slate-400">
-                          ₹{WORLDCUP_ORIGINAL_PRICE_INR}
-                        </span>{' '}
+                        Unlock WorldCup Scoreboard —{' '}
                         <span className="text-slate-900 font-black">
-                          ₹{WORLDCUP_OFFER_PRICE_INR} Only
+                          ₹{WORLDCUP_FIXED_PRICE_INR} INR
                         </span>{' '}
-                        (Instant QR Pay)
+                        (Server-Verified Cashfree Checkout)
                       </p>
                     )}
                   </div>
@@ -1120,11 +1123,8 @@ export function SidebarToolsViews({
                       onClick={() => setWorldCupPayModalOpen(true)}
                       className="px-4 py-2 rounded-lg wo-btn-primary text-white text-xs font-extrabold uppercase tracking-wider transition-colors inline-flex items-center justify-center gap-2 shrink-0 shadow-sm"
                     >
-                      <QrCode className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span className="line-through opacity-75 text-[11px]">
-                        ₹{WORLDCUP_ORIGINAL_PRICE_INR}
-                      </span>
-                      <span>PAY ₹{WORLDCUP_OFFER_PRICE_INR} · UNLOCK 1 DAY</span>
+                      <CreditCard className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>UNLOCK WORLDCUP SCOREBOARD – ₹{WORLDCUP_FIXED_PRICE_INR}</span>
                     </button>
                   ) : (
                     <button

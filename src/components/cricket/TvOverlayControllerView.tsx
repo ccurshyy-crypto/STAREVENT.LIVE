@@ -33,8 +33,8 @@ import { BroadcastOverlayCanvas } from './BroadcastOverlayCanvas';
 import { ObsVmixLinkPanel } from './ObsVmixLinkPanel';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
-  isWorldCupUnlocked,
-  WORLDCUP_OFFER_PRICE_INR,
+  useWorldCupServerUnlock,
+  WORLDCUP_FIXED_PRICE_INR,
 } from '../../lib/worldCupUnlock';
 
 interface TvOverlayControllerViewProps {
@@ -68,6 +68,8 @@ export function TvOverlayControllerView({
 
   // Controller UI State
   const [worldCupPayModalOpen, setWorldCupPayModalOpen] = useState(false);
+  const { status: worldCupStatus, refresh: refreshWorldCupStatus } =
+    useWorldCupServerUnlock();
   const [showPreviewMonitor, setShowPreviewMonitor] = useState(true);
   const [previewGreenBg, setPreviewGreenBg] = useState(false);
   const [previewScale, setPreviewScale] = useState(0.5);
@@ -520,13 +522,13 @@ export function TvOverlayControllerView({
 
             <select
               value={
-                state.user.userTheme === 'worldcup' && !isWorldCupUnlocked(state.user)
+                state.user.userTheme === 'worldcup' && !worldCupStatus.unlocked
                   ? 'tata-ipl-2022'
                   : state.user.userTheme
               }
               onChange={(e) => {
                 const nextThemeId = e.target.value as OverlayThemeId;
-                if (nextThemeId === 'worldcup' && !isWorldCupUnlocked(state.user)) {
+                if (nextThemeId === 'worldcup' && !worldCupStatus.unlocked) {
                   setWorldCupPayModalOpen(true);
                   return;
                 }
@@ -555,11 +557,11 @@ export function TvOverlayControllerView({
               className={`${homeSelectClass} w-full sm:w-auto max-w-full`}
             >
               {BROADCAST_THEMES.map((t) => {
-                const locked = t.id === 'worldcup' && !isWorldCupUnlocked(state.user);
+                const locked = t.id === 'worldcup' && !worldCupStatus.unlocked;
                 return (
                   <option key={t.id} value={t.id}>
                     Theme: {t.name}
-                    {locked ? ` (Unlock ₹${WORLDCUP_OFFER_PRICE_INR} · 1 Day)` : ''}
+                    {locked ? ` (Unlock ₹${WORLDCUP_FIXED_PRICE_INR})` : ''}
                   </option>
                 );
               })}
@@ -710,6 +712,7 @@ export function TvOverlayControllerView({
                 state={state}
                 matchId={activeMatch?.id}
                 bgMode={previewGreenBg ? 'green' : 'transparent'}
+                worldCupUnlocked={worldCupStatus.unlocked}
               />
             </div>
           </div>
@@ -1323,14 +1326,14 @@ export function TvOverlayControllerView({
       <WorldCupUnlockModal
         open={worldCupPayModalOpen}
         onClose={() => setWorldCupPayModalOpen(false)}
-        onUnlockSuccess={({ expiresAt, utr }) => {
+        onUnlockSuccess={({ orderId, cfPaymentId }) => {
+          void refreshWorldCupStatus();
           updateState((prev) => ({
             ...prev,
             user: {
               ...prev.user,
               userTheme: 'worldcup',
-              worldcupUnlockExpiresAt: expiresAt,
-              worldcupLastPaymentRef: utr,
+              worldcupLastPaymentRef: cfPaymentId || orderId,
               customThemeColors: {
                 ...prev.user.customThemeColors,
                 enabled: false,
@@ -1344,7 +1347,7 @@ export function TvOverlayControllerView({
                   : prev.overlay.bottomScoreMode,
             },
           }));
-          onToast('WorldCup Scoreboard unlocked for 1 Day and activated live!');
+          onToast('WorldCup Scoreboard payment verified and activated live!');
         }}
       />
     </div>

@@ -227,6 +227,17 @@ export function useWorldCupServerUnlock(): {
     let active = true;
     const load = async () => {
       const headers = await getPaymentAuthHeaders();
+      if (typeof window !== 'undefined') {
+        const params = new URLSearchParams(window.location.search);
+        const returnedOrderId = params.get('cf_order_id')?.trim();
+        if (returnedOrderId) {
+          await verifyCashfreeWorldCupOrder(headers, returnedOrderId).catch(() => null);
+          params.delete('cf_order_id');
+          const cleanSearch = params.toString();
+          const nextUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}${window.location.hash}`;
+          window.history.replaceState({}, '', nextUrl);
+        }
+      }
       const next = await fetchServerWorldCupStatus(headers);
       if (active) setStatus(next);
     };
@@ -236,9 +247,11 @@ export function useWorldCupServerUnlock(): {
       void load();
     };
     window.addEventListener(UNLOCK_REFRESH_EVENT, onRefresh);
+    window.addEventListener('focus', onRefresh);
     return () => {
       active = false;
       window.removeEventListener(UNLOCK_REFRESH_EVENT, onRefresh);
+      window.removeEventListener('focus', onRefresh);
     };
   }, [session?.accessId, getPaymentAuthHeaders]);
 

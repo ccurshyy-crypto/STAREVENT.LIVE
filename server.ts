@@ -542,7 +542,7 @@ async function startServer() {
           eventPayload: parsedPayload,
           webhookTimestamp: timestamp || '',
         });
-        res.status(200).json({ ok: true, ...result });
+        res.status(result.ok ? 200 : 400).json(result);
       } catch (err) {
         res.status(500).json({
           ok: false,
@@ -1331,7 +1331,7 @@ async function startServer() {
           auth: { autoRefreshToken: false, persistSession: false },
         });
 
-      const escaped = loginId.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+      const escaped = loginId.replace(/[\\%_]/g, (ch: string) => `\\${ch}`);
       const { data, error } = await sbClient
         .from('overlay_access_keys')
         .select('access_id, password, label, is_active')
@@ -1454,6 +1454,30 @@ async function startServer() {
       return;
     }
 
+    // Strictly reject any tampered amount or currency supplied by the client
+    if (
+      req.body &&
+      req.body.amount !== undefined &&
+      Number(req.body.amount) !== WORLDCUP_FIXED_AMOUNT_INR
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: `Order amount is fixed at ₹${WORLDCUP_FIXED_AMOUNT_INR} ${WORLDCUP_FIXED_CURRENCY} on the server.`,
+      });
+      return;
+    }
+    if (
+      req.body &&
+      req.body.currency !== undefined &&
+      String(req.body.currency).trim().toUpperCase() !== WORLDCUP_FIXED_CURRENCY
+    ) {
+      res.status(400).json({
+        ok: false,
+        error: `Order currency is fixed at ${WORLDCUP_FIXED_CURRENCY} on the server.`,
+      });
+      return;
+    }
+
     const cfConfig = getCashfreeProductionConfig();
     if (!cfConfig) {
       res.status(503).json({
@@ -1558,12 +1582,22 @@ async function startServer() {
       return;
     }
 
-    // Explicitly reject any legacy UTR or client-supplied transaction ID attempts
-    if (req.body && (req.body.utr || req.body.utrNumber || req.body.manualTransactionId)) {
+    // Explicitly reject any legacy UTR, screenshot, or client-supplied payment/transaction ID attempts
+    if (
+      req.body &&
+      (req.body.utr ||
+        req.body.utrNumber ||
+        req.body.manualTransactionId ||
+        req.body.transactionId ||
+        req.body.paymentId ||
+        req.body.cfPaymentId ||
+        req.body.screenshot)
+    ) {
       res.status(400).json({
         ok: false,
         unlocked: false,
-        error: 'Manual UTR / transaction ID verification is disabled. Complete payment via Cashfree Checkout.',
+        error:
+          'Manual UTR, screenshot, or client-supplied payment ID verification is disabled. Payments are verified strictly with Cashfree Production servers.',
       });
       return;
     }
