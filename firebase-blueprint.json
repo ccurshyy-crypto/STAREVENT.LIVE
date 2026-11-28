@@ -284,6 +284,121 @@
         }
       },
       "required": ["uid", "role"]
+    },
+    "TournamentUnlockCode": {
+      "title": "TournamentUnlockCode",
+      "description": "Permanent Firestore record for admin-generated Star Event Live tournament unlock codes (₹99/day) with server-validated expiry and atomic single-use redemption.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$",
+          "description": "Unique document ID matching unlockCode."
+        },
+        "unlockCode": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 40,
+          "pattern": "^[A-Z0-9\\-]+$",
+          "description": "Unique uppercase tournament unlock code (e.g. TRN-3D-XXXX-XXXX)."
+        },
+        "durationDays": {
+          "type": "integer",
+          "description": "Unlocked tournament duration in days (1 to 365)."
+        },
+        "amount": {
+          "type": "integer",
+          "description": "Total INR amount (durationDays * 99)."
+        },
+        "customerNote": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional customer or tournament label entered by Admin."
+        },
+        "lockedCustomerId": {
+          "type": "string",
+          "maxLength": 48,
+          "description": "Optional customer ID this code is locked to (or null for any customer)."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["ACTIVE", "REDEEMED", "USED", "EXPIRED", "REVOKED"],
+          "description": "Lifecycle state of the unlock code."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Firestore server timestamp recorded strictly on creation."
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Expiry timestamp calculated from creation time plus durationDays."
+        },
+        "redeemedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Firestore server timestamp recorded on customer redemption (or null)."
+        },
+        "redeemedBy": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Customer ID or display label of the account that redeemed this code (or null)."
+        },
+        "redeemedByUid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Verified Firebase Auth UID of the customer who redeemed this code (or null)."
+        },
+        "tournamentId": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Created tournament identifier bound once to this redeemed code (or null)."
+        },
+        "tournamentName": {
+          "type": "string",
+          "maxLength": 160,
+          "description": "Created tournament display name bound to this redeemed code (or null)."
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the admin who generated or migrated this code."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Firestore server timestamp updated on every write."
+        },
+        "originalCreatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Optional original creation timestamp preserved for migrated legacy Supabase records."
+        }
+      },
+      "required": [
+        "id",
+        "unlockCode",
+        "durationDays",
+        "amount",
+        "customerNote",
+        "lockedCustomerId",
+        "status",
+        "createdAt",
+        "expiresAt",
+        "redeemedAt",
+        "redeemedBy",
+        "redeemedByUid",
+        "tournamentId",
+        "tournamentName",
+        "createdBy",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -294,6 +409,10 @@
     "/liveScoreboards/{roomId}/matches/{matchId}": {
       "schema": { "$ref": "#/entities/LiveMatchSnapshot" },
       "description": "Per-match real-time scoreboard state bound to its parent room via Master Gate."
+    },
+    "/tournamentUnlockCodes/{codeId}": {
+      "schema": { "$ref": "#/entities/TournamentUnlockCode" },
+      "description": "Permanent Firestore registry of admin-generated tournament unlock codes with server-enforced expiry and atomic redemption."
     },
     "/admins/{adminUid}": {
       "schema": { "$ref": "#/entities/AdminRecord" },

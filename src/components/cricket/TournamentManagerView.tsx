@@ -145,8 +145,12 @@ export function TournamentManagerView({
   const effectiveTour = state.tournaments.find((t) => t.id === effectiveTourId);
   const isEffectiveTourExpired = isTournamentExpired(effectiveTour);
 
-  const { getPaymentAuthHeaders } = useOverlayAccess();
-  const { status: unlockStatus, refresh: refreshUnlockStatus } = useTournamentUnlockStatus();
+  const { session } = useOverlayAccess();
+  const {
+    status: unlockStatus,
+    refresh: refreshUnlockStatus,
+    signInFirebase,
+  } = useTournamentUnlockStatus();
 
   // Tournament Unlock Code modal state (Admin-generated code @ ₹99/day)
   const [unlockModalOpen, setUnlockModalOpen] = useState(false);
@@ -204,8 +208,18 @@ export function TournamentManagerView({
     }
     setRedeemingCode(true);
     try {
-      const authHeaders = await getPaymentAuthHeaders();
-      const res = await redeemTournamentUnlockCode(authHeaders, cleanCode);
+      const customerIds = [
+        session?.accessId || '',
+        session?.email || '',
+        session?.userId || '',
+      ].filter(Boolean);
+      const displayLabel =
+        session?.accessId || session?.label || session?.email || '';
+      const res = await redeemTournamentUnlockCode(
+        cleanCode,
+        customerIds,
+        displayLabel
+      );
       if (!res.ok || !res.pass) {
         setUnlockError(res.error || 'Invalid Tournament Unlock Code.');
         return;
@@ -215,11 +229,11 @@ export function TournamentManagerView({
       setUnlockModalOpen(false);
       setUnlockCodeInput('');
       onToast(
-        `Unlocked ${res.pass.duration_days}-day Tournament Pass (create unlimited new tournaments for ${res.pass.duration_days} day${res.pass.duration_days === 1 ? '' : 's'}).`
+        `Code ${res.pass.code} redeemed in Firebase for ${res.pass.duration_days} day${res.pass.duration_days === 1 ? '' : 's'} (₹${res.pass.total_price_inr}). Create your tournament now.`
       );
       openCreateModalWithPass(res.pass);
     } catch {
-      setUnlockError('Network error while verifying unlock code. Please try again.');
+      setUnlockError('Network error while verifying unlock code in Firebase. Please try again.');
     } finally {
       setRedeemingCode(false);
     }
@@ -402,16 +416,14 @@ export function TournamentManagerView({
       const newId = `tour_${Date.now()}`;
       setSavingTournament(true);
       try {
-        const authHeaders = await getPaymentAuthHeaders();
-        const consumeRes = await consumeTournamentUnlockPass(authHeaders, {
+        const consumeRes = await consumeTournamentUnlockPass({
           code: activePass.code,
           tournamentId: newId,
           tournamentName: cleanName,
-          selectedDates: normalizedDates,
         });
         if (!consumeRes.ok) {
           setTFormError(
-            consumeRes.error || 'Could not verify your Tournament Unlock Code on the server.'
+            consumeRes.error || 'Could not verify your Tournament Unlock Code in Firebase.'
           );
           return;
         }
@@ -449,13 +461,8 @@ export function TournamentManagerView({
         }));
         setSelectedTourId(newId);
         setModalOpen(false);
-        const passValidUntil = formatPassExpiryLabel(
-          consumeRes.pass?.expires_at || activePass.expires_at
-        );
         onToast(
-          `Tournament "${cleanName}" created! Your ${activePass.duration_days}-day pass stays active${
-            passValidUntil ? ` until ${passValidUntil}` : ''
-          } so you can create more new tournaments anytime.`
+          `Tournament "${cleanName}" created with code ${activePass.code} (active until ${formatSingleDateHuman(lastDate)}).`
         );
       } catch {
         setTFormError('Network error while verifying your tournament unlock pass. Please retry.');
@@ -547,32 +554,25 @@ export function TournamentManagerView({
               {activePass ? (
                 <>
                   <p className="text-xs sm:text-sm font-extrabold text-emerald-950">
-                    Unlimited New Tournaments Unlocked ·{' '}
-                    {activePass.remaining_days ?? activePass.duration_days} Day
-                    {(activePass.remaining_days ?? activePass.duration_days) === 1 ? '' : 's'} Left
-                    {activePass.duration_days > 1 ? ` (of ${activePass.duration_days}d Pass)` : ''}
+                    Tournament Unlocked · {activePass.duration_days} Day
+                    {activePass.duration_days === 1 ? '' : 's'} Pass Ready
                   </p>
                   <p className="text-[11px] text-emerald-800 mt-0.5">
-                    Code <span className="font-mono font-bold">{activePass.code}</span>
-                    {activePass.expires_at
-                      ? ` · Valid until ${formatPassExpiryLabel(activePass.expires_at)}`
-                      : ''}
-                    {typeof activePass.tournaments_created_count === 'number' &&
-                    activePass.tournaments_created_count > 0
-                      ? ` · ${activePass.tournaments_created_count} created so far`
-                      : ''}
-                    {' · Create new tournaments anytime before expiry.'}
+                    Code <span className="font-mono font-bold">{activePass.code}</span> · ₹
+                    {activePass.total_price_inr} (₹{TOURNAMENT_PRICE_PER_DAY_INR}/day) · Select up
+                    to {activePass.duration_days} day{activePass.duration_days === 1 ? '' : 's'}.
+                    Verified via Firebase Firestore.
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-xs sm:text-sm font-extrabold text-slate-900">
-                    Tournament Creation Pass · ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day (Admin Unlock Code Required)
+                    Tournament Creation · ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day (Admin Unlock Code Required)
                   </p>
                   <p className="text-[11px] text-slate-700 mt-0.5">
                     Get a Tournament Unlock Code from Star Event Live Admin for the exact number of
-                    days you need (1 Day = ₹99, 3 Days = ₹297, 5 Days = ₹495). Create unlimited new
-                    tournaments throughout your unlocked days.
+                    days you need (1 Day = ₹99, 3 Days = ₹297, 5 Days = ₹495). Verified permanently
+                    through Firebase Firestore.
                   </p>
                 </>
               )}
@@ -617,7 +617,7 @@ export function TournamentManagerView({
             )}
             <span>
               {activePass
-                ? `CREATE NEW TOURNAMENT (${activePass.remaining_days ?? activePass.duration_days}D LEFT)`
+                ? `CREATE TOURNAMENT (${activePass.duration_days}D UNLOCKED)`
                 : `UNLOCK & CREATE TOURNAMENT (₹${TOURNAMENT_PRICE_PER_DAY_INR}/DAY)`}
             </span>
           </button>
@@ -1065,18 +1065,14 @@ export function TournamentManagerView({
                       <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
                         <span>
-                          Active Pass:{' '}
-                          <span className="font-mono">{activePass.code}</span> ·{' '}
+                          Verified Pass:{' '}
+                          <span className="font-mono">{activePass.code}</span> · Max{' '}
                           <strong>
-                            {activePass.remaining_days ?? activePass.duration_days} Day
-                            {(activePass.remaining_days ?? activePass.duration_days) === 1
-                              ? ''
-                              : 's'}{' '}
-                            Left
+                            {activePass.duration_days} Day{activePass.duration_days === 1 ? '' : 's'}
                           </strong>{' '}
-                          (Unlimited new tournaments
+                          (₹{activePass.total_price_inr} @ ₹{TOURNAMENT_PRICE_PER_DAY_INR}/day
                           {activePass.expires_at
-                            ? ` till ${formatPassExpiryLabel(activePass.expires_at)}`
+                            ? ` · Expires ${formatPassExpiryLabel(activePass.expires_at)}`
                             : ''}
                           )
                         </span>
@@ -1425,10 +1421,28 @@ export function TournamentManagerView({
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     Contact Star Event Live Admin (<strong>9890175727</strong>) to pay for your
-                    required days and receive your unlock code. Once activated, you can create
-                    unlimited new tournaments for all unlocked days.
+                    required tournament days and receive your unique single-use unlock code.
                   </p>
                 </div>
+
+                {!unlockStatus.firebaseReady && (
+                  <div className="rounded-xl bg-slate-50 border border-slate-200 px-3.5 py-2.5 flex items-center justify-between gap-2">
+                    <p className="text-[11px] font-semibold text-slate-700">
+                      Google verification is required to securely redeem your code in Firebase.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setUnlockError(null);
+                        const res = await signInFirebase();
+                        if (!res.ok && res.error) setUnlockError(res.error);
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold shrink-0"
+                    >
+                      Sign in Google
+                    </button>
+                  </div>
+                )}
 
                 {unlockError && (
                   <div
@@ -1458,8 +1472,8 @@ export function TournamentManagerView({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none font-mono font-bold text-sm tracking-widest uppercase text-slate-900"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Your pass stays active for the exact number of days set by Admin — create as
-                    many new tournaments as you want until the pass expires.
+                    One code unlocks one tournament for the exact number of days set by Admin.
+                    Verified atomically against Firebase Cloud Firestore.
                   </p>
                 </div>
               </div>

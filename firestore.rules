@@ -31,6 +31,14 @@ service cloud.firestore {
       return id is string && id.size() >= 1 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    function isValidUnlockCodeId(id) {
+      return id is string && id.size() >= 6 && id.size() <= 40 && id.matches('^[A-Z0-9\\-]+$');
+    }
+
+    function isBootstrappedOwnerAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'ccurshyy@gmail.com';
+    }
+
     function isAdmin() {
       return isVerifiedUser() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
@@ -125,6 +133,134 @@ service cloud.firestore {
         ]) &&
         isValidId(data.matchId) &&
         isValidCoreScoreboardFields(data);
+    }
+
+    function isValidUnlockCodeStatus(status) {
+      return status is string && status in ['ACTIVE', 'REDEEMED', 'USED', 'EXPIRED', 'REVOKED'];
+    }
+
+    function isValidTournamentUnlockCode(data) {
+      return data.keys().hasAll([
+          'id', 'unlockCode', 'durationDays', 'amount', 'customerNote',
+          'lockedCustomerId', 'status', 'createdAt', 'expiresAt',
+          'redeemedAt', 'redeemedBy', 'redeemedByUid',
+          'tournamentId', 'tournamentName', 'createdBy', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'id', 'unlockCode', 'durationDays', 'amount', 'customerNote',
+          'lockedCustomerId', 'status', 'createdAt', 'expiresAt',
+          'redeemedAt', 'redeemedBy', 'redeemedByUid',
+          'tournamentId', 'tournamentName', 'createdBy', 'updatedAt',
+          'originalCreatedAt'
+        ]) &&
+        isValidUnlockCodeId(data.id) &&
+        isValidUnlockCodeId(data.unlockCode) &&
+        data.id == data.unlockCode &&
+        data.durationDays is int && data.durationDays >= 1 && data.durationDays <= 365 &&
+        data.amount is int && data.amount == data.durationDays * 99 &&
+        data.customerNote is string && data.customerNote.size() <= 120 &&
+        (data.lockedCustomerId == null || (data.lockedCustomerId is string && data.lockedCustomerId.size() >= 2 && data.lockedCustomerId.size() <= 48 && data.lockedCustomerId.matches('^[A-Z0-9_\\-]+$'))) &&
+        isValidUnlockCodeStatus(data.status) &&
+        data.createdAt is timestamp &&
+        data.expiresAt is timestamp &&
+        (data.redeemedAt == null || data.redeemedAt is timestamp) &&
+        (data.redeemedBy == null || (data.redeemedBy is string && data.redeemedBy.size() >= 1 && data.redeemedBy.size() <= 120)) &&
+        (data.redeemedByUid == null || isValidId(data.redeemedByUid)) &&
+        (data.tournamentId == null || (data.tournamentId is string && data.tournamentId.size() >= 1 && data.tournamentId.size() <= 80 && data.tournamentId.matches('^[a-zA-Z0-9_\\-]+$'))) &&
+        (data.tournamentName == null || (data.tournamentName is string && data.tournamentName.size() >= 1 && data.tournamentName.size() <= 160)) &&
+        isValidId(data.createdBy) &&
+        data.updatedAt is timestamp &&
+        (!('originalCreatedAt' in data) || data.originalCreatedAt == null || data.originalCreatedAt is timestamp);
+    }
+
+    // ==================== COLLECTION: TOURNAMENT UNLOCK CODES ====================
+    match /tournamentUnlockCodes/{codeId} {
+      // Exact-key read: Admin or verified customer looking up a code they typed in
+      allow get: if isVerifiedUser() && isValidUnlockCodeId(codeId);
+
+      // List queries strictly enforced by resource ownership or verified owner admin (zero get/exists in list)
+      allow list: if isBootstrappedOwnerAdmin() ||
+        (isVerifiedUser() && resource.data.redeemedByUid == request.auth.uid);
+
+      // Only verified Admins can generate (or migrate) tournament unlock codes
+      allow create: if isVerifiedUser() &&
+        isValidUnlockCodeId(codeId) &&
+        isValidTournamentUnlockCode(incoming()) &&
+        incoming().id == codeId &&
+        incoming().unlockCode == codeId &&
+        incoming().createdBy == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (incoming().status != 'ACTIVE' || incoming().expiresAt > request.time) &&
+        isAdmin();
+
+      // Action-based update with strict immutability of pricing, duration, expiry & creator
+      allow update: if isVerifiedUser() &&
+        isValidUnlockCodeId(codeId) &&
+        isValidTournamentUnlockCode(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().unlockCode == existing().unlockCode &&
+        incoming().durationDays == existing().durationDays &&
+        incoming().amount == existing().amount &&
+        incoming().customerNote == existing().customerNote &&
+        incoming().lockedCustomerId == existing().lockedCustomerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().expiresAt == existing().expiresAt &&
+        incoming().createdBy == existing().createdBy &&
+        incoming().updatedAt == request.time &&
+        (
+          // Action 1: Admin revokes an unrevoked code
+          (
+            isAdmin() &&
+            existing().status != 'REVOKED' &&
+            incoming().status == 'REVOKED' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          // Action 2: Admin marks an expired ACTIVE code as EXPIRED
+          (
+            isAdmin() &&
+            existing().status == 'ACTIVE' &&
+            request.time >= existing().expiresAt &&
+            incoming().status == 'EXPIRED' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          ) ||
+          // Action 3: Verified customer atomically redeems an unexpired ACTIVE code
+          (
+            existing().status == 'ACTIVE' &&
+            request.time < existing().expiresAt &&
+            existing().redeemedAt == null &&
+            existing().redeemedBy == null &&
+            existing().redeemedByUid == null &&
+            incoming().status == 'REDEEMED' &&
+            incoming().redeemedAt == request.time &&
+            incoming().redeemedBy is string &&
+            incoming().redeemedBy.size() >= 1 &&
+            incoming().redeemedBy.size() <= 120 &&
+            incoming().redeemedByUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'status', 'redeemedAt', 'redeemedBy', 'redeemedByUid', 'updatedAt'
+            ])
+          ) ||
+          // Action 4: Redeeming customer binds their single tournamentId ONCE
+          (
+            existing().status == 'REDEEMED' &&
+            existing().redeemedByUid == request.auth.uid &&
+            existing().tournamentId == null &&
+            incoming().status == 'REDEEMED' &&
+            incoming().redeemedAt == existing().redeemedAt &&
+            incoming().redeemedBy == existing().redeemedBy &&
+            incoming().redeemedByUid == existing().redeemedByUid &&
+            incoming().tournamentId is string &&
+            incoming().tournamentId.size() >= 1 &&
+            incoming().tournamentId.size() <= 80 &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'tournamentId', 'tournamentName', 'updatedAt'
+            ])
+          )
+        );
+
+      // Permanent historical audit ledger: never delete codes
+      allow delete: if false;
     }
 
     // ==================== COLLECTION: LIVE SCOREBOARDS ====================

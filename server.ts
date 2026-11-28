@@ -2504,6 +2504,43 @@ export function createApiApp(): express.Express {
     }
   });
 
+  // Read-only legacy Supabase export for idempotent migration to Firebase Cloud Firestore
+  // (never deletes Supabase records; never writes new records to Supabase)
+  app.get('/api/admin/tournament-codes/supabase-legacy', requireOwnerAdmin, async (_req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const supabaseAdmin = getSupabaseAdminClient();
+      if (!supabaseAdmin) {
+        res.json({ ok: true, supabaseConfigured: false, rows: [] });
+        return;
+      }
+      const { data, error } = await supabaseAdmin
+        .from('tournament_unlock_codes')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) {
+        res.json({
+          ok: true,
+          supabaseConfigured: true,
+          rows: [],
+          warning: error.message,
+        });
+        return;
+      }
+      res.json({
+        ok: true,
+        supabaseConfigured: true,
+        rows: Array.isArray(data) ? data : [],
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        error: err instanceof Error ? err.message : 'Failed to inspect legacy Supabase codes.',
+      });
+    }
+  });
+
   app.post('/api/admin/tournament-codes/generate', requireOwnerAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     try {

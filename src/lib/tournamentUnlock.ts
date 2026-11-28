@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { User } from 'firebase/auth';
+import { auth, signInWithGooglePopup, subscribeFirebaseAuth } from '../firebase';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
+import {
+  bindTournamentToUnlockCodeInFirestore,
+  redeemTournamentUnlockCodeInFirestore,
+  subscribeCustomerTournamentPassesInFirestore,
+  TOURNAMENT_PRICE_PER_DAY_INR,
+  type FirestoreTournamentUnlockCode,
+  type FirestoreUnlockCodeStatus,
+} from './firestoreTournamentCodes';
 
-export const TOURNAMENT_PRICE_PER_DAY_INR = 99;
+export { TOURNAMENT_PRICE_PER_DAY_INR };
 
-export type TournamentCodeStatus = 'ACTIVE' | 'REDEEMED' | 'USED' | 'REVOKED';
-
-export interface CreatedTournamentEntry {
-  id: string;
-  name: string;
-  dates: string[];
-  created_at: string;
-}
+export type TournamentCodeStatus = FirestoreUnlockCodeStatus;
 
 export interface TournamentUnlockPass {
+  id: string;
   code: string;
   duration_days: number;
   price_per_day_inr: number;
@@ -22,208 +26,139 @@ export interface TournamentUnlockPass {
   status: TournamentCodeStatus;
   created_by: string;
   created_at: string;
+  expires_at: string;
+  is_expired: boolean;
+  remaining_days: number;
   redeemed_by_customer_id: string | null;
-  redeemed_by_name: string | null;
+  redeemed_by_uid: string | null;
   redeemed_at: string | null;
   consumed_tournament_id: string | null;
   consumed_tournament_name: string | null;
-  consumed_dates: string[] | null;
-  consumed_at: string | null;
-  revoked_at: string | null;
   updated_at: string;
-  expires_at?: string | null;
-  is_expired?: boolean;
-  remaining_days?: number;
-  tournaments_created_count?: number;
-  created_tournaments?: CreatedTournamentEntry[];
 }
 
 export interface TournamentUnlockStatusState {
   loading: boolean;
   authenticated: boolean;
+  firebaseReady: boolean;
+  firebaseEmail: string | null;
   customerId: string | null;
   pricePerDayInr: number;
   activePasses: TournamentUnlockPass[];
   usedPasses: TournamentUnlockPass[];
 }
 
-async function parseTournamentApiResponse<T extends { ok?: boolean; error?: string }>(
-  res: Response,
-  actionLabel: string
-): Promise<{ parsed: T | null; fallbackError: string }> {
-  const rawText = await res.text().catch(() => '');
-  const trimmed = rawText.trim();
-  if (trimmed) {
-    try {
-      const json = JSON.parse(trimmed) as T;
-      if (json && typeof json === 'object') {
-        return { parsed: json, fallbackError: '' };
-      }
-    } catch {
-      // Non-JSON payload
-    }
-  }
+export function mapFirestorePassToLegacyShape(
+  rec: FirestoreTournamentUnlockCode
+): TournamentUnlockPass {
   return {
-    parsed: null,
-    fallbackError: `Server returned HTTP ${res.status} while ${actionLabel}. Please try again.`,
+    id: rec.id,
+    code: rec.unlockCode,
+    duration_days: rec.durationDays,
+    price_per_day_inr: TOURNAMENT_PRICE_PER_DAY_INR,
+    total_price_inr: rec.amount,
+    assigned_customer_id: rec.lockedCustomerId,
+    customer_label: rec.customerNote,
+    status: rec.effectiveStatus,
+    created_by: rec.createdBy,
+    created_at: rec.createdAtIso,
+    expires_at: rec.expiresAtIso,
+    is_expired: rec.isExpired,
+    remaining_days: rec.remainingDays,
+    redeemed_by_customer_id: rec.redeemedBy,
+    redeemed_by_uid: rec.redeemedByUid,
+    redeemed_at: rec.redeemedAtIso,
+    consumed_tournament_id: rec.tournamentId,
+    consumed_tournament_name: rec.tournamentName,
+    updated_at: rec.updatedAtIso,
   };
 }
 
-export async function fetchTournamentUnlockStatus(
-  authHeaders: Record<string, string>
-): Promise<TournamentUnlockStatusState> {
+export async function ensureCustomerFirebaseAuth(): Promise<{
+  ok: boolean;
+  user?: User;
+  error?: string;
+}> {
+  const existing = auth.currentUser;
+  if (existing && existing.emailVerified) {
+    return { ok: true, user: existing };
+  }
   try {
-    const res = await fetch('/api/tournaments/unlock/status', {
-      method: 'GET',
-      credentials: 'include',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        ...authHeaders,
-      },
-    });
-    if (res.status === 401) {
+    const user = await signInWithGooglePopup();
+    if (!user.emailVerified) {
       return {
-        loading: false,
-        authenticated: false,
-        customerId: null,
-        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
-        activePasses: [],
-        usedPasses: [],
+        ok: false,
+        error: 'Your Google account email must be verified to redeem unlock codes.',
       };
     }
-    const { parsed } = await parseTournamentApiResponse<{
-      ok?: boolean;
-      authenticated?: boolean;
-      customerId?: string;
-      pricePerDayInr?: number;
-      activePasses?: TournamentUnlockPass[];
-      usedPasses?: TournamentUnlockPass[];
-    }>(res, 'checking tournament unlock status');
-
-    if (!res.ok || !parsed?.ok) {
+    return { ok: true, user };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '';
+    if (msg.includes('popup-closed')) {
       return {
-        loading: false,
-        authenticated: true,
-        customerId: null,
-        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
-        activePasses: [],
-        usedPasses: [],
+        ok: false,
+        error: 'Google sign-in popup was closed. Please sign in to verify and redeem your code.',
       };
     }
-
     return {
-      loading: false,
-      authenticated: true,
-      customerId: typeof parsed.customerId === 'string' ? parsed.customerId : null,
-      pricePerDayInr:
-        typeof parsed.pricePerDayInr === 'number'
-          ? parsed.pricePerDayInr
-          : TOURNAMENT_PRICE_PER_DAY_INR,
-      activePasses: Array.isArray(parsed.activePasses) ? parsed.activePasses : [],
-      usedPasses: Array.isArray(parsed.usedPasses) ? parsed.usedPasses : [],
-    };
-  } catch {
-    return {
-      loading: false,
-      authenticated: false,
-      customerId: null,
-      pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
-      activePasses: [],
-      usedPasses: [],
+      ok: false,
+      error: 'Please sign in with Google to verify your account with Firebase.',
     };
   }
 }
 
 export async function redeemTournamentUnlockCode(
-  authHeaders: Record<string, string>,
-  code: string
+  code: string,
+  customerIdentifiers: string[],
+  customerDisplayLabel: string
 ): Promise<{
   ok: boolean;
   pass?: TournamentUnlockPass;
-  activePasses?: TournamentUnlockPass[];
-  usedPasses?: TournamentUnlockPass[];
   error?: string;
 }> {
-  const res = await fetch('/api/tournaments/unlock/redeem', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders,
-    },
-    body: JSON.stringify({ code: code.trim().toUpperCase() }),
+  const authCheck = await ensureCustomerFirebaseAuth();
+  if (!authCheck.ok || !authCheck.user) {
+    return { ok: false, error: authCheck.error || 'Firebase sign-in required.' };
+  }
+
+  const res = await redeemTournamentUnlockCodeInFirestore({
+    code,
+    customerIdentifiers,
+    customerDisplayLabel:
+      customerDisplayLabel || authCheck.user.email || authCheck.user.uid,
   });
 
-  const { parsed, fallbackError } = await parseTournamentApiResponse<{
-    ok?: boolean;
-    pass?: TournamentUnlockPass;
-    activePasses?: TournamentUnlockPass[];
-    usedPasses?: TournamentUnlockPass[];
-    error?: string;
-  }>(res, 'redeeming tournament unlock code');
+  if (!res.ok || !res.pass) {
+    return { ok: false, error: res.error || 'Invalid Tournament Unlock Code.' };
+  }
 
-  if (!parsed) {
-    return { ok: false, error: fallbackError };
-  }
-  if (!res.ok || !parsed.ok) {
-    return { ok: false, error: parsed.error || 'Invalid Tournament Unlock Code.' };
-  }
+  emitTournamentUnlockRefresh();
   return {
     ok: true,
-    pass: parsed.pass,
-    activePasses: parsed.activePasses,
-    usedPasses: parsed.usedPasses,
+    pass: mapFirestorePassToLegacyShape(res.pass),
   };
 }
 
-export async function consumeTournamentUnlockPass(
-  authHeaders: Record<string, string>,
-  params: {
-    code: string;
-    tournamentId: string;
-    tournamentName: string;
-    selectedDates: string[];
-  }
-): Promise<{
+export async function consumeTournamentUnlockPass(params: {
+  code: string;
+  tournamentId: string;
+  tournamentName: string;
+}): Promise<{
   ok: boolean;
-  pass?: TournamentUnlockPass;
-  activePasses?: TournamentUnlockPass[];
-  usedPasses?: TournamentUnlockPass[];
   error?: string;
 }> {
-  const res = await fetch('/api/tournaments/unlock/consume', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...authHeaders,
-    },
-    body: JSON.stringify(params),
-  });
-
-  const { parsed, fallbackError } = await parseTournamentApiResponse<{
-    ok?: boolean;
-    pass?: TournamentUnlockPass;
-    activePasses?: TournamentUnlockPass[];
-    usedPasses?: TournamentUnlockPass[];
-    error?: string;
-  }>(res, 'verifying tournament unlock pass');
-
-  if (!parsed) {
-    return { ok: false, error: fallbackError };
+  const authCheck = await ensureCustomerFirebaseAuth();
+  if (!authCheck.ok) {
+    return { ok: false, error: authCheck.error || 'Firebase sign-in required.' };
   }
-  if (!res.ok || !parsed.ok) {
-    return { ok: false, error: parsed.error || 'Could not consume tournament unlock code.' };
+
+  const res = await bindTournamentToUnlockCodeInFirestore(params);
+  if (!res.ok) {
+    return { ok: false, error: res.error || 'Could not lock tournament to unlock code.' };
   }
-  return {
-    ok: true,
-    pass: parsed.pass,
-    activePasses: parsed.activePasses,
-    usedPasses: parsed.usedPasses,
-  };
+
+  emitTournamentUnlockRefresh();
+  return { ok: true };
 }
 
 const TOURNAMENT_UNLOCK_REFRESH_EVENT = 'starevent:tournament-unlock-refresh';
@@ -236,45 +171,95 @@ export function emitTournamentUnlockRefresh(): void {
 
 export function useTournamentUnlockStatus(): {
   status: TournamentUnlockStatusState;
-  refresh: () => Promise<TournamentUnlockStatusState>;
+  refresh: () => Promise<void>;
+  signInFirebase: () => Promise<{ ok: boolean; error?: string }>;
 } {
-  const { session, getPaymentAuthHeaders } = useOverlayAccess();
+  const { session } = useOverlayAccess();
+  const [fbUser, setFbUser] = useState<User | null>(() => auth.currentUser);
+  const [fbAuthChecked, setFbAuthChecked] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [status, setStatus] = useState<TournamentUnlockStatusState>({
     loading: true,
     authenticated: false,
-    customerId: null,
+    firebaseReady: false,
+    firebaseEmail: null,
+    customerId: session?.accessId ?? null,
     pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
     activePasses: [],
     usedPasses: [],
   });
 
-  const refresh = useCallback(async () => {
-    const headers = await getPaymentAuthHeaders();
-    const next = await fetchTournamentUnlockStatus(headers);
-    setStatus(next);
-    return next;
-  }, [getPaymentAuthHeaders]);
+  useEffect(() => {
+    const unsub = subscribeFirebaseAuth((user) => {
+      setFbUser(user);
+      setFbAuthChecked(true);
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
-    let active = true;
-    const load = async () => {
-      const headers = await getPaymentAuthHeaders();
-      const next = await fetchTournamentUnlockStatus(headers);
-      if (active) setStatus(next);
-    };
-    void load();
-
-    const onRefresh = () => {
-      void load();
-    };
+    const onRefresh = () => setReloadTick((t) => t + 1);
     window.addEventListener(TOURNAMENT_UNLOCK_REFRESH_EVENT, onRefresh);
-    window.addEventListener('focus', onRefresh);
-    return () => {
-      active = false;
-      window.removeEventListener(TOURNAMENT_UNLOCK_REFRESH_EVENT, onRefresh);
-      window.removeEventListener('focus', onRefresh);
-    };
-  }, [session?.accessId, getPaymentAuthHeaders]);
+    return () => window.removeEventListener(TOURNAMENT_UNLOCK_REFRESH_EVENT, onRefresh);
+  }, []);
 
-  return { status, refresh };
+  useEffect(() => {
+    if (!fbAuthChecked) return;
+
+    if (!fbUser || !fbUser.emailVerified) {
+      setStatus({
+        loading: false,
+        authenticated: Boolean(session?.accessId),
+        firebaseReady: false,
+        firebaseEmail: null,
+        customerId: session?.accessId ?? null,
+        pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+        activePasses: [],
+        usedPasses: [],
+      });
+      return;
+    }
+
+    const unsub = subscribeCustomerTournamentPassesInFirestore({
+      firebaseUid: fbUser.uid,
+      onData: (active, used) => {
+        setStatus({
+          loading: false,
+          authenticated: true,
+          firebaseReady: true,
+          firebaseEmail: fbUser.email || null,
+          customerId: session?.accessId || fbUser.email || fbUser.uid,
+          pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,
+          activePasses: active.map(mapFirestorePassToLegacyShape),
+          usedPasses: used.map(mapFirestorePassToLegacyShape),
+        });
+      },
+      onError: () => {
+        setStatus((prev) => ({
+          ...prev,
+          loading: false,
+          firebaseReady: true,
+          firebaseEmail: fbUser.email || null,
+        }));
+      },
+    });
+
+    return () => unsub();
+  }, [fbAuthChecked, fbUser, session?.accessId, reloadTick]);
+
+  const refresh = useCallback(async () => {
+    setReloadTick((t) => t + 1);
+  }, []);
+
+  const signInFirebase = useCallback(async () => {
+    const res = await ensureCustomerFirebaseAuth();
+    if (res.ok && res.user) {
+      setFbUser(res.user);
+      setReloadTick((t) => t + 1);
+      return { ok: true };
+    }
+    return { ok: false, error: res.error };
+  }, []);
+
+  return { status, refresh, signInFirebase };
 }
