@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
 import { Trophy } from 'lucide-react';
 import {
@@ -41,7 +41,7 @@ interface BroadcastOverlayCanvasProps {
   unlockedThemes?: Record<PaidThemeId, boolean>;
 }
 
-export function BroadcastOverlayCanvas({
+export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
   state,
   matchId,
   bgMode = 'transparent',
@@ -1861,4 +1861,4 @@ export function BroadcastOverlayCanvas({
       {renderBottomBar()}
     </div>
   );
-}
+});

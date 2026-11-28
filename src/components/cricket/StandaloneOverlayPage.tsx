@@ -21,8 +21,6 @@ export function StandaloneOverlayPage({
   uid,
   matchId,
 }: StandaloneOverlayPageProps) {
-  const { state } = useCricketOverlayListener(uid);
-
   const { bgMode, resolvedMatchId, requestedWidth, requestedHeight } = useMemo(() => {
     if (typeof window === 'undefined') {
       return {
@@ -45,6 +43,8 @@ export function StandaloneOverlayPage({
       requestedHeight: Number.isFinite(hParam) && hParam >= 180 ? hParam : null,
     };
   }, [matchId]);
+
+  const { state } = useCricketOverlayListener(uid, resolvedMatchId);
 
   const [viewport, setViewport] = useState<{ w: number; h: number }>(() => {
     if (typeof window === 'undefined') {

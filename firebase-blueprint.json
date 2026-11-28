@@ -1,0 +1,303 @@
+{
+  "entities": {
+    "LiveScoreboard": {
+      "title": "LiveScoreboard",
+      "description": "High-speed active cricket match broadcast document synced via Firestore onSnapshot to OBS/vMix overlays and multi-device scorers.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Isolated room / access identifier matching the document ID."
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the verified scorer owning this live scoreboard room."
+        },
+        "activeMatchId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Identifier of the currently active cricket match."
+        },
+        "matchStatus": {
+          "type": "string",
+          "enum": ["upcoming", "live", "completed", "archived"],
+          "description": "Current lifecycle status of the active match (archived is terminal)."
+        },
+        "runs": {
+          "type": "integer",
+          "description": "Current innings total runs (0 to 9999)."
+        },
+        "wickets": {
+          "type": "integer",
+          "description": "Current innings wickets fallen (0 to 10)."
+        },
+        "oversText": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 16,
+          "description": "Formatted overs string (e.g. 12.4)."
+        },
+        "legalBalls": {
+          "type": "integer",
+          "description": "Total legal deliveries bowled in the current innings."
+        },
+        "extrasTotal": {
+          "type": "integer",
+          "description": "Total extras conceded in the current innings."
+        },
+        "target": {
+          "type": "integer",
+          "description": "2nd innings chase target runs (0 during 1st innings)."
+        },
+        "crr": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 12,
+          "description": "Current run rate formatted to 2 decimal places."
+        },
+        "rrr": {
+          "type": "string",
+          "maxLength": 12,
+          "description": "Required run rate formatted to 2 decimal places (empty in 1st innings)."
+        },
+        "strikerName": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Current striker batter display name."
+        },
+        "nonStrikerName": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Current non-striker batter display name."
+        },
+        "bowlerName": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "Current bowler display name."
+        },
+        "battingTeamCode": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Short code of batting team."
+        },
+        "bowlingTeamCode": {
+          "type": "string",
+          "maxLength": 16,
+          "description": "Short code of bowling team."
+        },
+        "themeId": {
+          "type": "string",
+          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro"],
+          "description": "Active broadcast overlay theme identifier."
+        },
+        "revision": {
+          "type": "integer",
+          "description": "Monotonically increasing revision counter for conflict prevention."
+        },
+        "lastActionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Unique idempotency key for the last scoring or undo action."
+        },
+        "deviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Client tab/device identifier that committed this revision."
+        },
+        "matchState": {
+          "type": "object",
+          "description": "Native Map containing the active CricketMatch state (innings, batters, bowlers, ball-by-ball events, overs, toss, result)."
+        },
+        "teams": {
+          "type": "array",
+          "description": "Bounded native List of up to 4 Team maps needed to render the active match overlay."
+        },
+        "overlayState": {
+          "type": "object",
+          "description": "Native Map containing broadcast overlay display modes, ticker, and active transition banner."
+        },
+        "tournamentSummary": {
+          "type": "object",
+          "description": "Native Map containing non-PII active tournament title, format, and dates."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp set strictly on creation."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp updated on every atomic transaction."
+        }
+      },
+      "required": [
+        "roomId",
+        "ownerUid",
+        "activeMatchId",
+        "matchStatus",
+        "runs",
+        "wickets",
+        "oversText",
+        "legalBalls",
+        "extrasTotal",
+        "target",
+        "crr",
+        "rrr",
+        "strikerName",
+        "nonStrikerName",
+        "bowlerName",
+        "battingTeamCode",
+        "bowlingTeamCode",
+        "themeId",
+        "revision",
+        "lastActionId",
+        "deviceId",
+        "matchState",
+        "teams",
+        "overlayState",
+        "tournamentSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LiveMatchSnapshot": {
+      "title": "LiveMatchSnapshot",
+      "description": "Per-match real-time document under a scoreboard room for direct match-specific OBS/vMix overlay subscriptions.",
+      "type": "object",
+      "properties": {
+        "roomId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "matchId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "ownerUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "matchStatus": {
+          "type": "string",
+          "enum": ["upcoming", "live", "completed", "archived"]
+        },
+        "runs": { "type": "integer" },
+        "wickets": { "type": "integer" },
+        "oversText": { "type": "string", "minLength": 1, "maxLength": 16 },
+        "legalBalls": { "type": "integer" },
+        "extrasTotal": { "type": "integer" },
+        "target": { "type": "integer" },
+        "crr": { "type": "string", "minLength": 1, "maxLength": 12 },
+        "rrr": { "type": "string", "maxLength": 12 },
+        "strikerName": { "type": "string", "maxLength": 80 },
+        "nonStrikerName": { "type": "string", "maxLength": 80 },
+        "bowlerName": { "type": "string", "maxLength": 80 },
+        "battingTeamCode": { "type": "string", "maxLength": 16 },
+        "bowlingTeamCode": { "type": "string", "maxLength": 16 },
+        "themeId": {
+          "type": "string",
+          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro"]
+        },
+        "revision": { "type": "integer" },
+        "lastActionId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "deviceId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "matchState": { "type": "object" },
+        "teams": { "type": "array" },
+        "overlayState": { "type": "object" },
+        "tournamentSummary": { "type": "object" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "roomId",
+        "matchId",
+        "ownerUid",
+        "matchStatus",
+        "runs",
+        "wickets",
+        "oversText",
+        "legalBalls",
+        "extrasTotal",
+        "target",
+        "crr",
+        "rrr",
+        "strikerName",
+        "nonStrikerName",
+        "bowlerName",
+        "battingTeamCode",
+        "bowlingTeamCode",
+        "themeId",
+        "revision",
+        "lastActionId",
+        "deviceId",
+        "matchState",
+        "teams",
+        "overlayState",
+        "tournamentSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Server-managed administrator role record keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "role": {
+          "type": "string",
+          "enum": ["admin"]
+        }
+      },
+      "required": ["uid", "role"]
+    }
+  },
+  "firestore": {
+    "/liveScoreboards/{roomId}": {
+      "schema": { "$ref": "#/entities/LiveScoreboard" },
+      "description": "Active cricket match real-time scoreboard state per room for instant OBS/vMix onSnapshot updates."
+    },
+    "/liveScoreboards/{roomId}/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/LiveMatchSnapshot" },
+      "description": "Per-match real-time scoreboard state bound to its parent room via Master Gate."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Trusted administrator lookup registry (read-only for verified self/admin; client writes denied)."
+    }
+  }
+}

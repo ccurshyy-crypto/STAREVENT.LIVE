@@ -1,25 +1,25 @@
-# Security Specification — Per-User Isolated Kabaddi Scoreboard
+# Security Specification — Star Event Live High-Speed Cricket Scoreboard Sync (Firestore)
 
 ## 1. Data Invariants
-1. Every registered user owns a strictly isolated namespace `/users/{userId}/...` bound to their Firebase Auth UID (`request.auth.uid == userId`).
-2. User A can NEVER read `/users/{userB}/profile/main`, `/users/{userB}/undoHistory/stack`, or `/users/{userB}/scoreHistory/*`.
-3. User A can NEVER create, update, or delete ANY document under `/users/{userB}/...`.
-4. Unauthenticated vMix / OBS Browser Input at `/scoreboard/{userId}` can ONLY perform exact-key `get` on non-PII broadcast documents `/users/{userId}/scoreboard/current` and `/users/{userId}/settings/main`; `list` and all writes are strictly denied to unauthenticated clients.
-5. Passwords are NEVER stored in any Firestore document (strict `keys().hasOnly(...)` allowlists on every entity).
-6. Scores are bounded (`0..999`), players on mat are bounded (`0..7`), string fields and arrays (`teamAStarting7.size() <= 7`, `undoHistory.entries.size() <= 40`) have mandatory upper bounds.
-7. `scoreHistory` is strictly append-only (`allow update: if false`).
-8. Users cannot elevate their own role to `super_admin` or disable/enable other accounts.
+1. **Strict Room Ownership**: Every `/liveScoreboards/{roomId}` document is bound to its verified Firebase Auth creator via an immutable `ownerUid == request.auth.uid` field. No other user can update or delete that room.
+2. **Master Gate Relational Binding**: Every `/liveScoreboards/{roomId}/matches/{matchId}` subcollection document validates parent room ownership via `get()` / `getAfter()` on `/liveScoreboards/{roomId}` and enforces atomicity (`existsAfter()`) on creation.
+3. **Zero PII in Broadcast Documents**: Neither `/liveScoreboards/{roomId}` nor `/liveScoreboards/{roomId}/matches/{matchId}` stores emails, passwords, phone numbers, or account credentials — strict `keys().hasOnly(...)` allowlists reject any shadow/PII fields.
+4. **Public Exact-Key OBS/vMix Reads Only**: OBS Studio and vMix browser sources can perform exact-key `get` on `/liveScoreboards/{roomId}` or `/liveScoreboards/{roomId}/matches/{matchId}` using a valid ID (`^[a-zA-Z0-9_\-]+$`, `<= 64/128` chars), while `list` queries are strictly denied (`allow list: if false`) to prevent scraping.
+5. **Verified Auth & Strict Server Timestamps**: All writes require `request.auth != null && request.auth.token.email_verified == true`. `createdAt` must equal `request.time` on create and remain immutable on update; `updatedAt` must equal `request.time` on every write.
+6. **Bounded Scoring Values & Arrays**: `runs` (`0..9999`), `wickets` (`0..10`), `legalBalls` (`0..6000`), `extrasTotal` (`0..999`), `target` (`0..9999`), `revision` (`>= 1`), `teams` list (`size() <= 4`), and every string field have strict `.size()` upper bounds.
+7. **Terminal State Locking**: Once `matchStatus` transitions to `'archived'`, regular scorers can no longer mutate the document (`existing().matchStatus != 'archived' || isAdmin()`).
+8. **Admin Isolation**: `/admins/{adminUid}` denies all client writes (`allow create, update, delete: if false`) and checks `email_verified == true` for bootstrapped owner admin `ccurshyy@gmail.com`.
 
 ## 2. The "Dirty Dozen" Attack Payloads (All Must Return PERMISSION_DENIED)
-1. **Cross-Tenant Score Hijack**: User A updates `/users/USER_B/scoreboard/current` with `{ teamAScore: 99 }`.
-2. **Cross-Tenant Settings Overwrite**: User A updates `/users/USER_B/settings/main` with `{ teamAName: "HACKED" }`.
-3. **Cross-Tenant Profile Read (PII Leak)**: User A reads `/users/USER_B/profile/main`.
-4. **Cross-Tenant Undo Tampering**: User A reads or writes `/users/USER_B/undoHistory/stack`.
-5. **Unauthenticated Scoreboard Write**: Anonymous client writes `/users/USER_A/scoreboard/current`.
-6. **Unauthenticated Collection Scraping**: Anonymous client calls `list` on `/users/USER_A/scoreboard` or `/users/USER_A/settings` or `/userAccounts`.
-7. **Shadow Field Injection (Password Leak)**: User A writes `{ password: "secret" }` into `/users/USER_A/profile/main` or `/userAccounts/USER_A`.
-8. **Role Escalation**: User A creates `/users/USER_A/profile/main` or `/userAccounts/USER_A` with `{ role: "super_admin" }`.
-9. **Owner UID Spoofing**: User A writes `/users/USER_A/scoreboard/current` with `{ ownerUid: "USER_B" }`.
-10. **Out-of-Bounds Resource Exhaustion**: User A writes `{ teamAScore: 999999 }` or `{ teamAPlayersOnMat: 50 }` or `undoHistory.entries` with 100 elements.
-11. **Path Variable ID Poisoning**: Client writes to `/users/USER_A/scoreboard/../../evil` or an invalid 300-char docId.
-12. **Audit Log Mutation**: User A calls `update` on `/users/USER_A/scoreHistory/evt1` to falsify score history.
+1. **Cross-Tenant Score Hijack**: User B attempts to `update` `/liveScoreboards/ROOM_A` owned by User A (`runs: 500`).
+2. **Owner UID Spoofing on Create**: User A attempts to `create` `/liveScoreboards/ROOM_X` with `ownerUid: "USER_B"`.
+3. **Immutable Owner Transfer on Update**: User A attempts to change `ownerUid` on `/liveScoreboards/ROOM_A` to `"USER_B"`.
+4. **Shadow / Ghost Field Injection**: User A writes `{ isVerified: true, password: "leak" }` alongside valid fields into `/liveScoreboards/ROOM_A`.
+5. **Unauthenticated Write**: Unauthenticated OBS/visitor client attempts to `create` or `update` `/liveScoreboards/ROOM_A`.
+6. **Collection Scraping (`list`)**: Unauthenticated or authenticated user attempts `list` on `/liveScoreboards` or `/liveScoreboards/ROOM_A/matches`.
+7. **Unverified Email Spoof**: Authenticated user with `email: "ccurshyy@gmail.com"` and `email_verified: false` attempts to write `/liveScoreboards/ROOM_A`.
+8. **Out-of-Bounds Value Poisoning**: User A updates `/liveScoreboards/ROOM_A` with `{ wickets: 99, runs: -50 }` or `teams` array with 10 entries.
+9. **Path Variable ID Poisoning**: User A attempts to write to `/liveScoreboards/invalid$$$id` or a 200-character ID.
+10. **Client-Forged Timestamp Injection**: User A creates `/liveScoreboards/ROOM_A` with a spoofed `createdAt` or `updatedAt` not equal to `request.time`.
+11. **Terminal Archived State Mutation**: Non-admin owner attempts to update `/liveScoreboards/ROOM_A` after `matchStatus == 'archived'`.
+12. **Self-Assigned Admin Escalation**: Regular user attempts to `create` `/admins/{theirUid}` with `{ uid: theirUid, role: "admin" }`.

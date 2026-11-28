@@ -1,5 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { User } from 'firebase/auth';
 import { createInitialCricketSuiteState } from '../data/cricketSampleData';
+import {
+  auth,
+  signInWithGooglePopup,
+  signOutFirebaseAuth,
+  subscribeFirebaseAuth,
+} from '../firebase';
+import {
+  applyLiveDocToSuiteState,
+  commitLiveScoreboardTransaction,
+  generateActionId,
+  subscribeLiveScoreboardDoc,
+  type FirestoreConnectionStatus,
+} from '../lib/firestoreLiveSync';
 import {
   getSupabaseClient,
   SUPABASE_SCOREBOARD_TABLE,
@@ -479,6 +493,15 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   );
   const [hasPendingSync, setHasPendingSync] = useState<boolean>(false);
+  const [firebaseUser, setFirebaseUser] = useState<User | null>(() => auth.currentUser);
+  const [firestoreStatus, setFirestoreStatus] = useState<FirestoreConnectionStatus>(() =>
+    typeof navigator !== 'undefined' && !navigator.onLine
+      ? 'offline'
+      : auth.currentUser?.emailVerified
+        ? 'reconnecting'
+        : 'auth-required'
+  );
+  const [lastSyncLatencyMs, setLastSyncLatencyMs] = useState<number | null>(null);
 
   const isHydratedRef = useRef(false);
   const remoteRevisionRef = useRef(0);
@@ -490,6 +513,13 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const pushTimerRef = useRef<number | null>(null);
   const isPushingRef = useRef(false);
   const needsRepushRef = useRef(false);
+  const wasOfflineRef = useRef(false);
+
+  // High-speed sequential Firestore transaction queue (zero debounce)
+  const fsInFlightRef = useRef(false);
+  const fsQueuedCommitRef = useRef<{ state: CricketSuiteState; actionId: string } | null>(null);
+  const fsConnectedRef = useRef(false);
+  const lastCommittedActionIdRef = useRef<string>('');
 
   const shouldAcceptRemoteUpdate = useCallback(
     (incoming: CricketSuiteState, current: CricketSuiteState): boolean => {
@@ -579,12 +609,17 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
           return;
         }
 
-        // Guard 2: Optimistic remote check before overwriting when recovering from offline
-        // or when base revision may be behind another device.
+        // Guard 2: Optimistic remote check before overwriting ONLY when recovering from
+        // offline or when local baseRevision may lag another device (saves a full round-trip
+        // on fast consecutive scoring clicks!).
         const supabase = getSupabaseClient();
         const matchRowId = getSupabaseMatchId(uid);
 
-        if (!record.allowDestructiveReset) {
+        const needsPreWriteMergeCheck =
+          !record.allowDestructiveReset &&
+          (wasOfflineRef.current || record.baseRevision < remoteRevisionRef.current);
+
+        if (needsPreWriteMergeCheck) {
           const check = await supabase
             .from(SUPABASE_SCOREBOARD_TABLE)
             .select('data, updated_at')
@@ -664,6 +699,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
           savePendingSync(uid, null);
           setHasPendingSync(false);
           setIsOffline(false);
+          wasOfflineRef.current = false;
           setSyncStatus('synced');
         }
 
@@ -720,7 +756,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       pushTimerRef.current = window.setTimeout(() => {
         pushTimerRef.current = null;
         void flushPendingToCloud();
-      }, 150);
+      }, 40);
     },
     [uid, flushPendingToCloud]
   );
@@ -864,6 +900,207 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     };
   }, [hydrateFromCloud]);
 
+  // Flush queued Firestore atomic transaction sequentially (zero debounce, 100-300ms live push)
+  const flushFirestoreQueue = useCallback(async () => {
+    if (!uid || !isHydratedRef.current) return;
+    if (fsInFlightRef.current) return;
+
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser || !currentAuthUser.emailVerified) {
+      setFirestoreStatus(
+        typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
+      );
+      return;
+    }
+
+    const nextItem = fsQueuedCommitRef.current;
+    if (!nextItem) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setFirestoreStatus('offline');
+      return;
+    }
+
+    fsQueuedCommitRef.current = null;
+    fsInFlightRef.current = true;
+    setFirestoreStatus('syncing');
+
+    try {
+      const res = await commitLiveScoreboardTransaction({
+        roomId: uid,
+        state: nextItem.state,
+        actionId: nextItem.actionId,
+        deviceId: CLIENT_DEVICE_ID,
+      });
+
+      if (res.ok) {
+        lastCommittedActionIdRef.current = nextItem.actionId;
+        fsConnectedRef.current = true;
+        if (typeof res.committedRevision === 'number') {
+          remoteRevisionRef.current = Math.max(remoteRevisionRef.current, res.committedRevision);
+        }
+        if (typeof res.latencyMs === 'number') {
+          setLastSyncLatencyMs(res.latencyMs);
+        }
+        if (!fsQueuedCommitRef.current) {
+          setFirestoreStatus('connected');
+        }
+      } else if (res.offline) {
+        // Keep latest state queued for automatic flush on reconnect
+        if (!fsQueuedCommitRef.current) {
+          fsQueuedCommitRef.current = nextItem;
+        }
+        fsConnectedRef.current = false;
+        setFirestoreStatus('offline');
+      } else if (res.permissionDenied) {
+        fsConnectedRef.current = false;
+        setFirestoreStatus('auth-required');
+      } else {
+        fsConnectedRef.current = false;
+        setFirestoreStatus('reconnecting');
+      }
+    } finally {
+      fsInFlightRef.current = false;
+      if (
+        fsQueuedCommitRef.current &&
+        (typeof navigator === 'undefined' || navigator.onLine)
+      ) {
+        void flushFirestoreQueue();
+      }
+    }
+  }, [uid]);
+
+  const enqueueFirestoreCommit = useCallback(
+    (nextState: CricketSuiteState, actionId: string) => {
+      if (!uid || !isHydratedRef.current) return;
+      fsQueuedCommitRef.current = { state: nextState, actionId };
+      void flushFirestoreQueue();
+    },
+    [uid, flushFirestoreQueue]
+  );
+
+  // Track Firebase Auth user and immediately bootstrap live Firestore sync upon sign-in
+  useEffect(() => {
+    const unsubscribe = subscribeFirebaseAuth((user) => {
+      setFirebaseUser(user);
+      if (user && user.emailVerified) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          setFirestoreStatus('offline');
+        } else {
+          setFirestoreStatus('syncing');
+          if (uid && isHydratedRef.current && stateRef.current.matches.length > 0) {
+            enqueueFirestoreCommit(stateRef.current, generateActionId('init'));
+          } else {
+            setFirestoreStatus('connected');
+          }
+        }
+      } else {
+        fsConnectedRef.current = false;
+        setFirestoreStatus(
+          typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
+        );
+      }
+    });
+    return unsubscribe;
+  }, [uid, enqueueFirestoreCommit]);
+
+  // Trigger initial Firestore sync once hydration finishes if Firebase Auth is already signed in
+  useEffect(() => {
+    if (
+      loadStatus === 'ready' &&
+      uid &&
+      firebaseUser?.emailVerified &&
+      stateRef.current.matches.length > 0
+    ) {
+      enqueueFirestoreCommit(stateRef.current, generateActionId('hydrate'));
+    }
+  }, [loadStatus, uid, firebaseUser, enqueueFirestoreCommit]);
+
+  const connectFirebaseLive = useCallback(async () => {
+    try {
+      setFirestoreStatus('syncing');
+      const user = await signInWithGooglePopup();
+      setFirebaseUser(user);
+      if (user?.emailVerified && uid && isHydratedRef.current) {
+        enqueueFirestoreCommit(stateRef.current, generateActionId('connect'));
+      }
+      return { ok: true as const, user };
+    } catch (err) {
+      setFirestoreStatus(
+        typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
+      );
+      return {
+        ok: false as const,
+        error: err instanceof Error ? err.message : 'Google Sign-In was cancelled.',
+      };
+    }
+  }, [uid, enqueueFirestoreCommit]);
+
+  const disconnectFirebaseLive = useCallback(async () => {
+    await signOutFirebaseAuth();
+    fsConnectedRef.current = false;
+    setFirestoreStatus('auth-required');
+  }, []);
+
+  // Single-document Firebase Cloud Firestore real-time `onSnapshot` listener for multi-device sync
+  useEffect(() => {
+    if (!uid) return;
+    let mounted = true;
+
+    const unsubscribe = subscribeLiveScoreboardDoc({
+      roomId: uid,
+      onStatusChange: (status) => {
+        if (!mounted) return;
+        const hasVerifiedAuth = Boolean(auth.currentUser?.emailVerified);
+        if (status === 'connected') {
+          fsConnectedRef.current = hasVerifiedAuth;
+          setFirestoreStatus(hasVerifiedAuth ? 'connected' : 'auth-required');
+        } else if (status === 'offline') {
+          fsConnectedRef.current = false;
+          setFirestoreStatus('offline');
+        } else if (hasVerifiedAuth) {
+          setFirestoreStatus(status);
+        }
+      },
+      onData: ({ doc: liveDoc }) => {
+        if (!mounted || !isHydratedRef.current) return;
+        // Ignore echoes of our own tab's writes
+        if (
+          liveDoc.deviceId === CLIENT_DEVICE_ID &&
+          (liveDoc.lastActionId === lastCommittedActionIdRef.current ||
+            liveDoc.revision <= getRevision(stateRef.current))
+        ) {
+          return;
+        }
+        setState((prev) => {
+          const currentRev = getRevision(prev);
+          if (liveDoc.revision <= currentRev && liveDoc.deviceId === CLIENT_DEVICE_ID) {
+            return prev;
+          }
+          if (liveDoc.revision < currentRev && currentRev > 0) {
+            return prev;
+          }
+          const merged = applyLiveDocToSuiteState(prev, liveDoc, uid);
+          remoteRevisionRef.current = Math.max(remoteRevisionRef.current, getRevision(merged));
+          remoteHasDataRef.current =
+            remoteHasDataRef.current || hasMeaningfulUserData(merged);
+          saveToLocalCache(uid, merged);
+          try {
+            channelRef.current?.postMessage(merged);
+          } catch {
+            // ignore
+          }
+          return merged;
+        });
+      },
+    });
+
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, [uid]);
+
   // Same-browser instant cross-tab sync (Dashboard <-> /overlay?id=<access_id>)
   useEffect(() => {
     if (!uid || typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return;
@@ -894,7 +1131,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     };
   }, [uid, shouldAcceptRemoteUpdate]);
 
-  // Single deduplicated Supabase Realtime subscription + focus/reconnect resync
+  // Single deduplicated Supabase Realtime subscription + reconnect resync
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
@@ -968,6 +1205,15 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 
     const onOnline = () => {
       setIsOffline(false);
+      wasOfflineRef.current = true;
+      if (auth.currentUser?.emailVerified) {
+        setFirestoreStatus('reconnecting');
+        if (fsQueuedCommitRef.current) {
+          void flushFirestoreQueue();
+        } else if (isHydratedRef.current && stateRef.current.matches.length > 0) {
+          enqueueFirestoreCommit(stateRef.current, generateActionId('reconnect'));
+        }
+      }
       if (!isHydratedRef.current) {
         void hydrateFromCloud();
       } else if (loadPendingSync(uid, userLabelRef.current)) {
@@ -979,24 +1225,35 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 
     const onOffline = () => {
       setIsOffline(true);
+      wasOfflineRef.current = true;
       setSyncStatus('offline');
+      fsConnectedRef.current = false;
+      setFirestoreStatus('offline');
     };
 
     const onVisibility = () => {
       if (document.visibilityState === 'hidden') {
-        // Flush any debounced edit before mobile browser suspends the tab
         if (pushTimerRef.current) {
           window.clearTimeout(pushTimerRef.current);
           pushTimerRef.current = null;
           void flushPendingToCloud();
         }
+        if (fsQueuedCommitRef.current) {
+          void flushFirestoreQueue();
+        }
       } else if (document.visibilityState === 'visible') {
-        void pullLatestFromCloud();
+        if (!fsConnectedRef.current) {
+          void pullLatestFromCloud();
+        } else if (fsQueuedCommitRef.current) {
+          void flushFirestoreQueue();
+        }
       }
     };
 
     const onWindowFocus = () => {
-      void pullLatestFromCloud();
+      if (!fsConnectedRef.current) {
+        void pullLatestFromCloud();
+      }
     };
 
     window.addEventListener('online', onOnline);
@@ -1004,12 +1261,12 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     window.addEventListener('focus', onWindowFocus);
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Periodic safety pull (6s) for mobile browsers that throttle background WebSockets
+    // Only run background safety pull when Firestore live onSnapshot is NOT connected
     const resyncTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !fsConnectedRef.current) {
         void pullLatestFromCloud();
       }
-    }, 6000);
+    }, 8000);
 
     return () => {
       mounted = false;
@@ -1020,14 +1277,25 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       window.clearInterval(resyncTimer);
       void supabase.removeChannel(rtChannel);
     };
-  }, [uid, shouldAcceptRemoteUpdate, flushPendingToCloud, hydrateFromCloud]);
+  }, [
+    uid,
+    shouldAcceptRemoteUpdate,
+    flushPendingToCloud,
+    hydrateFromCloud,
+    flushFirestoreQueue,
+    enqueueFirestoreCommit,
+  ]);
 
-  // Step 6: Allow editing ONLY after cloud hydration has completed
+  // Optimistic local UI update + instant atomic Firestore transaction + background workspace save
   const updateState = useCallback(
-    (updater: (prev: CricketSuiteState) => CricketSuiteState) => {
+    (
+      updater: (prev: CricketSuiteState) => CricketSuiteState,
+      options?: { actionId?: string }
+    ) => {
       if (!uid || !isHydratedRef.current) return;
 
       const baseRev = Math.max(remoteRevisionRef.current, getRevision(stateRef.current));
+      const actionId = options?.actionId || generateActionId('upd');
 
       setState((prev) => {
         const nextRaw = updater(prev);
@@ -1046,11 +1314,14 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
         } catch {
           // Ignore closed channel
         }
+        // Immediate atomic Firestore live sync (zero debounce!)
+        enqueueFirestoreCommit(next, actionId);
+        // Background full-workspace persistence
         scheduleCloudPush(next, baseRev, false);
         return next;
       });
     },
-    [uid, scheduleCloudPush]
+    [uid, enqueueFirestoreCommit, scheduleCloudPush]
   );
 
   // Explicit user-confirmed full workspace reset (never triggered automatically on login)
@@ -1071,10 +1342,14 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     } catch {
       // ignore
     }
+    enqueueFirestoreCommit(fresh, generateActionId('reset'));
     scheduleCloudPush(fresh, baseRev, true);
-  }, [uid, scheduleCloudPush]);
+  }, [uid, enqueueFirestoreCommit, scheduleCloudPush]);
 
   const syncNow = useCallback(() => {
+    if (auth.currentUser?.emailVerified && uid && isHydratedRef.current) {
+      enqueueFirestoreCommit(stateRef.current, generateActionId('sync'));
+    }
     if (!isHydratedRef.current) {
       void hydrateFromCloud();
       return;
@@ -1084,7 +1359,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     } else {
       void hydrateFromCloud();
     }
-  }, [uid, hydrateFromCloud, flushPendingToCloud]);
+  }, [uid, hydrateFromCloud, flushPendingToCloud, enqueueFirestoreCommit]);
 
   return {
     uid,
@@ -1095,6 +1370,11 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     syncStatus,
     isOffline,
     hasPendingSync,
+    firebaseUser,
+    firestoreStatus,
+    lastSyncLatencyMs,
+    connectFirebaseLive,
+    disconnectFirebaseLive,
     updateState,
     resetDemoData: resetAllData,
     retryLoad: hydrateFromCloud,
@@ -1103,13 +1383,21 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 }
 
 /**
- * Public real-time listener for `/overlay?id=<access_id>` (also supports `?uid=<access_id>`).
+ * Public real-time listener for `/overlay?id=<access_id>` (also supports `?uid=<access_id>&match=<matchId>`).
  * Works WITHOUT login inside vMix / OBS Studio and stays 100% transparent when no id or no data exists.
+ *
+ * Primary channel: Firebase Cloud Firestore single-document `onSnapshot` listener
+ * (`/liveScoreboards/{roomId}` or `/liveScoreboards/{roomId}/matches/{matchId}`)
+ * for 100-300ms real-time updates with zero polling and zero flickering on reconnect.
  */
-export function useCricketOverlayListener(rawUid: string) {
+export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
   const requestedUid = sanitizeUid(rawUid);
+  const requestedMatchId = rawMatchId ? sanitizeUid(rawMatchId) : undefined;
   const [resolvedRoomId, setResolvedRoomId] = useState<string>(requestedUid);
   const [state, setState] = useState<CricketSuiteState | null>(null);
+  const [connectionStatus, setConnectionStatus] =
+    useState<FirestoreConnectionStatus>('reconnecting');
+  const firestoreActiveRef = useRef(false);
 
   useEffect(() => {
     setResolvedRoomId(requestedUid);
@@ -1126,13 +1414,37 @@ export function useCricketOverlayListener(rawUid: string) {
 
     const activeRoom = resolvedRoomId || requestedUid;
     let mounted = true;
+    firestoreActiveRef.current = false;
 
-    // Show cached copy immediately if available on same browser, then immediately refresh from cloud
+    // Show cached copy immediately if available on same browser (zero blank frame)
     const cached = loadFromLocalCache(activeRoom) ?? loadFromLocalCache(requestedUid);
     if (cached) {
-      setState(cached);
+      setState((prev) => prev ?? cached);
     }
 
+    // 1. PRIMARY: Firebase Cloud Firestore single-document `onSnapshot` listener
+    // Listens ONLY to the active room doc or specific match doc; auto-unsubscribes on match change.
+    const unsubscribeFirestore = subscribeLiveScoreboardDoc({
+      roomId: activeRoom,
+      matchId: requestedMatchId,
+      onStatusChange: (status) => {
+        if (!mounted) return;
+        setConnectionStatus(status);
+      },
+      onData: ({ doc: liveDoc }) => {
+        if (!mounted) return;
+        firestoreActiveRef.current = true;
+        setState((prev) => {
+          const prevRev = getRevision(prev);
+          if (prev && liveDoc.revision < prevRev && prevRev > 0) {
+            return prev;
+          }
+          return applyLiveDocToSuiteState(prev, liveDoc, activeRoom);
+        });
+      },
+    });
+
+    // 2. INSTANT SAME-BROWSER CHANNEL (0ms when scorer & preview are in same browser)
     let ch: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       ch = new BroadcastChannel(`${CHANNEL_PREFIX}${requestedUid.toUpperCase()}`);
@@ -1141,7 +1453,12 @@ export function useCricketOverlayListener(rawUid: string) {
           evt.data as Partial<CricketSuiteState> | undefined,
           activeRoom
         );
-        if (incoming) setState(incoming);
+        if (!incoming) return;
+        setState((prev) => {
+          if (!prev) return incoming;
+          if (getRevision(incoming) >= getRevision(prev)) return incoming;
+          return prev;
+        });
       };
     }
 
@@ -1152,22 +1469,25 @@ export function useCricketOverlayListener(rawUid: string) {
       ) {
         return;
       }
-      if (!evt.newValue) {
-        setState(null);
-        return;
-      }
+      if (!evt.newValue) return;
       try {
         const parsed = normalizeLoadedState(
           JSON.parse(evt.newValue) as Partial<CricketSuiteState>,
           activeRoom
         );
-        if (parsed) setState(parsed);
+        if (parsed) {
+          setState((prev) => {
+            if (!prev || getRevision(parsed) >= getRevision(prev)) return parsed;
+            return prev;
+          });
+        }
       } catch {
         // ignore
       }
     };
     window.addEventListener('storage', onStorage);
 
+    // 3. FALLBACK: Supabase Realtime + initial hydrate (only polls if Firestore hasn't delivered yet)
     const supabase = getSupabaseClient();
 
     const fetchLatest = async () => {
@@ -1193,7 +1513,6 @@ export function useCricketOverlayListener(rawUid: string) {
           ) {
             return remoteState;
           }
-          // Always allow cloud to replace an empty state
           if (!hasMeaningfulUserData(prev) && hasMeaningfulUserData(remoteState)) {
             return remoteState;
           }
@@ -1205,20 +1524,29 @@ export function useCricketOverlayListener(rawUid: string) {
     void fetchLatest();
 
     const onOnline = () => {
-      void fetchLatest();
+      setConnectionStatus('reconnecting');
+      if (!firestoreActiveRef.current) {
+        void fetchLatest();
+      }
+    };
+    const onOffline = () => {
+      setConnectionStatus('offline');
     };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !firestoreActiveRef.current) {
         void fetchLatest();
       }
     };
     window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Lightweight fallback poll so long-running vMix/OBS Browser Sources never go stale
+    // Zero polling when Firestore live onSnapshot is active; lightweight fallback only if not yet on Firestore
     const pollTimer = window.setInterval(() => {
-      void fetchLatest();
-    }, 5000);
+      if (!firestoreActiveRef.current) {
+        void fetchLatest();
+      }
+    }, 6000);
 
     const rtChannel = supabase
       .channel(`live_overlay_view_${activeRoom}_${CLIENT_DEVICE_ID.slice(0, 8)}`)
@@ -1231,10 +1559,7 @@ export function useCricketOverlayListener(rawUid: string) {
           filter: `match_id=eq.${activeRoom}`,
         },
         (payload) => {
-          if (payload.eventType === 'DELETE') {
-            setState(null);
-            return;
-          }
+          if (payload.eventType === 'DELETE') return;
           const row = payload.new as
             | { data?: Partial<CricketSuiteState> | null; updated_at?: string }
             | undefined;
@@ -1245,7 +1570,10 @@ export function useCricketOverlayListener(rawUid: string) {
             row?.updated_at ?? null
           );
           if (parsed) {
-            setState(parsed);
+            setState((prev) => {
+              if (!prev || getRevision(parsed) >= getRevision(prev)) return parsed;
+              return prev;
+            });
           }
         }
       )
@@ -1253,14 +1581,16 @@ export function useCricketOverlayListener(rawUid: string) {
 
     return () => {
       mounted = false;
+      unsubscribeFirestore();
       ch?.close();
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
       document.removeEventListener('visibilitychange', onVisibility);
       window.clearInterval(pollTimer);
       void supabase.removeChannel(rtChannel);
     };
-  }, [requestedUid, resolvedRoomId]);
+  }, [requestedUid, requestedMatchId, resolvedRoomId]);
 
-  return { uid: resolvedRoomId || requestedUid, state };
+  return { uid: resolvedRoomId || requestedUid, state, connectionStatus };
 }

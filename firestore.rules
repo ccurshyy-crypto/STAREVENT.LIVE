@@ -1,0 +1,239 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ==================== GLOBAL HARDENED PRIMITIVES ====================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidRoomId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 64 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'ccurshyy@gmail.com'
+      );
+    }
+
+    function isValidThemeId(themeId) {
+      return themeId is string && themeId in ['tata-ipl-2022', 'worldcup', 'lightning-pro'];
+    }
+
+    function isValidMatchStatus(status) {
+      return status is string && status in ['upcoming', 'live', 'completed', 'archived'];
+    }
+
+    function isValidBoundedTeamsList(teams) {
+      return teams is list &&
+        teams.size() <= 4 &&
+        (teams.size() == 0 || teams[0] is map);
+    }
+
+    function isValidCoreScoreboardFields(data) {
+      return isValidRoomId(data.roomId) &&
+        isValidId(data.ownerUid) &&
+        isValidMatchStatus(data.matchStatus) &&
+        data.runs is int && data.runs >= 0 && data.runs <= 9999 &&
+        data.wickets is int && data.wickets >= 0 && data.wickets <= 10 &&
+        data.oversText is string && data.oversText.size() >= 1 && data.oversText.size() <= 16 &&
+        data.legalBalls is int && data.legalBalls >= 0 && data.legalBalls <= 6000 &&
+        data.extrasTotal is int && data.extrasTotal >= 0 && data.extrasTotal <= 999 &&
+        data.target is int && data.target >= 0 && data.target <= 9999 &&
+        data.crr is string && data.crr.size() >= 1 && data.crr.size() <= 12 &&
+        data.rrr is string && data.rrr.size() <= 12 &&
+        data.strikerName is string && data.strikerName.size() <= 80 &&
+        data.nonStrikerName is string && data.nonStrikerName.size() <= 80 &&
+        data.bowlerName is string && data.bowlerName.size() <= 80 &&
+        data.battingTeamCode is string && data.battingTeamCode.size() <= 16 &&
+        data.bowlingTeamCode is string && data.bowlingTeamCode.size() <= 16 &&
+        isValidThemeId(data.themeId) &&
+        data.revision is int && data.revision >= 1 && data.revision <= 100000000 &&
+        data.lastActionId is string && data.lastActionId.size() >= 1 && data.lastActionId.size() <= 80 && data.lastActionId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.deviceId is string && data.deviceId.size() >= 1 && data.deviceId.size() <= 80 && data.deviceId.matches('^[a-zA-Z0-9_\\-]+$') &&
+        data.matchState is map &&
+        isValidBoundedTeamsList(data.teams) &&
+        data.overlayState is map &&
+        data.tournamentSummary is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidLiveScoreboard(data) {
+      return data.keys().hasAll([
+          'roomId', 'ownerUid', 'activeMatchId', 'matchStatus',
+          'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+          'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+          'battingTeamCode', 'bowlingTeamCode', 'themeId',
+          'revision', 'lastActionId', 'deviceId',
+          'matchState', 'teams', 'overlayState', 'tournamentSummary',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'roomId', 'ownerUid', 'activeMatchId', 'matchStatus',
+          'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+          'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+          'battingTeamCode', 'bowlingTeamCode', 'themeId',
+          'revision', 'lastActionId', 'deviceId',
+          'matchState', 'teams', 'overlayState', 'tournamentSummary',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.activeMatchId) &&
+        isValidCoreScoreboardFields(data);
+    }
+
+    function isValidLiveMatchSnapshot(data) {
+      return data.keys().hasAll([
+          'roomId', 'matchId', 'ownerUid', 'matchStatus',
+          'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+          'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+          'battingTeamCode', 'bowlingTeamCode', 'themeId',
+          'revision', 'lastActionId', 'deviceId',
+          'matchState', 'teams', 'overlayState', 'tournamentSummary',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'roomId', 'matchId', 'ownerUid', 'matchStatus',
+          'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+          'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+          'battingTeamCode', 'bowlingTeamCode', 'themeId',
+          'revision', 'lastActionId', 'deviceId',
+          'matchState', 'teams', 'overlayState', 'tournamentSummary',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.matchId) &&
+        isValidCoreScoreboardFields(data);
+    }
+
+    // ==================== COLLECTION: LIVE SCOREBOARDS ====================
+    match /liveScoreboards/{roomId} {
+      // Public exact-key read for OBS Studio / vMix Browser Source overlays (zero PII, zero listing)
+      allow get: if isValidRoomId(roomId);
+      allow list: if false;
+
+      allow create: if isVerifiedUser() &&
+        isValidRoomId(roomId) &&
+        isValidLiveScoreboard(incoming()) &&
+        incoming().roomId == roomId &&
+        incoming().ownerUid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser() &&
+        isValidRoomId(roomId) &&
+        isValidLiveScoreboard(incoming()) &&
+        incoming().roomId == existing().roomId &&
+        incoming().ownerUid == existing().ownerUid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            existing().ownerUid == request.auth.uid &&
+            existing().matchStatus != 'archived' &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'activeMatchId', 'matchStatus',
+              'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+              'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+              'battingTeamCode', 'bowlingTeamCode', 'themeId',
+              'revision', 'lastActionId', 'deviceId',
+              'matchState', 'teams', 'overlayState', 'tournamentSummary',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isVerifiedUser() &&
+        isValidRoomId(roomId) &&
+        (existing().ownerUid == request.auth.uid || isAdmin());
+
+      // ==================== SUBCOLLECTION: PER-MATCH LIVE SNAPSHOTS ====================
+      match /matches/{matchId} {
+        // Exact-key read for match-specific OBS/vMix overlays (zero PII, zero listing)
+        allow get: if isValidRoomId(roomId) && isValidId(matchId);
+        allow list: if false;
+
+        allow create: if isVerifiedUser() &&
+          isValidRoomId(roomId) &&
+          isValidId(matchId) &&
+          isValidLiveMatchSnapshot(incoming()) &&
+          incoming().roomId == roomId &&
+          incoming().matchId == matchId &&
+          incoming().ownerUid == request.auth.uid &&
+          incoming().createdAt == request.time &&
+          incoming().updatedAt == request.time &&
+          existsAfter(/databases/$(database)/documents/liveScoreboards/$(roomId)) &&
+          getAfter(/databases/$(database)/documents/liveScoreboards/$(roomId)).data.ownerUid == request.auth.uid;
+
+        allow update: if isVerifiedUser() &&
+          isValidRoomId(roomId) &&
+          isValidId(matchId) &&
+          isValidLiveMatchSnapshot(incoming()) &&
+          incoming().roomId == existing().roomId &&
+          incoming().matchId == existing().matchId &&
+          incoming().ownerUid == existing().ownerUid &&
+          incoming().createdAt == existing().createdAt &&
+          incoming().updatedAt == request.time &&
+          get(/databases/$(database)/documents/liveScoreboards/$(roomId)).data.ownerUid == existing().ownerUid &&
+          (
+            isAdmin() ||
+            (
+              existing().ownerUid == request.auth.uid &&
+              existing().matchStatus != 'archived' &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'matchStatus',
+                'runs', 'wickets', 'oversText', 'legalBalls', 'extrasTotal', 'target',
+                'crr', 'rrr', 'strikerName', 'nonStrikerName', 'bowlerName',
+                'battingTeamCode', 'bowlingTeamCode', 'themeId',
+                'revision', 'lastActionId', 'deviceId',
+                'matchState', 'teams', 'overlayState', 'tournamentSummary',
+                'updatedAt'
+              ])
+            )
+          );
+
+        allow delete: if isVerifiedUser() &&
+          isValidRoomId(roomId) &&
+          isValidId(matchId) &&
+          (get(/databases/$(database)/documents/liveScoreboards/$(roomId)).data.ownerUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    // ==================== COLLECTION: TRUSTED ADMINS REGISTRY ====================
+    match /admins/{adminUid} {
+      allow get: if isVerifiedUser() &&
+        isValidId(adminUid) &&
+        (request.auth.uid == adminUid || isAdmin());
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ==================== COLLECTION: CONNECTION HEALTH CHECK ====================
+    match /test/{docId} {
+      allow get: if isValidId(docId) && docId == 'connection';
+      allow list, create, update, delete: if false;
+    }
+  }
+}

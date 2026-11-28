@@ -22,8 +22,15 @@ import {
   UserPen,
   UserPlus,
   Users,
+  Wifi,
+  WifiOff,
   X,
+  Zap,
 } from 'lucide-react';
+import {
+  generateActionId,
+  type FirestoreConnectionStatus,
+} from '../../lib/firestoreLiveSync';
 import {
   applyDeliveryToMatch,
   BROADCAST_THEMES,
@@ -74,13 +81,21 @@ import {
 interface ScoringDashboardViewProps {
   state: CricketSuiteState;
   overlayUrl: string;
-  updateState: (updater: (prev: CricketSuiteState) => CricketSuiteState) => void;
+  updateState: (
+    updater: (prev: CricketSuiteState) => CricketSuiteState,
+    options?: { actionId?: string }
+  ) => void;
   onCopyOverlayUrl: (url?: string, label?: string) => void;
   onGoToGroups: () => void;
   onOpenOverlayController: () => void;
   onNavigateToMatches?: () => void;
   onRequestLogout?: () => void;
   onToast: (msg: string) => void;
+  firestoreStatus?: FirestoreConnectionStatus;
+  lastSyncLatencyMs?: number | null;
+  firebaseUserEmail?: string | null;
+  onConnectFirebaseLive?: () => Promise<unknown>;
+  onSyncNow?: () => void;
 }
 
 type ScoringTab = 'scoring' | 'scorecard' | 'overs' | 'overlay';
@@ -117,7 +132,15 @@ export function ScoringDashboardView({
   onNavigateToMatches,
   onRequestLogout,
   onToast,
+  firestoreStatus,
+  lastSyncLatencyMs,
+  firebaseUserEmail,
+  onConnectFirebaseLive,
+  onSyncNow,
 }: ScoringDashboardViewProps) {
+  const lastScoringActionTsRef = useRef<number>(0);
+  const lastUndoActionTsRef = useRef<number>(0);
+  const [connectingFirebase, setConnectingFirebase] = useState(false);
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
   const [matchSummaryModalOpen, setMatchSummaryModalOpen] = useState(false);
   const [summaryFullscreenOpen, setSummaryFullscreenOpen] = useState(false);
@@ -569,31 +592,41 @@ export function ScoringDashboardView({
 
   const updateCurrentMatch = (
     updater: (m: CricketMatch) => CricketMatch,
-    transitionType?: TransitionOverlayType
+    transitionType?: TransitionOverlayType,
+    actionId?: string
   ) => {
     if (isTournamentExpiredFlag) {
       onToast(TOURNAMENT_EXPIRED_MESSAGE);
       return;
     }
-    updateState((prev) => ({
-      ...prev,
-      matches: prev.matches.map((item) =>
-        item.id === match.id ? updater(item) : item
-      ),
-      overlay:
-        transitionType && prev.overlay.autoTransition
-          ? {
-              ...prev.overlay,
-              activeTransition: {
-                type: transitionType,
-                id: Date.now(),
-              },
-            }
-          : prev.overlay,
-    }));
+    updateState(
+      (prev) => ({
+        ...prev,
+        matches: prev.matches.map((item) =>
+          item.id === match.id ? updater(item) : item
+        ),
+        overlay:
+          transitionType && prev.overlay.autoTransition
+            ? {
+                ...prev.overlay,
+                activeTransition: {
+                  type: transitionType,
+                  id: Date.now(),
+                },
+              }
+            : prev.overlay,
+      }),
+      actionId ? { actionId } : undefined
+    );
   };
 
   const recordDelivery = (input: DeliveryInput, label?: string) => {
+    const nowTs = performance.now();
+    if (nowTs - lastScoringActionTsRef.current < 180) {
+      return;
+    }
+    lastScoringActionTsRef.current = nowTs;
+
     if (isTournamentExpiredFlag) {
       onToast(TOURNAMENT_EXPIRED_MESSAGE);
       return;
@@ -641,35 +674,51 @@ export function ScoringDashboardView({
       autoTrans = 'Four';
     }
 
+    const actionId = generateActionId('ball');
     updateCurrentMatch(
       (m) => applyDeliveryToMatch(m, input, state.teams),
-      autoTrans
+      autoTrans,
+      actionId
     );
     if (label) onToast(label);
   };
 
   const handleSwapBatsmen = () => {
     if (!activeInn.strikerId && !activeInn.nonStrikerId) return;
-    updateCurrentMatch((m) => {
-      const nextInnings = [
-        structuredClone(m.innings[0]),
-        structuredClone(m.innings[1]),
-      ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
-      const cur = nextInnings[m.currentInningsIndex];
-      const tmp = cur.strikerId;
-      cur.strikerId = cur.nonStrikerId;
-      cur.nonStrikerId = tmp;
-      return { ...m, innings: nextInnings };
-    });
+    updateCurrentMatch(
+      (m) => {
+        const nextInnings = [
+          structuredClone(m.innings[0]),
+          structuredClone(m.innings[1]),
+        ] as [CricketMatch['innings'][0], CricketMatch['innings'][1]];
+        const cur = nextInnings[m.currentInningsIndex];
+        const tmp = cur.strikerId;
+        cur.strikerId = cur.nonStrikerId;
+        cur.nonStrikerId = tmp;
+        return { ...m, innings: nextInnings };
+      },
+      undefined,
+      generateActionId('swap')
+    );
     onToast('Striker and Non-Striker swapped.');
   };
 
   const handleUndo = () => {
+    const nowTs = performance.now();
+    if (nowTs - lastUndoActionTsRef.current < 180) {
+      return;
+    }
+    lastUndoActionTsRef.current = nowTs;
+
     if (!match.undoStack.length) {
       onToast('Nothing to undo.');
       return;
     }
-    updateCurrentMatch((m) => undoLastDelivery(m));
+    updateCurrentMatch(
+      (m) => undoLastDelivery(m),
+      undefined,
+      generateActionId('undo')
+    );
     onToast('Last ball undone.');
   };
 
@@ -1658,6 +1707,65 @@ export function ScoringDashboardView({
               </p>
             </div>
           </div>
+
+          {/* Real-Time Firestore Connection Status */}
+          {firestoreStatus && (
+            <div className="flex items-center gap-2 shrink-0">
+              {firestoreStatus === 'auth-required' && onConnectFirebaseLive ? (
+                <button
+                  type="button"
+                  disabled={connectingFirebase}
+                  onClick={async () => {
+                    setConnectingFirebase(true);
+                    try {
+                      await onConnectFirebaseLive();
+                      onToast('Firebase Real-Time Live Sync connected!');
+                    } finally {
+                      setConnectingFirebase(false);
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white text-[#E87500] hover:bg-orange-50 text-[11px] font-extrabold shadow-xs transition-all disabled:opacity-60"
+                >
+                  <Zap className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>{connectingFirebase ? 'Connecting…' : 'Enable Fast Live Sync'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onSyncNow}
+                  title={
+                    firebaseUserEmail
+                      ? `Firebase Live Sync (${firebaseUserEmail}) — click to force sync`
+                      : 'Click to sync now'
+                  }
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
+                    firestoreStatus === 'connected'
+                      ? 'bg-emerald-500/20 border-emerald-300/60 text-white'
+                      : firestoreStatus === 'syncing' || firestoreStatus === 'reconnecting'
+                        ? 'bg-amber-400/25 border-amber-200/70 text-white'
+                        : 'bg-red-600/90 border-red-300/80 text-white'
+                  }`}
+                >
+                  {firestoreStatus === 'offline' ? (
+                    <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                  )}
+                  <span className="whitespace-nowrap">
+                    {firestoreStatus === 'connected'
+                      ? lastSyncLatencyMs
+                        ? `Live · ${lastSyncLatencyMs}ms`
+                        : 'Live Connected'
+                      : firestoreStatus === 'syncing'
+                        ? 'Syncing…'
+                        : firestoreStatus === 'reconnecting'
+                          ? 'Reconnecting…'
+                          : 'Offline · Queued'}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 4 Main Tabs: SCORING PANEL | SCORECARD | OVERS | OVERLAY */}

@@ -44,6 +44,7 @@ import { TournamentManagerView } from './TournamentManagerView';
 import { TvOverlayControllerView } from './TvOverlayControllerView';
 import { MatchSummaryStudioView } from './MatchSummaryStudioView';
 import { KabaddiControlDashboard } from '../kabaddi/KabaddiControlDashboard';
+import { FirebaseErrorBoundary } from '../FirebaseErrorBoundary';
 
 interface CricketSuiteAppProps {
   session: UnlockedOverlaySession;
@@ -65,6 +66,10 @@ export function CricketSuiteApp({
     loadError,
     isOffline,
     hasPendingSync,
+    firebaseUser,
+    firestoreStatus,
+    lastSyncLatencyMs,
+    connectFirebaseLive,
     updateState,
     resetDemoData,
     retryLoad,
@@ -617,6 +622,7 @@ export function CricketSuiteApp({
   }
 
   return (
+    <FirebaseErrorBoundary>
     <div className="cricket-suite-animated min-h-screen bg-transparent text-slate-900 overflow-x-clip">
       {/* White & Orange Overlay Dashboard Header */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md text-slate-900 shadow-md border-b-2 border-[#FF8C00] px-2.5 sm:px-5 py-2.5 sm:py-3">
@@ -811,6 +817,11 @@ export function CricketSuiteApp({
                     onNavigateToMatches={() => navigateTo('match')}
                     onRequestLogout={handleRequestLogout}
                     onToast={showToast}
+                    firestoreStatus={firestoreStatus}
+                    lastSyncLatencyMs={lastSyncLatencyMs}
+                    firebaseUserEmail={firebaseUser?.email}
+                    onConnectFirebaseLive={connectFirebaseLive}
+                    onSyncNow={syncNow}
                   />
                 )}
 
@@ -959,5 +970,6 @@ export function CricketSuiteApp({
         )}
       </AnimatePresence>
     </div>
+    </FirebaseErrorBoundary>
   );
 }
