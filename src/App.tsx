@@ -8,6 +8,7 @@ import { HeroSection } from './components/HeroSection';
 import { HomeAnimatedBackground } from './components/HomeAnimatedBackground';
 import { Navbar, MainPageRoute } from './components/Navbar';
 import { NewThemesShowcaseSection } from './components/NewThemesShowcaseSection';
+import { KabaddiThemesShowcaseSection } from './components/KabaddiThemesShowcaseSection';
 import { OverlayAccessModal } from './components/OverlayAccessModal';
 import { OverlaysPage } from './components/OverlaysPage';
 import { PackagesPage } from './components/PackagesPage';
@@ -23,6 +24,7 @@ import { StandaloneKabaddiOverlayPage } from './components/kabaddi/StandaloneKab
 import { ScrollDotNav } from './components/ScrollDotNav';
 import { useOverlayAccess } from './context/OverlayAccessContext';
 import { EventCategoryId, Language } from './data/content';
+import type { KabaddiOverlayThemeId } from './types/kabaddi';
 
 type PageRoute = MainPageRoute;
 
@@ -88,6 +90,9 @@ export default function App() {
   const [selectedPackageId, setSelectedPackageId] = useState<string>('multi-cam-pro');
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [selectedBookingDate, setSelectedBookingDate] = useState<string>('');
+  const [selectedKabaddiTheme, setSelectedKabaddiTheme] = useState<
+    KabaddiOverlayThemeId | undefined
+  >(undefined);
   const [accessModalOpen, setAccessModalOpen] = useState(false);
   const { session, isUnlocked, isReady, isOwnerAccount, ownerGateToken } = useOverlayAccess();
   const isDashboardFullscreen = currentPage === 'overlays' && isUnlocked;
@@ -133,7 +138,10 @@ export default function App() {
     }
   };
 
-  const navigateToKabaddi = () => {
+  const navigateToKabaddi = (themeId?: KabaddiOverlayThemeId) => {
+    if (themeId) {
+      setSelectedKabaddiTheme(themeId);
+    }
     const isPageChange = currentPage !== 'kabaddi';
     if (window.location.pathname !== '/kabaddi') {
       window.history.pushState({}, '', '/kabaddi');
@@ -292,7 +300,7 @@ export default function App() {
           onNavigateHome={navigateHome}
           onNavigateServices={navigateToServices}
           onNavigateOverlays={navigateToOverlays}
-          onNavigateKabaddi={navigateToKabaddi}
+          onNavigateKabaddi={() => navigateToKabaddi()}
           onNavigatePackages={navigateToPackages}
           onNavigateBooking={navigateToBooking}
           onOpenAccessModal={handleOpenAccessModal}
@@ -318,6 +326,7 @@ export default function App() {
             <KabaddiControlDashboard
               uid={session?.accessId || 'STAR-KABADDI'}
               onBackHome={() => navigateHome('top')}
+              initialTheme={selectedKabaddiTheme}
             />
           ) : currentPage === 'packages' ? (
             <PackagesPage
@@ -352,6 +361,11 @@ export default function App() {
               <NewThemesShowcaseSection
                 lang={lang}
                 onOpenOverlays={navigateToOverlays}
+              />
+
+              <KabaddiThemesShowcaseSection
+                lang={lang}
+                onOpenKabaddi={navigateToKabaddi}
               />
 
               <SoftwareOffersSection lang={lang} />

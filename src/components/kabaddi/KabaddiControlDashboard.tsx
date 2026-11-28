@@ -51,6 +51,7 @@ interface KabaddiControlDashboardProps {
   onBackHome?: () => void;
   embedded?: boolean;
   onToast?: (msg: string) => void;
+  initialTheme?: KabaddiOverlayThemeId;
 }
 
 const HALF_OPTIONS: KabaddiHalf[] = [
@@ -219,8 +220,18 @@ export function KabaddiControlDashboard({
   onBackHome,
   embedded = false,
   onToast,
+  initialTheme,
 }: KabaddiControlDashboardProps) {
   const { uid, state, syncing, canUndo, updateState, undo } = useKabaddiStore(rawUid, false);
+
+  useEffect(() => {
+    if (!initialTheme) return;
+    updateState((prev) =>
+      prev.overlayTheme === initialTheme
+        ? prev
+        : { ...prev, overlayTheme: initialTheme }
+    );
+  }, [initialTheme, updateState]);
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [raidShape, setRaidShape] = useState<'circle' | 'rectangle'>('circle');
