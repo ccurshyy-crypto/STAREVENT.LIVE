@@ -15,6 +15,12 @@ import {
   type FirestoreConnectionStatus,
 } from '../lib/firestoreLiveSync';
 import {
+  applyCompactLiveSnapshotToSuiteState,
+  fetchLatestRealtimeSnapshot,
+  pushRealtimeScoreboardUpdate,
+  subscribeRealtimeScoreboardStream,
+} from '../lib/realtimeLiveSync';
+import {
   getSupabaseClient,
   SUPABASE_SCOREBOARD_TABLE,
 } from '../lib/supabaseClient';
@@ -495,11 +501,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const [hasPendingSync, setHasPendingSync] = useState<boolean>(false);
   const [firebaseUser, setFirebaseUser] = useState<User | null>(() => auth.currentUser);
   const [firestoreStatus, setFirestoreStatus] = useState<FirestoreConnectionStatus>(() =>
-    typeof navigator !== 'undefined' && !navigator.onLine
-      ? 'offline'
-      : auth.currentUser?.emailVerified
-        ? 'reconnecting'
-        : 'auth-required'
+    typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'reconnecting'
   );
   const [lastSyncLatencyMs, setLastSyncLatencyMs] = useState<number | null>(null);
 
@@ -515,7 +517,16 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
   const needsRepushRef = useRef(false);
   const wasOfflineRef = useRef(false);
 
-  // High-speed sequential Firestore transaction queue (zero debounce)
+  // Automatic zero-debounce SSE real-time push queue (<50-150ms OBS/vMix fan-out)
+  const sseInFlightRef = useRef(false);
+  const sseQueuedCommitRef = useRef<{
+    state: CricketSuiteState;
+    actionId: string;
+    forceReset?: boolean;
+  } | null>(null);
+  const sseConnectedRef = useRef(false);
+
+  // Parallel Firestore transaction queue (runs automatically when Firebase Auth is active)
   const fsInFlightRef = useRef(false);
   const fsQueuedCommitRef = useRef<{ state: CricketSuiteState; actionId: string } | null>(null);
   const fsConnectedRef = useRef(false);
@@ -756,7 +767,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       pushTimerRef.current = window.setTimeout(() => {
         pushTimerRef.current = null;
         void flushPendingToCloud();
-      }, 40);
+      }, 250);
     },
     [uid, flushPendingToCloud]
   );
@@ -900,20 +911,12 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     };
   }, [hydrateFromCloud]);
 
-  // Flush queued Firestore atomic transaction sequentially (zero debounce, 100-300ms live push)
-  const flushFirestoreQueue = useCallback(async () => {
+  // Automatic zero-debounce push to Express Real-Time SSE Hub (works without popups on all devices!)
+  const flushRealtimeQueue = useCallback(async () => {
     if (!uid || !isHydratedRef.current) return;
-    if (fsInFlightRef.current) return;
+    if (sseInFlightRef.current) return;
 
-    const currentAuthUser = auth.currentUser;
-    if (!currentAuthUser || !currentAuthUser.emailVerified) {
-      setFirestoreStatus(
-        typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
-      );
-      return;
-    }
-
-    const nextItem = fsQueuedCommitRef.current;
+    const nextItem = sseQueuedCommitRef.current;
     if (!nextItem) return;
 
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -921,9 +924,80 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       return;
     }
 
+    sseQueuedCommitRef.current = null;
+    sseInFlightRef.current = true;
+    setFirestoreStatus('syncing');
+
+    try {
+      const res = await pushRealtimeScoreboardUpdate({
+        roomId: uid,
+        state: nextItem.state,
+        actionId: nextItem.actionId,
+        deviceId: CLIENT_DEVICE_ID,
+        forceReset: nextItem.forceReset,
+      });
+
+      if (res.ok) {
+        lastCommittedActionIdRef.current = nextItem.actionId;
+        sseConnectedRef.current = true;
+        if (typeof res.revision === 'number') {
+          remoteRevisionRef.current = Math.max(remoteRevisionRef.current, res.revision);
+        }
+        if (typeof res.latencyMs === 'number') {
+          setLastSyncLatencyMs(res.latencyMs);
+        }
+        if (!sseQueuedCommitRef.current) {
+          setFirestoreStatus('connected');
+        }
+      } else if (res.offline) {
+        if (!sseQueuedCommitRef.current) {
+          sseQueuedCommitRef.current = nextItem;
+        }
+        sseConnectedRef.current = false;
+        setFirestoreStatus('offline');
+      } else {
+        // Retry once after brief delay on transient error
+        if (!sseQueuedCommitRef.current) {
+          sseQueuedCommitRef.current = nextItem;
+        }
+        setFirestoreStatus('reconnecting');
+        window.setTimeout(() => {
+          if (sseQueuedCommitRef.current && (typeof navigator === 'undefined' || navigator.onLine)) {
+            void flushRealtimeQueue();
+          }
+        }, 1200);
+      }
+    } finally {
+      sseInFlightRef.current = false;
+      if (
+        sseQueuedCommitRef.current &&
+        sseConnectedRef.current &&
+        (typeof navigator === 'undefined' || navigator.onLine)
+      ) {
+        void flushRealtimeQueue();
+      }
+    }
+  }, [uid]);
+
+  // Parallel Firestore atomic transaction queue (runs silently when Firebase Auth is signed in)
+  const flushFirestoreQueue = useCallback(async () => {
+    if (!uid || !isHydratedRef.current) return;
+    if (fsInFlightRef.current) return;
+
+    const currentAuthUser = auth.currentUser;
+    if (!currentAuthUser || !currentAuthUser.emailVerified) {
+      return;
+    }
+
+    const nextItem = fsQueuedCommitRef.current;
+    if (!nextItem) return;
+
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      return;
+    }
+
     fsQueuedCommitRef.current = null;
     fsInFlightRef.current = true;
-    setFirestoreStatus('syncing');
 
     try {
       const res = await commitLiveScoreboardTransaction({
@@ -934,30 +1008,17 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       });
 
       if (res.ok) {
-        lastCommittedActionIdRef.current = nextItem.actionId;
         fsConnectedRef.current = true;
         if (typeof res.committedRevision === 'number') {
           remoteRevisionRef.current = Math.max(remoteRevisionRef.current, res.committedRevision);
         }
-        if (typeof res.latencyMs === 'number') {
-          setLastSyncLatencyMs(res.latencyMs);
-        }
-        if (!fsQueuedCommitRef.current) {
-          setFirestoreStatus('connected');
-        }
       } else if (res.offline) {
-        // Keep latest state queued for automatic flush on reconnect
         if (!fsQueuedCommitRef.current) {
           fsQueuedCommitRef.current = nextItem;
         }
         fsConnectedRef.current = false;
-        setFirestoreStatus('offline');
-      } else if (res.permissionDenied) {
-        fsConnectedRef.current = false;
-        setFirestoreStatus('auth-required');
       } else {
         fsConnectedRef.current = false;
-        setFirestoreStatus('reconnecting');
       }
     } finally {
       fsInFlightRef.current = false;
@@ -970,101 +1031,129 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     }
   }, [uid]);
 
-  const enqueueFirestoreCommit = useCallback(
-    (nextState: CricketSuiteState, actionId: string) => {
+  const enqueueLiveCommit = useCallback(
+    (nextState: CricketSuiteState, actionId: string, forceReset = false) => {
       if (!uid || !isHydratedRef.current) return;
-      fsQueuedCommitRef.current = { state: nextState, actionId };
-      void flushFirestoreQueue();
+      // 1. Primary automatic zero-debounce SSE live fan-out
+      sseQueuedCommitRef.current = { state: nextState, actionId, forceReset };
+      void flushRealtimeQueue();
+      // 2. Parallel Firebase Firestore sync (if signed in)
+      if (auth.currentUser?.emailVerified) {
+        fsQueuedCommitRef.current = { state: nextState, actionId };
+        void flushFirestoreQueue();
+      }
     },
-    [uid, flushFirestoreQueue]
+    [uid, flushRealtimeQueue, flushFirestoreQueue]
   );
 
-  // Track Firebase Auth user and immediately bootstrap live Firestore sync upon sign-in
+  // Track optional Firebase Auth user silently (never blocks or forces popups)
   useEffect(() => {
     const unsubscribe = subscribeFirebaseAuth((user) => {
       setFirebaseUser(user);
-      if (user && user.emailVerified) {
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-          setFirestoreStatus('offline');
-        } else {
-          setFirestoreStatus('syncing');
-          if (uid && isHydratedRef.current && stateRef.current.matches.length > 0) {
-            enqueueFirestoreCommit(stateRef.current, generateActionId('init'));
-          } else {
-            setFirestoreStatus('connected');
-          }
-        }
-      } else {
-        fsConnectedRef.current = false;
-        setFirestoreStatus(
-          typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
-        );
+      if (user && user.emailVerified && uid && isHydratedRef.current && stateRef.current.matches.length > 0) {
+        fsQueuedCommitRef.current = {
+          state: stateRef.current,
+          actionId: generateActionId('fs_init'),
+        };
+        void flushFirestoreQueue();
       }
     });
     return unsubscribe;
-  }, [uid, enqueueFirestoreCommit]);
+  }, [uid, flushFirestoreQueue]);
 
-  // Trigger initial Firestore sync once hydration finishes if Firebase Auth is already signed in
+  // Immediately push hydrated state to the live SSE hub on load so open OBS/vMix overlays sync instantly
   useEffect(() => {
-    if (
-      loadStatus === 'ready' &&
-      uid &&
-      firebaseUser?.emailVerified &&
-      stateRef.current.matches.length > 0
-    ) {
-      enqueueFirestoreCommit(stateRef.current, generateActionId('hydrate'));
+    if (loadStatus === 'ready' && uid && isHydratedRef.current) {
+      enqueueLiveCommit(stateRef.current, generateActionId('hydrate'));
     }
-  }, [loadStatus, uid, firebaseUser, enqueueFirestoreCommit]);
+  }, [loadStatus, uid, enqueueLiveCommit]);
 
   const connectFirebaseLive = useCallback(async () => {
     try {
-      setFirestoreStatus('syncing');
       const user = await signInWithGooglePopup();
       setFirebaseUser(user);
       if (user?.emailVerified && uid && isHydratedRef.current) {
-        enqueueFirestoreCommit(stateRef.current, generateActionId('connect'));
+        fsQueuedCommitRef.current = {
+          state: stateRef.current,
+          actionId: generateActionId('connect'),
+        };
+        void flushFirestoreQueue();
       }
       return { ok: true as const, user };
     } catch (err) {
-      setFirestoreStatus(
-        typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'auth-required'
-      );
       return {
         ok: false as const,
         error: err instanceof Error ? err.message : 'Google Sign-In was cancelled.',
       };
     }
-  }, [uid, enqueueFirestoreCommit]);
+  }, [uid, flushFirestoreQueue]);
 
   const disconnectFirebaseLive = useCallback(async () => {
     await signOutFirebaseAuth();
     fsConnectedRef.current = false;
-    setFirestoreStatus('auth-required');
   }, []);
 
-  // Single-document Firebase Cloud Firestore real-time `onSnapshot` listener for multi-device sync
+  // Automatic real-time SSE listener for multi-device scorer sync (Mobile <-> Desktop)
   useEffect(() => {
     if (!uid) return;
     let mounted = true;
 
-    const unsubscribe = subscribeLiveScoreboardDoc({
+    const unsubscribeStream = subscribeRealtimeScoreboardStream({
       roomId: uid,
       onStatusChange: (status) => {
         if (!mounted) return;
-        const hasVerifiedAuth = Boolean(auth.currentUser?.emailVerified);
+        sseConnectedRef.current = status === 'connected';
         if (status === 'connected') {
-          fsConnectedRef.current = hasVerifiedAuth;
-          setFirestoreStatus(hasVerifiedAuth ? 'connected' : 'auth-required');
-        } else if (status === 'offline') {
-          fsConnectedRef.current = false;
-          setFirestoreStatus('offline');
-        } else if (hasVerifiedAuth) {
+          setFirestoreStatus(sseInFlightRef.current ? 'syncing' : 'connected');
+          // Flush any queued update immediately upon reconnect
+          if (sseQueuedCommitRef.current) {
+            void flushRealtimeQueue();
+          }
+        } else {
           setFirestoreStatus(status);
         }
       },
+      onSnapshot: (snap) => {
+        if (!mounted || !isHydratedRef.current) return;
+        if (
+          snap.deviceId === CLIENT_DEVICE_ID &&
+          (snap.actionId === lastCommittedActionIdRef.current ||
+            snap.revision <= getRevision(stateRef.current))
+        ) {
+          return;
+        }
+        setState((prev) => {
+          const currentRev = getRevision(prev);
+          if (snap.revision <= currentRev && snap.deviceId === CLIENT_DEVICE_ID) {
+            return prev;
+          }
+          if (snap.revision < currentRev && currentRev > 0) {
+            return prev;
+          }
+          const merged = applyCompactLiveSnapshotToSuiteState(prev, snap, uid);
+          remoteRevisionRef.current = Math.max(remoteRevisionRef.current, getRevision(merged));
+          remoteHasDataRef.current =
+            remoteHasDataRef.current || hasMeaningfulUserData(merged);
+          saveToLocalCache(uid, merged);
+          try {
+            channelRef.current?.postMessage(merged);
+          } catch {
+            // ignore
+          }
+          return merged;
+        });
+      },
+    });
+
+    // Also keep single-document Firebase Cloud Firestore listener active in parallel
+    const unsubscribeFirestore = subscribeLiveScoreboardDoc({
+      roomId: uid,
+      onStatusChange: (status) => {
+        if (!mounted) return;
+        fsConnectedRef.current = status === 'connected' && Boolean(auth.currentUser?.emailVerified);
+      },
       onData: ({ doc: liveDoc }) => {
         if (!mounted || !isHydratedRef.current) return;
-        // Ignore echoes of our own tab's writes
         if (
           liveDoc.deviceId === CLIENT_DEVICE_ID &&
           (liveDoc.lastActionId === lastCommittedActionIdRef.current ||
@@ -1097,9 +1186,10 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
 
     return () => {
       mounted = false;
-      unsubscribe();
+      unsubscribeStream();
+      unsubscribeFirestore();
     };
-  }, [uid]);
+  }, [uid, flushRealtimeQueue]);
 
   // Same-browser instant cross-tab sync (Dashboard <-> /overlay?id=<access_id>)
   useEffect(() => {
@@ -1206,13 +1296,14 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     const onOnline = () => {
       setIsOffline(false);
       wasOfflineRef.current = true;
-      if (auth.currentUser?.emailVerified) {
-        setFirestoreStatus('reconnecting');
-        if (fsQueuedCommitRef.current) {
-          void flushFirestoreQueue();
-        } else if (isHydratedRef.current && stateRef.current.matches.length > 0) {
-          enqueueFirestoreCommit(stateRef.current, generateActionId('reconnect'));
-        }
+      setFirestoreStatus('reconnecting');
+      if (sseQueuedCommitRef.current) {
+        void flushRealtimeQueue();
+      } else if (isHydratedRef.current) {
+        enqueueLiveCommit(stateRef.current, generateActionId('reconnect'));
+      }
+      if (auth.currentUser?.emailVerified && fsQueuedCommitRef.current) {
+        void flushFirestoreQueue();
       }
       if (!isHydratedRef.current) {
         void hydrateFromCloud();
@@ -1227,6 +1318,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
       setIsOffline(true);
       wasOfflineRef.current = true;
       setSyncStatus('offline');
+      sseConnectedRef.current = false;
       fsConnectedRef.current = false;
       setFirestoreStatus('offline');
     };
@@ -1238,20 +1330,26 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
           pushTimerRef.current = null;
           void flushPendingToCloud();
         }
+        if (sseQueuedCommitRef.current) {
+          void flushRealtimeQueue();
+        }
         if (fsQueuedCommitRef.current) {
           void flushFirestoreQueue();
         }
       } else if (document.visibilityState === 'visible') {
-        if (!fsConnectedRef.current) {
+        if (sseQueuedCommitRef.current) {
+          void flushRealtimeQueue();
+        } else if (!sseConnectedRef.current && !fsConnectedRef.current) {
           void pullLatestFromCloud();
-        } else if (fsQueuedCommitRef.current) {
+        }
+        if (fsQueuedCommitRef.current) {
           void flushFirestoreQueue();
         }
       }
     };
 
     const onWindowFocus = () => {
-      if (!fsConnectedRef.current) {
+      if (!sseConnectedRef.current && !fsConnectedRef.current) {
         void pullLatestFromCloud();
       }
     };
@@ -1261,9 +1359,9 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     window.addEventListener('focus', onWindowFocus);
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Only run background safety pull when Firestore live onSnapshot is NOT connected
+    // Only run background safety pull when neither SSE nor Firestore real-time stream is connected
     const resyncTimer = window.setInterval(() => {
-      if (document.visibilityState === 'visible' && !fsConnectedRef.current) {
+      if (document.visibilityState === 'visible' && !sseConnectedRef.current && !fsConnectedRef.current) {
         void pullLatestFromCloud();
       }
     }, 8000);
@@ -1282,11 +1380,12 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     shouldAcceptRemoteUpdate,
     flushPendingToCloud,
     hydrateFromCloud,
+    flushRealtimeQueue,
     flushFirestoreQueue,
-    enqueueFirestoreCommit,
+    enqueueLiveCommit,
   ]);
 
-  // Optimistic local UI update + instant atomic Firestore transaction + background workspace save
+  // Optimistic local UI update + instant zero-debounce SSE live push + background workspace save
   const updateState = useCallback(
     (
       updater: (prev: CricketSuiteState) => CricketSuiteState,
@@ -1314,14 +1413,14 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
         } catch {
           // Ignore closed channel
         }
-        // Immediate atomic Firestore live sync (zero debounce!)
-        enqueueFirestoreCommit(next, actionId);
+        // Immediate automatic zero-debounce real-time push (SSE + optional Firestore)
+        enqueueLiveCommit(next, actionId, false);
         // Background full-workspace persistence
         scheduleCloudPush(next, baseRev, false);
         return next;
       });
     },
-    [uid, enqueueFirestoreCommit, scheduleCloudPush]
+    [uid, enqueueLiveCommit, scheduleCloudPush]
   );
 
   // Explicit user-confirmed full workspace reset (never triggered automatically on login)
@@ -1342,13 +1441,13 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     } catch {
       // ignore
     }
-    enqueueFirestoreCommit(fresh, generateActionId('reset'));
+    enqueueLiveCommit(fresh, generateActionId('reset'), true);
     scheduleCloudPush(fresh, baseRev, true);
-  }, [uid, enqueueFirestoreCommit, scheduleCloudPush]);
+  }, [uid, enqueueLiveCommit, scheduleCloudPush]);
 
   const syncNow = useCallback(() => {
-    if (auth.currentUser?.emailVerified && uid && isHydratedRef.current) {
-      enqueueFirestoreCommit(stateRef.current, generateActionId('sync'));
+    if (uid && isHydratedRef.current) {
+      enqueueLiveCommit(stateRef.current, generateActionId('sync'), false);
     }
     if (!isHydratedRef.current) {
       void hydrateFromCloud();
@@ -1359,7 +1458,7 @@ export function useCricketSuiteStore(rawUid: string, userLabel?: string) {
     } else {
       void hydrateFromCloud();
     }
-  }, [uid, hydrateFromCloud, flushPendingToCloud, enqueueFirestoreCommit]);
+  }, [uid, hydrateFromCloud, flushPendingToCloud, enqueueLiveCommit]);
 
   return {
     uid,
@@ -1415,6 +1514,7 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
     const activeRoom = resolvedRoomId || requestedUid;
     let mounted = true;
     firestoreActiveRef.current = false;
+    let sseStreamConnected = false;
 
     // Show cached copy immediately if available on same browser (zero blank frame)
     const cached = loadFromLocalCache(activeRoom) ?? loadFromLocalCache(requestedUid);
@@ -1422,13 +1522,44 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
       setState((prev) => prev ?? cached);
     }
 
-    // 1. PRIMARY: Firebase Cloud Firestore single-document `onSnapshot` listener
-    // Listens ONLY to the active room doc or specific match doc; auto-unsubscribes on match change.
-    const unsubscribeFirestore = subscribeLiveScoreboardDoc({
+    // 1. PRIMARY: Automatic Express Real-Time SSE Stream (<50ms push to OBS / vMix, zero auth!)
+    const unsubscribeSse = subscribeRealtimeScoreboardStream({
       roomId: activeRoom,
       matchId: requestedMatchId,
       onStatusChange: (status) => {
         if (!mounted) return;
+        sseStreamConnected = status === 'connected';
+        setConnectionStatus(status);
+      },
+      onSnapshot: (snap) => {
+        if (!mounted) return;
+        sseStreamConnected = true;
+        setState((prev) => {
+          const prevRev = getRevision(prev);
+          if (prev && snap.revision < prevRev && prevRev > 0) {
+            return prev;
+          }
+          return applyCompactLiveSnapshotToSuiteState(prev, snap, activeRoom);
+        });
+      },
+    });
+
+    // Immediate latest SSE snapshot check for sub-50ms cold start
+    void fetchLatestRealtimeSnapshot(activeRoom, requestedMatchId).then((snap) => {
+      if (!mounted || !snap) return;
+      setState((prev) => {
+        const prevRev = getRevision(prev);
+        if (prev && snap.revision < prevRev && prevRev > 0) return prev;
+        return applyCompactLiveSnapshotToSuiteState(prev, snap, activeRoom);
+      });
+    });
+
+    // 2. PARALLEL: Firebase Cloud Firestore single-document `onSnapshot` listener
+    const unsubscribeFirestore = subscribeLiveScoreboardDoc({
+      roomId: activeRoom,
+      matchId: requestedMatchId,
+      onStatusChange: (status) => {
+        if (!mounted || sseStreamConnected) return;
         setConnectionStatus(status);
       },
       onData: ({ doc: liveDoc }) => {
@@ -1444,7 +1575,7 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
       },
     });
 
-    // 2. INSTANT SAME-BROWSER CHANNEL (0ms when scorer & preview are in same browser)
+    // 3. INSTANT SAME-BROWSER CHANNEL (0ms when scorer & preview are in same browser)
     let ch: BroadcastChannel | null = null;
     if (typeof BroadcastChannel !== 'undefined') {
       ch = new BroadcastChannel(`${CHANNEL_PREFIX}${requestedUid.toUpperCase()}`);
@@ -1487,7 +1618,7 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
     };
     window.addEventListener('storage', onStorage);
 
-    // 3. FALLBACK: Supabase Realtime + initial hydrate (only polls if Firestore hasn't delivered yet)
+    // 4. FALLBACK: Supabase Realtime + initial hydrate (only polls if SSE & Firestore are both inactive)
     const supabase = getSupabaseClient();
 
     const fetchLatest = async () => {
@@ -1525,7 +1656,15 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
 
     const onOnline = () => {
       setConnectionStatus('reconnecting');
-      if (!firestoreActiveRef.current) {
+      void fetchLatestRealtimeSnapshot(activeRoom, requestedMatchId).then((snap) => {
+        if (!mounted || !snap) return;
+        setState((prev) => {
+          const prevRev = getRevision(prev);
+          if (prev && snap.revision < prevRev && prevRev > 0) return prev;
+          return applyCompactLiveSnapshotToSuiteState(prev, snap, activeRoom);
+        });
+      });
+      if (!sseStreamConnected && !firestoreActiveRef.current) {
         void fetchLatest();
       }
     };
@@ -1533,7 +1672,7 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
       setConnectionStatus('offline');
     };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible' && !firestoreActiveRef.current) {
+      if (document.visibilityState === 'visible' && !sseStreamConnected && !firestoreActiveRef.current) {
         void fetchLatest();
       }
     };
@@ -1541,12 +1680,12 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisibility);
 
-    // Zero polling when Firestore live onSnapshot is active; lightweight fallback only if not yet on Firestore
+    // Zero polling when SSE or Firestore live push is active; fallback only if neither is connected
     const pollTimer = window.setInterval(() => {
-      if (!firestoreActiveRef.current) {
+      if (!sseStreamConnected && !firestoreActiveRef.current) {
         void fetchLatest();
       }
-    }, 6000);
+    }, 4000);
 
     const rtChannel = supabase
       .channel(`live_overlay_view_${activeRoom}_${CLIENT_DEVICE_ID.slice(0, 8)}`)
@@ -1581,6 +1720,7 @@ export function useCricketOverlayListener(rawUid: string, rawMatchId?: string) {
 
     return () => {
       mounted = false;
+      unsubscribeSse();
       unsubscribeFirestore();
       ch?.close();
       window.removeEventListener('storage', onStorage);

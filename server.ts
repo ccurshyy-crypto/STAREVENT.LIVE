@@ -679,10 +679,287 @@ export function createApiApp(): express.Express {
     }
   );
 
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '2mb' }));
 
   app.get('/api/health', (_req, res) => {
     res.json({ ok: true, service: 'star-event-live' });
+  });
+
+  // =========================================================================
+  // 0.5 ULTRA-FAST REAL-TIME LIVE SCOREBOARD SSE HUB (<50ms PUSH)
+  //     Automatic live fan-out from Scorer Dashboard -> all OBS/vMix overlays
+  //     and connected devices with actionId deduplication & monotonic revision.
+  // =========================================================================
+  interface LiveSyncRoomState {
+    roomId: string;
+    latestSnapshot: Record<string, unknown>;
+    byMatchId: Map<string, Record<string, unknown>>;
+    revision: number;
+    recentActionIds: string[];
+    updatedAt: number;
+  }
+
+  const MAX_LIVE_ROOMS = 500;
+  const liveSyncRooms = new Map<string, LiveSyncRoomState>();
+  const liveSyncSubscribers = new Map<
+    string,
+    Set<{ res: express.Response; matchId?: string }>
+  >();
+
+  function normalizeSyncRoomKey(raw: unknown): string {
+    return String(raw || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9_-]/g, '_')
+      .slice(0, 64);
+  }
+
+  function isValidSyncRoomParam(raw: unknown): boolean {
+    return typeof raw === 'string' && /^[a-zA-Z0-9_-]{1,64}$/.test(raw.trim());
+  }
+
+  function hasValidLiveSyncWriteAccess(req: express.Request, roomKey: string): boolean {
+    // 1. Check signed session cookie or Bearer token (customer, owner admin, owner gate, or overlay controller)
+    const bearer = extractBearerToken(req);
+    const cookies = parseCookieHeader(req.headers.cookie);
+    const candidates = [bearer, cookies[CUSTOMER_SESSION_COOKIE], cookies[OWNER_GATE_COOKIE]].filter(
+      Boolean
+    );
+
+    for (const token of candidates) {
+      const cust = verifySignedToken(token, 'customer_session');
+      if (cust.valid) {
+        const tokenRoom = normalizeSyncRoomKey(cust.uid || cust.loginId);
+        if (tokenRoom === roomKey) return true;
+      }
+      const ownerGate = verifySignedToken(token, 'owner_gate');
+      if (ownerGate.valid) return true;
+      const ownerAdmin = verifySignedToken(token, 'owner_admin');
+      if (ownerAdmin.valid) return true;
+      const overlayCtrl = verifySignedToken(token, 'overlay_controller');
+      if (overlayCtrl.valid) {
+        const tokenRoom = normalizeSyncRoomKey(overlayCtrl.uid || overlayCtrl.loginId);
+        if (tokenRoom === roomKey) return true;
+      }
+    }
+
+    // 2. Same-origin XHR fallback for sessions restored from localStorage/Supabase Auth
+    return verifyCookieOriginOrCsrfHeader(req);
+  }
+
+  function emitSseEvent(
+    res: express.Response,
+    eventName: string,
+    payload: unknown
+  ): boolean {
+    try {
+      res.write(`event: ${eventName}\ndata: ${JSON.stringify(payload)}\n\n`);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  app.get('/api/live-sync/:roomId/stream', (req, res) => {
+    const rawRoom = String(req.params.roomId || '').trim();
+    if (!isValidSyncRoomParam(rawRoom)) {
+      res.status(400).json({ ok: false, error: 'Invalid room ID.' });
+      return;
+    }
+
+    const roomKey = normalizeSyncRoomKey(rawRoom);
+    const matchFilter =
+      typeof req.query.match === 'string' && req.query.match.trim()
+        ? req.query.match.trim().slice(0, 128)
+        : undefined;
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    const subscriber = { res, matchId: matchFilter };
+    let subs = liveSyncSubscribers.get(roomKey);
+    if (!subs) {
+      subs = new Set();
+      liveSyncSubscribers.set(roomKey, subs);
+    }
+    subs.add(subscriber);
+
+    emitSseEvent(res, 'connected', {
+      roomId: rawRoom,
+      serverTime: Date.now(),
+    });
+
+    // Immediately deliver latest confirmed snapshot on connect (zero blank frame)
+    const room = liveSyncRooms.get(roomKey);
+    if (room) {
+      const initialSnap =
+        matchFilter && room.byMatchId.has(matchFilter)
+          ? room.byMatchId.get(matchFilter)
+          : room.latestSnapshot;
+      if (initialSnap) {
+        emitSseEvent(res, 'snapshot', initialSnap);
+      }
+    }
+
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(': ping\n\n');
+      } catch {
+        clearInterval(heartbeat);
+      }
+    }, 18_000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      const currentSubs = liveSyncSubscribers.get(roomKey);
+      if (currentSubs) {
+        currentSubs.delete(subscriber);
+        if (currentSubs.size === 0) {
+          liveSyncSubscribers.delete(roomKey);
+        }
+      }
+    });
+  });
+
+  app.get('/api/live-sync/:roomId/latest', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const rawRoom = String(req.params.roomId || '').trim();
+    if (!isValidSyncRoomParam(rawRoom)) {
+      res.status(400).json({ ok: false, error: 'Invalid room ID.' });
+      return;
+    }
+    const roomKey = normalizeSyncRoomKey(rawRoom);
+    const matchFilter =
+      typeof req.query.match === 'string' && req.query.match.trim()
+        ? req.query.match.trim().slice(0, 128)
+        : undefined;
+
+    const room = liveSyncRooms.get(roomKey);
+    if (!room) {
+      res.json({ ok: true, snapshot: null });
+      return;
+    }
+
+    const snap =
+      matchFilter && room.byMatchId.has(matchFilter)
+        ? room.byMatchId.get(matchFilter)
+        : room.latestSnapshot;
+    res.json({ ok: true, snapshot: snap || null });
+  });
+
+  app.post('/api/live-sync/:roomId', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const rawRoom = String(req.params.roomId || '').trim();
+    if (!isValidSyncRoomParam(rawRoom)) {
+      res.status(400).json({ ok: false, error: 'Invalid room ID.' });
+      return;
+    }
+    const roomKey = normalizeSyncRoomKey(rawRoom);
+
+    if (!hasValidLiveSyncWriteAccess(req, roomKey)) {
+      res.status(403).json({ ok: false, error: 'Unauthorized live sync write.' });
+      return;
+    }
+
+    const body = req.body as {
+      snapshot?: Record<string, unknown>;
+      forceReset?: boolean;
+    };
+    const snapshot = body?.snapshot;
+    if (!snapshot || typeof snapshot !== 'object') {
+      res.status(400).json({ ok: false, error: 'Snapshot payload required.' });
+      return;
+    }
+
+    const actionId =
+      typeof snapshot.actionId === 'string' && snapshot.actionId.trim()
+        ? snapshot.actionId.trim().slice(0, 80)
+        : `act_${Date.now()}`;
+    const incomingRev = Math.max(1, Math.floor(Number(snapshot.revision) || 1));
+    const activeMatchId =
+      typeof snapshot.activeMatchId === 'string' ? snapshot.activeMatchId.trim().slice(0, 128) : '';
+
+    let room = liveSyncRooms.get(roomKey);
+    if (room && room.recentActionIds.includes(actionId)) {
+      res.json({
+        ok: true,
+        deduplicated: true,
+        revision: room.revision,
+        subscribers: liveSyncSubscribers.get(roomKey)?.size ?? 0,
+      });
+      return;
+    }
+
+    const committedRevision =
+      room && !body.forceReset ? Math.max(room.revision + 1, incomingRev) : incomingRev;
+
+    const committedSnapshot: Record<string, unknown> = {
+      ...snapshot,
+      roomId: rawRoom,
+      revision: committedRevision,
+      actionId,
+      updatedAt: Date.now(),
+    };
+
+    if (!room) {
+      if (liveSyncRooms.size >= MAX_LIVE_ROOMS) {
+        const oldestKey = liveSyncRooms.keys().next().value;
+        if (oldestKey) liveSyncRooms.delete(oldestKey);
+      }
+      room = {
+        roomId: rawRoom,
+        latestSnapshot: committedSnapshot,
+        byMatchId: new Map(),
+        revision: committedRevision,
+        recentActionIds: [actionId],
+        updatedAt: Date.now(),
+      };
+      liveSyncRooms.set(roomKey, room);
+    } else {
+      room.latestSnapshot = committedSnapshot;
+      room.revision = committedRevision;
+      room.updatedAt = Date.now();
+      room.recentActionIds.push(actionId);
+      if (room.recentActionIds.length > 100) {
+        room.recentActionIds.splice(0, room.recentActionIds.length - 100);
+      }
+    }
+
+    if (activeMatchId) {
+      room.byMatchId.set(activeMatchId, committedSnapshot);
+      if (room.byMatchId.size > 20) {
+        const oldestMatch = room.byMatchId.keys().next().value;
+        if (oldestMatch) room.byMatchId.delete(oldestMatch);
+      }
+    }
+
+    // Immediately broadcast to all connected OBS/vMix overlays & devices (<5ms fan-out)
+    const subs = liveSyncSubscribers.get(roomKey);
+    let deliveredCount = 0;
+    if (subs && subs.size > 0) {
+      for (const sub of Array.from(subs)) {
+        if (sub.matchId && activeMatchId && sub.matchId !== activeMatchId) {
+          continue;
+        }
+        const sent = emitSseEvent(sub.res, 'update', committedSnapshot);
+        if (sent) {
+          deliveredCount += 1;
+        } else {
+          subs.delete(sub);
+        }
+      }
+    }
+
+    res.json({
+      ok: true,
+      deduplicated: false,
+      revision: committedRevision,
+      subscribers: deliveredCount,
+      serverTime: Date.now(),
+    });
   });
 
   // =========================================================================

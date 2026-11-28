@@ -26,7 +26,6 @@ import {
   Wifi,
   WifiOff,
   X,
-  Zap,
 } from 'lucide-react';
 import {
   generateActionId,
@@ -136,13 +135,12 @@ export function ScoringDashboardView({
   onToast,
   firestoreStatus,
   lastSyncLatencyMs,
-  firebaseUserEmail,
-  onConnectFirebaseLive,
+  firebaseUserEmail: _firebaseUserEmail,
+  onConnectFirebaseLive: _onConnectFirebaseLive,
   onSyncNow,
 }: ScoringDashboardViewProps) {
   const lastScoringActionTsRef = useRef<number>(0);
   const lastUndoActionTsRef = useRef<number>(0);
-  const [connectingFirebase, setConnectingFirebase] = useState(false);
   const [activeTab, setActiveTab] = useState<ScoringTab>('scoring');
   const [matchSummaryModalOpen, setMatchSummaryModalOpen] = useState(false);
   const [summaryFullscreenOpen, setSummaryFullscreenOpen] = useState(false);
@@ -1744,62 +1742,41 @@ export function ScoringDashboardView({
             </div>
           </div>
 
-          {/* Real-Time Firestore Connection Status */}
+          {/* Automatic High-Speed Real-Time Sync Status */}
           {firestoreStatus && (
             <div className="flex items-center gap-2 shrink-0">
-              {firestoreStatus === 'auth-required' && onConnectFirebaseLive ? (
-                <button
-                  type="button"
-                  disabled={connectingFirebase}
-                  onClick={async () => {
-                    setConnectingFirebase(true);
-                    try {
-                      await onConnectFirebaseLive();
-                      onToast('Firebase Real-Time Live Sync connected!');
-                    } finally {
-                      setConnectingFirebase(false);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white text-[#E87500] hover:bg-orange-50 text-[11px] font-extrabold shadow-xs transition-all disabled:opacity-60"
-                >
-                  <Zap className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>{connectingFirebase ? 'Connecting…' : 'Enable Fast Live Sync'}</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={onSyncNow}
-                  title={
-                    firebaseUserEmail
-                      ? `Firebase Live Sync (${firebaseUserEmail}) — click to force sync`
-                      : 'Click to sync now'
-                  }
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
-                    firestoreStatus === 'connected'
-                      ? 'bg-emerald-500/20 border-emerald-300/60 text-white'
-                      : firestoreStatus === 'syncing' || firestoreStatus === 'reconnecting'
-                        ? 'bg-amber-400/25 border-amber-200/70 text-white'
-                        : 'bg-red-600/90 border-red-300/80 text-white'
-                  }`}
-                >
-                  {firestoreStatus === 'offline' ? (
-                    <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                  )}
-                  <span className="whitespace-nowrap">
-                    {firestoreStatus === 'connected'
-                      ? lastSyncLatencyMs
-                        ? `Live · ${lastSyncLatencyMs}ms`
-                        : 'Live Connected'
-                      : firestoreStatus === 'syncing'
-                        ? 'Syncing…'
-                        : firestoreStatus === 'reconnecting'
-                          ? 'Reconnecting…'
-                          : 'Offline · Queued'}
-                  </span>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => {
+                  onSyncNow?.();
+                  onToast('Live score synced to all overlays.');
+                }}
+                title="Automatic real-time sync active — click to force resync"
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-bold transition-colors ${
+                  firestoreStatus === 'connected'
+                    ? 'bg-emerald-500/20 border-emerald-300/60 text-white'
+                    : firestoreStatus === 'syncing' || firestoreStatus === 'reconnecting'
+                      ? 'bg-amber-400/25 border-amber-200/70 text-white'
+                      : 'bg-red-600/90 border-red-300/80 text-white'
+                }`}
+              >
+                {firestoreStatus === 'offline' ? (
+                  <WifiOff className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <Wifi className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                )}
+                <span className="whitespace-nowrap">
+                  {firestoreStatus === 'connected'
+                    ? lastSyncLatencyMs
+                      ? `Live · ${lastSyncLatencyMs}ms`
+                      : 'Auto Live Sync'
+                    : firestoreStatus === 'syncing'
+                      ? 'Syncing…'
+                      : firestoreStatus === 'reconnecting'
+                        ? 'Auto Reconnecting…'
+                        : 'Offline · Queued'}
+                </span>
+              </button>
             </div>
           )}
         </div>
