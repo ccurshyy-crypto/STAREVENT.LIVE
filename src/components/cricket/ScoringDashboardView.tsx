@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import {
   AlertTriangle,
@@ -7,6 +7,7 @@ import {
   Award,
   Ban,
   BellRing,
+  Camera,
   Check,
   CheckCircle2,
   Edit3,
@@ -31,6 +32,7 @@ import {
   generateActionId,
   type FirestoreConnectionStatus,
 } from '../../lib/firestoreLiveSync';
+import { processLogoImageFile } from '../../lib/imageUpload';
 import {
   applyDeliveryToMatch,
   BROADCAST_THEMES,
@@ -250,6 +252,40 @@ export function ScoringDashboardView({
   const [matchCompleteModalOpen, setMatchCompleteModalOpen] = useState(false);
   const [oversInningsTab, setOversInningsTab] = useState<0 | 1>(0);
   const lastPromptedMatchCompleteKeyRef = useRef<string>('');
+  const quickTeamLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const quickLogoTargetTeamIdRef = useRef<string | null>(null);
+
+  const triggerScoringTeamLogoUpload = (teamId: string | undefined) => {
+    if (!teamId) return;
+    quickLogoTargetTeamIdRef.current = teamId;
+    quickTeamLogoInputRef.current?.click();
+  };
+
+  const handleScoringTeamLogoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const targetTeamId = quickLogoTargetTeamIdRef.current;
+    if (!file || !targetTeamId) return;
+    try {
+      const dataUrl = await processLogoImageFile(file, 240);
+      const targetTeam = state.teams.find((t) => t.id === targetTeamId);
+      updateState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((tm) =>
+          tm.id === targetTeamId ? { ...tm, logoUrl: dataUrl } : tm
+        ),
+        overlay: {
+          ...prev.overlay,
+          showTeamLogo: true,
+        },
+      }));
+      onToast(`Team logo updated for ${targetTeam?.name || 'Team'}.`);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Could not upload team logo.');
+    } finally {
+      quickLogoTargetTeamIdRef.current = null;
+    }
+  };
 
   const match: CricketMatch | undefined = useMemo(() => {
     return (
@@ -1809,6 +1845,15 @@ export function ScoringDashboardView({
           transition={{ duration: 0.22 }}
           className="space-y-4"
         >
+          {/* Hidden Quick Team Logo Upload Input */}
+          <input
+            ref={quickTeamLogoInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleScoringTeamLogoFile}
+            className="hidden"
+          />
+
           {/* Dual Innings Score Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {([0, 1] as const).map((idx) => {
@@ -1825,35 +1870,73 @@ export function ScoringDashboardView({
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                          {idx === 0 ? '1st Innings' : '2nd Innings'}
-                        </span>
-                        {isCurrent && !inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-extrabold uppercase">
-                            Batting
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {batTeam && (
+                        <button
+                          type="button"
+                          onClick={() => triggerScoringTeamLogoUpload(batTeam.id)}
+                          title={batTeam.logoUrl ? 'Change team logo' : 'Add team logo'}
+                          className="relative w-10 h-10 rounded-lg border border-orange-200 bg-orange-50/70 flex items-center justify-center overflow-hidden shrink-0 hover:border-[#FF8C00] transition-colors"
+                        >
+                          {batTeam.logoUrl ? (
+                            <img
+                              src={batTeam.logoUrl}
+                              alt={batTeam.name}
+                              className="w-full h-full object-contain p-0.5 bg-white"
+                            />
+                          ) : (
+                            <span className="font-display font-black text-[11px] text-[#E87500]">
+                              {batTeam.shortName.slice(0, 3)}
+                            </span>
+                          )}
+                          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-[#FF8C00] text-white flex items-center justify-center border border-white">
+                            <Camera className="w-2.5 h-2.5" aria-hidden="true" />
                           </span>
-                        )}
-                        {inn.completed && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
-                            Closed
+                        </button>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                            {idx === 0 ? '1st Innings' : '2nd Innings'}
                           </span>
-                        )}
+                          {isCurrent && !inn.completed && (
+                            <span className="px-2 py-0.5 rounded bg-[#FF8C00] text-white text-[10px] font-extrabold uppercase">
+                              Batting
+                            </span>
+                          )}
+                          {inn.completed && (
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+                              Closed
+                            </span>
+                          )}
+                        </div>
+                        <h3 className="font-display font-black text-base text-slate-900 truncate mt-0.5">
+                          {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
+                        </h3>
                       </div>
-                      <h3 className="font-display font-black text-base text-slate-900 truncate mt-0.5">
-                        {batTeam?.name || (idx === 0 ? 'Team 1' : 'Team 2')}
-                      </h3>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => openEditScoreModal(idx)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
-                    >
-                      <Edit3 className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                      <span>Edit</span>
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {batTeam && (
+                        <button
+                          type="button"
+                          onClick={() => triggerScoringTeamLogoUpload(batTeam.id)}
+                          title={batTeam.logoUrl ? 'Change team logo' : 'Upload team logo'}
+                          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
+                        >
+                          <Camera className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                          <span>Logo</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openEditScoreModal(idx)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg wo-btn-secondary text-xs font-bold"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                        <span>Edit</span>
+                      </button>
+                    </div>
                   </div>
 
                   <div className="mt-3 flex items-baseline justify-between gap-3">

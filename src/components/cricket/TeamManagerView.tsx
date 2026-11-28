@@ -3,14 +3,17 @@ import { motion } from 'motion/react';
 import {
   Camera,
   Edit3,
+  ImagePlus,
   Lock,
   Plus,
   Search,
   Trash2,
+  Upload,
   UserPlus,
   Users,
   X,
 } from 'lucide-react';
+import { processLogoImageFile } from '../../lib/imageUpload';
 import {
   getTeamColorHex,
   getTeamTextColorHex,
@@ -67,6 +70,10 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
   const [isCaptain, setIsCaptain] = useState(false);
   const [isWicketKeeper, setIsWicketKeeper] = useState(false);
   const playerPhotoInputRef = useRef<HTMLInputElement | null>(null);
+  const teamLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const quickLogoInputRef = useRef<HTMLInputElement | null>(null);
+  const quickLogoTeamIdRef = useRef<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   const tourObjMap = new Map(state.tournaments.map((t) => [t.id, t]));
   const isTeamTourExpired = (team?: Team | null) =>
@@ -113,21 +120,57 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     setTeamModalOpen(true);
   };
 
-  const handleImageFile = (
+  const handleImageFile = async (
     e: ChangeEvent<HTMLInputElement>,
     setter: (dataUrl: string) => void
   ) => {
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
-    if (file.size > 1_500_000) {
-      onToast('Image must be smaller than 1.5 MB.');
+    try {
+      setLogoUploading(true);
+      const dataUrl = await processLogoImageFile(file, 240);
+      setter(dataUrl);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to process image.');
+    } finally {
+      setLogoUploading(false);
+    }
+  };
+
+  const triggerQuickTeamLogoUpload = (team: Team) => {
+    if (isTeamTourExpired(team)) {
+      onToast(TOURNAMENT_EXPIRED_MESSAGE);
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') setter(reader.result);
-    };
-    reader.readAsDataURL(file);
+    quickLogoTeamIdRef.current = team.id;
+    quickLogoInputRef.current?.click();
+  };
+
+  const handleQuickTeamLogoFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    const targetTeamId = quickLogoTeamIdRef.current;
+    if (!file || !targetTeamId) return;
+    try {
+      const dataUrl = await processLogoImageFile(file, 240);
+      const targetTeam = state.teams.find((t) => t.id === targetTeamId);
+      updateState((prev) => ({
+        ...prev,
+        teams: prev.teams.map((tm) =>
+          tm.id === targetTeamId ? { ...tm, logoUrl: dataUrl } : tm
+        ),
+        overlay: {
+          ...prev.overlay,
+          showTeamLogo: true,
+        },
+      }));
+      onToast(`Logo updated for "${targetTeam?.name || 'Team'}".`);
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : 'Failed to upload logo.');
+    } finally {
+      quickLogoTeamIdRef.current = null;
+    }
   };
 
   const handleSaveTeam = (e: FormEvent) => {
@@ -143,6 +186,8 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
     const resolvedTeamColor = normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR);
     const resolvedTextColor = normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR);
 
+    const cleanLogoUrl = logoUrl.trim();
+
     if (editingTeamId) {
       updateState((prev) => ({
         ...prev,
@@ -156,10 +201,13 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 customColor: resolvedTeamColor,
                 textColor: resolvedTextColor,
                 tournamentId: teamTourId,
-                logoUrl,
+                logoUrl: cleanLogoUrl,
               }
             : tm
         ),
+        overlay: cleanLogoUrl
+          ? { ...prev.overlay, showTeamLogo: true }
+          : prev.overlay,
       }));
       onToast(`Team "${cleanName}" updated.`);
     } else {
@@ -172,12 +220,15 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
         colorTag: 'Defoult',
         customColor: resolvedTeamColor,
         textColor: resolvedTextColor,
-        logoUrl,
+        logoUrl: cleanLogoUrl,
         players: [],
       };
       updateState((prev) => ({
         ...prev,
         teams: [newTeam, ...prev.teams],
+        overlay: cleanLogoUrl
+          ? { ...prev.overlay, showTeamLogo: true }
+          : prev.overlay,
       }));
       onToast(`Team "${cleanName}" created. Click Add Players to build its squad.`);
     }
@@ -329,6 +380,15 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
 
   return (
     <div className="space-y-4">
+      {/* Hidden Quick Logo Upload Input */}
+      <input
+        ref={quickLogoInputRef}
+        type="file"
+        accept="image/*"
+        onChange={handleQuickTeamLogoFile}
+        className="hidden"
+      />
+
       {/* Toolbar */}
       <div className="rounded-xl bg-white border border-slate-200 p-3.5 sm:p-4 flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2.5 sm:gap-3 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2.5 sm:gap-3 flex-1 w-full">
@@ -407,20 +467,32 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    {team.logoUrl ? (
-                      <img
-                        src={team.logoUrl}
-                        alt={team.name}
-                        className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div
-                        className="w-11 h-11 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10 shrink-0"
-                        style={{ backgroundColor: bgHex, color: fgHex }}
-                      >
-                        {team.shortName.slice(0, 3)}
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => triggerQuickTeamLogoUpload(team)}
+                      title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Tap to upload or change team logo'}
+                      className="relative group shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    >
+                      {team.logoUrl ? (
+                        <img
+                          src={team.logoUrl}
+                          alt={team.name}
+                          className="w-11 h-11 rounded-lg object-contain bg-white p-0.5 border border-slate-200"
+                        />
+                      ) : (
+                        <div
+                          className="w-11 h-11 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
+                          style={{ backgroundColor: bgHex, color: fgHex }}
+                        >
+                          {team.shortName.slice(0, 3)}
+                        </div>
+                      )}
+                      {!expired && (
+                        <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-[#FF8C00] text-white flex items-center justify-center shadow-xs border border-white">
+                          <Camera className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </button>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-display font-bold text-sm text-slate-900 truncate">
@@ -581,23 +653,46 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                         </td>
                         <td className="px-4 py-3 text-xs text-slate-700">{team.place || '—'}</td>
                         <td className="px-4 py-3">
-                          {team.logoUrl ? (
-                            <img
-                              src={team.logoUrl}
-                              alt={team.name}
-                              className="w-9 h-9 rounded-lg object-cover border border-slate-200"
-                            />
-                          ) : (
-                            <div
-                              className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
-                              style={{
-                                backgroundColor: bgHex,
-                                color: fgHex,
-                              }}
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => triggerQuickTeamLogoUpload(team)}
+                              title={expired ? TOURNAMENT_EXPIRED_MESSAGE : 'Click to upload or change team logo'}
+                              className="relative group shrink-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
                             >
-                              {team.shortName.slice(0, 3)}
-                            </div>
-                          )}
+                              {team.logoUrl ? (
+                                <img
+                                  src={team.logoUrl}
+                                  alt={team.name}
+                                  className="w-9 h-9 rounded-lg object-contain bg-white p-0.5 border border-slate-200"
+                                />
+                              ) : (
+                                <div
+                                  className="w-9 h-9 rounded-lg flex items-center justify-center text-xs font-bold border border-black/10"
+                                  style={{
+                                    backgroundColor: bgHex,
+                                    color: fgHex,
+                                  }}
+                                >
+                                  {team.shortName.slice(0, 3)}
+                                </div>
+                              )}
+                              {!expired && (
+                                <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-[#FF8C00] text-white flex items-center justify-center shadow-xs border border-white">
+                                  <Camera className="w-2.5 h-2.5" />
+                                </span>
+                              )}
+                            </button>
+                            {!expired && (
+                              <button
+                                type="button"
+                                onClick={() => triggerQuickTeamLogoUpload(team)}
+                                className="text-[11px] font-bold text-[#E87500] hover:text-[#FF8C00] underline-offset-2 hover:underline whitespace-nowrap"
+                              >
+                                {team.logoUrl ? 'Change' : '+ Logo'}
+                              </button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1.5">
@@ -843,12 +938,114 @@ export function TeamManagerView({ state, updateState, onToast }: TeamManagerView
                 </div>
               </div>
 
-              {/* Live Custom Team Color Preview */}
+              {/* Row 3: Team Logo Upload & URL */}
+              <div className="rounded-xl bg-orange-50/50 border border-orange-200/80 p-4 space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ImagePlus className="w-4 h-4 text-[#FF8C00]" />
+                    <span className="text-xs font-extrabold uppercase tracking-wide text-slate-800">
+                      Team Logo (Scoreboard &amp; Overlay)
+                    </span>
+                  </div>
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl('')}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-[11px] font-bold"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Remove Logo
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Preview Box */}
+                  <button
+                    type="button"
+                    onClick={() => teamLogoInputRef.current?.click()}
+                    title="Upload team logo image"
+                    className="w-16 h-16 rounded-xl border-2 border-dashed border-orange-300 bg-white flex items-center justify-center overflow-hidden shrink-0 hover:border-[#FF8C00] transition-colors relative group"
+                  >
+                    {logoUrl ? (
+                      <img
+                        src={logoUrl}
+                        alt="Team Logo Preview"
+                        className="w-full h-full object-contain p-1"
+                      />
+                    ) : (
+                      <div
+                        className="w-full h-full flex flex-col items-center justify-center gap-0.5 text-[10px] font-bold"
+                        style={{
+                          backgroundColor: normalizeHexColor(teamColorHex, DEFAULT_TEAM_COLOR),
+                          color: normalizeHexColor(textColorHex, DEFAULT_TEXT_COLOR),
+                        }}
+                      >
+                        <Camera className="w-4 h-4 opacity-90" />
+                        <span>
+                          {(shortName.trim() || name.trim().slice(0, 3) || 'LOGO').toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+
+                  <div className="flex-1 space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        ref={teamLogoInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageFile(e, setLogoUrl)}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        disabled={logoUploading}
+                        onClick={() => teamLogoInputRef.current?.click()}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg wo-btn-primary text-xs font-extrabold uppercase tracking-wide disabled:opacity-60"
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>
+                          {logoUploading
+                            ? 'Processing...'
+                            : logoUrl
+                              ? 'Change Logo'
+                              : 'Upload Logo'}
+                        </span>
+                      </button>
+                      <span className="text-[11px] text-slate-500">
+                        PNG (transparent), JPG, WebP, SVG · Auto-optimized for live broadcast
+                      </span>
+                    </div>
+
+                    <input
+                      type="url"
+                      value={logoUrl.startsWith('data:') ? '' : logoUrl}
+                      onChange={(e) => setLogoUrl(e.target.value)}
+                      placeholder={
+                        logoUrl.startsWith('data:')
+                          ? 'Uploaded logo ready (or paste an image URL to replace)'
+                          : 'Or paste logo image URL (https://...)'
+                      }
+                      className="w-full px-3 py-1.5 rounded-lg bg-white border border-slate-300 focus:border-[#FF8C00] focus:outline-none text-xs text-slate-800 placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Live Custom Team Color & Logo Preview */}
               <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                 <span className="text-xs font-semibold text-slate-600">
-                  Live Team Color Preview
+                  Live Team Badge Preview
                 </span>
                 <div className="flex items-center gap-2.5">
+                  {logoUrl && (
+                    <img
+                      src={logoUrl}
+                      alt="Logo"
+                      className="w-9 h-9 rounded-full object-contain bg-white p-0.5 border border-slate-300 shadow-xs shrink-0"
+                    />
+                  )}
                   <span
                     className="inline-flex items-center justify-center min-w-[44px] h-9 px-3 rounded-lg font-display font-black text-xs tracking-wider border border-black/15 shadow-xs"
                     style={{
