@@ -204,7 +204,13 @@ export function BroadcastMatchSummaryCard({
         </div>
 
         {/* CRISP WHITE SCORECARD BODY: LEFT BATTING (TOP 4) | RIGHT BOWLING (BEST 4) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200 bg-white">
+        <div
+          className={`grid ${
+            compact
+              ? 'grid-cols-2 divide-x'
+              : 'grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x'
+          } divide-slate-200 bg-white`}
+        >
           {/* LEFT SIDE: BATTING SCORECARD */}
           <div className={compact ? 'px-3.5 py-2' : 'px-4 sm:px-5 py-2.5 sm:py-3'}>
             <div className="flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.14em] text-sky-700 pb-1.5 border-b border-slate-200">
@@ -227,7 +233,7 @@ export function BroadcastMatchSummaryCard({
                       return (
                         <div
                           key={`empty-bat-${inn.inningsIndex}-${rowIdx}`}
-                          className="hidden md:block py-2 text-sm select-none"
+                          className={`${compact ? 'block py-1.5 text-xs' : 'hidden md:block py-2 text-sm'} select-none`}
                           aria-hidden="true"
                         >
                           &nbsp;
@@ -294,7 +300,7 @@ export function BroadcastMatchSummaryCard({
                       return (
                         <div
                           key={`empty-bowl-${inn.inningsIndex}-${rowIdx}`}
-                          className="hidden md:block py-2 text-sm select-none"
+                          className={`${compact ? 'block py-1.5 text-xs' : 'hidden md:block py-2 text-sm'} select-none`}
                           aria-hidden="true"
                         >
                           &nbsp;

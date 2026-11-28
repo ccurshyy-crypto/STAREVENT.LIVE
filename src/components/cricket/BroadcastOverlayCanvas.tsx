@@ -125,6 +125,11 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
     (theme.id === 'star-navy-orange' || Boolean(theme.barStyle?.isStarNavyOrange));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
+  const isMatchSummaryActive = Boolean(
+    match &&
+      overlay.mainCard.kind === 'MATCH_STATS' &&
+      overlay.mainCard.mode === 'Match Summary'
+  );
 
   const isCompletelyEmpty =
     overlay.bottomScoreMode === 'EMPTY' &&
@@ -930,15 +935,17 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
           ? state.groups.find((g) => g.id === match.groupId)
           : undefined;
         return (
-          <div className="w-[min(1040px,94vw)] max-h-[84%] overflow-hidden">
-            <BroadcastMatchSummaryCard
-              match={match}
-              tournament={activeMatchTournament}
-              group={matchGroup}
-              teamMap={teamMap}
-              channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
-              compact
-            />
+          <div className="absolute inset-0 z-20 flex items-center justify-center p-6 pointer-events-none">
+            <div className="w-[min(1040px,92%)] max-h-[94%] overflow-hidden">
+              <BroadcastMatchSummaryCard
+                match={match}
+                tournament={activeMatchTournament}
+                group={matchGroup}
+                teamMap={teamMap}
+                channelTitle={state.user.channelTitle || 'STAR EVENT LIVE'}
+                compact
+              />
+            </div>
           </div>
         );
       }
@@ -1046,6 +1053,8 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
   };
 
   const renderBottomBar = () => {
+    if (isMatchSummaryActive) return null;
+
     const mode = overlay.bottomScoreMode;
     const liveActiveEvent =
       showTransition && activeTransition
