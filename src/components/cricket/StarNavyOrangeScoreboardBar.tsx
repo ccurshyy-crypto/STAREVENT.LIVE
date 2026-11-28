@@ -412,19 +412,17 @@ export function StarNavyOrangeScoreboardBar({
     .replace(/!+/g, '')
     .toUpperCase();
 
-  // Decide right section mode: 2nd innings chase ("TO WIN | RUNS | BALLS") vs 1st innings bowler + 6 square boxes
-  const showChaseRight = Boolean(
-    bottomNeed ||
-      (inningsNumber === 2 &&
-        target !== null &&
-        needRuns !== null &&
-        needBalls !== null)
-  );
+  // Switch right panel to Bottom Need ("TO WIN | RUNS | BALLS") ONLY when Bottom Need mode is selected;
+  // clicking "Score" always returns to the Bowler + 6-ball scoreboard.
+  const showChaseRight = Boolean(bottomNeed);
+  const isTargetChase = needRuns !== null && target !== null;
+  const displayNeedHeading = isTargetChase ? 'TO WIN' : 'LEFT';
+  const displayFirstStatLabel = isTargetChase ? 'RUNS' : 'BALLS';
+  const displaySecondStatLabel = isTargetChase
+    ? bottomNeed?.rightLabel || 'BALLS'
+    : bottomNeed?.rightLabel || 'CRR';
   const displayNeedRuns = bottomNeed ? bottomNeed.runsValue : String(needRuns ?? 0);
   const displayNeedBalls = bottomNeed ? bottomNeed.ballsValue : String(needBalls ?? 0);
-  const displayNeedHeading = bottomNeed
-    ? `${bottomNeed.middleTop} ${bottomNeed.middleBottom}`.trim() || 'TO WIN'
-    : 'TO WIN';
 
   // Pad/slice current over balls to 6 square boxes (if more than 6 due to extras, show up to 7 neatly)
   const visibleBalls = useMemo(() => {
@@ -817,7 +815,7 @@ export function StarNavyOrangeScoreboardBar({
                       className="font-extrabold uppercase tracking-[0.5px]"
                       style={{ fontSize: 11, color: '#cbdcf7' }}
                     >
-                      RUNS
+                      {displayFirstStatLabel}
                     </span>
                     <span
                       className="font-black text-white tabular-nums leading-none mt-0.5"
@@ -835,7 +833,7 @@ export function StarNavyOrangeScoreboardBar({
                       className="font-extrabold uppercase tracking-[0.5px]"
                       style={{ fontSize: 11, color: '#cbdcf7' }}
                     >
-                      BALLS
+                      {displaySecondStatLabel}
                     </span>
                     <span
                       className="font-black text-white tabular-nums leading-none mt-0.5"
