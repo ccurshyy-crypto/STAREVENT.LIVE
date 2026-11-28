@@ -358,8 +358,15 @@ export function StarNavyOrangeScoreboardBar({
     };
   }, []);
 
-  // 3. Stat Box Rotator (PROJECTED <-> CRR in 1st inn; RRR <-> TARGET <-> CRR in 2nd inn)
+  // 3. Stat Box Rotator (TARGET -> CRR -> RRR in chase/Bottom Need; PROJECTED <-> CRR in 1st inn)
   const statItems = useMemo(() => {
+    if (bottomNeed && target !== null && target > 0) {
+      return [
+        { label: 'TARGET', value: String(target) },
+        { label: 'CRR', value: crr || '0.00' },
+        { label: 'RRR', value: rrr || '0.00' },
+      ];
+    }
     if (inningsNumber === 2 && target !== null && target > 0) {
       return [
         { label: 'RRR', value: rrr || '0.00' },
@@ -371,14 +378,14 @@ export function StarNavyOrangeScoreboardBar({
       { label: 'PROJECTED', value: String(Math.max(runs, Math.round(projectedScore || 0))) },
       { label: 'CRR', value: crr || '0.00' },
     ];
-  }, [inningsNumber, target, rrr, crr, projectedScore, runs]);
+  }, [bottomNeed, inningsNumber, target, rrr, crr, projectedScore, runs]);
 
   const [statIdx, setStatIdx] = useState(0);
   const [statSliding, setStatSliding] = useState(false);
 
   useEffect(() => {
     setStatIdx(0);
-  }, [inningsNumber]);
+  }, [inningsNumber, Boolean(bottomNeed)]);
 
   useEffect(() => {
     let innerTimer: number | undefined;
@@ -567,15 +574,21 @@ export function StarNavyOrangeScoreboardBar({
                 </span>
                 <span
                   className="font-black uppercase tracking-wide truncate"
-                  style={{ fontSize: 22, color: '#ffffff' }}
+                  style={{
+                    fontSize: 22,
+                    color: activeBanner.kind === 'WINNER' ? '#ffd54f' : '#ffffff',
+                  }}
                 >
                   {activeBanner.headline}
                 </span>
               </div>
               {activeBanner.subline && (
                 <p
-                  className="font-bold uppercase tracking-wider truncate max-w-full mt-0.5"
-                  style={{ fontSize: 12.5, color: '#dbe7ff' }}
+                  className="font-black uppercase tracking-wider truncate max-w-full mt-0.5"
+                  style={{
+                    fontSize: activeBanner.kind === 'WINNER' ? 15 : 12.5,
+                    color: activeBanner.kind === 'WINNER' ? '#ffea00' : '#dbe7ff',
+                  }}
                 >
                   {activeBanner.subline}
                 </p>
@@ -594,7 +607,9 @@ export function StarNavyOrangeScoreboardBar({
           <div
             className="w-full h-full grid items-center"
             style={{
-              gridTemplateColumns: '112px 1.25fr 118px 360px 1.35fr 112px',
+              gridTemplateColumns: showChaseRight
+                ? '112px 1.12fr 104px 350px 1.58fr 112px'
+                : '112px 1.25fr 118px 360px 1.35fr 112px',
             }}
           >
             {/* 1. Far Left Slot: Batting Team Circle Logo <-> Full Team Name 3D Flip */}
@@ -793,54 +808,128 @@ export function StarNavyOrangeScoreboardBar({
               </div>
             </div>
 
-            {/* 5. Right Section: 1st Innings Bowler + 6 Square Boxes OR 2nd Innings TO WIN | RUNS | BALLS */}
-            <div className="h-full flex items-center justify-center pl-[14px] pr-[6px] min-w-0">
+            {/* 5. Right Section: Score Mode (Bowler + 6 Square Boxes) OR Bottom Need Mode (Bowler + Circular Ball Dots | TO WIN | RUNS | BALLS) */}
+            <div className="h-full flex items-center justify-center pl-[12px] pr-[6px] min-w-0">
               {showChaseRight ? (
                 <div
-                  key="chase-view"
-                  className="w-full flex items-center justify-around gap-2 star-navy-fade-scale"
+                  key="bottom-need-view"
+                  className="w-full h-full flex items-center justify-between gap-[10px] min-w-0 star-navy-fade-scale"
                 >
-                  <span
-                    className="font-black uppercase text-white tracking-wide shrink-0"
-                    style={{ fontSize: 24 }}
-                  >
-                    {displayNeedHeading}
-                  </span>
+                  {/* Left Sub-Column: Bowler + Circular Ball Dots */}
+                  <div className="flex flex-col justify-center gap-[5px] min-w-0 flex-1">
+                    <div className="flex items-center gap-[6px] min-w-0">
+                      <CricketBallIcon size={14} />
+                      <span
+                        className="font-extrabold uppercase text-white truncate"
+                        style={{ fontSize: 14.5 }}
+                      >
+                        {bowlerName}
+                      </span>
+                      <span
+                        className="font-extrabold tabular-nums shrink-0"
+                        style={{ fontSize: 13.5, color: '#dbe7ff' }}
+                      >
+                        {bowlerFigs} ({bowlerOvers})
+                      </span>
+                    </div>
 
-                  <div
-                    className="flex flex-col items-center justify-center pl-3"
-                    style={{ borderLeft: '2px solid rgba(245, 130, 32, 0.7)' }}
-                  >
-                    <span
-                      className="font-extrabold uppercase tracking-[0.5px]"
-                      style={{ fontSize: 11, color: '#cbdcf7' }}
-                    >
-                      {displayFirstStatLabel}
-                    </span>
-                    <span
-                      className="font-black text-white tabular-nums leading-none mt-0.5"
-                      style={{ fontSize: 26 }}
-                    >
-                      {displayNeedRuns}
-                    </span>
+                    <div className="flex items-center gap-[5px]">
+                      {visibleBalls.slice(0, 6).map((ball, idx) => {
+                        if (!ball) {
+                          return (
+                            <span
+                              key={`dot-empty-${idx}`}
+                              className="inline-flex items-center justify-center rounded-full shrink-0"
+                              style={{
+                                width: 15,
+                                height: 15,
+                                border: '2px solid #ffffff',
+                                background: 'rgba(255, 255, 255, 0.15)',
+                              }}
+                            />
+                          );
+                        }
+
+                        let bg = 'rgba(255, 255, 255, 0.2)';
+                        let borderColor = '#ffffff';
+                        let color = '#ffffff';
+
+                        if (ball.isWicket) {
+                          bg = '#e60000';
+                          borderColor = '#ff6666';
+                          color = '#ffffff';
+                        } else if (ball.isBoundary4 || ball.isBoundary6) {
+                          bg = '#f58220';
+                          borderColor = '#ffb870';
+                          color = '#082654';
+                        } else if (ball.isExtra) {
+                          bg = '#16a34a';
+                          borderColor = '#86efac';
+                          color = '#ffffff';
+                        }
+
+                        return (
+                          <span
+                            key={`dot-${ball.id}`}
+                            className="inline-flex items-center justify-center rounded-full font-black tabular-nums shrink-0"
+                            style={{
+                              minWidth: 19,
+                              height: 19,
+                              padding: '0 3px',
+                              border: `1.5px solid ${borderColor}`,
+                              background: bg,
+                              color,
+                              fontSize: ball.label.length > 2 ? 8 : 10,
+                            }}
+                          >
+                            {ball.label}
+                          </span>
+                        );
+                      })}
+                    </div>
                   </div>
 
+                  {/* Right Sub-Column: Orange Divider + TO WIN | RUNS | BALLS */}
                   <div
-                    className="flex flex-col items-center justify-center pl-3"
-                    style={{ borderLeft: '2px solid rgba(245, 130, 32, 0.7)' }}
+                    className="flex items-center gap-[12px] pl-[12px] shrink-0"
+                    style={{ borderLeft: '2px solid #f58220' }}
                   >
                     <span
-                      className="font-extrabold uppercase tracking-[0.5px]"
-                      style={{ fontSize: 11, color: '#cbdcf7' }}
+                      className="font-black uppercase text-white whitespace-nowrap"
+                      style={{ fontSize: 17.5 }}
                     >
-                      {displaySecondStatLabel}
+                      {displayNeedHeading}
                     </span>
-                    <span
-                      className="font-black text-white tabular-nums leading-none mt-0.5"
-                      style={{ fontSize: 26 }}
-                    >
-                      {displayNeedBalls}
-                    </span>
+
+                    <div className="flex flex-col items-center justify-center">
+                      <span
+                        className="font-extrabold uppercase"
+                        style={{ fontSize: 11, color: '#dbe7ff' }}
+                      >
+                        {displayFirstStatLabel}
+                      </span>
+                      <span
+                        className="font-black text-white tabular-nums leading-[1.1]"
+                        style={{ fontSize: 20 }}
+                      >
+                        {displayNeedRuns}
+                      </span>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center">
+                      <span
+                        className="font-extrabold uppercase"
+                        style={{ fontSize: 11, color: '#dbe7ff' }}
+                      >
+                        {displaySecondStatLabel}
+                      </span>
+                      <span
+                        className="font-black text-white tabular-nums leading-[1.1]"
+                        style={{ fontSize: 20 }}
+                      >
+                        {displayNeedBalls}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ) : (
