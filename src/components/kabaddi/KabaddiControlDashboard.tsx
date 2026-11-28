@@ -222,7 +222,11 @@ export function KabaddiControlDashboard({
 
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [raidShape, setRaidShape] = useState<'circle' | 'rectangle'>('circle');
-  const [clockPresetMode, setClockPresetMode] = useState<'auto' | '20m' | '40m'>('auto');
+  const [clockPresetMode, setClockPresetMode] = useState<'7m' | '15m' | '20m' | '40m' | 'custom'>('20m');
+  const [showCustomTimeEditor, setShowCustomTimeEditor] = useState(false);
+  const [customMinsInput, setCustomMinsInput] = useState('7');
+  const [customSecsInput, setCustomSecsInput] = useState('00');
+  const [autoSwitchRaid, setAutoSwitchRaid] = useState(true);
   const [showBroadcastMonitor, setShowBroadcastMonitor] = useState(false);
   const [previewBg, setPreviewBg] = useState<'arena' | 'green' | 'transparent'>('arena');
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -309,33 +313,42 @@ export function KabaddiControlDashboard({
   const liveMatchSec = computeLiveTimerSeconds(state.matchClock, nowMs);
   const liveRaidSec = computeLiveTimerSeconds(state.raidClock, nowMs);
 
-  // Auto-stop raid clock & match clock when they hit 0
+  // Auto-switch 30s raid clock to the other team when it hits 0
   useEffect(() => {
     if (state.raidClock.running && liveRaidSec === 0) {
       playRefereeWhistleSound();
+      const now = Date.now();
       updateState(
-        (prev) => ({
-          ...prev,
-          raidClock: {
-            ...prev.raidClock,
-            remainingSec: 0,
-            running: false,
-            startedAtMs: null,
-          },
-          gameLog: [
-            buildLogEntry(
-              computeLiveTimerSeconds(prev.matchClock),
-              '30s Raid Clock expired!',
-              prev.raidingTeam,
-              'system'
-            ),
-            ...(prev.gameLog ?? []),
-          ].slice(0, 80),
-        }),
+        (prev) => {
+          const prevSide: KabaddiTeamSide = prev.raidingTeam || 'A';
+          const nextSide: KabaddiTeamSide = prevSide === 'A' ? 'B' : 'A';
+          const prevTeamName = prevSide === 'A' ? prev.teamA.name : prev.teamB.name;
+          const nextTeamName = nextSide === 'A' ? prev.teamA.name : prev.teamB.name;
+          return {
+            ...prev,
+            raidingTeam: nextSide,
+            selectedRaider: null,
+            raidClock: {
+              durationSec: 30,
+              remainingSec: 30,
+              running: autoSwitchRaid,
+              startedAtMs: autoSwitchRaid ? now : null,
+            },
+            gameLog: [
+              buildLogEntry(
+                computeLiveTimerSeconds(prev.matchClock, now),
+                `30s Raid ended (${prevTeamName}) → ${nextTeamName} Raid (30s)`,
+                nextSide,
+                'system'
+              ),
+              ...(prev.gameLog ?? []),
+            ].slice(0, 80),
+          };
+        },
         false
       );
     }
-  }, [state.raidClock.running, liveRaidSec, updateState]);
+  }, [state.raidClock.running, liveRaidSec, autoSwitchRaid, updateState]);
 
   useEffect(() => {
     if (state.matchClock.running && liveMatchSec === 0) {
@@ -517,28 +530,89 @@ export function KabaddiControlDashboard({
     }, false);
   };
 
-  const setMatchClockMinutes = (mins: number, mode?: 'auto' | '20m' | '40m') => {
-    const secs = Math.max(60, Math.min(60 * 60, mins * 60));
-    if (mode) setClockPresetMode(mode);
+  const setMatchClockCustom = (
+    mins: number,
+    secs = 0,
+    presetOverride?: '7m' | '15m' | '20m' | '40m' | 'custom'
+  ) => {
+    const safeMins = Math.max(0, Math.min(99, Math.floor(Number.isFinite(mins) ? mins : 0)));
+    const safeSecs = Math.max(0, Math.min(59, Math.floor(Number.isFinite(secs) ? secs : 0)));
+    const totalSecs = Math.max(10, Math.min(99 * 60 + 59, safeMins * 60 + safeSecs));
+    const resolvedMins = Math.floor(totalSecs / 60);
+    const resolvedSecs = totalSecs % 60;
+    setCustomMinsInput(String(resolvedMins));
+    setCustomSecsInput(String(resolvedSecs).padStart(2, '0'));
+    const nextPreset: '7m' | '15m' | '20m' | '40m' | 'custom' =
+      presetOverride ??
+      (totalSecs === 7 * 60
+        ? '7m'
+        : totalSecs === 15 * 60
+          ? '15m'
+          : totalSecs === 20 * 60
+            ? '20m'
+            : totalSecs === 40 * 60
+              ? '40m'
+              : 'custom');
+    setClockPresetMode(nextPreset);
     updateState(
       (prev) => ({
         ...prev,
         matchClock: {
-          durationSec: secs,
-          remainingSec: secs,
+          durationSec: totalSecs,
+          remainingSec: totalSecs,
+          running: false,
+          startedAtMs: null,
+        },
+        gameLog: [
+          buildLogEntry(
+            totalSecs,
+            `Game Clock set to ${formatClockMMSS(totalSecs)}`,
+            null,
+            'system'
+          ),
+          ...(prev.gameLog ?? []),
+        ].slice(0, 80),
+      }),
+      false
+    );
+    notify(`Game Time set to ${formatClockMMSS(totalSecs)}`);
+  };
+
+  const setMatchClockMinutes = (
+    mins: number,
+    mode?: '7m' | '15m' | '20m' | '40m' | 'custom'
+  ) => {
+    setMatchClockCustom(mins, 0, mode);
+  };
+
+  const handleApplyCustomTime = () => {
+    const mins = parseInt(customMinsInput || '0', 10);
+    const secs = parseInt(customSecsInput || '0', 10);
+    setMatchClockCustom(Number.isNaN(mins) ? 0 : mins, Number.isNaN(secs) ? 0 : secs, 'custom');
+    setShowCustomTimeEditor(false);
+  };
+
+  const resetMatchClockToDuration = () => {
+    updateState(
+      (prev) => ({
+        ...prev,
+        matchClock: {
+          ...prev.matchClock,
+          remainingSec: prev.matchClock.durationSec,
           running: false,
           startedAtMs: null,
         },
       }),
       false
     );
+    notify(`Clock reset to ${formatClockMMSS(state.matchClock.durationSec)}`);
   };
 
   const adjustMatchClockSeconds = (deltaSec: number) => {
     updateState(
       (prev) => {
         const curr = computeLiveTimerSeconds(prev.matchClock);
-        const next = Math.max(0, Math.min(60 * 60, curr + deltaSec));
+        const next = Math.max(0, Math.min(99 * 60 + 59, curr + deltaSec));
         return {
           ...prev,
           matchClock: {
@@ -571,6 +645,7 @@ export function KabaddiControlDashboard({
       const startFrom = prev.raidClock.remainingSec > 0 ? prev.raidClock.remainingSec : 30;
       return {
         ...prev,
+        raidingTeam: prev.raidingTeam || 'A',
         raidClock: {
           durationSec: 30,
           remainingSec: startFrom,
@@ -586,12 +661,42 @@ export function KabaddiControlDashboard({
       const now = Date.now();
       return {
         ...prev,
+        raidingTeam: prev.raidingTeam || 'A',
         raidClock: {
           durationSec: 30,
           remainingSec: 30,
           running: autoStart,
           startedAtMs: autoStart ? now : null,
         },
+      };
+    }, false);
+  };
+
+  const switchRaidToOtherTeam = (autoStart = true) => {
+    updateState((prev) => {
+      const now = Date.now();
+      const currSide: KabaddiTeamSide = prev.raidingTeam || 'A';
+      const nextSide: KabaddiTeamSide = currSide === 'A' ? 'B' : 'A';
+      const nextTeamName = nextSide === 'A' ? prev.teamA.name : prev.teamB.name;
+      return {
+        ...prev,
+        raidingTeam: nextSide,
+        selectedRaider: null,
+        raidClock: {
+          durationSec: 30,
+          remainingSec: 30,
+          running: autoStart,
+          startedAtMs: autoStart ? now : null,
+        },
+        gameLog: [
+          buildLogEntry(
+            computeLiveTimerSeconds(prev.matchClock, now),
+            `Raid switched → ${nextTeamName} (30s)`,
+            nextSide,
+            'system'
+          ),
+          ...(prev.gameLog ?? []),
+        ].slice(0, 80),
       };
     }, false);
   };
@@ -866,19 +971,27 @@ export function KabaddiControlDashboard({
       }
 
       const shouldEndRaid = kind === 'raid' || kind === 'tackle';
+      const prevRaiding: KabaddiTeamSide = prev.raidingTeam || 'A';
+      const nextRaidingSide: KabaddiTeamSide | null = shouldEndRaid
+        ? prevRaiding === 'A'
+          ? 'B'
+          : 'A'
+        : prev.raidingTeam;
+      const shouldAutoStartNextRaid =
+        shouldEndRaid && autoSwitchRaid && (prev.raidClock.running || prev.matchClock.running);
 
       return {
         ...prev,
         [teamKey]: nextTeam,
         [oppKey]: nextOpp,
-        raidingTeam: shouldEndRaid ? oppSide : prev.raidingTeam,
+        raidingTeam: nextRaidingSide,
         selectedRaider: shouldEndRaid ? null : prev.selectedRaider,
         raidClock: shouldEndRaid
           ? {
               durationSec: 30,
               remainingSec: 30,
-              running: false,
-              startedAtMs: null,
+              running: shouldAutoStartNextRaid,
+              startedAtMs: shouldAutoStartNextRaid ? now : null,
             }
           : prev.raidClock,
         alert: nextAlert,
@@ -945,6 +1058,9 @@ export function KabaddiControlDashboard({
       const nextEmpty = (prev[key].emptyRaids + 1) % 3;
       const triggerDoOrDie = nextEmpty === 2;
 
+      const now = Date.now();
+      const autoStartNext = autoSwitchRaid && (prev.raidClock.running || prev.matchClock.running);
+
       return {
         ...prev,
         raidingTeam: oppSide,
@@ -953,8 +1069,8 @@ export function KabaddiControlDashboard({
         raidClock: {
           durationSec: 30,
           remainingSec: 30,
-          running: false,
-          startedAtMs: null,
+          running: autoStartNext,
+          startedAtMs: autoStartNext ? now : null,
         },
         alert: triggerDoOrDie
           ? buildAlert(
@@ -1308,17 +1424,17 @@ export function KabaddiControlDashboard({
     const team = side === 'A' ? state.teamA : state.teamB;
     const players = side === 'A' ? teamAPlayers : teamBPlayers;
     const activeCount = players.filter((p) => p.status === 'in').length;
-    const isRaiding = state.raidingTeam === side;
+    const isRaiding = (state.raidingTeam || 'A') === side;
     const superTackleOn = activeCount > 0 && activeCount <= 3;
 
     return (
       <div
         className={`rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-5 py-5 flex flex-col items-center justify-between text-center transition-all ${
-          isRaiding ? 'ring-2 ring-[#FF8C00]/35' : ''
+          isRaiding ? 'ring-2 ring-[#FF8C00]/45' : ''
         }`}
       >
-        {/* Team Name Header */}
-        <div className="w-full pb-2.5 border-b border-orange-100">
+        {/* Team Name Header + Live 30s Raid Badge */}
+        <div className="w-full pb-2.5 border-b border-orange-100 space-y-1.5">
           <div className="flex items-center justify-center gap-2">
             {isRaiding && (
               <span
@@ -1329,6 +1445,44 @@ export function KabaddiControlDashboard({
             <h2 className="font-display text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
               {team.name}
             </h2>
+          </div>
+          <div className="flex items-center justify-center min-h-[22px]">
+            {isRaiding ? (
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-mono text-[11px] font-black uppercase tracking-wider ${
+                  raidDanger
+                    ? 'bg-red-600 text-white animate-pulse'
+                    : 'bg-[#FF8C00] text-white'
+                }`}
+              >
+                <span>RAID</span>
+                <span className="tabular-nums">{String(liveRaidSec).padStart(2, '0')}s</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  const now = Date.now();
+                  updateState(
+                    (prev) => ({
+                      ...prev,
+                      raidingTeam: side,
+                      selectedRaider: null,
+                      raidClock: {
+                        durationSec: 30,
+                        remainingSec: 30,
+                        running: true,
+                        startedAtMs: now,
+                      },
+                    }),
+                    false
+                  );
+                }}
+                className="px-2 py-0.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 font-mono text-[10px] font-bold text-[#EA580C] transition-colors"
+              >
+                Start 30s Raid
+              </button>
+            )}
           </div>
         </div>
 
@@ -1592,7 +1746,7 @@ export function KabaddiControlDashboard({
 
             {/* Right Toolbar Matching Reference Controls in White & Orange */}
             <div className="flex flex-wrap items-center gap-1.5">
-              {/* Clock Duration Quick Segmented Switcher */}
+              {/* Clock Duration Quick Segmented Switcher (7m / 15m / 20m / 40m / Custom) */}
               <div
                 role="group"
                 aria-label="Match clock preset"
@@ -1600,16 +1754,20 @@ export function KabaddiControlDashboard({
               >
                 {(
                   [
-                    { id: 'auto', label: '40m', mins: 40 },
+                    { id: '7m', label: '7m', mins: 7 },
+                    { id: '15m', label: '15m', mins: 15 },
                     { id: '20m', label: '20m', mins: 20 },
-                    { id: '40m', label: '15m', mins: 15 },
+                    { id: '40m', label: '40m', mins: 40 },
                   ] as const
                 ).map((item) => (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setMatchClockMinutes(item.mins, item.id)}
-                    className={`px-2.5 py-1 rounded-md transition-colors ${
+                    onClick={() => {
+                      setShowCustomTimeEditor(false);
+                      setMatchClockMinutes(item.mins, item.id);
+                    }}
+                    className={`px-2 py-1 rounded-md transition-colors ${
                       clockPresetMode === item.id
                         ? 'bg-[#FF8C00] text-white shadow-xs'
                         : 'text-slate-600 hover:text-[#EA580C]'
@@ -1618,6 +1776,17 @@ export function KabaddiControlDashboard({
                     {item.label}
                   </button>
                 ))}
+                <button
+                  type="button"
+                  onClick={() => setShowCustomTimeEditor((v) => !v)}
+                  className={`px-2 py-1 rounded-md transition-colors ${
+                    clockPresetMode === 'custom' || showCustomTimeEditor
+                      ? 'bg-[#FF8C00] text-white shadow-xs'
+                      : 'text-slate-600 hover:text-[#EA580C]'
+                  }`}
+                >
+                  Custom
+                </button>
               </div>
 
               {/* Raid Timer Shape Toggle (Circle / Rectangle) */}
@@ -1703,8 +1872,8 @@ export function KabaddiControlDashboard({
             {renderTeamScoreCard('A')}
 
             {/* Center Game Time & Raid Timer Card */}
-            <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-5 py-5 flex flex-col items-center justify-between text-center gap-4">
-              <div className="space-y-1">
+            <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-5 py-4 flex flex-col items-center justify-between text-center gap-3">
+              <div className="w-full space-y-1.5">
                 <div className="flex items-center justify-center gap-2">
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     Game Time
@@ -1721,9 +1890,21 @@ export function KabaddiControlDashboard({
                   >
                     {state.half}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomTimeEditor((v) => !v)}
+                    title="Set custom half/match time"
+                    className={`px-2 py-0.5 rounded border font-mono text-[10px] font-extrabold transition-colors ${
+                      showCustomTimeEditor
+                        ? 'bg-[#FF8C00] text-white border-[#EA580C]'
+                        : 'bg-white hover:bg-orange-50 border-orange-200 text-slate-600'
+                    }`}
+                  >
+                    Custom
+                  </button>
                 </div>
 
-                {/* Big Game Clock */}
+                {/* Big Game Clock + Play/Pause + Reset Half Clock */}
                 <div className="flex items-center justify-center gap-2">
                   <button
                     type="button"
@@ -1749,7 +1930,92 @@ export function KabaddiControlDashboard({
                       <Play className="w-4 h-4 ml-0.5" aria-hidden="true" />
                     )}
                   </button>
+                  <button
+                    type="button"
+                    onClick={resetMatchClockToDuration}
+                    title={`Reset Game Time to ${formatClockMMSS(state.matchClock.durationSec)}`}
+                    aria-label="Reset game clock to half duration"
+                    className="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#EA580C] flex items-center justify-center transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                  </button>
                 </div>
+
+                {/* Inline Custom Time Picker (7m / 10m / 15m / 20m + Custom MM:SS) */}
+                {showCustomTimeEditor && (
+                  <div className="mt-2 p-2.5 rounded-xl bg-orange-50/90 border border-orange-200 space-y-2">
+                    <div className="flex flex-wrap items-center justify-center gap-1">
+                      {[5, 7, 10, 15, 20].map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => {
+                            setMatchClockMinutes(m, m === 7 ? '7m' : m === 15 ? '15m' : m === 20 ? '20m' : 'custom');
+                            setShowCustomTimeEditor(false);
+                          }}
+                          className="px-2 py-0.5 rounded bg-white hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 font-mono text-[11px] font-extrabold transition-colors"
+                        >
+                          {m}m
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <input
+                        type="number"
+                        min={0}
+                        max={99}
+                        value={customMinsInput}
+                        onChange={(e) => setCustomMinsInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleApplyCustomTime();
+                        }}
+                        aria-label="Custom minutes"
+                        className="w-14 px-2 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
+                        placeholder="Min"
+                      />
+                      <span className="font-mono text-sm font-black text-slate-500">:</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={customSecsInput}
+                        onChange={(e) => setCustomSecsInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleApplyCustomTime();
+                        }}
+                        aria-label="Custom seconds"
+                        className="w-14 px-2 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
+                        placeholder="Sec"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleApplyCustomTime}
+                        className="px-3 py-1 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white text-xs font-extrabold"
+                      >
+                        Set
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Raiding Team + Auto-Switch Raid Indicator */}
+              <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-50/75 border border-orange-200">
+                <span className="text-[11px] font-extrabold text-[#EA580C] truncate">
+                  RAID: {(state.raidingTeam || 'A') === 'A' ? state.teamA.name : state.teamB.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAutoSwitchRaid((v) => !v)}
+                  title="Automatically pass 30s raid timer to the other team when a raid ends"
+                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-black uppercase shrink-0 transition-colors ${
+                    autoSwitchRaid
+                      ? 'bg-[#FF8C00] text-white'
+                      : 'bg-white text-slate-500 border border-orange-200'
+                  }`}
+                >
+                  Auto-Next {autoSwitchRaid ? 'ON' : 'OFF'}
+                </button>
               </div>
 
               {/* 30-Second Raid Timer (Circle or Rectangle) */}
@@ -1827,8 +2093,19 @@ export function KabaddiControlDashboard({
                 </button>
               )}
 
-              {/* Select a Raider Primary Action Button */}
+              {/* Switch Raid to Other Team + Select a Raider */}
               <div className="w-full space-y-2">
+                <button
+                  type="button"
+                  onClick={() => switchRaidToOtherTeam(true)}
+                  className="w-full py-2 px-3 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white font-display text-xs font-black uppercase tracking-wide shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" aria-hidden="true" />
+                  <span>
+                    Next Raid → {(state.raidingTeam || 'A') === 'A' ? state.teamB.shortName : state.teamA.shortName} (30s)
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1839,9 +2116,9 @@ export function KabaddiControlDashboard({
                       notify('Click any active player below to start their raid!');
                     }
                   }}
-                  className={`w-full min-h-[42px] px-4 py-2 rounded-lg font-display text-sm font-extrabold transition-all ${
+                  className={`w-full min-h-[38px] px-4 py-1.5 rounded-lg font-display text-xs font-extrabold transition-all ${
                     activeRaiderObj
-                      ? 'bg-[#FF8C00] hover:bg-[#EA580C] text-white shadow-sm'
+                      ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'
                       : selectingRaiderPrompt
                         ? 'bg-orange-100 text-[#EA580C] border-2 border-[#FF8C00]'
                         : 'bg-orange-50 hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200'
@@ -2387,6 +2664,62 @@ export function KabaddiControlDashboard({
                       Swap
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Half / Match Duration Presets & Custom MM:SS Timer */}
+              <div className="rounded-xl bg-orange-50/60 border border-orange-200 p-3.5 flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-[#EA580C]">
+                    Half / Match Duration (7 Min &amp; Custom)
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[5, 7, 10, 15, 20, 40].map((m) => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() =>
+                          setMatchClockMinutes(
+                            m,
+                            m === 7 ? '7m' : m === 15 ? '15m' : m === 20 ? '20m' : m === 40 ? '40m' : 'custom'
+                          )
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-white hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 font-mono text-xs font-bold transition-colors"
+                      >
+                        {m} Min
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    max={99}
+                    value={customMinsInput}
+                    onChange={(e) => setCustomMinsInput(e.target.value)}
+                    aria-label="Custom half minutes"
+                    className="w-16 px-2.5 py-1.5 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center"
+                    placeholder="Min"
+                  />
+                  <span className="font-mono text-sm font-black text-slate-500">:</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    value={customSecsInput}
+                    onChange={(e) => setCustomSecsInput(e.target.value)}
+                    aria-label="Custom half seconds"
+                    className="w-16 px-2.5 py-1.5 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center"
+                    placeholder="Sec"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCustomTime}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white text-xs font-extrabold uppercase"
+                  >
+                    Set Time
+                  </button>
                 </div>
               </div>
 

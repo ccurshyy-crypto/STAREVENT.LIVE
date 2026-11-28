@@ -8,6 +8,7 @@ import {
   KabaddiAlertState,
   KabaddiOverlayThemeId,
   KabaddiScoreboardState,
+  KabaddiTeamSide,
   KabaddiTeamState,
 } from '../../types/kabaddi';
 
@@ -236,25 +237,46 @@ function MatPlayerDots({
 function TeamBadgeRow({
   team,
   isRaiding,
+  raidSec,
+  raidRunning,
   align,
 }: {
   team: KabaddiTeamState;
   isRaiding: boolean;
+  raidSec: number;
+  raidRunning: boolean;
   align: 'left' | 'right';
 }) {
   const superTackleOn = team.playersOnMat > 0 && team.playersOnMat <= 3;
   const doOrDie = isRaiding && team.emptyRaids >= 2;
+  const raidUrgent = raidRunning && raidSec <= 10 && raidSec > 0;
 
   return (
     <div
-      className={`flex items-center gap-1.5 min-h-[18px] ${
+      className={`flex items-center gap-1.5 min-h-[20px] ${
         align === 'right' ? 'justify-end' : 'justify-start'
       }`}
     >
       {isRaiding && (
-        <span className="px-1.5 py-[1px] rounded bg-[#FFE600] text-[#070B28] text-[9px] font-black uppercase tracking-wider shadow-sm">
-          RAIDING
-        </span>
+        <motion.span
+          key={`classic-raid-${team.shortName}`}
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`inline-flex items-center gap-1 px-2 py-[2px] rounded font-mono text-[10px] font-black uppercase tracking-wider shadow-sm ${
+            raidUrgent
+              ? 'bg-[#EF1A1A] text-white border border-[#FFE600] animate-pulse'
+              : 'bg-[#FFE600] text-[#070B28]'
+          }`}
+        >
+          {raidRunning && (
+            <span
+              className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                raidUrgent ? 'bg-white' : 'bg-[#DC2626]'
+              }`}
+            />
+          )}
+          <span>RAID {String(raidSec).padStart(2, '0')}s</span>
+        </motion.span>
       )}
       {doOrDie && (
         <span className="px-1.5 py-[1px] rounded bg-[#EF1A1A] text-white text-[9px] font-black uppercase tracking-wider border border-[#FFE600] animate-pulse">
@@ -267,6 +289,103 @@ function TeamBadgeRow({
         </span>
       )}
     </div>
+  );
+}
+
+function TeamRaidClockBadge({
+  raidSec,
+  running,
+  theme,
+  side,
+}: {
+  raidSec: number;
+  running: boolean;
+  theme: KabaddiOverlayThemeId;
+  side: KabaddiTeamSide;
+}) {
+  const urgent = running && raidSec <= 10 && raidSec > 0;
+  const pct = Math.max(0, Math.min(100, (raidSec / 30) * 100));
+
+  const styleByTheme: Record<
+    KabaddiOverlayThemeId,
+    { bg: string; text: string; border: string; barTrack: string; barFill: string; dot: string }
+  > = {
+    'royal-blue': {
+      bg: 'bg-[#FFE600]',
+      text: 'text-[#071A45]',
+      border: 'border-white/90',
+      barTrack: 'bg-[#071A45]/25',
+      barFill: 'bg-[#071A45]',
+      dot: 'bg-[#DC2626]',
+    },
+    'silver-navy': {
+      bg: 'bg-[#0369A1]',
+      text: 'text-white',
+      border: 'border-[#38BDF8]',
+      barTrack: 'bg-black/30',
+      barFill: 'bg-[#FFE600]',
+      dot: 'bg-[#FFE600]',
+    },
+    'crimson-noir': {
+      bg: 'bg-[#DC2626]',
+      text: 'text-white',
+      border: 'border-white/80',
+      barTrack: 'bg-black/40',
+      barFill: 'bg-[#FFE600]',
+      dot: 'bg-[#FFE600]',
+    },
+    'saffron-chrome': {
+      bg: 'bg-[#EA580C]',
+      text: 'text-white',
+      border: 'border-slate-900/70',
+      barTrack: 'bg-black/30',
+      barFill: 'bg-[#FFE600]',
+      dot: 'bg-[#FFE600]',
+    },
+    'star-classic': {
+      bg: 'bg-[#FFE600]',
+      text: 'text-[#070B28]',
+      border: 'border-white/80',
+      barTrack: 'bg-black/25',
+      barFill: 'bg-[#DC2626]',
+      dot: 'bg-[#DC2626]',
+    },
+  };
+
+  const s = styleByTheme[theme];
+
+  return (
+    <motion.div
+      key={`raid-badge-${theme}-${side}`}
+      initial={{ opacity: 0, scale: 0.82, x: side === 'A' ? -10 : 10 }}
+      animate={{ opacity: 1, scale: 1, x: 0 }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
+      className={`relative overflow-hidden rounded-lg border px-2.5 py-1 shadow-md shrink-0 min-w-[92px] ${
+        urgent
+          ? 'bg-[#DC2626] text-white border-[#FFE600] animate-pulse'
+          : `${s.bg} ${s.text} ${s.border}`
+      }`}
+    >
+      <div className="flex items-center justify-between gap-1.5 leading-none">
+        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-black uppercase tracking-wider">
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              running ? `${urgent ? 'bg-white' : s.dot} animate-pulse` : 'bg-current opacity-45'
+            }`}
+          />
+          RAID
+        </span>
+        <span className="font-mono text-sm font-black tabular-nums leading-none">
+          {String(raidSec).padStart(2, '0')}s
+        </span>
+      </div>
+      <div className={`mt-1 h-[3px] w-full rounded-full overflow-hidden ${urgent ? 'bg-black/35' : s.barTrack}`}>
+        <div
+          className={`h-full rounded-full transition-all duration-200 ${urgent ? 'bg-[#FFE600]' : s.barFill}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </motion.div>
   );
 }
 
@@ -287,6 +406,7 @@ export function KabaddiScoreboardBar({
   activeAlert: KabaddiAlertState | null;
 }) {
   const theme: KabaddiOverlayThemeId = state.overlayTheme || 'royal-blue';
+  const activeRaidingSide: KabaddiTeamSide = state.raidingTeam || 'A';
   const raidUrgent = state.raidClock.running && raidSec <= 10 && raidSec > 0;
   const raidExpired = raidSec === 0;
   const isFullTime = state.half === 'FULL TIME';
@@ -326,15 +446,6 @@ export function KabaddiScoreboardBar({
             <span className="font-mono text-sm font-black tracking-[0.18em] text-white uppercase">
               LIVE
             </span>
-            {state.raidClock.running && (
-              <span
-                className={`ml-1 px-1.5 py-0.5 rounded font-mono text-[11px] font-black ${
-                  raidUrgent ? 'bg-red-600 text-white animate-pulse' : 'bg-white text-[#1D4ED8]'
-                }`}
-              >
-                {raidSec}s
-              </span>
-            )}
           </div>
         </div>
 
@@ -359,15 +470,18 @@ export function KabaddiScoreboardBar({
             <div className="pointer-events-none absolute inset-y-0 right-2 w-3 bg-gradient-to-l from-white/75 via-slate-200/80 to-transparent rounded-br-xl" />
 
             {/* Team A Wing */}
-            <div className="relative z-10 pl-8 pr-6 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-8 pr-5 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-display text-3xl font-black text-white uppercase tracking-wider truncate drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]">
                   {state.teamA.name}
                 </span>
-                {state.raidingTeam === 'A' && (
-                  <span className="px-2 py-0.5 rounded bg-[#FFE600] text-[#071A45] font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'A' && (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="royal-blue"
+                    side="A"
+                  />
                 )}
               </div>
               <div className="mt-1">
@@ -399,12 +513,15 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Wing */}
-            <div className="relative z-10 pl-6 pr-8 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-5 pr-8 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
-                {state.raidingTeam === 'B' ? (
-                  <span className="px-2 py-0.5 rounded bg-[#FFE600] text-[#071A45] font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'B' ? (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="royal-blue"
+                    side="B"
+                  />
                 ) : (
                   <span />
                 )}
@@ -463,15 +580,18 @@ export function KabaddiScoreboardBar({
             }}
           >
             {/* Team A Silver Panel */}
-            <div className="relative z-10 pl-8 pr-5 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-display text-3xl font-black text-slate-950 uppercase tracking-wide truncate">
                   {state.teamA.name}
                 </span>
-                {state.raidingTeam === 'A' && (
-                  <span className="px-2 py-0.5 rounded bg-[#0284C7] text-white font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'A' && (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="silver-navy"
+                    side="A"
+                  />
                 )}
               </div>
               <div className="mt-1">
@@ -513,13 +633,9 @@ export function KabaddiScoreboardBar({
                 }}
               >
                 <span className="font-mono text-[10px] font-black tracking-widest text-sky-100 uppercase">
-                  {state.raidClock.running ? `RAID ${raidSec}s` : 'TIME'}
+                  TIME
                 </span>
-                <span
-                  className={`font-mono text-2xl font-black leading-tight tabular-nums ${
-                    raidUrgent ? 'text-[#FFE600] animate-pulse' : 'text-white'
-                  }`}
-                >
+                <span className="font-mono text-2xl font-black leading-tight tabular-nums text-white">
                   {clockLabel}
                 </span>
               </div>
@@ -539,12 +655,15 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Silver Panel */}
-            <div className="relative z-10 pl-5 pr-8 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
-                {state.raidingTeam === 'B' ? (
-                  <span className="px-2 py-0.5 rounded bg-[#0284C7] text-white font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'B' ? (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="silver-navy"
+                    side="B"
+                  />
                 ) : (
                   <span />
                 )}
@@ -592,11 +711,6 @@ export function KabaddiScoreboardBar({
             <span className="font-mono text-sm font-black tracking-[0.2em] text-white uppercase">
               LIVE
             </span>
-            {state.raidClock.running && (
-              <span className="ml-1 px-1.5 py-0.5 rounded bg-black/80 text-[#FFE600] font-mono text-[11px] font-black">
-                {raidSec}s
-              </span>
-            )}
           </div>
         </div>
 
@@ -607,15 +721,18 @@ export function KabaddiScoreboardBar({
         <div className="relative w-full rounded-[24px] bg-[#DC2626] px-2.5 pb-[6px] shadow-[0_18px_46px_rgba(0,0,0,0.78)]">
           <div className="relative grid grid-cols-[1fr_364px_1fr] items-stretch min-h-[80px] rounded-[20px] bg-[#111114] overflow-hidden border border-white/10">
             {/* Team A Black Wing */}
-            <div className="relative z-10 pl-7 pr-5 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-display text-3xl font-black text-white uppercase tracking-wide truncate">
                   {state.teamA.name}
                 </span>
-                {state.raidingTeam === 'A' && (
-                  <span className="px-2 py-0.5 rounded bg-[#EF4444] text-white font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'A' && (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="crimson-noir"
+                    side="A"
+                  />
                 )}
               </div>
               <div className="mt-1">
@@ -646,11 +763,7 @@ export function KabaddiScoreboardBar({
                 <span className="font-mono text-[10px] font-black tracking-widest text-slate-800 uppercase border-b border-slate-900 leading-tight">
                   TIME
                 </span>
-                <span
-                  className={`font-mono text-2xl font-black leading-tight mt-0.5 tabular-nums ${
-                    raidUrgent ? 'text-[#DC2626] animate-pulse' : 'text-slate-950'
-                  }`}
-                >
+                <span className="font-mono text-2xl font-black leading-tight mt-0.5 tabular-nums text-slate-950">
                   {clockLabel}
                 </span>
               </div>
@@ -669,12 +782,15 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Black Wing */}
-            <div className="relative z-10 pl-5 pr-7 py-2 flex flex-col justify-center">
+            <div className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center">
               <div className="flex items-center justify-between gap-2">
-                {state.raidingTeam === 'B' ? (
-                  <span className="px-2 py-0.5 rounded bg-[#EF4444] text-white font-mono text-[10px] font-black uppercase shrink-0">
-                    RAID
-                  </span>
+                {activeRaidingSide === 'B' ? (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="crimson-noir"
+                    side="B"
+                  />
                 ) : (
                   <span />
                 )}
@@ -719,15 +835,6 @@ export function KabaddiScoreboardBar({
             <span className="font-mono text-base font-black text-slate-950 tracking-widest tabular-nums">
               {clockLabel}
             </span>
-            {state.raidClock.running && (
-              <span
-                className={`px-1.5 py-0.5 rounded font-mono text-[11px] font-black ${
-                  raidUrgent ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-950 text-[#FFE600]'
-                }`}
-              >
-                {raidSec}s
-              </span>
-            )}
           </div>
         </div>
 
@@ -742,30 +849,40 @@ export function KabaddiScoreboardBar({
           }}
         >
           <div
-            className="relative grid grid-cols-[1fr_320px_1fr] items-center min-h-[82px] rounded-b-[38px] overflow-hidden px-5"
+            className="relative grid grid-cols-[1fr_300px_1fr] items-center min-h-[82px] rounded-b-[38px] overflow-hidden px-5"
             style={{
               background:
                 'linear-gradient(180deg, #CBD5E1 0%, #FFFFFF 45%, #E2E8F0 75%, #94A3B8 100%)',
             }}
           >
             {/* Team A Glossy Silver Pill Capsule */}
-            <div className="relative z-10 pr-4 py-2">
+            <div className="relative z-10 pr-3 py-2">
               <div
-                className="rounded-xl px-5 py-2 border border-white/80 shadow-inner flex items-center justify-between gap-2"
+                className="rounded-xl px-4 py-1.5 border border-white/80 shadow-inner flex items-center justify-between gap-2"
                 style={{
                   background:
                     'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
                 }}
               >
-                <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate">
-                  {state.teamA.name}
-                </span>
-                <MatPlayerDots
-                  count={state.teamA.playersOnMat}
-                  align="right"
-                  darkTheme={false}
-                  accentHex="#F97316"
-                />
+                <div className="min-w-0 flex flex-col">
+                  <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate leading-tight">
+                    {state.teamA.name}
+                  </span>
+                  <MatPlayerDots
+                    count={state.teamA.playersOnMat}
+                    align="left"
+                    darkTheme={false}
+                    accentHex="#F97316"
+                  />
+                </div>
+                {activeRaidingSide === 'A' && (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="saffron-chrome"
+                    side="A"
+                  />
+                )}
               </div>
             </div>
 
@@ -800,23 +917,35 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Glossy Silver Pill Capsule */}
-            <div className="relative z-10 pl-4 py-2">
+            <div className="relative z-10 pl-3 py-2">
               <div
-                className="rounded-xl px-5 py-2 border border-white/80 shadow-inner flex items-center justify-between gap-2"
+                className="rounded-xl px-4 py-1.5 border border-white/80 shadow-inner flex items-center justify-between gap-2"
                 style={{
                   background:
                     'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
                 }}
               >
-                <MatPlayerDots
-                  count={state.teamB.playersOnMat}
-                  align="left"
-                  darkTheme={false}
-                  accentHex="#F97316"
-                />
-                <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate text-right">
-                  {state.teamB.name}
-                </span>
+                {activeRaidingSide === 'B' ? (
+                  <TeamRaidClockBadge
+                    raidSec={raidSec}
+                    running={state.raidClock.running}
+                    theme="saffron-chrome"
+                    side="B"
+                  />
+                ) : (
+                  <span />
+                )}
+                <div className="min-w-0 flex flex-col items-end">
+                  <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate text-right leading-tight">
+                    {state.teamB.name}
+                  </span>
+                  <MatPlayerDots
+                    count={state.teamB.playersOnMat}
+                    align="right"
+                    darkTheme={false}
+                    accentHex="#F97316"
+                  />
+                </div>
               </div>
             </div>
 
@@ -846,7 +975,7 @@ export function KabaddiScoreboardBar({
           className="relative px-4 py-2.5 flex flex-col justify-between overflow-hidden"
           style={{ background: paletteA.bgGradient }}
         >
-          {state.raidingTeam === 'A' && (
+          {activeRaidingSide === 'A' && (
             <div className="absolute inset-y-0 left-0 w-1.5 bg-[#FFE600] shadow-[0_0_16px_#FFE600]" />
           )}
           <div className="flex items-center justify-between gap-2">
@@ -866,7 +995,9 @@ export function KabaddiScoreboardBar({
             <MatPlayerDots count={state.teamA.playersOnMat} align="left" accentHex="#FFE600" />
             <TeamBadgeRow
               team={state.teamA}
-              isRaiding={state.raidingTeam === 'A'}
+              isRaiding={activeRaidingSide === 'A'}
+              raidSec={raidSec}
+              raidRunning={state.raidClock.running}
               align="right"
             />
           </div>
@@ -936,7 +1067,7 @@ export function KabaddiScoreboardBar({
           className="relative px-4 py-2.5 flex flex-col justify-between overflow-hidden"
           style={{ background: paletteB.bgGradient }}
         >
-          {state.raidingTeam === 'B' && (
+          {activeRaidingSide === 'B' && (
             <div className="absolute inset-y-0 right-0 w-1.5 bg-[#FFE600] shadow-[0_0_16px_#FFE600]" />
           )}
           <div className="flex items-center justify-between gap-2">
@@ -955,7 +1086,9 @@ export function KabaddiScoreboardBar({
           <div className="flex items-center justify-between gap-2 mt-1">
             <TeamBadgeRow
               team={state.teamB}
-              isRaiding={state.raidingTeam === 'B'}
+              isRaiding={activeRaidingSide === 'B'}
+              raidSec={raidSec}
+              raidRunning={state.raidClock.running}
               align="left"
             />
             <MatPlayerDots count={state.teamB.playersOnMat} align="right" accentHex="#FFE600" />
