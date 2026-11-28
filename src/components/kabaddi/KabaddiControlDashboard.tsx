@@ -9,6 +9,7 @@ import {
   ExternalLink,
   HelpCircle,
   Monitor,
+  Palette,
   Pause,
   Play,
   RotateCcw,
@@ -30,6 +31,7 @@ import {
   createInitialKabaddiState,
   ensureKabaddiPlayers,
   formatClockMMSS,
+  KABADDI_CUSTOM_COLOR_SWATCHES,
   KABADDI_OVERLAY_THEMES,
   KABADDI_TEAM_PALETTES,
   KabaddiAlertType,
@@ -1382,6 +1384,8 @@ export function KabaddiControlDashboard({
           name: prev.teamA.name,
           shortName: prev.teamA.shortName,
           color: prev.teamA.color,
+          customBgColor: prev.teamA.customBgColor,
+          customTextColor: prev.teamA.customTextColor,
           players: ensureKabaddiPlayers(prev.teamA, 'A').map((p) => ({
             ...p,
             status: 'in' as const,
@@ -1396,6 +1400,8 @@ export function KabaddiControlDashboard({
           name: prev.teamB.name,
           shortName: prev.teamB.shortName,
           color: prev.teamB.color,
+          customBgColor: prev.teamB.customBgColor,
+          customTextColor: prev.teamB.customTextColor,
           players: ensureKabaddiPlayers(prev.teamB, 'B').map((p) => ({
             ...p,
             status: 'in' as const,
@@ -1429,27 +1435,27 @@ export function KabaddiControlDashboard({
 
     return (
       <div
-        className={`rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-5 py-5 flex flex-col items-center justify-between text-center transition-all ${
+        className={`rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-1.5 py-2 sm:px-5 sm:py-5 flex flex-col items-center justify-between text-center transition-all min-w-0 ${
           isRaiding ? 'ring-2 ring-[#FF8C00]/45' : ''
         }`}
       >
         {/* Team Name Header + Live 30s Raid Badge */}
-        <div className="w-full pb-2.5 border-b border-orange-100 space-y-1.5">
-          <div className="flex items-center justify-center gap-2">
+        <div className="w-full pb-1.5 sm:pb-2.5 border-b border-orange-100 space-y-1 sm:space-y-1.5">
+          <div className="flex items-center justify-center gap-1 sm:gap-2 min-w-0">
             {isRaiding && (
               <span
-                className="w-2.5 h-2.5 rounded-full bg-[#FF8C00] animate-pulse shrink-0"
+                className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-[#FF8C00] animate-pulse shrink-0"
                 title="Currently Raiding"
               />
             )}
-            <h2 className="font-display text-xl sm:text-2xl font-black text-slate-900 tracking-tight truncate">
+            <h2 className="font-display text-[11px] sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight truncate leading-tight">
               {team.name}
             </h2>
           </div>
-          <div className="flex items-center justify-center min-h-[22px]">
+          <div className="flex items-center justify-center min-h-[18px] sm:min-h-[22px]">
             {isRaiding ? (
               <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-mono text-[11px] font-black uppercase tracking-wider ${
+                className={`inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 rounded-full font-mono text-[8px] sm:text-[11px] font-black uppercase tracking-wider ${
                   raidDanger
                     ? 'bg-red-600 text-white animate-pulse'
                     : 'bg-[#FF8C00] text-white'
@@ -1478,33 +1484,34 @@ export function KabaddiControlDashboard({
                     false
                   );
                 }}
-                className="px-2 py-0.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 font-mono text-[10px] font-bold text-[#EA580C] transition-colors"
+                className="px-1.5 sm:px-2 py-0.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 font-mono text-[8px] sm:text-[10px] font-bold text-[#EA580C] transition-colors whitespace-nowrap"
               >
-                Start 30s Raid
+                <span className="sm:hidden">30s Raid</span>
+                <span className="hidden sm:inline">Start 30s Raid</span>
               </button>
             )}
           </div>
         </div>
 
         {/* Score + Timeout [T] Button */}
-        <div className="my-5 flex items-center justify-center gap-4">
+        <div className="my-2 sm:my-5 flex items-center justify-center gap-1 sm:gap-4">
           {side === 'A' && (
             <button
               type="button"
               onClick={() => handleUseTimeout('A')}
               disabled={team.timeoutsLeft <= 0}
               title={`Call Timeout for ${team.name} (${team.timeoutsLeft} left)`}
-              className="w-8 h-8 rounded-lg border border-orange-200 bg-orange-50 hover:bg-[#FF8C00] hover:text-white hover:border-[#FF8C00] disabled:opacity-40 text-xs font-mono font-black text-[#EA580C] flex items-center justify-center transition-colors"
+              className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg border border-orange-200 bg-orange-50 hover:bg-[#FF8C00] hover:text-white hover:border-[#FF8C00] disabled:opacity-40 text-[9px] sm:text-xs font-mono font-black text-[#EA580C] flex items-center justify-center transition-colors shrink-0"
             >
               T
             </button>
           )}
 
           <div className="flex flex-col items-center">
-            <span className="font-mono text-6xl sm:text-7xl font-black text-slate-900 leading-none tabular-nums">
+            <span className="font-mono text-3xl sm:text-6xl md:text-7xl font-black text-slate-900 leading-none tabular-nums">
               {team.score}
             </span>
-            <div className="mt-2 inline-flex items-center gap-1.5">
+            <div className="mt-1.5 sm:mt-2 inline-flex items-center gap-1 sm:gap-1.5">
               <button
                 type="button"
                 onClick={() => recordScoringAction(side, -1, 'adjust')}
@@ -1530,7 +1537,7 @@ export function KabaddiControlDashboard({
               onClick={() => handleUseTimeout('B')}
               disabled={team.timeoutsLeft <= 0}
               title={`Call Timeout for ${team.name} (${team.timeoutsLeft} left)`}
-              className="w-8 h-8 rounded-lg border border-orange-200 bg-orange-50 hover:bg-[#FF8C00] hover:text-white hover:border-[#FF8C00] disabled:opacity-40 text-xs font-mono font-black text-[#EA580C] flex items-center justify-center transition-colors"
+              className="w-5 h-5 sm:w-8 sm:h-8 rounded-md sm:rounded-lg border border-orange-200 bg-orange-50 hover:bg-[#FF8C00] hover:text-white hover:border-[#FF8C00] disabled:opacity-40 text-[9px] sm:text-xs font-mono font-black text-[#EA580C] flex items-center justify-center transition-colors shrink-0"
             >
               T
             </button>
@@ -1538,8 +1545,8 @@ export function KabaddiControlDashboard({
         </div>
 
         {/* 7 Player Court Status Squares */}
-        <div className="space-y-2.5 w-full flex flex-col items-center">
-          <div className="flex items-center justify-center gap-1.5">
+        <div className="space-y-1 sm:space-y-2.5 w-full flex flex-col items-center">
+          <div className="flex items-center justify-center gap-0.5 sm:gap-1.5">
             {players.map((p) => {
               const isIn = p.status === 'in';
               return (
@@ -1548,7 +1555,7 @@ export function KabaddiControlDashboard({
                   type="button"
                   onClick={() => handleTogglePlayerStatus(side, p.id)}
                   title={`#${p.number} ${p.name} (${isIn ? 'On Court — click to mark Out' : 'Out — click to Revive'})`}
-                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-[4px] transition-all ${
+                  className={`w-2.5 h-2.5 sm:w-4 sm:h-4 md:w-5 md:h-5 rounded-[2px] sm:rounded-[4px] transition-all ${
                     isIn
                       ? 'bg-[#FF8C00] shadow-[0_1px_4px_rgba(255,140,0,0.45)] hover:scale-110'
                       : 'bg-orange-100/70 border border-orange-200 hover:border-[#FF8C00]'
@@ -1558,16 +1565,17 @@ export function KabaddiControlDashboard({
             })}
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-slate-500">
-            <span>Timeouts: {team.timeoutsLeft}</span>
+          <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 text-[9px] sm:text-xs font-semibold text-slate-500">
+            <span className="sm:hidden">TO: {team.timeoutsLeft}</span>
+            <span className="hidden sm:inline">Timeouts: {team.timeoutsLeft}</span>
             {superTackleOn && (
-              <span className="px-1.5 py-0.5 rounded bg-orange-100 text-[#EA580C] font-mono text-[10px] font-black uppercase">
-                Super Tackle
+              <span className="px-1 sm:px-1.5 py-0.5 rounded bg-orange-100 text-[#EA580C] font-mono text-[8px] sm:text-[10px] font-black uppercase">
+                ST
               </span>
             )}
             {team.emptyRaids >= 2 && (
-              <span className="px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-mono text-[10px] font-black uppercase animate-pulse">
-                Do or Die
+              <span className="px-1 sm:px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-mono text-[8px] sm:text-[10px] font-black uppercase animate-pulse">
+                DOD
               </span>
             )}
           </div>
@@ -1583,21 +1591,21 @@ export function KabaddiControlDashboard({
 
     return (
       <div
-        className={`rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs p-4 sm:p-5 space-y-4 transition-all ${
+        className={`rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs p-2 sm:p-5 space-y-2 sm:space-y-4 transition-all min-w-0 ${
           selectingRaiderPrompt ? 'ring-2 ring-[#FF8C00]' : ''
         }`}
       >
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="font-display text-base sm:text-lg font-black text-slate-900">
-            {team.name} Players
+        <div className="flex items-center justify-between gap-1.5">
+          <h3 className="font-display text-[11px] sm:text-lg font-black text-slate-900 truncate">
+            {team.name} <span className="hidden sm:inline">Players</span>
           </h3>
-          <span className="text-[11px] font-mono font-bold text-[#EA580C] bg-orange-50 border border-orange-200 px-2 py-0.5 rounded-md">
-            {players.filter((p) => p.status === 'in').length}/7 In
+          <span className="text-[9px] sm:text-[11px] font-mono font-bold text-[#EA580C] bg-orange-50 border border-orange-200 px-1.5 sm:px-2 py-0.5 rounded-md shrink-0">
+            {players.filter((p) => p.status === 'in').length}/7
           </span>
         </div>
 
-        {/* 7 Player Grid (Exact 4 + 3 layout matching reference) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* 7 Player Grid (4 + 3 layout on BOTH mobile and desktop so zero scrolling needed) */}
+        <div className="grid grid-cols-4 gap-1 sm:gap-2">
           {players.map((p) => {
             const isOut = p.status === 'out';
             const isSelectedRaider =
@@ -1607,7 +1615,7 @@ export function KabaddiControlDashboard({
                 key={p.id}
                 type="button"
                 onClick={() => handleSelectRaider(side, p)}
-                className={`relative rounded-lg px-2.5 py-2.5 text-center border transition-all flex flex-col items-center justify-center min-h-[60px] ${
+                className={`relative rounded-md sm:rounded-lg px-1 py-1 sm:px-2.5 sm:py-2.5 text-center border transition-all flex flex-col items-center justify-center min-h-[38px] sm:min-h-[60px] ${
                   isSelectedRaider
                     ? 'bg-[#FF8C00] border-[#EA580C] text-white shadow-md scale-[1.02]'
                     : isOut
@@ -1616,7 +1624,7 @@ export function KabaddiControlDashboard({
                 }`}
               >
                 <span
-                  className={`font-mono text-sm sm:text-base font-black leading-tight ${
+                  className={`font-mono text-xs sm:text-base font-black leading-tight ${
                     isSelectedRaider
                       ? 'text-white'
                       : isOut
@@ -1627,7 +1635,7 @@ export function KabaddiControlDashboard({
                   {p.number}
                 </span>
                 <span
-                  className={`text-[11px] font-semibold truncate max-w-full mt-0.5 ${
+                  className={`text-[8px] sm:text-[11px] font-semibold truncate max-w-full mt-0.5 leading-tight ${
                     isSelectedRaider
                       ? 'text-orange-50'
                       : isOut
@@ -1638,7 +1646,7 @@ export function KabaddiControlDashboard({
                   {p.name}
                 </span>
                 {isSelectedRaider && (
-                  <span className="mt-0.5 text-[9px] font-mono font-black uppercase tracking-wider text-white/95">
+                  <span className="hidden sm:inline mt-0.5 text-[9px] font-mono font-black uppercase tracking-wider text-white/95">
                     RAIDING
                   </span>
                 )}
@@ -1648,26 +1656,26 @@ export function KabaddiControlDashboard({
         </div>
 
         {/* Revival Queue Box */}
-        <div className="space-y-2 pt-1">
-          <div className="flex items-center justify-between gap-2">
-            <h4 className="font-display text-sm font-extrabold text-slate-800">
+        <div className="space-y-1 sm:space-y-2 pt-0.5">
+          <div className="flex items-center justify-between gap-1.5">
+            <h4 className="font-display text-[10px] sm:text-sm font-extrabold text-slate-800">
               Revival Queue
             </h4>
             {revivalIds.length > 0 && (
               <button
                 type="button"
                 onClick={() => handleReviveNextInQueue(side)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-orange-50 hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 text-[11px] font-bold transition-colors"
+                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md bg-orange-50 hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 text-[9px] sm:text-[11px] font-bold transition-colors"
               >
-                <UserCheck className="w-3 h-3" aria-hidden="true" />
-                <span>Revive Next</span>
+                <UserCheck className="w-2.5 h-2.5 sm:w-3 sm:h-3" aria-hidden="true" />
+                <span>Revive</span>
               </button>
             )}
           </div>
 
-          <div className="min-h-[54px] rounded-xl bg-orange-50/65 border border-orange-200/80 px-3 py-2 flex flex-wrap items-center gap-1.5">
+          <div className="min-h-[30px] sm:min-h-[54px] rounded-lg sm:rounded-xl bg-orange-50/65 border border-orange-200/80 px-2 sm:px-3 py-1 sm:py-2 flex flex-wrap items-center gap-1 sm:gap-1.5">
             {revivalIds.length === 0 ? (
-              <span className="text-xs text-slate-400 italic">All 7 players on court</span>
+              <span className="text-[10px] sm:text-xs text-slate-400 italic">All 7 on court</span>
             ) : (
               revivalIds.map((pid, idx) => {
                 const pl = players.find((p) => p.id === pid);
@@ -1678,14 +1686,14 @@ export function KabaddiControlDashboard({
                     type="button"
                     onClick={() => handleTogglePlayerStatus(side, pid)}
                     title="Click to revive player"
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition-colors ${
+                    className={`inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-bold border transition-colors ${
                       idx === 0
                         ? 'bg-[#FF8C00] text-white border-[#EA580C] shadow-xs'
                         : 'bg-white text-slate-700 border-orange-200 hover:border-[#FF8C00]'
                     }`}
                   >
                     <span className="font-mono font-black">#{pl.number}</span>
-                    <span>{pl.name}</span>
+                    <span className="truncate max-w-[60px] sm:max-w-none">{pl.name}</span>
                   </button>
                 );
               })
@@ -1705,8 +1713,8 @@ export function KabaddiControlDashboard({
     <div
       className={
         embedded
-          ? 'rounded-2xl bg-[#FFF8F1] p-3 sm:p-4 text-slate-900 overflow-x-clip'
-          : 'min-h-screen bg-[#FFF8F1] py-4 sm:py-6 px-3 sm:px-5 lg:px-6 text-slate-900 overflow-x-clip'
+          ? 'rounded-2xl bg-[#FFF8F1] p-1.5 sm:p-4 text-slate-900 overflow-x-clip'
+          : 'min-h-screen bg-[#FFF8F1] py-2 sm:py-6 px-1.5 sm:px-5 lg:px-6 text-slate-900 overflow-x-clip'
       }
     >
       {/* Hidden file input for Load Game */}
@@ -1718,23 +1726,23 @@ export function KabaddiControlDashboard({
         className="hidden"
       />
 
-      <div className="max-w-[1440px] mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_310px] gap-4 items-stretch">
+      <div className="max-w-[1440px] mx-auto grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_310px] gap-2 sm:gap-4 items-stretch">
         {/* ================= LEFT MAIN WORKSPACE ================= */}
-        <div className="space-y-4 min-w-0">
+        <div className="space-y-2 sm:space-y-4 min-w-0">
           {/* Top Header Bar */}
-          <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-4 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-2 sm:px-5 py-1.5 sm:py-3 flex flex-wrap items-center justify-between gap-1.5 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
               {onBackHome && !embedded && (
                 <button
                   type="button"
                   onClick={onBackHome}
                   aria-label="Back to Home"
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-orange-50 hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 transition-colors shrink-0"
+                  className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-orange-50 hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 transition-colors shrink-0"
                 >
-                  <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+                  <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
                 </button>
               )}
-              <h1 className="font-display text-lg sm:text-xl font-black text-slate-900 tracking-tight truncate">
+              <h1 className="font-display text-sm sm:text-xl font-black text-slate-900 tracking-tight truncate">
                 Kabaddi Scoreboard
               </h1>
               {syncing && (
@@ -1745,12 +1753,12 @@ export function KabaddiControlDashboard({
             </div>
 
             {/* Right Toolbar Matching Reference Controls in White & Orange */}
-            <div className="flex flex-wrap items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
               {/* Clock Duration Quick Segmented Switcher (7m / 15m / 20m / 40m / Custom) */}
               <div
                 role="group"
                 aria-label="Match clock preset"
-                className="inline-flex items-center rounded-lg border border-orange-200 bg-orange-50/70 p-0.5 text-xs font-bold"
+                className="inline-flex items-center rounded-lg border border-orange-200 bg-orange-50/70 p-0.5 text-[10px] sm:text-xs font-bold"
               >
                 {(
                   [
@@ -1767,7 +1775,7 @@ export function KabaddiControlDashboard({
                       setShowCustomTimeEditor(false);
                       setMatchClockMinutes(item.mins, item.id);
                     }}
-                    className={`px-2 py-1 rounded-md transition-colors ${
+                    className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md transition-colors ${
                       clockPresetMode === item.id
                         ? 'bg-[#FF8C00] text-white shadow-xs'
                         : 'text-slate-600 hover:text-[#EA580C]'
@@ -1779,7 +1787,7 @@ export function KabaddiControlDashboard({
                 <button
                   type="button"
                   onClick={() => setShowCustomTimeEditor((v) => !v)}
-                  className={`px-2 py-1 rounded-md transition-colors ${
+                  className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md transition-colors ${
                     clockPresetMode === 'custom' || showCustomTimeEditor
                       ? 'bg-[#FF8C00] text-white shadow-xs'
                       : 'text-slate-600 hover:text-[#EA580C]'
@@ -1796,10 +1804,10 @@ export function KabaddiControlDashboard({
                   setRaidShape((prev) => (prev === 'circle' ? 'rectangle' : 'circle'))
                 }
                 title="Toggle Raid Timer Shape"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
+                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
               >
                 <ArrowLeftRight className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                <span>{raidShape === 'circle' ? 'Rectangle' : 'Circle'}</span>
+                <span className="hidden sm:inline">{raidShape === 'circle' ? 'Rectangle' : 'Circle'}</span>
               </button>
 
               {/* Undo */}
@@ -1808,9 +1816,9 @@ export function KabaddiControlDashboard({
                 onClick={undo}
                 disabled={!canUndo}
                 title="Undo last action"
-                className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white hover:bg-orange-50 disabled:opacity-40 border border-orange-200 text-slate-700 transition-colors"
+                className="inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-white hover:bg-orange-50 disabled:opacity-40 border border-orange-200 text-slate-700 transition-colors"
               >
-                <Undo2 className="w-4 h-4 text-[#FF8C00]" aria-hidden="true" />
+                <Undo2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FF8C00]" aria-hidden="true" />
               </button>
 
               {/* Share / Copy OBS & vMix Link */}
@@ -1818,16 +1826,16 @@ export function KabaddiControlDashboard({
                 type="button"
                 onClick={() => void handleCopyOverlayLink()}
                 title="Copy OBS / vMix Overlay URL"
-                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${
+                className={`inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg border transition-colors ${
                   copiedLink
                     ? 'bg-[#FF8C00] border-[#EA580C] text-white'
                     : 'bg-white hover:bg-orange-50 border-orange-200 text-slate-700'
                 }`}
               >
                 {copiedLink ? (
-                  <Check className="w-4 h-4" aria-hidden="true" />
+                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
                 ) : (
-                  <Share2 className="w-4 h-4 text-[#FF8C00]" aria-hidden="true" />
+                  <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#FF8C00]" aria-hidden="true" />
                 )}
               </button>
 
@@ -1836,46 +1844,48 @@ export function KabaddiControlDashboard({
                 type="button"
                 onClick={() => setShowBroadcastMonitor((v) => !v)}
                 title="Toggle OBS / vMix Broadcast Monitor & Alerts"
-                className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border transition-colors ${
+                className={`inline-flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg border transition-colors ${
                   showBroadcastMonitor
                     ? 'bg-[#FF8C00] border-[#EA580C] text-white'
                     : 'bg-white hover:bg-orange-50 border-orange-200 text-slate-700'
                 }`}
               >
-                <Monitor className="w-4 h-4" aria-hidden="true" />
+                <Monitor className="w-3.5 h-3.5 sm:w-4 sm:h-4" aria-hidden="true" />
               </button>
 
               {/* Settings */}
               <button
                 type="button"
                 onClick={() => setShowSettingsModal(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
+                title="Team & Match Settings"
+                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
               >
                 <Settings className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                <span>Settings</span>
+                <span className="hidden sm:inline">Settings</span>
               </button>
 
               {/* Help */}
               <button
                 type="button"
                 onClick={() => setShowHelpModal(true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
+                title="Quick Guide"
+                className="inline-flex items-center gap-1 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-white hover:bg-orange-50 border border-orange-200 text-xs font-bold text-slate-700 transition-colors"
               >
                 <HelpCircle className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
-                <span>Help</span>
+                <span className="hidden sm:inline">Help</span>
               </button>
             </div>
           </div>
 
-          {/* 3-Column Scoreboard Row: Team A | Game Time & Raid Clock | Team B */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* 3-Column Scoreboard Row: Team A | Game Time & Raid Clock | Team B (Side-by-side on BOTH Mobile & Desktop!) */}
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.22fr)_minmax(0,1fr)] md:grid-cols-3 gap-1.5 sm:gap-4">
             {renderTeamScoreCard('A')}
 
             {/* Center Game Time & Raid Timer Card */}
-            <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-5 py-4 flex flex-col items-center justify-between text-center gap-3">
-              <div className="w-full space-y-1.5">
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs px-1.5 py-2 sm:px-5 sm:py-4 flex flex-col items-center justify-between text-center gap-1.5 sm:gap-3 min-w-0">
+              <div className="w-full space-y-1 sm:space-y-1.5">
+                <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
+                  <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider text-slate-500">
                     Game Time
                   </span>
                   <button
@@ -1886,7 +1896,7 @@ export function KabaddiControlDashboard({
                       updateState((prev) => ({ ...prev, half: nextHalf }), false);
                     }}
                     title="Click to cycle match half"
-                    className="px-2 py-0.5 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 font-mono text-[10px] font-extrabold text-[#EA580C]"
+                    className="px-1.5 sm:px-2 py-0.5 rounded bg-orange-50 hover:bg-orange-100 border border-orange-200 font-mono text-[8px] sm:text-[10px] font-extrabold text-[#EA580C]"
                   >
                     {state.half}
                   </button>
@@ -1894,7 +1904,7 @@ export function KabaddiControlDashboard({
                     type="button"
                     onClick={() => setShowCustomTimeEditor((v) => !v)}
                     title="Set custom half/match time"
-                    className={`px-2 py-0.5 rounded border font-mono text-[10px] font-extrabold transition-colors ${
+                    className={`hidden sm:inline-block px-2 py-0.5 rounded border font-mono text-[10px] font-extrabold transition-colors ${
                       showCustomTimeEditor
                         ? 'bg-[#FF8C00] text-white border-[#EA580C]'
                         : 'bg-white hover:bg-orange-50 border-orange-200 text-slate-600'
@@ -1905,12 +1915,12 @@ export function KabaddiControlDashboard({
                 </div>
 
                 {/* Big Game Clock + Play/Pause + Reset Half Clock */}
-                <div className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-1 sm:gap-2">
                   <button
                     type="button"
                     onClick={toggleMatchClock}
                     title={state.matchClock.running ? 'Pause Game Time' : 'Start Game Time'}
-                    className="font-mono text-4xl sm:text-5xl font-black text-slate-900 hover:text-[#EA580C] tracking-tight leading-none tabular-nums transition-colors"
+                    className="font-mono text-xl sm:text-4xl md:text-5xl font-black text-slate-900 hover:text-[#EA580C] tracking-tight leading-none tabular-nums transition-colors"
                   >
                     {formatClockMMSS(liveMatchSec)}
                   </button>
@@ -1918,16 +1928,16 @@ export function KabaddiControlDashboard({
                     type="button"
                     onClick={toggleMatchClock}
                     aria-label={state.matchClock.running ? 'Pause match clock' : 'Start match clock'}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
+                    className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg flex items-center justify-center transition-colors shrink-0 ${
                       state.matchClock.running
                         ? 'bg-red-600 hover:bg-red-700 text-white'
                         : 'bg-[#FF8C00] hover:bg-[#EA580C] text-white'
                     }`}
                   >
                     {state.matchClock.running ? (
-                      <Pause className="w-4 h-4" aria-hidden="true" />
+                      <Pause className="w-3 h-3 sm:w-4 sm:h-4" aria-hidden="true" />
                     ) : (
-                      <Play className="w-4 h-4 ml-0.5" aria-hidden="true" />
+                      <Play className="w-3 h-3 sm:w-4 sm:h-4 ml-0.5" aria-hidden="true" />
                     )}
                   </button>
                   <button
@@ -1935,15 +1945,15 @@ export function KabaddiControlDashboard({
                     onClick={resetMatchClockToDuration}
                     title={`Reset Game Time to ${formatClockMMSS(state.matchClock.durationSec)}`}
                     aria-label="Reset game clock to half duration"
-                    className="w-8 h-8 rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#EA580C] flex items-center justify-center transition-colors"
+                    className="w-6 h-6 sm:w-8 sm:h-8 rounded-md sm:rounded-lg bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[#EA580C] flex items-center justify-center transition-colors shrink-0"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+                    <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5" aria-hidden="true" />
                   </button>
                 </div>
 
                 {/* Inline Custom Time Picker (7m / 10m / 15m / 20m + Custom MM:SS) */}
                 {showCustomTimeEditor && (
-                  <div className="mt-2 p-2.5 rounded-xl bg-orange-50/90 border border-orange-200 space-y-2">
+                  <div className="mt-1.5 p-2 rounded-xl bg-orange-50/90 border border-orange-200 space-y-1.5">
                     <div className="flex flex-wrap items-center justify-center gap-1">
                       {[5, 7, 10, 15, 20].map((m) => (
                         <button
@@ -1953,13 +1963,13 @@ export function KabaddiControlDashboard({
                             setMatchClockMinutes(m, m === 7 ? '7m' : m === 15 ? '15m' : m === 20 ? '20m' : 'custom');
                             setShowCustomTimeEditor(false);
                           }}
-                          className="px-2 py-0.5 rounded bg-white hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 font-mono text-[11px] font-extrabold transition-colors"
+                          className="px-1.5 sm:px-2 py-0.5 rounded bg-white hover:bg-[#FF8C00] text-[#EA580C] hover:text-white border border-orange-200 font-mono text-[10px] sm:text-[11px] font-extrabold transition-colors"
                         >
                           {m}m
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center justify-center gap-1.5">
+                    <div className="flex items-center justify-center gap-1">
                       <input
                         type="number"
                         min={0}
@@ -1970,10 +1980,10 @@ export function KabaddiControlDashboard({
                           if (e.key === 'Enter') handleApplyCustomTime();
                         }}
                         aria-label="Custom minutes"
-                        className="w-14 px-2 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
+                        className="w-11 sm:w-14 px-1.5 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
                         placeholder="Min"
                       />
-                      <span className="font-mono text-sm font-black text-slate-500">:</span>
+                      <span className="font-mono text-xs font-black text-slate-500">:</span>
                       <input
                         type="number"
                         min={0}
@@ -1984,13 +1994,13 @@ export function KabaddiControlDashboard({
                           if (e.key === 'Enter') handleApplyCustomTime();
                         }}
                         aria-label="Custom seconds"
-                        className="w-14 px-2 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
+                        className="w-11 sm:w-14 px-1.5 py-1 rounded-lg bg-white border border-orange-300 font-mono text-xs font-black text-center text-slate-900"
                         placeholder="Sec"
                       />
                       <button
                         type="button"
                         onClick={handleApplyCustomTime}
-                        className="px-3 py-1 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white text-xs font-extrabold"
+                        className="px-2 sm:px-3 py-1 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white text-[11px] font-extrabold"
                       >
                         Set
                       </button>
@@ -2000,21 +2010,27 @@ export function KabaddiControlDashboard({
               </div>
 
               {/* Active Raiding Team + Auto-Switch Raid Indicator */}
-              <div className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-orange-50/75 border border-orange-200">
-                <span className="text-[11px] font-extrabold text-[#EA580C] truncate">
-                  RAID: {(state.raidingTeam || 'A') === 'A' ? state.teamA.name : state.teamB.name}
+              <div className="w-full flex items-center justify-between gap-1 px-1.5 sm:px-2.5 py-1 sm:py-1.5 rounded-lg bg-orange-50/75 border border-orange-200">
+                <span className="text-[8px] sm:text-[11px] font-extrabold text-[#EA580C] truncate">
+                  <span className="sm:hidden">
+                    {(state.raidingTeam || 'A') === 'A' ? state.teamA.shortName : state.teamB.shortName}
+                  </span>
+                  <span className="hidden sm:inline">
+                    RAID: {(state.raidingTeam || 'A') === 'A' ? state.teamA.name : state.teamB.name}
+                  </span>
                 </span>
                 <button
                   type="button"
                   onClick={() => setAutoSwitchRaid((v) => !v)}
                   title="Automatically pass 30s raid timer to the other team when a raid ends"
-                  className={`px-2 py-0.5 rounded font-mono text-[10px] font-black uppercase shrink-0 transition-colors ${
+                  className={`px-1.5 sm:px-2 py-0.5 rounded font-mono text-[8px] sm:text-[10px] font-black uppercase shrink-0 transition-colors ${
                     autoSwitchRaid
                       ? 'bg-[#FF8C00] text-white'
                       : 'bg-white text-slate-500 border border-orange-200'
                   }`}
                 >
-                  Auto-Next {autoSwitchRaid ? 'ON' : 'OFF'}
+                  <span className="sm:hidden">Auto {autoSwitchRaid ? 'ON' : 'OFF'}</span>
+                  <span className="hidden sm:inline">Auto-Next {autoSwitchRaid ? 'ON' : 'OFF'}</span>
                 </button>
               </div>
 
@@ -2025,7 +2041,7 @@ export function KabaddiControlDashboard({
                   onClick={toggleRaidClock}
                   onDoubleClick={() => resetRaidClock(true)}
                   title="Click to Start/Pause 30s Raid Timer · Double-click to Reset 30s"
-                  className="relative w-32 h-32 flex items-center justify-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00] rounded-full"
+                  className="relative w-16 h-16 sm:w-32 sm:h-32 flex items-center justify-center group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF8C00] rounded-full"
                 >
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 120 120">
                     <circle
@@ -2034,7 +2050,7 @@ export function KabaddiControlDashboard({
                       r={ringRadius}
                       fill="none"
                       stroke="#FFEDD5"
-                      strokeWidth="8"
+                      strokeWidth="9"
                     />
                     <circle
                       cx="60"
@@ -2042,7 +2058,7 @@ export function KabaddiControlDashboard({
                       r={ringRadius}
                       fill="none"
                       stroke={raidDanger ? '#DC2626' : '#FF8C00'}
-                      strokeWidth="8"
+                      strokeWidth="9"
                       strokeLinecap="round"
                       strokeDasharray={ringCircumference}
                       strokeDashoffset={ringDashOffset}
@@ -2051,13 +2067,13 @@ export function KabaddiControlDashboard({
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <span
-                      className={`font-mono text-3xl font-black tabular-nums leading-none ${
+                      className={`font-mono text-lg sm:text-3xl font-black tabular-nums leading-none ${
                         raidDanger ? 'text-red-600 animate-pulse' : 'text-slate-900'
                       }`}
                     >
                       {liveRaidSec}
                     </span>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-1">
+                    <span className="text-[7px] sm:text-[10px] font-bold uppercase tracking-wider text-slate-400 mt-0.5 sm:mt-1">
                       {state.raidClock.running ? 'LIVE' : 'RAID'}
                     </span>
                   </div>
@@ -2068,21 +2084,21 @@ export function KabaddiControlDashboard({
                   onClick={toggleRaidClock}
                   onDoubleClick={() => resetRaidClock(true)}
                   title="Click to Start/Pause 30s Raid Timer"
-                  className="w-full rounded-xl border-2 border-[#FF8C00] bg-orange-50/60 p-3 space-y-2"
+                  className="w-full rounded-lg sm:rounded-xl border-2 border-[#FF8C00] bg-orange-50/60 p-1.5 sm:p-3 space-y-1 sm:space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-extrabold uppercase text-[#EA580C]">
-                      30s Raid Clock
+                    <span className="text-[8px] sm:text-[11px] font-extrabold uppercase text-[#EA580C]">
+                      30s Raid
                     </span>
                     <span
-                      className={`font-mono text-2xl font-black tabular-nums ${
+                      className={`font-mono text-base sm:text-2xl font-black tabular-nums ${
                         raidDanger ? 'text-red-600 animate-pulse' : 'text-slate-900'
                       }`}
                     >
                       {liveRaidSec}s
                     </span>
                   </div>
-                  <div className="h-2.5 w-full rounded-full bg-orange-100 overflow-hidden">
+                  <div className="h-2 sm:h-2.5 w-full rounded-full bg-orange-100 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-200 ${
                         raidDanger ? 'bg-red-600' : 'bg-[#FF8C00]'
@@ -2094,15 +2110,15 @@ export function KabaddiControlDashboard({
               )}
 
               {/* Switch Raid to Other Team + Select a Raider */}
-              <div className="w-full space-y-2">
+              <div className="w-full space-y-1 sm:space-y-2">
                 <button
                   type="button"
                   onClick={() => switchRaidToOtherTeam(true)}
-                  className="w-full py-2 px-3 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white font-display text-xs font-black uppercase tracking-wide shadow-xs flex items-center justify-center gap-1.5 transition-colors"
+                  className="w-full py-1 sm:py-2 px-1.5 sm:px-3 rounded-lg bg-[#FF8C00] hover:bg-[#EA580C] text-white font-display text-[9px] sm:text-xs font-black uppercase tracking-wide shadow-xs flex items-center justify-center gap-1 transition-colors"
                 >
-                  <ArrowLeftRight className="w-3.5 h-3.5" aria-hidden="true" />
-                  <span>
-                    Next Raid → {(state.raidingTeam || 'A') === 'A' ? state.teamB.shortName : state.teamA.shortName} (30s)
+                  <ArrowLeftRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" aria-hidden="true" />
+                  <span className="truncate">
+                    Next → {(state.raidingTeam || 'A') === 'A' ? state.teamB.shortName : state.teamA.shortName}
                   </span>
                 </button>
 
@@ -2116,7 +2132,7 @@ export function KabaddiControlDashboard({
                       notify('Click any active player below to start their raid!');
                     }
                   }}
-                  className={`w-full min-h-[38px] px-4 py-1.5 rounded-lg font-display text-xs font-extrabold transition-all ${
+                  className={`w-full min-h-[26px] sm:min-h-[38px] px-1.5 sm:px-4 py-1 sm:py-1.5 rounded-lg font-display text-[9px] sm:text-xs font-extrabold transition-all truncate ${
                     activeRaiderObj
                       ? 'bg-slate-900 hover:bg-slate-800 text-white shadow-sm'
                       : selectingRaiderPrompt
@@ -2125,14 +2141,14 @@ export function KabaddiControlDashboard({
                   }`}
                 >
                   {activeRaiderObj
-                    ? `#${activeRaiderObj.player.number} ${activeRaiderObj.player.name} (${activeRaiderObj.teamName})`
+                    ? `#${activeRaiderObj.player.number} ${activeRaiderObj.player.name}`
                     : selectingRaiderPrompt
-                      ? 'Tap a Player Below...'
-                      : 'Select a Raider'}
+                      ? 'Tap Player...'
+                      : 'Select Raider'}
                 </button>
 
-                {/* Quick Raid Scoring Controls Bar */}
-                <div className="grid grid-cols-4 gap-1.5">
+                {/* Desktop Quick Raid Scoring Controls Bar (hidden on tiny screens; full-width strip rendered below on mobile) */}
+                <div className="hidden md:grid grid-cols-4 gap-1.5">
                   <button
                     type="button"
                     onClick={() => recordScoringAction(activeScoringSide, 1, 'raid')}
@@ -2211,21 +2227,81 @@ export function KabaddiControlDashboard({
             {renderTeamScoreCard('B')}
           </div>
 
-          {/* 2-Column Players & Revival Queue Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Mobile Full-Width Thumb-Friendly Quick Scoring Strip (visible < md so ZERO scrolling needed!) */}
+          <div className="grid md:hidden grid-cols-4 gap-1 rounded-xl bg-white border border-orange-200 shadow-xs p-1.5">
+            <button
+              type="button"
+              onClick={() => recordScoringAction(activeScoringSide, 1, 'raid')}
+              className="py-1.5 rounded-lg bg-orange-50 active:bg-[#FF8C00] text-[#EA580C] active:text-white border border-orange-200 font-mono text-[11px] font-black"
+            >
+              +1 Raid
+            </button>
+            <button
+              type="button"
+              onClick={() => recordScoringAction(activeScoringSide, 2, 'raid')}
+              className="py-1.5 rounded-lg bg-orange-50 active:bg-[#FF8C00] text-[#EA580C] active:text-white border border-orange-200 font-mono text-[11px] font-black"
+            >
+              +2 Raid
+            </button>
+            <button
+              type="button"
+              onClick={() => recordScoringAction(activeScoringSide, 3, 'raid', 'SUPER_RAID')}
+              className="py-1.5 rounded-lg bg-[#FF8C00] active:bg-[#EA580C] text-white font-mono text-[11px] font-black"
+            >
+              +3 SR
+            </button>
+            <button
+              type="button"
+              onClick={() => recordScoringAction(activeScoringSide, 1, 'bonus', 'BONUS')}
+              className="py-1.5 rounded-lg bg-white active:bg-orange-50 text-slate-800 border border-orange-200 font-mono text-[11px] font-black"
+            >
+              +1 Bon
+            </button>
+            <button
+              type="button"
+              onClick={() => recordScoringAction(oppScoringSide, 1, 'tackle')}
+              className="py-1.5 rounded-lg bg-white active:bg-orange-50 text-slate-800 border border-orange-200 font-mono text-[11px] font-bold"
+            >
+              Tackle
+            </button>
+            <button
+              type="button"
+              onClick={() => recordScoringAction(oppScoringSide, 2, 'tackle', 'SUPER_TACKLE')}
+              className="py-1.5 rounded-lg bg-white active:bg-orange-50 text-[#EA580C] border border-orange-200 font-mono text-[11px] font-bold"
+            >
+              S.Tackle
+            </button>
+            <button
+              type="button"
+              onClick={() => handleEmptyRaid(activeScoringSide)}
+              className="py-1.5 rounded-lg bg-white active:bg-orange-50 text-slate-700 border border-orange-200 font-mono text-[11px] font-bold"
+            >
+              Empty
+            </button>
+            <button
+              type="button"
+              onClick={() => handleManualAllOut(oppScoringSide)}
+              className="py-1.5 rounded-lg bg-red-50 active:bg-red-600 text-red-700 active:text-white border border-red-200 font-mono text-[11px] font-bold"
+            >
+              All Out
+            </button>
+          </div>
+
+          {/* 2-Column Players & Revival Queue Row (Side-by-side on BOTH Mobile & Desktop!) */}
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-4">
             {renderTeamPlayersCard('A')}
             {renderTeamPlayersCard('B')}
           </div>
 
-          {/* Broadcast Scoreboard Themes + Live In-Bar Animation Preview */}
-          <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs p-4 space-y-3">
+          {/* Broadcast Scoreboard Themes + Custom Team Colors (All Themes) + Live In-Bar Animation Preview */}
+          <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs p-3 sm:p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-[#FF8C00]" aria-hidden="true" />
                 <h3 className="font-display text-sm font-black uppercase tracking-wide text-slate-900">
                   Broadcast Scoreboard Themes
                 </h3>
-                <span className="text-[10px] font-mono font-bold uppercase text-[#EA580C] bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
+                <span className="hidden sm:inline-block text-[10px] font-mono font-bold uppercase text-[#EA580C] bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
                   In-Bar Score Animation
                 </span>
               </div>
@@ -2257,6 +2333,160 @@ export function KabaddiControlDashboard({
                       />
                       <span>{themeOpt.name}</span>
                     </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Team Color Customizer (Works on ALL 5 Kabaddi Themes!) */}
+            <div className="rounded-xl bg-orange-50/60 border border-orange-200 p-2.5 sm:p-3 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
+                  <span className="text-[11px] font-black uppercase tracking-wider text-slate-800">
+                    Customize Team Colors (All Themes)
+                  </span>
+                </div>
+                {(state.teamA.customBgColor ||
+                  state.teamB.customBgColor ||
+                  state.teamA.customTextColor ||
+                  state.teamB.customTextColor) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateState(
+                        (prev) => ({
+                          ...prev,
+                          teamA: {
+                            ...prev.teamA,
+                            customBgColor: undefined,
+                            customTextColor: undefined,
+                          },
+                          teamB: {
+                            ...prev.teamB,
+                            customBgColor: undefined,
+                            customTextColor: undefined,
+                          },
+                        }),
+                        false
+                      );
+                      notify('Team colors reset to theme defaults');
+                    }}
+                    className="px-2 py-0.5 rounded-md bg-white hover:bg-orange-100 border border-orange-200 text-[10px] font-extrabold text-[#EA580C] uppercase transition-colors"
+                  >
+                    Reset Theme Default
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                {(['A', 'B'] as const).map((side) => {
+                  const key = side === 'A' ? 'teamA' : 'teamB';
+                  const team = state[key];
+                  const fallbackHex =
+                    KABADDI_TEAM_PALETTES[team.color]?.swatch ||
+                    (side === 'A' ? '#EA580C' : '#DC2626');
+                  const currentHex = team.customBgColor || fallbackHex;
+
+                  return (
+                    <div
+                      key={side}
+                      className="rounded-lg bg-white border border-orange-200/80 px-2.5 py-2 space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <label
+                            className="relative inline-flex items-center gap-1.5 cursor-pointer shrink-0"
+                            title={`Pick custom color for ${team.name}`}
+                          >
+                            <input
+                              type="color"
+                              value={currentHex}
+                              onChange={(e) => {
+                                const hex = e.target.value;
+                                updateState(
+                                  (prev) => ({
+                                    ...prev,
+                                    [key]: { ...prev[key], customBgColor: hex },
+                                  }),
+                                  false
+                                );
+                              }}
+                              className="w-6 h-6 rounded border border-orange-300 cursor-pointer p-0 bg-transparent"
+                            />
+                          </label>
+                          <span className="text-xs font-black text-slate-900 truncate">
+                            {team.name}
+                          </span>
+                        </div>
+
+                        {/* Text Color Auto / White / Black */}
+                        <div className="inline-flex items-center gap-0.5 bg-orange-50 border border-orange-200 rounded-md p-0.5 text-[9px] font-extrabold shrink-0">
+                          {(
+                            [
+                              { label: 'Auto', val: undefined },
+                              { label: 'W', val: '#FFFFFF' },
+                              { label: 'B', val: '#0F172A' },
+                            ] as const
+                          ).map((opt) => {
+                            const active = (team.customTextColor || undefined) === opt.val;
+                            return (
+                              <button
+                                key={opt.label}
+                                type="button"
+                                onClick={() =>
+                                  updateState(
+                                    (prev) => ({
+                                      ...prev,
+                                      [key]: { ...prev[key], customTextColor: opt.val },
+                                    }),
+                                    false
+                                  )
+                                }
+                                title={`Team ${side} text color: ${opt.label === 'W' ? 'White' : opt.label === 'B' ? 'Black' : 'Auto contrast'}`}
+                                className={`px-1.5 py-0.5 rounded transition-colors ${
+                                  active
+                                    ? 'bg-[#FF8C00] text-white'
+                                    : 'text-slate-600 hover:text-[#EA580C]'
+                                }`}
+                              >
+                                {opt.label}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Quick 10 Broadcast Color Swatches */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {KABADDI_CUSTOM_COLOR_SWATCHES.map((sw) => {
+                          const isSelected =
+                            team.customBgColor?.toLowerCase() === sw.hex.toLowerCase();
+                          return (
+                            <button
+                              key={sw.hex}
+                              type="button"
+                              onClick={() =>
+                                updateState(
+                                  (prev) => ({
+                                    ...prev,
+                                    [key]: { ...prev[key], customBgColor: sw.hex },
+                                  }),
+                                  false
+                                )
+                              }
+                              title={`${team.name}: ${sw.label}`}
+                              className={`w-5 h-5 rounded-full border transition-transform hover:scale-110 ${
+                                isSelected
+                                  ? 'ring-2 ring-[#FF8C00] ring-offset-1 border-slate-900 scale-110'
+                                  : 'border-slate-300'
+                              }`}
+                              style={{ backgroundColor: sw.hex }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -2774,37 +3004,91 @@ export function KabaddiControlDashboard({
                         />
                       </div>
 
-                      <div className="flex flex-wrap gap-1">
-                        {TEAM_COLORS.map((colorId) => {
-                          const pal = KABADDI_TEAM_PALETTES[colorId];
-                          const active = team.color === colorId;
-                          return (
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-center gap-1">
+                          {TEAM_COLORS.map((colorId) => {
+                            const pal = KABADDI_TEAM_PALETTES[colorId];
+                            const active =
+                              team.color === colorId &&
+                              (!team.customBgColor ||
+                                team.customBgColor.toLowerCase() === pal.swatch.toLowerCase());
+                            return (
+                              <button
+                                key={colorId}
+                                type="button"
+                                onClick={() =>
+                                  updateState(
+                                    (prev) => ({
+                                      ...prev,
+                                      [key]: {
+                                        ...prev[key],
+                                        color: colorId,
+                                        customBgColor: pal.swatch,
+                                      },
+                                    }),
+                                    false
+                                  )
+                                }
+                                className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border ${
+                                  active
+                                    ? 'border-[#FF8C00] bg-orange-100 text-[#EA580C]'
+                                    : 'border-slate-200 bg-white text-slate-600'
+                                }`}
+                              >
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full"
+                                  style={{ backgroundColor: pal.swatch }}
+                                />
+                                <span>{pal.label.split(' ')[0]}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 pt-0.5">
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700 cursor-pointer">
+                            <input
+                              type="color"
+                              value={
+                                team.customBgColor ||
+                                KABADDI_TEAM_PALETTES[team.color]?.swatch ||
+                                '#EA580C'
+                              }
+                              onChange={(e) => {
+                                const hex = e.target.value;
+                                updateState(
+                                  (prev) => ({
+                                    ...prev,
+                                    [key]: { ...prev[key], customBgColor: hex },
+                                  }),
+                                  false
+                                );
+                              }}
+                              className="w-6 h-6 rounded border border-orange-300 cursor-pointer p-0 bg-transparent"
+                            />
+                            <span>Custom Theme Color</span>
+                          </label>
+                          {team.customBgColor && (
                             <button
-                              key={colorId}
                               type="button"
                               onClick={() =>
                                 updateState(
                                   (prev) => ({
                                     ...prev,
-                                    [key]: { ...prev[key], color: colorId },
+                                    [key]: {
+                                      ...prev[key],
+                                      customBgColor: undefined,
+                                      customTextColor: undefined,
+                                    },
                                   }),
                                   false
                                 )
                               }
-                              className={`px-2 py-1 rounded-md text-[10px] font-bold flex items-center gap-1 border ${
-                                active
-                                  ? 'border-[#FF8C00] bg-orange-100 text-[#EA580C]'
-                                  : 'border-slate-200 bg-white text-slate-600'
-                              }`}
+                              className="text-[10px] font-bold text-[#EA580C] hover:underline"
                             >
-                              <span
-                                className="w-2.5 h-2.5 rounded-full"
-                                style={{ backgroundColor: pal.swatch }}
-                              />
-                              <span>{pal.label.split(' ')[0]}</span>
+                              Theme Default
                             </button>
-                          );
-                        })}
+                          )}
+                        </div>
                       </div>
 
                       <div className="space-y-1.5 pt-1">

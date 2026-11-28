@@ -73,6 +73,8 @@ export interface KabaddiTeamState {
   name: string;
   shortName: string;
   color: KabaddiTeamColor;
+  customBgColor?: string;
+  customTextColor?: string;
   score: number;
   playersOnMat: number; // 0..7 (<=3 triggers SUPER TACKLE ON)
   allOuts: number;
@@ -186,6 +188,97 @@ export const KABADDI_TEAM_PALETTES: Record<
     swatch: '#F97316',
   },
 };
+
+export const KABADDI_CUSTOM_COLOR_SWATCHES: ReadonlyArray<{ label: string; hex: string }> = [
+  { label: 'Royal Blue', hex: '#1D4ED8' },
+  { label: 'Crimson Red', hex: '#DC2626' },
+  { label: 'Saffron Orange', hex: '#EA580C' },
+  { label: 'Emerald Green', hex: '#059669' },
+  { label: 'Star Gold', hex: '#EAB308' },
+  { label: 'Royal Purple', hex: '#7E22CE' },
+  { label: 'Ocean Cyan', hex: '#0284C7' },
+  { label: 'Hot Pink', hex: '#DB2777' },
+  { label: 'Jet Black', hex: '#111827' },
+  { label: 'Pure White', hex: '#F8FAFC' },
+];
+
+function parseHexRgb(hex: string): [number, number, number] | null {
+  const clean = hex.trim().replace(/^#/, '');
+  if (/^[0-9a-fA-F]{6}$/.test(clean)) {
+    return [
+      parseInt(clean.slice(0, 2), 16),
+      parseInt(clean.slice(2, 4), 16),
+      parseInt(clean.slice(4, 6), 16),
+    ];
+  }
+  if (/^[0-9a-fA-F]{3}$/.test(clean)) {
+    return [
+      parseInt(clean[0] + clean[0], 16),
+      parseInt(clean[1] + clean[1], 16),
+      parseInt(clean[2] + clean[2], 16),
+    ];
+  }
+  return null;
+}
+
+function shiftHexLuminance(hex: string, factor: number): string {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return hex;
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  const [r, g, b] = rgb.map((ch) =>
+    factor >= 0 ? clamp(ch + (255 - ch) * factor) : clamp(ch * (1 + factor))
+  );
+  return `#${[r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('')}`;
+}
+
+export function isLightHexColor(hex: string): boolean {
+  const rgb = parseHexRgb(hex);
+  if (!rgb) return false;
+  const [r, g, b] = rgb;
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.62;
+}
+
+export function resolveKabaddiTeamColors(team: KabaddiTeamState): {
+  hasCustomBg: boolean;
+  baseHex: string;
+  bgGradient: string;
+  borderHex: string;
+  textColor: string;
+  isDarkBg: boolean;
+  dotAccentHex: string;
+} {
+  const preset = KABADDI_TEAM_PALETTES[team.color] || KABADDI_TEAM_PALETTES.saffron;
+  const rawCustom = team.customBgColor?.trim();
+  const hasCustomBg = Boolean(rawCustom && parseHexRgb(rawCustom));
+  const baseHex = hasCustomBg && rawCustom ? rawCustom : preset.swatch;
+  const isLight = isLightHexColor(baseHex);
+
+  const bgGradient = hasCustomBg
+    ? `linear-gradient(180deg, ${shiftHexLuminance(baseHex, 0.22)} 0%, ${baseHex} 48%, ${shiftHexLuminance(baseHex, -0.34)} 100%)`
+    : preset.bgGradient;
+
+  const borderHex = hasCustomBg ? shiftHexLuminance(baseHex, isLight ? -0.25 : 0.35) : preset.border;
+  const customText = team.customTextColor?.trim();
+  const textColor =
+    customText && parseHexRgb(customText)
+      ? customText
+      : isLight
+        ? '#0F172A'
+        : '#FFFFFF';
+
+  const dotAccentHex = isLight ? '#EA580C' : '#FFE600';
+
+  return {
+    hasCustomBg,
+    baseHex,
+    bgGradient,
+    borderHex,
+    textColor,
+    isDarkBg: !isLight,
+    dotAccentHex,
+  };
+}
 
 export function createDefaultKabaddiPlayers(side: KabaddiTeamSide): KabaddiPlayer[] {
   return Array.from({ length: 7 }, (_, idx) => ({

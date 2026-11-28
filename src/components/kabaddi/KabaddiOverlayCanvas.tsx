@@ -10,6 +10,7 @@ import {
   KabaddiScoreboardState,
   KabaddiTeamSide,
   KabaddiTeamState,
+  resolveKabaddiTeamColors,
 } from '../../types/kabaddi';
 
 interface KabaddiOverlayCanvasProps {
@@ -413,6 +414,8 @@ export function KabaddiScoreboardBar({
   const clockLabel = formatClockMMSS(matchSec);
   const paletteA = KABADDI_TEAM_PALETTES[state.teamA.color] || KABADDI_TEAM_PALETTES.saffron;
   const paletteB = KABADDI_TEAM_PALETTES[state.teamB.color] || KABADDI_TEAM_PALETTES.crimson;
+  const customA = resolveKabaddiTeamColors(state.teamA);
+  const customB = resolveKabaddiTeamColors(state.teamB);
 
   const fullTimeAlert: KabaddiAlertState | null = isFullTime
     ? {
@@ -470,9 +473,15 @@ export function KabaddiScoreboardBar({
             <div className="pointer-events-none absolute inset-y-0 right-2 w-3 bg-gradient-to-l from-white/75 via-slate-200/80 to-transparent rounded-br-xl" />
 
             {/* Team A Wing */}
-            <div className="relative z-10 pl-8 pr-5 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-8 pr-5 py-2 flex flex-col justify-center"
+              style={customA.hasCustomBg ? { background: customA.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-3xl font-black text-white uppercase tracking-wider truncate drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wider truncate drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+                  style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#FFFFFF' }}
+                >
                   {state.teamA.name}
                 </span>
                 {activeRaidingSide === 'A' && (
@@ -485,7 +494,12 @@ export function KabaddiScoreboardBar({
                 )}
               </div>
               <div className="mt-1">
-                <MatPlayerDots count={state.teamA.playersOnMat} align="left" accentHex="#60A5FA" />
+                <MatPlayerDots
+                  count={state.teamA.playersOnMat}
+                  align="left"
+                  darkTheme={customA.hasCustomBg ? customA.isDarkBg : true}
+                  accentHex={customA.hasCustomBg ? customA.dotAccentHex : '#60A5FA'}
+                />
               </div>
             </div>
 
@@ -513,7 +527,10 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Wing */}
-            <div className="relative z-10 pl-5 pr-8 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-5 pr-8 py-2 flex flex-col justify-center"
+              style={customB.hasCustomBg ? { background: customB.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
                 {activeRaidingSide === 'B' ? (
                   <TeamRaidClockBadge
@@ -525,12 +542,20 @@ export function KabaddiScoreboardBar({
                 ) : (
                   <span />
                 )}
-                <span className="font-display text-3xl font-black text-white uppercase tracking-wider truncate text-right drop-shadow-[0_2px_6px_rgba(0,0,0,0.65)]">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wider truncate text-right drop-shadow-[0_2px_6px_rgba(0,0,0,0.45)]"
+                  style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#FFFFFF' }}
+                >
                   {state.teamB.name}
                 </span>
               </div>
               <div className="mt-1">
-                <MatPlayerDots count={state.teamB.playersOnMat} align="right" accentHex="#60A5FA" />
+                <MatPlayerDots
+                  count={state.teamB.playersOnMat}
+                  align="right"
+                  darkTheme={customB.hasCustomBg ? customB.isDarkBg : true}
+                  accentHex={customB.hasCustomBg ? customB.dotAccentHex : '#60A5FA'}
+                />
               </div>
             </div>
 
@@ -580,9 +605,15 @@ export function KabaddiScoreboardBar({
             }}
           >
             {/* Team A Silver Panel */}
-            <div className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center"
+              style={customA.hasCustomBg ? { background: customA.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-3xl font-black text-slate-950 uppercase tracking-wide truncate">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wide truncate"
+                  style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#020617' }}
+                >
                   {state.teamA.name}
                 </span>
                 {activeRaidingSide === 'A' && (
@@ -598,8 +629,8 @@ export function KabaddiScoreboardBar({
                 <MatPlayerDots
                   count={state.teamA.playersOnMat}
                   align="left"
-                  darkTheme={false}
-                  accentHex="#0284C7"
+                  darkTheme={customA.hasCustomBg ? customA.isDarkBg : false}
+                  accentHex={customA.hasCustomBg ? customA.dotAccentHex : '#0284C7'}
                 />
               </div>
             </div>
@@ -655,7 +686,10 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Silver Panel */}
-            <div className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center"
+              style={customB.hasCustomBg ? { background: customB.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
                 {activeRaidingSide === 'B' ? (
                   <TeamRaidClockBadge
@@ -667,7 +701,10 @@ export function KabaddiScoreboardBar({
                 ) : (
                   <span />
                 )}
-                <span className="font-display text-3xl font-black text-slate-950 uppercase tracking-wide truncate text-right">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wide truncate text-right"
+                  style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#020617' }}
+                >
                   {state.teamB.name}
                 </span>
               </div>
@@ -675,8 +712,8 @@ export function KabaddiScoreboardBar({
                 <MatPlayerDots
                   count={state.teamB.playersOnMat}
                   align="right"
-                  darkTheme={false}
-                  accentHex="#0284C7"
+                  darkTheme={customB.hasCustomBg ? customB.isDarkBg : false}
+                  accentHex={customB.hasCustomBg ? customB.dotAccentHex : '#0284C7'}
                 />
               </div>
             </div>
@@ -721,9 +758,15 @@ export function KabaddiScoreboardBar({
         <div className="relative w-full rounded-[24px] bg-[#DC2626] px-2.5 pb-[6px] shadow-[0_18px_46px_rgba(0,0,0,0.78)]">
           <div className="relative grid grid-cols-[1fr_364px_1fr] items-stretch min-h-[80px] rounded-[20px] bg-[#111114] overflow-hidden border border-white/10">
             {/* Team A Black Wing */}
-            <div className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-7 pr-4 py-2 flex flex-col justify-center"
+              style={customA.hasCustomBg ? { background: customA.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="font-display text-3xl font-black text-white uppercase tracking-wide truncate">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wide truncate"
+                  style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#FFFFFF' }}
+                >
                   {state.teamA.name}
                 </span>
                 {activeRaidingSide === 'A' && (
@@ -736,7 +779,12 @@ export function KabaddiScoreboardBar({
                 )}
               </div>
               <div className="mt-1">
-                <MatPlayerDots count={state.teamA.playersOnMat} align="left" accentHex="#EF4444" />
+                <MatPlayerDots
+                  count={state.teamA.playersOnMat}
+                  align="left"
+                  darkTheme={customA.hasCustomBg ? customA.isDarkBg : true}
+                  accentHex={customA.hasCustomBg ? customA.dotAccentHex : '#EF4444'}
+                />
               </div>
             </div>
 
@@ -782,7 +830,10 @@ export function KabaddiScoreboardBar({
             </div>
 
             {/* Team B Black Wing */}
-            <div className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center">
+            <div
+              className="relative z-10 pl-4 pr-7 py-2 flex flex-col justify-center"
+              style={customB.hasCustomBg ? { background: customB.bgGradient } : undefined}
+            >
               <div className="flex items-center justify-between gap-2">
                 {activeRaidingSide === 'B' ? (
                   <TeamRaidClockBadge
@@ -794,12 +845,20 @@ export function KabaddiScoreboardBar({
                 ) : (
                   <span />
                 )}
-                <span className="font-display text-3xl font-black text-white uppercase tracking-wide truncate text-right">
+                <span
+                  className="font-display text-3xl font-black uppercase tracking-wide truncate text-right"
+                  style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#FFFFFF' }}
+                >
                   {state.teamB.name}
                 </span>
               </div>
               <div className="mt-1">
-                <MatPlayerDots count={state.teamB.playersOnMat} align="right" accentHex="#EF4444" />
+                <MatPlayerDots
+                  count={state.teamB.playersOnMat}
+                  align="right"
+                  darkTheme={customB.hasCustomBg ? customB.isDarkBg : true}
+                  accentHex={customB.hasCustomBg ? customB.dotAccentHex : '#EF4444'}
+                />
               </div>
             </div>
 
@@ -860,19 +919,23 @@ export function KabaddiScoreboardBar({
               <div
                 className="rounded-xl px-4 py-1.5 border border-white/80 shadow-inner flex items-center justify-between gap-2"
                 style={{
-                  background:
-                    'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
+                  background: customA.hasCustomBg
+                    ? customA.bgGradient
+                    : 'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
                 }}
               >
                 <div className="min-w-0 flex flex-col">
-                  <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate leading-tight">
+                  <span
+                    className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wide truncate leading-tight"
+                    style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#020617' }}
+                  >
                     {state.teamA.name}
                   </span>
                   <MatPlayerDots
                     count={state.teamA.playersOnMat}
                     align="left"
-                    darkTheme={false}
-                    accentHex="#F97316"
+                    darkTheme={customA.hasCustomBg ? customA.isDarkBg : false}
+                    accentHex={customA.hasCustomBg ? customA.dotAccentHex : '#F97316'}
                   />
                 </div>
                 {activeRaidingSide === 'A' && (
@@ -921,8 +984,9 @@ export function KabaddiScoreboardBar({
               <div
                 className="rounded-xl px-4 py-1.5 border border-white/80 shadow-inner flex items-center justify-between gap-2"
                 style={{
-                  background:
-                    'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
+                  background: customB.hasCustomBg
+                    ? customB.bgGradient
+                    : 'linear-gradient(180deg, #FFFFFF 0%, #E5E7EB 55%, #CBD5E1 100%)',
                 }}
               >
                 {activeRaidingSide === 'B' ? (
@@ -936,14 +1000,17 @@ export function KabaddiScoreboardBar({
                   <span />
                 )}
                 <div className="min-w-0 flex flex-col items-end">
-                  <span className="font-display text-2xl sm:text-3xl font-black text-slate-950 uppercase tracking-wide truncate text-right leading-tight">
+                  <span
+                    className="font-display text-2xl sm:text-3xl font-black uppercase tracking-wide truncate text-right leading-tight"
+                    style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#020617' }}
+                  >
                     {state.teamB.name}
                   </span>
                   <MatPlayerDots
                     count={state.teamB.playersOnMat}
                     align="right"
-                    darkTheme={false}
-                    accentHex="#F97316"
+                    darkTheme={customB.hasCustomBg ? customB.isDarkBg : false}
+                    accentHex={customB.hasCustomBg ? customB.dotAccentHex : '#F97316'}
                   />
                 </div>
               </div>
@@ -973,7 +1040,7 @@ export function KabaddiScoreboardBar({
         {/* TEAM A PANEL */}
         <div
           className="relative px-4 py-2.5 flex flex-col justify-between overflow-hidden"
-          style={{ background: paletteA.bgGradient }}
+          style={{ background: customA.hasCustomBg ? customA.bgGradient : paletteA.bgGradient }}
         >
           {activeRaidingSide === 'A' && (
             <div className="absolute inset-y-0 left-0 w-1.5 bg-[#FFE600] shadow-[0_0_16px_#FFE600]" />
@@ -983,16 +1050,27 @@ export function KabaddiScoreboardBar({
               <span className="px-2 py-0.5 rounded bg-black/45 border border-[#FFE600]/60 font-mono text-xs font-black text-[#FFE600]">
                 {state.teamA.shortName}
               </span>
-              <span className="font-display text-2xl font-black text-white uppercase tracking-tight truncate drop-shadow">
+              <span
+                className="font-display text-2xl font-black uppercase tracking-tight truncate drop-shadow"
+                style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#FFFFFF' }}
+              >
                 {state.teamA.name}
               </span>
             </div>
-            <span className="font-mono text-[10px] font-bold text-white/80 whitespace-nowrap">
+            <span
+              className="font-mono text-[10px] font-bold whitespace-nowrap opacity-85"
+              style={{ color: customA.hasCustomBg || state.teamA.customTextColor ? customA.textColor : '#FFFFFF' }}
+            >
               AO: {state.teamA.allOuts} · TO: {state.teamA.timeoutsLeft}
             </span>
           </div>
           <div className="flex items-center justify-between gap-2 mt-1">
-            <MatPlayerDots count={state.teamA.playersOnMat} align="left" accentHex="#FFE600" />
+            <MatPlayerDots
+              count={state.teamA.playersOnMat}
+              align="left"
+              darkTheme={customA.hasCustomBg ? customA.isDarkBg : true}
+              accentHex={customA.hasCustomBg ? customA.dotAccentHex : '#FFE600'}
+            />
             <TeamBadgeRow
               team={state.teamA}
               isRaiding={activeRaidingSide === 'A'}
@@ -1065,17 +1143,23 @@ export function KabaddiScoreboardBar({
         {/* TEAM B PANEL */}
         <div
           className="relative px-4 py-2.5 flex flex-col justify-between overflow-hidden"
-          style={{ background: paletteB.bgGradient }}
+          style={{ background: customB.hasCustomBg ? customB.bgGradient : paletteB.bgGradient }}
         >
           {activeRaidingSide === 'B' && (
             <div className="absolute inset-y-0 right-0 w-1.5 bg-[#FFE600] shadow-[0_0_16px_#FFE600]" />
           )}
           <div className="flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] font-bold text-white/80 whitespace-nowrap">
+            <span
+              className="font-mono text-[10px] font-bold whitespace-nowrap opacity-85"
+              style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#FFFFFF' }}
+            >
               TO: {state.teamB.timeoutsLeft} · AO: {state.teamB.allOuts}
             </span>
             <div className="flex items-center gap-2 min-w-0 justify-end">
-              <span className="font-display text-2xl font-black text-white uppercase tracking-tight truncate text-right drop-shadow">
+              <span
+                className="font-display text-2xl font-black uppercase tracking-tight truncate text-right drop-shadow"
+                style={{ color: customB.hasCustomBg || state.teamB.customTextColor ? customB.textColor : '#FFFFFF' }}
+              >
                 {state.teamB.name}
               </span>
               <span className="px-2 py-0.5 rounded bg-black/45 border border-[#FFE600]/60 font-mono text-xs font-black text-[#FFE600]">
@@ -1091,7 +1175,12 @@ export function KabaddiScoreboardBar({
               raidRunning={state.raidClock.running}
               align="left"
             />
-            <MatPlayerDots count={state.teamB.playersOnMat} align="right" accentHex="#FFE600" />
+            <MatPlayerDots
+              count={state.teamB.playersOnMat}
+              align="right"
+              darkTheme={customB.hasCustomBg ? customB.isDarkBg : true}
+              accentHex={customB.hasCustomBg ? customB.dotAccentHex : '#FFE600'}
+            />
           </div>
         </div>
 
@@ -1147,8 +1236,18 @@ export function KabaddiOverlayCanvas({
   const matchSec = computeLiveTimerSeconds(state.matchClock, nowMs);
   const raidSec = computeLiveTimerSeconds(state.raidClock, nowMs);
 
-  const paletteA = KABADDI_TEAM_PALETTES[state.teamA.color] || KABADDI_TEAM_PALETTES.saffron;
-  const paletteB = KABADDI_TEAM_PALETTES[state.teamB.color] || KABADDI_TEAM_PALETTES.crimson;
+  const customA = resolveKabaddiTeamColors(state.teamA);
+  const customB = resolveKabaddiTeamColors(state.teamB);
+  const paletteA = {
+    ...(KABADDI_TEAM_PALETTES[state.teamA.color] || KABADDI_TEAM_PALETTES.saffron),
+    bgGradient: customA.bgGradient,
+    border: customA.borderHex,
+  };
+  const paletteB = {
+    ...(KABADDI_TEAM_PALETTES[state.teamB.color] || KABADDI_TEAM_PALETTES.crimson),
+    bgGradient: customB.bgGradient,
+    border: customB.borderHex,
+  };
 
   const activeAlert =
     state.alert && state.alert.type !== 'NONE' && state.alert.expiresAtMs > nowMs
