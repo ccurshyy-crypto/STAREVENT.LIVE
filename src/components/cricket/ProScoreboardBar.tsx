@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { ScoreboardBarStyle } from '../../data/cricketSampleData';
+import { RollingScoreText } from './RollingScoreText';
 import type {
   ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
@@ -421,7 +422,7 @@ export function ProScoreboardBar({
               compact ? 'text-[15px] leading-none pt-0.5' : 'text-[30px] leading-none pt-1'
             }`}
           >
-            {scoreText}
+            <RollingScoreText value={scoreText} />
           </div>
           <div
             className={`w-full flex items-center justify-center font-bold tabular-nums ${
@@ -438,7 +439,7 @@ export function ProScoreboardBar({
                 : { opacity: 0.9 }
             }
           >
-            {oversText}
+            <RollingScoreText value={oversText} />
           </div>
         </div>
 

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
+import { RollingScoreText } from './RollingScoreText';
 import type {
   ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
@@ -636,9 +637,11 @@ export function StarNavyOrangeScoreboardBar({
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1 shrink-0 tabular-nums">
-                  <span className="font-black text-white" style={{ fontSize: 16 }}>
-                    {batter1Runs === '' ? 0 : batter1Runs}
-                  </span>
+                  <RollingScoreText
+                    value={batter1Runs === '' ? 0 : batter1Runs}
+                    className="font-black text-white"
+                    style={{ fontSize: 16 }}
+                  />
                   <span className="font-bold" style={{ fontSize: 12.5, color: '#dbe7ff' }}>
                     ({batter1Balls === '' ? 0 : batter1Balls})
                   </span>
@@ -664,9 +667,11 @@ export function StarNavyOrangeScoreboardBar({
                   </span>
                 </div>
                 <div className="flex items-baseline gap-1 shrink-0 tabular-nums">
-                  <span className="font-black text-white" style={{ fontSize: 16 }}>
-                    {batter2Runs === '' ? 0 : batter2Runs}
-                  </span>
+                  <RollingScoreText
+                    value={batter2Runs === '' ? 0 : batter2Runs}
+                    className="font-black text-white"
+                    style={{ fontSize: 16 }}
+                  />
                   <span className="font-bold" style={{ fontSize: 12.5, color: '#dbe7ff' }}>
                     ({batter2Balls === '' ? 0 : batter2Balls})
                   </span>
@@ -729,14 +734,13 @@ export function StarNavyOrangeScoreboardBar({
                   >
                     {batTeamCode}
                   </span>
-                  <span
+                  <RollingScoreText
+                    value={`${runs}/${wickets}`}
                     className={`font-black tabular-nums leading-none shrink-0 ${
                       scorePop ? 'star-navy-score-pop' : ''
                     }`}
                     style={{ fontSize: 36, letterSpacing: '-0.5px' }}
-                  >
-                    {runs}/{wickets}
-                  </span>
+                  />
                 </div>
 
                 {/* Right Orange Overs Pill */}
@@ -749,7 +753,7 @@ export function StarNavyOrangeScoreboardBar({
                     fontSize: 21,
                   }}
                 >
-                  {oversText}
+                  <RollingScoreText value={oversText} />
                 </div>
               </div>
 
@@ -902,12 +906,11 @@ export function StarNavyOrangeScoreboardBar({
                       >
                         {displayFirstStatLabel}
                       </span>
-                      <span
+                      <RollingScoreText
+                        value={displayNeedRuns}
                         className="font-black text-white tabular-nums leading-[1.1]"
                         style={{ fontSize: 20 }}
-                      >
-                        {displayNeedRuns}
-                      </span>
+                      />
                     </div>
 
                     <div className="flex flex-col items-center justify-center">
@@ -917,12 +920,11 @@ export function StarNavyOrangeScoreboardBar({
                       >
                         {displaySecondStatLabel}
                       </span>
-                      <span
+                      <RollingScoreText
+                        value={displayNeedBalls}
                         className="font-black text-white tabular-nums leading-[1.1]"
                         style={{ fontSize: 20 }}
-                      >
-                        {displayNeedBalls}
-                      </span>
+                      />
                     </div>
                   </div>
                 </div>

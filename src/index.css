@@ -2772,6 +2772,39 @@ body.overlay-chroma-blue #root {
   animation: starNavyFadeScale 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+/* ================= BROADCAST SCORE BOTTOM-TO-TOP SLIDE ANIMATION ================= */
+@keyframes scoreRollIn {
+  0% {
+    transform: translateY(105%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0%);
+    opacity: 1;
+  }
+}
+
+@keyframes scoreRollOut {
+  0% {
+    transform: translateY(0%);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-105%);
+    opacity: 0;
+  }
+}
+
+.score-roll-in {
+  animation: scoreRollIn 0.34s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
+.score-roll-out {
+  animation: scoreRollOut 0.32s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  will-change: transform, opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

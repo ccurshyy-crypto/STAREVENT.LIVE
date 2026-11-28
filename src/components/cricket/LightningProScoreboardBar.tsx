@@ -1,5 +1,6 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
+import { RollingScoreText } from './RollingScoreText';
 import type {
   ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
@@ -618,12 +619,11 @@ export function LightningProScoreboardBar({
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2.5 shrink-0 tabular-nums">
-                    <span
+                    <RollingScoreText
+                      value={formatTwoDigit(batter1Runs)}
                       className="font-black"
                       style={{ color: '#FACC15', fontSize: '21px', lineHeight: 1 }}
-                    >
-                      {formatTwoDigit(batter1Runs)}
-                    </span>
+                    />
                     <span
                       className="font-extrabold text-white/95"
                       style={{ fontSize: '14px', lineHeight: 1 }}
@@ -657,12 +657,11 @@ export function LightningProScoreboardBar({
                     </span>
                   </div>
                   <div className="flex items-baseline gap-2.5 shrink-0 tabular-nums">
-                    <span
+                    <RollingScoreText
+                      value={formatTwoDigit(batter2Runs)}
                       className="font-black"
                       style={{ color: '#FACC15', fontSize: '21px', lineHeight: 1 }}
-                    >
-                      {formatTwoDigit(batter2Runs)}
-                    </span>
+                    />
                     <span
                       className="font-extrabold text-white/95"
                       style={{ fontSize: '14px', lineHeight: 1 }}
@@ -715,15 +714,15 @@ export function LightningProScoreboardBar({
                     textShadow: '0 2px 4px rgba(0,0,0,0.4)',
                   }}
                 >
-                  {runs} - {wickets}
+                  <RollingScoreText value={`${runs} - ${wickets}`} />
                 </span>
               </div>
 
               <span
-                className="font-black tabular-nums whitespace-nowrap"
+                className="font-black tabular-nums whitespace-nowrap inline-flex items-baseline gap-1"
                 style={{ color: '#09154A', fontSize: '16px', lineHeight: 1 }}
               >
-                {oversText} ({maxOvers})
+                <RollingScoreText value={oversText} /> ({maxOvers})
               </span>
             </div>
 

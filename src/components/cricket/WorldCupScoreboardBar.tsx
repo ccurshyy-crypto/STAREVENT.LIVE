@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
+import { RollingScoreText } from './RollingScoreText';
 import type {
   ScoreboardBottomNeedInfo,
   ScoreboardPatiBanner,
@@ -661,7 +662,7 @@ export function WorldCupScoreboardBar({
               lineHeight: 1,
             }}
           >
-            {runs} / {wickets}
+            <RollingScoreText value={`${runs} / ${wickets}`} />
           </span>
         </div>
 
@@ -687,7 +688,7 @@ export function WorldCupScoreboardBar({
               lineHeight: 1,
             }}
           >
-            {oversText}
+            <RollingScoreText value={oversText} />
           </span>
         </div>
 
@@ -735,10 +736,10 @@ export function WorldCupScoreboardBar({
                 </span>
                 {batter1Runs !== undefined && batter1Runs !== '' && (
                   <span
-                    className="font-extrabold text-white tabular-nums shrink-0"
+                    className="font-extrabold text-white tabular-nums shrink-0 inline-flex items-baseline gap-1"
                     style={{ fontSize: '17px', lineHeight: 1.1 }}
                   >
-                    {batter1Runs} ({batter1Balls ?? 0})
+                    <RollingScoreText value={batter1Runs} /> ({batter1Balls ?? 0})
                   </span>
                 )}
               </div>
@@ -766,10 +767,10 @@ export function WorldCupScoreboardBar({
                 </span>
                 {batter2Runs !== undefined && batter2Runs !== '' && (
                   <span
-                    className="font-extrabold text-white tabular-nums shrink-0"
+                    className="font-extrabold text-white tabular-nums shrink-0 inline-flex items-baseline gap-1"
                     style={{ fontSize: '17px', lineHeight: 1.1 }}
                   >
-                    {batter2Runs} ({batter2Balls ?? 0})
+                    <RollingScoreText value={batter2Runs} /> ({batter2Balls ?? 0})
                   </span>
                 )}
               </div>

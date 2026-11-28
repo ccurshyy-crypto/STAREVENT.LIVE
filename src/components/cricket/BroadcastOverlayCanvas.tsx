@@ -23,6 +23,7 @@ import {
   Team,
 } from '../../types/cricketSuite';
 import { ProScoreboardBar } from './ProScoreboardBar';
+import { RollingScoreText } from './RollingScoreText';
 import {
   TataIplScoreboardBar,
   type ScoreboardBottomNeedInfo,
@@ -1814,11 +1815,11 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
                       className="font-display font-black text-2xl sm:text-3xl tabular-nums"
                       style={{ color: theme.accent }}
                     >
-                      {activeInn.runs}-{activeInn.wickets}
+                      <RollingScoreText value={`${activeInn.runs}-${activeInn.wickets}`} />
                     </span>
                   </div>
                   <p className="text-[11px] font-bold text-white/85 tabular-nums">
-                    OVERS {formatOvers(activeInn.legalBalls)} / {activeInn.maxOvers}
+                    OVERS <RollingScoreText value={formatOvers(activeInn.legalBalls)} /> / {activeInn.maxOvers}
                   </p>
                 </div>
               </div>
@@ -1850,7 +1851,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
                   <span className="font-black tabular-nums ml-2 shrink-0">
                     {striker ? (
                       <>
-                        {striker.runs}
+                        <RollingScoreText value={striker.runs} />
                         <span className="text-white/70 text-[11px] font-semibold">
                           ({striker.balls})
                         </span>
@@ -1865,7 +1866,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
                   <span className="font-bold tabular-nums ml-2 shrink-0">
                     {nonStriker ? (
                       <>
-                        {nonStriker.runs}
+                        <RollingScoreText value={nonStriker.runs} />
                         <span className="text-white/60 text-[11px]">
                           ({nonStriker.balls})
                         </span>

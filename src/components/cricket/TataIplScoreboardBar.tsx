@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ProScoreboardBallDot } from './ProScoreboardBar';
+import { RollingScoreText } from './RollingScoreText';
 
 export interface TataIplEventBanner {
   id: number;
@@ -385,14 +386,14 @@ export function TataIplScoreboardBar({
                   scoreFlip ? 'digit-flip' : ''
                 }`}
               >
-                {scoreText}
+                <RollingScoreText value={scoreText} />
               </div>
               <span
                 className={`ipl-overs-display tabular-nums ${
                   oversBump ? 'ipl-num-bump' : ''
                 }`}
               >
-                {oversText}
+                <RollingScoreText value={oversText} />
               </span>
             </div>
 
@@ -420,7 +421,7 @@ export function TataIplScoreboardBar({
                         p1rBump ? 'ipl-num-bump' : ''
                       }`}
                     >
-                      {batter1Runs}
+                      <RollingScoreText value={batter1Runs} />
                     </span>
                     <span
                       className={`ipl-batter-balls ${
@@ -455,7 +456,7 @@ export function TataIplScoreboardBar({
                         p2rBump ? 'ipl-num-bump' : ''
                       }`}
                     >
-                      {batter2Runs}
+                      <RollingScoreText value={batter2Runs} />
                     </span>
                     <span
                       className={`ipl-batter-balls ${
