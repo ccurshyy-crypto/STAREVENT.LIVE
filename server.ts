@@ -2473,10 +2473,10 @@ export function createApiApp(): express.Express {
   });
 
   // =========================================================================
-  // 7. ADMIN-GENERATED TOURNAMENT UNLOCK CODES (₹99 / DAY, CUSTOM DAYS)
-  //    - Admin selects number of days -> generates unique single-use code.
-  //    - Customer redeems code -> unlocks tournament creation for N days.
-  //    - Scoreboards remain 100% unlocked; only tournament creation requires code.
+  // 7. ADMIN-GENERATED TOURNAMENT UNLOCK CODES (₹99 / DAY, MULTI-TOURNAMENT PASS)
+  //    - Admin selects number of days -> generates unique day-pass code.
+  //    - Customer redeems code -> can create unlimited new tournaments for N days.
+  //    - Auto-expires after N days; scoreboards remain 100% unlocked.
   // =========================================================================
   app.get('/api/admin/tournament-codes', requireOwnerAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -2486,7 +2486,11 @@ export function createApiApp(): express.Express {
       const codes =
         statusFilter === 'ALL'
           ? allCodes
-          : allCodes.filter((c) => c.status === statusFilter);
+          : statusFilter === 'REDEEMED'
+            ? allCodes.filter((c) => c.status === 'REDEEMED' && !c.is_expired)
+            : statusFilter === 'EXPIRED' || statusFilter === 'USED'
+              ? allCodes.filter((c) => Boolean(c.is_expired) && c.status !== 'REVOKED')
+              : allCodes.filter((c) => c.status === statusFilter);
       res.json({
         ok: true,
         pricePerDayInr: TOURNAMENT_PRICE_PER_DAY_INR,

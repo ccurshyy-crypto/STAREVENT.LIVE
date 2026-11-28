@@ -64,6 +64,19 @@ function addDaysToIsoDate(isoDate: string, daysToAdd: number): string {
   return `${y}-${m}-${d}`;
 }
 
+function formatPassExpiryLabel(iso?: string | null): string {
+  if (!iso) return '';
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return '';
+  return dt.toLocaleString('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 interface TournamentManagerViewProps {
   mode: 'tournament' | 'tournament-groups' | 'tournament-teams';
   state: CricketSuiteState;
@@ -202,7 +215,7 @@ export function TournamentManagerView({
       setUnlockModalOpen(false);
       setUnlockCodeInput('');
       onToast(
-        `Tournament unlocked for ${res.pass.duration_days} day${res.pass.duration_days === 1 ? '' : 's'} (₹${res.pass.total_price_inr} @ ₹${res.pass.price_per_day_inr}/day)!`
+        `Unlocked ${res.pass.duration_days}-day Tournament Pass (create unlimited new tournaments for ${res.pass.duration_days} day${res.pass.duration_days === 1 ? '' : 's'}).`
       );
       openCreateModalWithPass(res.pass);
     } catch {
@@ -436,8 +449,13 @@ export function TournamentManagerView({
         }));
         setSelectedTourId(newId);
         setModalOpen(false);
+        const passValidUntil = formatPassExpiryLabel(
+          consumeRes.pass?.expires_at || activePass.expires_at
+        );
         onToast(
-          `Tournament "${cleanName}" created using code ${activePass.code} (active until ${formatSingleDateHuman(lastDate)}).`
+          `Tournament "${cleanName}" created! Your ${activePass.duration_days}-day pass stays active${
+            passValidUntil ? ` until ${passValidUntil}` : ''
+          } so you can create more new tournaments anytime.`
         );
       } catch {
         setTFormError('Network error while verifying your tournament unlock pass. Please retry.');
@@ -529,25 +547,32 @@ export function TournamentManagerView({
               {activePass ? (
                 <>
                   <p className="text-xs sm:text-sm font-extrabold text-emerald-950">
-                    Tournament Unlocked · {activePass.duration_days} Day
-                    {activePass.duration_days === 1 ? '' : 's'} Pass Ready
+                    Unlimited New Tournaments Unlocked ·{' '}
+                    {activePass.remaining_days ?? activePass.duration_days} Day
+                    {(activePass.remaining_days ?? activePass.duration_days) === 1 ? '' : 's'} Left
+                    {activePass.duration_days > 1 ? ` (of ${activePass.duration_days}d Pass)` : ''}
                   </p>
                   <p className="text-[11px] text-emerald-800 mt-0.5">
-                    Code <span className="font-mono font-bold">{activePass.code}</span> · ₹
-                    {activePass.total_price_inr} (₹{TOURNAMENT_PRICE_PER_DAY_INR}/day) · Select up
-                    to {activePass.duration_days} day{activePass.duration_days === 1 ? '' : 's'}.
-                    All scoreboard themes are free!
+                    Code <span className="font-mono font-bold">{activePass.code}</span>
+                    {activePass.expires_at
+                      ? ` · Valid until ${formatPassExpiryLabel(activePass.expires_at)}`
+                      : ''}
+                    {typeof activePass.tournaments_created_count === 'number' &&
+                    activePass.tournaments_created_count > 0
+                      ? ` · ${activePass.tournaments_created_count} created so far`
+                      : ''}
+                    {' · Create new tournaments anytime before expiry.'}
                   </p>
                 </>
               ) : (
                 <>
                   <p className="text-xs sm:text-sm font-extrabold text-slate-900">
-                    Tournament Creation · ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day (Admin Unlock Code Required)
+                    Tournament Creation Pass · ₹{TOURNAMENT_PRICE_PER_DAY_INR} / Day (Admin Unlock Code Required)
                   </p>
                   <p className="text-[11px] text-slate-700 mt-0.5">
                     Get a Tournament Unlock Code from Star Event Live Admin for the exact number of
-                    days you need (1 Day = ₹99, 3 Days = ₹297, 5 Days = ₹495). All scoreboard themes
-                    are 100% free &amp; unlocked.
+                    days you need (1 Day = ₹99, 3 Days = ₹297, 5 Days = ₹495). Create unlimited new
+                    tournaments throughout your unlocked days.
                   </p>
                 </>
               )}
@@ -592,7 +617,7 @@ export function TournamentManagerView({
             )}
             <span>
               {activePass
-                ? `CREATE TOURNAMENT (${activePass.duration_days}D UNLOCKED)`
+                ? `CREATE NEW TOURNAMENT (${activePass.remaining_days ?? activePass.duration_days}D LEFT)`
                 : `UNLOCK & CREATE TOURNAMENT (₹${TOURNAMENT_PRICE_PER_DAY_INR}/DAY)`}
             </span>
           </button>
@@ -1040,12 +1065,20 @@ export function TournamentManagerView({
                       <div className="flex items-center gap-2 text-xs font-bold text-emerald-900">
                         <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
                         <span>
-                          Unlock Pass:{' '}
-                          <span className="font-mono">{activePass.code}</span> · Max{' '}
+                          Active Pass:{' '}
+                          <span className="font-mono">{activePass.code}</span> ·{' '}
                           <strong>
-                            {activePass.duration_days} Day{activePass.duration_days === 1 ? '' : 's'}
+                            {activePass.remaining_days ?? activePass.duration_days} Day
+                            {(activePass.remaining_days ?? activePass.duration_days) === 1
+                              ? ''
+                              : 's'}{' '}
+                            Left
                           </strong>{' '}
-                          (₹{activePass.total_price_inr} @ ₹{TOURNAMENT_PRICE_PER_DAY_INR}/day)
+                          (Unlimited new tournaments
+                          {activePass.expires_at
+                            ? ` till ${formatPassExpiryLabel(activePass.expires_at)}`
+                            : ''}
+                          )
                         </span>
                       </div>
                       {unlockStatus.activePasses.length > 1 && (
@@ -1392,7 +1425,8 @@ export function TournamentManagerView({
                   </div>
                   <p className="text-[11px] text-slate-600 leading-relaxed">
                     Contact Star Event Live Admin (<strong>9890175727</strong>) to pay for your
-                    required tournament days and receive your unique single-use unlock code.
+                    required days and receive your unlock code. Once activated, you can create
+                    unlimited new tournaments for all unlocked days.
                   </p>
                 </div>
 
@@ -1424,8 +1458,8 @@ export function TournamentManagerView({
                     className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border-2 border-slate-300 focus:border-[#FF8C00] focus:bg-white focus:outline-none font-mono font-bold text-sm tracking-widest uppercase text-slate-900"
                   />
                   <p className="text-[11px] text-slate-500">
-                    Your tournament will unlock for the exact number of days set by Admin and
-                    expire automatically after those dates.
+                    Your pass stays active for the exact number of days set by Admin — create as
+                    many new tournaments as you want until the pass expires.
                   </p>
                 </div>
               </div>

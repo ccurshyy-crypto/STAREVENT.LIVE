@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import {
   TOURNAMENT_PRICE_PER_DAY_INR,
-  type TournamentCodeStatus,
   type TournamentUnlockPass,
 } from '../lib/tournamentUnlock';
 
@@ -43,7 +42,9 @@ export function AdminTournamentCodesPanel({
   adminToken,
   onLockAdmin,
 }: AdminTournamentCodesPanelProps) {
-  const [statusFilter, setStatusFilter] = useState<'ALL' | TournamentCodeStatus>('ALL');
+  const [statusFilter, setStatusFilter] = useState<
+    'ALL' | 'ACTIVE' | 'REDEEMED' | 'EXPIRED' | 'REVOKED'
+  >('ALL');
   const [codes, setCodes] = useState<TournamentUnlockPass[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -113,6 +114,7 @@ export function AdminTournamentCodesPanel({
     `Star Event Live — Tournament Unlock Code\n` +
     `Code: ${rec.code}\n` +
     `Validity: ${rec.duration_days} Day${rec.duration_days === 1 ? '' : 's'} (₹${rec.total_price_inr} @ ₹${rec.price_per_day_inr}/day)\n` +
+    `Benefit: Create unlimited new tournaments for ${rec.duration_days} day${rec.duration_days === 1 ? '' : 's'} after activation.\n` +
     (rec.assigned_customer_id ? `Account ID: ${rec.assigned_customer_id}\n` : '') +
     `Open Dashboard → Tournament → Create Tournament and enter this code to unlock.`;
 
@@ -200,8 +202,19 @@ export function AdminTournamentCodesPanel({
   };
 
   const activeCount = codes.filter((c) => c.status === 'ACTIVE').length;
-  const redeemedCount = codes.filter((c) => c.status === 'REDEEMED').length;
-  const usedCount = codes.filter((c) => c.status === 'USED').length;
+  const activePassCount = codes.filter(
+    (c) => c.status === 'REDEEMED' && !c.is_expired
+  ).length;
+  const totalTournamentsCreated = codes.reduce(
+    (sum, c) =>
+      sum +
+      (typeof c.tournaments_created_count === 'number'
+        ? c.tournaments_created_count
+        : c.consumed_tournament_name
+          ? 1
+          : 0),
+    0
+  );
 
   return (
     <div className="space-y-5">
@@ -248,10 +261,10 @@ export function AdminTournamentCodesPanel({
         </div>
         <div className="rounded-xl bg-[#0B0618]/85 border border-amber-500/25 p-3.5">
           <p className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider">
-            Redeemed (Pass)
+            Active Passes
           </p>
           <p className="font-mono font-black text-xl text-amber-300 mt-1 tabular-nums">
-            {redeemedCount}
+            {activePassCount}
           </p>
         </div>
         <div className="rounded-xl bg-[#0B0618]/85 border border-sky-500/25 p-3.5">
@@ -259,7 +272,7 @@ export function AdminTournamentCodesPanel({
             Tournaments Created
           </p>
           <p className="font-mono font-black text-xl text-sky-300 mt-1 tabular-nums">
-            {usedCount}
+            {totalTournamentsCreated}
           </p>
         </div>
       </div>
@@ -392,8 +405,8 @@ export function AdminTournamentCodesPanel({
 
         <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
           <p className="text-[11px] text-zinc-400">
-            Customer enters this code in <strong className="text-white">Create Tournament</strong> to unlock exactly{' '}
-            <strong className="text-[#FFE600]">{safeDays} day{safeDays === 1 ? '' : 's'}</strong> (auto-expires after selected dates).
+            Customer enters this code once in <strong className="text-white">Create Tournament</strong> to create unlimited new tournaments for{' '}
+            <strong className="text-[#FFE600]">{safeDays} day{safeDays === 1 ? '' : 's'}</strong> (auto-expires after {safeDays} day{safeDays === 1 ? '' : 's'}).
           </p>
           <button
             type="submit"
@@ -466,7 +479,7 @@ export function AdminTournamentCodesPanel({
             Generated Tournament Unlock Codes ({codes.length})
           </h3>
           <div className="flex flex-wrap items-center gap-1.5">
-            {(['ALL', 'ACTIVE', 'REDEEMED', 'USED', 'REVOKED'] as const).map((st) => (
+            {(['ALL', 'ACTIVE', 'REDEEMED', 'EXPIRED', 'REVOKED'] as const).map((st) => (
               <button
                 key={st}
                 type="button"
@@ -477,7 +490,7 @@ export function AdminTournamentCodesPanel({
                     : 'bg-white/10 text-zinc-300 hover:bg-white/20'
                 }`}
               >
-                {st}
+                {st === 'REDEEMED' ? 'ACTIVE PASS' : st}
               </button>
             ))}
           </div>
@@ -496,18 +509,26 @@ export function AdminTournamentCodesPanel({
                   <th className="px-4 py-2.5">Duration &amp; Price</th>
                   <th className="px-4 py-2.5">Customer / Note</th>
                   <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5">Used For</th>
+                  <th className="px-4 py-2.5">Tournaments &amp; Validity</th>
                   <th className="px-4 py-2.5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/10">
                 {codes.map((c) => {
+                  const isExpired = Boolean(c.is_expired) && c.status !== 'REVOKED';
+                  const isActivePass = c.status === 'REDEEMED' && !isExpired;
+                  const createdCount =
+                    typeof c.tournaments_created_count === 'number'
+                      ? c.tournaments_created_count
+                      : c.consumed_tournament_name
+                        ? 1
+                        : 0;
                   const statusClasses =
                     c.status === 'ACTIVE'
                       ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                      : c.status === 'REDEEMED'
+                      : isActivePass
                         ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
-                        : c.status === 'USED'
+                        : isExpired || c.status === 'USED'
                           ? 'bg-sky-500/20 text-sky-200 border-sky-500/40'
                           : 'bg-red-500/20 text-red-200 border-red-500/40';
                   return (
@@ -563,26 +584,28 @@ export function AdminTournamentCodesPanel({
                         >
                           {c.status === 'ACTIVE'
                             ? 'Ready'
-                            : c.status === 'REDEEMED'
-                              ? 'Unlocked Pass'
-                              : c.status === 'USED'
-                                ? 'Used'
+                            : isActivePass
+                              ? `Active (${c.remaining_days ?? c.duration_days}d left)`
+                              : isExpired || c.status === 'USED'
+                                ? 'Expired'
                                 : 'Revoked'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {c.consumed_tournament_name ? (
-                          <div>
-                            <p className="font-semibold text-white">
-                              {c.consumed_tournament_name}
-                            </p>
-                            {Array.isArray(c.consumed_dates) && c.consumed_dates.length > 0 && (
+                        {createdCount > 0 || c.expires_at ? (
+                          <div className="space-y-0.5">
+                            {createdCount > 0 && (
+                              <p className="font-semibold text-white">
+                                {createdCount} Tournament{createdCount === 1 ? '' : 's'}
+                                {c.consumed_tournament_name
+                                  ? ` · Latest: ${c.consumed_tournament_name}`
+                                  : ''}
+                              </p>
+                            )}
+                            {c.expires_at && (
                               <p className="text-[10px] text-zinc-400">
-                                {c.consumed_dates[0]}
-                                {c.consumed_dates.length > 1
-                                  ? ` → ${c.consumed_dates[c.consumed_dates.length - 1]}`
-                                  : ''}{' '}
-                                ({c.consumed_dates.length}d)
+                                {isExpired ? 'Expired ' : 'Valid till '}
+                                {formatDateTime(c.expires_at)}
                               </p>
                             )}
                           </div>
@@ -591,7 +614,7 @@ export function AdminTournamentCodesPanel({
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {c.status === 'ACTIVE' || c.status === 'REDEEMED' ? (
+                        {c.status === 'ACTIVE' || isActivePass ? (
                           <button
                             type="button"
                             disabled={revokingCode === c.code}

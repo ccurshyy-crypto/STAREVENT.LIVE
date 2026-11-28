@@ -6,8 +6,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export const TOURNAMENT_PRICE_PER_DAY_INR = 99;
 export const MIN_TOURNAMENT_UNLOCK_DAYS = 1;
 export const MAX_TOURNAMENT_UNLOCK_DAYS = 365;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 export type TournamentCodeStatus = 'ACTIVE' | 'REDEEMED' | 'USED' | 'REVOKED';
+
+export interface CreatedTournamentEntry {
+  id: string;
+  name: string;
+  dates: string[];
+  created_at: string;
+}
 
 export interface TournamentUnlockCodeRecord {
   code: string;
@@ -28,6 +36,12 @@ export interface TournamentUnlockCodeRecord {
   consumed_at: string | null;
   revoked_at: string | null;
   updated_at: string;
+  // Multi-tournament day-pass computed & runtime fields
+  expires_at?: string | null;
+  is_expired?: boolean;
+  remaining_days?: number;
+  tournaments_created_count?: number;
+  created_tournaments?: CreatedTournamentEntry[];
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -37,6 +51,85 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const memoryStore = new Map<string, TournamentUnlockCodeRecord>();
 const codeLocks = new Map<string, Promise<unknown>>();
 let diskLoaded = false;
+
+export function enrichTournamentCodeRecord(
+  record: TournamentUnlockCodeRecord,
+  nowMs: number = Date.now()
+): TournamentUnlockCodeRecord {
+  const safeDays = Math.max(
+    MIN_TOURNAMENT_UNLOCK_DAYS,
+    Math.min(MAX_TOURNAMENT_UNLOCK_DAYS, Math.floor(Number(record.duration_days) || 1))
+  );
+
+  // Build normalized list of tournaments created with this pass
+  const existingList: CreatedTournamentEntry[] = Array.isArray(record.created_tournaments)
+    ? record.created_tournaments.filter(
+        (item): item is CreatedTournamentEntry =>
+          Boolean(item && typeof item.id === 'string' && typeof item.name === 'string')
+      )
+    : [];
+
+  if (
+    existingList.length === 0 &&
+    record.consumed_tournament_id &&
+    record.consumed_tournament_name
+  ) {
+    existingList.push({
+      id: record.consumed_tournament_id,
+      name: record.consumed_tournament_name,
+      dates: Array.isArray(record.consumed_dates) ? record.consumed_dates : [],
+      created_at: record.consumed_at || record.updated_at || record.created_at,
+    });
+  }
+
+  let expiresAtIso: string | null = null;
+  let isExpired = false;
+  let remainingDays = safeDays;
+
+  if (record.redeemed_at) {
+    const redeemedMs = Date.parse(record.redeemed_at);
+    if (Number.isFinite(redeemedMs)) {
+      const expiresMs = redeemedMs + safeDays * MS_PER_DAY;
+      expiresAtIso = new Date(expiresMs).toISOString();
+      const diffMs = expiresMs - nowMs;
+      if (diffMs <= 0) {
+        isExpired = true;
+        remainingDays = 0;
+      } else {
+        isExpired = false;
+        remainingDays = Math.max(1, Math.ceil(diffMs / MS_PER_DAY));
+      }
+    }
+  }
+
+  // Legacy passes previously marked 'USED' are still active if within their N-day window
+  const normalizedStatus: TournamentCodeStatus =
+    record.status === 'USED' && record.redeemed_at && !isExpired ? 'REDEEMED' : record.status;
+
+  return {
+    ...record,
+    duration_days: safeDays,
+    status: normalizedStatus,
+    expires_at: expiresAtIso,
+    is_expired: record.status === 'REVOKED' ? false : isExpired,
+    remaining_days: record.status === 'REVOKED' ? 0 : remainingDays,
+    tournaments_created_count: Math.max(
+      existingList.length,
+      typeof record.tournaments_created_count === 'number' ? record.tournaments_created_count : 0
+    ),
+    created_tournaments: existingList,
+  };
+}
+
+export function isTournamentPassActive(
+  record: TournamentUnlockCodeRecord,
+  nowMs: number = Date.now()
+): boolean {
+  const enriched = enrichTournamentCodeRecord(record, nowMs);
+  if (enriched.status === 'REVOKED') return false;
+  if (!enriched.redeemed_by_customer_id || !enriched.redeemed_at) return false;
+  return !enriched.is_expired;
+}
 
 function ensureDiskLoaded(): void {
   if (diskLoaded) return;
@@ -125,37 +218,62 @@ async function persistCodeRecord(
   record: TournamentUnlockCodeRecord
 ): Promise<void> {
   ensureDiskLoaded();
-  memoryStore.set(record.code, record);
+  const enriched = enrichTournamentCodeRecord(record);
+  memoryStore.set(enriched.code, enriched);
   flushDiskStore();
 
   if (!supabaseAdmin) return;
   try {
+    // Persist strictly to columns present in public.tournament_unlock_codes
+    const dbStatus: TournamentCodeStatus =
+      enriched.status === 'REVOKED'
+        ? 'REVOKED'
+        : enriched.redeemed_at
+          ? 'REDEEMED'
+          : 'ACTIVE';
     await supabaseAdmin.from('tournament_unlock_codes').upsert(
       {
-        code: record.code,
-        duration_days: record.duration_days,
-        price_per_day_inr: record.price_per_day_inr,
-        total_price_inr: record.total_price_inr,
-        assigned_customer_id: record.assigned_customer_id,
-        customer_label: record.customer_label,
-        status: record.status,
-        created_by: record.created_by,
-        created_at: record.created_at,
-        redeemed_by_customer_id: record.redeemed_by_customer_id,
-        redeemed_by_name: record.redeemed_by_name,
-        redeemed_at: record.redeemed_at,
-        consumed_tournament_id: record.consumed_tournament_id,
-        consumed_tournament_name: record.consumed_tournament_name,
-        consumed_dates: record.consumed_dates,
-        consumed_at: record.consumed_at,
-        revoked_at: record.revoked_at,
-        updated_at: record.updated_at,
+        code: enriched.code,
+        duration_days: enriched.duration_days,
+        price_per_day_inr: enriched.price_per_day_inr,
+        total_price_inr: enriched.total_price_inr,
+        assigned_customer_id: enriched.assigned_customer_id,
+        customer_label: enriched.customer_label,
+        status: dbStatus,
+        created_by: enriched.created_by,
+        created_at: enriched.created_at,
+        redeemed_by_customer_id: enriched.redeemed_by_customer_id,
+        redeemed_by_name: enriched.redeemed_by_name,
+        redeemed_at: enriched.redeemed_at,
+        consumed_tournament_id: enriched.consumed_tournament_id,
+        consumed_tournament_name: enriched.consumed_tournament_name,
+        consumed_dates: enriched.consumed_dates,
+        consumed_at: enriched.consumed_at,
+        revoked_at: enriched.revoked_at,
+        updated_at: enriched.updated_at,
       },
       { onConflict: 'code' }
     );
   } catch {
     // Gracefully fall back to disk/memory cache if SQL migration has not been run yet
   }
+}
+
+function mergeWithCachedHistory(
+  dbRec: TournamentUnlockCodeRecord
+): TournamentUnlockCodeRecord {
+  const cached = memoryStore.get(dbRec.code);
+  if (!cached || !Array.isArray(cached.created_tournaments) || cached.created_tournaments.length === 0) {
+    return enrichTournamentCodeRecord(dbRec);
+  }
+  return enrichTournamentCodeRecord({
+    ...dbRec,
+    created_tournaments: cached.created_tournaments,
+    tournaments_created_count: Math.max(
+      cached.created_tournaments.length,
+      cached.tournaments_created_count ?? 0
+    ),
+  });
 }
 
 export async function getTournamentCodeRecord(
@@ -174,7 +292,7 @@ export async function getTournamentCodeRecord(
         .eq('code', code)
         .maybeSingle();
       if (!error && data) {
-        const rec = data as TournamentUnlockCodeRecord;
+        const rec = mergeWithCachedHistory(data as TournamentUnlockCodeRecord);
         memoryStore.set(rec.code, rec);
         return rec;
       }
@@ -183,14 +301,18 @@ export async function getTournamentCodeRecord(
     }
   }
 
-  return memoryStore.get(code) ?? null;
+  const local = memoryStore.get(code);
+  return local ? enrichTournamentCodeRecord(local) : null;
 }
 
 export async function listAllTournamentCodes(
   supabaseAdmin: SupabaseClient | null
 ): Promise<TournamentUnlockCodeRecord[]> {
   ensureDiskLoaded();
-  const merged = new Map<string, TournamentUnlockCodeRecord>(memoryStore);
+  const merged = new Map<string, TournamentUnlockCodeRecord>();
+  for (const [k, v] of memoryStore.entries()) {
+    merged.set(k, enrichTournamentCodeRecord(v));
+  }
 
   if (supabaseAdmin) {
     try {
@@ -201,8 +323,9 @@ export async function listAllTournamentCodes(
         .limit(500);
       if (!error && Array.isArray(data)) {
         for (const row of data) {
-          const rec = row as TournamentUnlockCodeRecord;
-          if (rec?.code) {
+          const raw = row as TournamentUnlockCodeRecord;
+          if (raw?.code) {
+            const rec = mergeWithCachedHistory(raw);
             merged.set(rec.code, rec);
             memoryStore.set(rec.code, rec);
           }
@@ -240,7 +363,7 @@ export async function generateTournamentUnlockCode(params: {
   }
 
   const nowIso = new Date().toISOString();
-  const record: TournamentUnlockCodeRecord = {
+  const record = enrichTournamentCodeRecord({
     code,
     duration_days: days,
     price_per_day_inr: TOURNAMENT_PRICE_PER_DAY_INR,
@@ -259,7 +382,9 @@ export async function generateTournamentUnlockCode(params: {
     consumed_at: null,
     revoked_at: null,
     updated_at: nowIso,
-  };
+    created_tournaments: [],
+    tournaments_created_count: 0,
+  });
 
   await persistCodeRecord(params.supabaseAdmin, record);
   return record;
@@ -279,24 +404,24 @@ export async function revokeTournamentUnlockCode(params: {
     if (!existing) {
       return { ok: false, status: 404, error: 'Tournament unlock code not found.' };
     }
-    if (existing.status === 'USED') {
-      return {
-        ok: false,
-        status: 409,
-        error: 'This code was already used to create a tournament and cannot be revoked.',
-      };
-    }
     if (existing.status === 'REVOKED') {
       return { ok: true, status: 200, record: existing };
     }
+    if (existing.is_expired) {
+      return {
+        ok: false,
+        status: 409,
+        error: 'This code has already expired and no longer allows creating tournaments.',
+      };
+    }
 
     const nowIso = new Date().toISOString();
-    const updated: TournamentUnlockCodeRecord = {
+    const updated = enrichTournamentCodeRecord({
       ...existing,
       status: 'REVOKED',
       revoked_at: nowIso,
       updated_at: nowIso,
-    };
+    });
     await persistCodeRecord(params.supabaseAdmin, updated);
     return { ok: true, status: 200, record: updated };
   });
@@ -314,8 +439,10 @@ export async function getCustomerTournamentPasses(
 
   const all = await listAllTournamentCodes(supabaseAdmin);
   const owned = all.filter((r) => r.redeemed_by_customer_id === cleanId);
-  const activePasses = owned.filter((r) => r.status === 'REDEEMED');
-  const usedPasses = owned.filter((r) => r.status === 'USED');
+  const activePasses = owned.filter((r) => isTournamentPassActive(r));
+  const usedPasses = owned.filter(
+    (r) => !isTournamentPassActive(r) && r.status !== 'ACTIVE'
+  );
   return { activePasses, usedPasses };
 }
 
@@ -361,23 +488,33 @@ export async function redeemTournamentUnlockCode(params: {
       };
     }
 
-    if (existing.status === 'USED') {
-      return {
-        ok: false,
-        status: 409,
-        error: 'This Tournament Unlock Code has already been used to create a tournament.',
-      };
-    }
-
-    if (existing.status === 'REDEEMED') {
-      if (existing.redeemed_by_customer_id === cleanCustomerId) {
-        return { ok: true, status: 200, pass: existing };
+    // Already redeemed previously
+    if (existing.redeemed_by_customer_id) {
+      if (existing.redeemed_by_customer_id !== cleanCustomerId) {
+        return {
+          ok: false,
+          status: 409,
+          error: 'This Tournament Unlock Code has already been redeemed by another account.',
+        };
       }
-      return {
-        ok: false,
-        status: 409,
-        error: 'This Tournament Unlock Code has already been redeemed by another account.',
-      };
+      if (existing.is_expired) {
+        return {
+          ok: false,
+          status: 409,
+          error: `This ${existing.duration_days}-day Tournament Unlock Code has expired. Please request a new code from Admin.`,
+        };
+      }
+      // Still valid for this same customer (including legacy USED records still within N days)
+      if (existing.status !== 'REDEEMED') {
+        const restored = enrichTournamentCodeRecord({
+          ...existing,
+          status: 'REDEEMED',
+          updated_at: new Date().toISOString(),
+        });
+        await persistCodeRecord(params.supabaseAdmin, restored);
+        return { ok: true, status: 200, pass: restored };
+      }
+      return { ok: true, status: 200, pass: existing };
     }
 
     if (
@@ -392,14 +529,14 @@ export async function redeemTournamentUnlockCode(params: {
     }
 
     const nowIso = new Date().toISOString();
-    const updated: TournamentUnlockCodeRecord = {
+    const updated = enrichTournamentCodeRecord({
       ...existing,
       status: 'REDEEMED',
       redeemed_by_customer_id: cleanCustomerId,
       redeemed_by_name: String(params.customerName || cleanCustomerId).trim().slice(0, 120),
       redeemed_at: nowIso,
       updated_at: nowIso,
-    };
+    });
 
     await persistCodeRecord(params.supabaseAdmin, updated);
     return { ok: true, status: 200, pass: updated };
@@ -452,18 +589,18 @@ export async function consumeTournamentUnlockPass(params: {
     if (existing.status === 'REVOKED') {
       return { ok: false, status: 403, error: 'This Tournament Unlock Code has been revoked.' };
     }
-    if (existing.status === 'USED') {
-      return {
-        ok: false,
-        status: 409,
-        error: 'This Tournament Unlock Code was already used for another tournament.',
-      };
-    }
-    if (existing.status !== 'REDEEMED' || existing.redeemed_by_customer_id !== cleanCustomerId) {
+    if (existing.redeemed_by_customer_id !== cleanCustomerId || !existing.redeemed_at) {
       return {
         ok: false,
         status: 403,
         error: 'Please redeem a valid Admin Tournament Unlock Code on your account first.',
+      };
+    }
+    if (existing.is_expired) {
+      return {
+        ok: false,
+        status: 403,
+        error: `Your ${existing.duration_days}-day Tournament Unlock Pass has expired. Please enter a new code from Admin.`,
       };
     }
 
@@ -476,15 +613,32 @@ export async function consumeTournamentUnlockPass(params: {
     }
 
     const nowIso = new Date().toISOString();
-    const updated: TournamentUnlockCodeRecord = {
+    const prevList = Array.isArray(existing.created_tournaments)
+      ? existing.created_tournaments
+      : [];
+    const nextList = [
+      {
+        id: cleanTournamentId,
+        name: cleanTournamentName,
+        dates: cleanDates,
+        created_at: nowIso,
+      },
+      ...prevList.filter((item) => item.id !== cleanTournamentId),
+    ].slice(0, 100);
+
+    // Keep status = 'REDEEMED' so customer can keep creating unlimited new tournaments
+    // throughout all N unlocked days until expires_at!
+    const updated = enrichTournamentCodeRecord({
       ...existing,
-      status: 'USED',
+      status: 'REDEEMED',
       consumed_tournament_id: cleanTournamentId,
       consumed_tournament_name: cleanTournamentName,
       consumed_dates: cleanDates,
       consumed_at: nowIso,
       updated_at: nowIso,
-    };
+      created_tournaments: nextList,
+      tournaments_created_count: nextList.length,
+    });
 
     await persistCodeRecord(params.supabaseAdmin, updated);
     return { ok: true, status: 200, pass: updated };

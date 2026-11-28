@@ -5,6 +5,13 @@ export const TOURNAMENT_PRICE_PER_DAY_INR = 99;
 
 export type TournamentCodeStatus = 'ACTIVE' | 'REDEEMED' | 'USED' | 'REVOKED';
 
+export interface CreatedTournamentEntry {
+  id: string;
+  name: string;
+  dates: string[];
+  created_at: string;
+}
+
 export interface TournamentUnlockPass {
   code: string;
   duration_days: number;
@@ -24,6 +31,11 @@ export interface TournamentUnlockPass {
   consumed_at: string | null;
   revoked_at: string | null;
   updated_at: string;
+  expires_at?: string | null;
+  is_expired?: boolean;
+  remaining_days?: number;
+  tournaments_created_count?: number;
+  created_tournaments?: CreatedTournamentEntry[];
 }
 
 export interface TournamentUnlockStatusState {
