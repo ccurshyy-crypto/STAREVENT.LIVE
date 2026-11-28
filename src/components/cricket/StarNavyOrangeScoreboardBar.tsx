@@ -235,24 +235,23 @@ function SideFlipSlot({
           >
             {teamName}
           </div>
+        ) : teamLogo && showTeamLogo ? (
+          <img
+            src={teamLogo}
+            alt={teamName}
+            referrerPolicy="no-referrer"
+            className="w-[66px] h-[66px] object-contain shrink-0"
+            style={{ filter: 'drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45))' }}
+          />
         ) : (
           <div
             className="w-[62px] h-[62px] rounded-full flex items-center justify-center overflow-hidden shrink-0"
             style={{
-              background: teamLogo && showTeamLogo ? '#ffffff' : 'rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.1)',
               border: '3px solid #ffffff',
               boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)',
             }}
-          >
-            {teamLogo && showTeamLogo ? (
-              <img
-                src={teamLogo}
-                alt={teamName}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
-              />
-            ) : null}
-          </div>
+          />
         )}
       </div>
     </div>

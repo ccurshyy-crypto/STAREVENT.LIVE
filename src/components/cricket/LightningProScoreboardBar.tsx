@@ -439,7 +439,7 @@ export function LightningProScoreboardBar({
                   src={batTeamLogo}
                   alt={cleanBatCode}
                   referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover border border-slate-300 shrink-0"
+                  className="w-9 h-9 object-contain shrink-0"
                 />
                 <span
                   className="font-black uppercase tracking-tight truncate"
@@ -967,7 +967,7 @@ export function LightningProScoreboardBar({
                   src={bowlTeamLogo}
                   alt={cleanBowlCode}
                   referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover border border-slate-300 shrink-0"
+                  className="w-9 h-9 object-contain shrink-0"
                 />
               </div>
             ) : (

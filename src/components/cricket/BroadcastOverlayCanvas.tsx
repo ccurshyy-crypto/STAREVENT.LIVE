@@ -199,7 +199,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
           src={team.logoUrl}
           alt={team.shortName}
           referrerPolicy="no-referrer"
-          className={`${size} rounded-full object-cover border-2 border-white/60 shrink-0 bg-white`}
+          className={`${size} object-contain shrink-0`}
         />
       );
     }
@@ -1672,7 +1672,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
               src={team.logoUrl}
               alt={team.shortName}
               referrerPolicy="no-referrer"
-              className="w-7 h-7 rounded-full object-cover border-2 border-white/60 shrink-0 bg-white"
+              className="w-8 h-8 object-contain shrink-0"
             />
           );
         }
