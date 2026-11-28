@@ -381,8 +381,8 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
   // ================= FEATURED: 2021-2022 TATA IPL ANIMATED PATTI =================
   {
     id: 'tata-ipl-2022',
-    name: 'TATA IPL 2022 Animated Patti',
-    subtitle: 'Home Page Crimson · Royal Navy · Gold Animated Broadcast Patti & Event Stingers',
+    name: 'TATA IPL 2022',
+    subtitle: 'Crimson · Royal Navy · Gold Live Broadcast Scoreboard',
     primary: '#6B0208',
     secondary: '#D4080F',
     accent: '#FFE600',
@@ -413,7 +413,7 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
   {
     id: 'worldcup',
     name: 'WorldCup',
-    subtitle: 'Classic Broadcast Metallic Silver · Royal Blue · World Cup Live Scoreboard Patti',
+    subtitle: 'Classic Broadcast Metallic Silver · Royal Blue · World Cup Live Scoreboard',
     primary: '#0035A0',
     secondary: '#B91C1C',
     accent: '#FACC15',
@@ -444,7 +444,7 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
   {
     id: 'lightning-pro',
     name: 'Lightning Premier',
-    subtitle: 'Electric Royal Blue · Hot Magenta Score Pill · Golden Lightning Chevron Broadcast Patti',
+    subtitle: 'Electric Royal Blue · Hot Magenta Score Pill · Golden Lightning Broadcast Scoreboard',
     primary: '#002882',
     secondary: '#CC0A7B',
     accent: '#FACC15',

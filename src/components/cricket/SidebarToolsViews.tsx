@@ -993,7 +993,6 @@ export function SidebarToolsViews({
           </div>
           <span className="px-3 py-1.5 rounded-lg bg-[#FFF3E0] border border-[#FF8C00]/30 text-xs font-bold text-[#FF8C00]">
             Active: {activePalette.name}
-            {customColors.enabled ? ' (Custom Colors)' : ''}
           </span>
         </div>
 
@@ -1011,7 +1010,7 @@ export function SidebarToolsViews({
           {BROADCAST_THEMES.map((theme) => {
             const isWorldCup = theme.id === 'worldcup';
             const isLightningPro = theme.id === 'lightning-pro';
-            const isSelected = effectiveThemeId === theme.id && !customColors.enabled;
+            const isSelected = effectiveThemeId === theme.id;
 
             return (
               <div
@@ -1154,85 +1153,6 @@ export function SidebarToolsViews({
           onClose={() => setWorldCupPayModalOpen(false)}
           onUnlockSuccess={handleThemeUnlocked}
         />
-
-        {/* Custom Theme Color Selection */}
-        <div className="rounded-xl bg-white border border-slate-200 shadow-xs p-5 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="font-display font-bold text-sm text-slate-900">
-                Custom Theme Color Selection
-              </h3>
-              <p className="text-xs text-slate-500">
-                Override primary, secondary, and accent colors for your own tournament branding.
-              </p>
-            </div>
-            <label className="inline-flex items-center gap-2 text-xs font-bold text-slate-800 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={customColors.enabled}
-                onChange={(e) => {
-                  updateState((prev) => ({
-                    ...prev,
-                    user: {
-                      ...prev.user,
-                      customThemeColors: {
-                        ...prev.user.customThemeColors,
-                        enabled: e.target.checked,
-                      },
-                    },
-                  }));
-                  onToast(
-                    e.target.checked
-                      ? 'Custom theme colors enabled on overlay.'
-                      : 'Switched back to preset theme colors.'
-                  );
-                }}
-                className="w-4 h-4 accent-[#FF8C00]"
-              />
-              <span>Enable Custom Colors</span>
-            </label>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {(
-              [
-                ['primary', 'Primary Bar Color'],
-                ['secondary', 'Secondary Gradient Color'],
-                ['accent', 'Accent / Highlight Color'],
-              ] as const
-            ).map(([field, label]) => (
-              <div
-                key={field}
-                className="p-3 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-3"
-              >
-                <div>
-                  <p className="text-xs font-bold text-slate-800">{label}</p>
-                  <p className="text-[11px] font-mono text-slate-500 uppercase">
-                    {customColors[field]}
-                  </p>
-                </div>
-                <input
-                  type="color"
-                  value={customColors[field]}
-                  onChange={(e) =>
-                    updateState((prev) => ({
-                      ...prev,
-                      user: {
-                        ...prev.user,
-                        customThemeColors: {
-                          ...prev.user.customThemeColors,
-                          enabled: true,
-                          [field]: e.target.value,
-                        },
-                      },
-                    }))
-                  }
-                  className="w-10 h-10 rounded cursor-pointer border border-slate-300"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     );
   }
