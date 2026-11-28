@@ -119,7 +119,12 @@ export function generateActionId(prefix = 'act'): string {
 }
 
 function resolveThemeId(raw: unknown): OverlayThemeId {
-  if (raw === 'worldcup' || raw === 'lightning-pro' || raw === 'tata-ipl-2022') {
+  if (
+    raw === 'worldcup' ||
+    raw === 'lightning-pro' ||
+    raw === 'star-navy-orange' ||
+    raw === 'tata-ipl-2022'
+  ) {
     return raw;
   }
   return 'tata-ipl-2022';

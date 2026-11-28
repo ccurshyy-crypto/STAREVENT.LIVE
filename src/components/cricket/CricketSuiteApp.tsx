@@ -114,7 +114,8 @@ export function CricketSuiteApp({
     const isValidTheme =
       state.user.userTheme === 'tata-ipl-2022' ||
       state.user.userTheme === 'worldcup' ||
-      state.user.userTheme === 'lightning-pro';
+      state.user.userTheme === 'lightning-pro' ||
+      state.user.userTheme === 'star-navy-orange';
     if (!isValidTheme || state.user.customThemeColors?.enabled) {
       updateState((prev) => ({
         ...prev,

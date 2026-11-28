@@ -2682,6 +2682,96 @@ body.overlay-chroma-blue #root {
   box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.3), 0 6px 16px -3px rgba(234, 88, 12, 0.55);
 }
 
+/* ================= STAR EVENT LIVE NAVY & ORANGE SCOREBOARD ANIMATIONS ================= */
+@keyframes starNavySlideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes starNavyBatWiggle {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(12deg);
+  }
+}
+
+@keyframes starNavyScorePop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes starNavyMarquee {
+  0% {
+    transform: translateX(65%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+@keyframes starNavyRevealUp {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes starNavyFadeScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.star-navy-slide-up {
+  animation: starNavySlideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.star-navy-bat-wiggle {
+  animation: starNavyBatWiggle 1.8s infinite ease-in-out;
+  transform-origin: bottom left;
+}
+
+.star-navy-score-pop {
+  animation: starNavyScorePop 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.star-navy-marquee {
+  animation: starNavyMarquee 9.5s linear infinite;
+}
+
+.star-navy-reveal-up {
+  animation: starNavyRevealUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.star-navy-fade-scale {
+  animation: starNavyFadeScale 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

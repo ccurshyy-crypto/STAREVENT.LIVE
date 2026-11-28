@@ -95,7 +95,7 @@
         },
         "themeId": {
           "type": "string",
-          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro"],
+          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro", "star-navy-orange"],
           "description": "Active broadcast overlay theme identifier."
         },
         "revision": {
@@ -215,7 +215,7 @@
         "bowlingTeamCode": { "type": "string", "maxLength": 16 },
         "themeId": {
           "type": "string",
-          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro"]
+          "enum": ["tata-ipl-2022", "worldcup", "lightning-pro", "star-navy-orange"]
         },
         "revision": { "type": "integer" },
         "lastActionId": {

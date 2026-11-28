@@ -39,7 +39,7 @@ service cloud.firestore {
     }
 
     function isValidThemeId(themeId) {
-      return themeId is string && themeId in ['tata-ipl-2022', 'worldcup', 'lightning-pro'];
+      return themeId is string && themeId in ['tata-ipl-2022', 'worldcup', 'lightning-pro', 'star-navy-orange'];
     }
 
     function isValidMatchStatus(status) {

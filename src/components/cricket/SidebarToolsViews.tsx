@@ -40,6 +40,7 @@ import {
 import { TataIplScoreboardBar } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { LightningProScoreboardBar } from './LightningProScoreboardBar';
+import { StarNavyOrangeScoreboardBar } from './StarNavyOrangeScoreboardBar';
 import { WorldCupUnlockModal } from './WorldCupUnlockModal';
 import {
   formatUnlockTimestamp,
@@ -1010,6 +1011,7 @@ export function SidebarToolsViews({
           {BROADCAST_THEMES.map((theme) => {
             const isWorldCup = theme.id === 'worldcup';
             const isLightningPro = theme.id === 'lightning-pro';
+            const isStarNavyOrange = theme.id === 'star-navy-orange';
             const isSelected = effectiveThemeId === theme.id;
 
             return (
@@ -1029,13 +1031,17 @@ export function SidebarToolsViews({
                       ? 'linear-gradient(135deg, #F1F5F9 0%, #E2E8F0 55%, #CBD5E1 100%)'
                       : isLightningPro
                         ? 'linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 55%, #E2E8F0 100%)'
-                        : 'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
+                        : isStarNavyOrange
+                          ? 'linear-gradient(135deg, #E2E8F0 0%, #F1F5F9 55%, #CBD5E1 100%)'
+                          : 'linear-gradient(135deg, #06174B 0%, #0A2A85 55%, #06143D 100%)',
                   }}
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span
                       className={`font-display font-black text-xs sm:text-sm tracking-wide inline-flex items-center gap-1.5 ${
-                        isWorldCup || isLightningPro ? 'text-slate-900' : 'text-white'
+                        isWorldCup || isLightningPro || isStarNavyOrange
+                          ? 'text-slate-900'
+                          : 'text-white'
                       }`}
                     >
                       <span>★ {theme.name}</span>
@@ -1101,6 +1107,36 @@ export function SidebarToolsViews({
                       showBalls
                       topHoodText="TARGET - 00"
                       bottomTickerText="NEED 00 RUNS FROM 20 BALLS"
+                      compact
+                    />
+                  ) : isStarNavyOrange ? (
+                    <StarNavyOrangeScoreboardBar
+                      batTeamName="NERAL WARRIORS"
+                      batTeamCode="NER"
+                      bowlTeamName="KARJAT LIONS"
+                      bowlTeamCode="KAR"
+                      runs={48}
+                      wickets={2}
+                      oversText="4.3"
+                      inningsNumber={1}
+                      projectedScore={112}
+                      crr="10.67"
+                      batter1Name="PAPYA"
+                      batter1Runs={26}
+                      batter1Balls={14}
+                      batter2Name="SURAJ"
+                      batter2Runs={15}
+                      batter2Balls={10}
+                      strikerIndex={1}
+                      bowlerName="CRUSHYY"
+                      bowlerFigs="1-14"
+                      bowlerOvers="1.3"
+                      balls={[
+                        { id: 'sn-1', label: '1' },
+                        { id: 'sn-2', label: '4', isBoundary4: true },
+                        { id: 'sn-3', label: 'W', isWicket: true },
+                      ]}
+                      tickerTitle="STAR EVENT LIVE"
                       compact
                     />
                   ) : (

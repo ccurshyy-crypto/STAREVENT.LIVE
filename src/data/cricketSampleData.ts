@@ -362,6 +362,7 @@ export interface ScoreboardBarStyle {
   isTataIpl2022?: boolean;
   isWorldCup?: boolean;
   isLightningPro?: boolean;
+  isStarNavyOrange?: boolean;
 }
 
 export interface BroadcastThemeConfig {
@@ -469,6 +470,37 @@ export const BROADCAST_THEMES: BroadcastThemeConfig[] = [
       ballMode: 'colored',
       isWidescreen: true,
       isLightningPro: true,
+    },
+  },
+  // ================= STAR EVENT LIVE NAVY & ORANGE BROADCAST PATTI =================
+  {
+    id: 'star-navy-orange',
+    name: 'Star Event Live Pro',
+    subtitle: 'Deep Royal Navy · Crisp Orange Score Pill · 3D Team Flip & Chase Broadcast Scoreboard',
+    primary: '#0B3575',
+    secondary: '#F58220',
+    accent: '#FFFFFF',
+    surface: '#062049',
+    textOnPrimary: '#FFFFFF',
+    category: 'pro-scoreboard',
+    barStyle: {
+      number: 3,
+      outerBorder: '#F58220',
+      outerGlow: 'rgba(245, 130, 32, 0.45)',
+      leftBadgeBg: 'linear-gradient(180deg, #0B3575, #062049)',
+      leftBadgeText: '#FFFFFF',
+      batterPanelBg: 'linear-gradient(180deg, #0B3575, #062049)',
+      batterPanelText: '#FFFFFF',
+      scorePillBg: '#F2F4F8',
+      scorePillText: '#082654',
+      scorePillBorder: '#FFFFFF',
+      bowlerPanelBg: 'linear-gradient(180deg, #0B3575, #062049)',
+      bowlerPanelText: '#FFFFFF',
+      rightBadgeBg: 'linear-gradient(180deg, #0B3575, #062049)',
+      rightBadgeText: '#FFFFFF',
+      ballMode: 'colored',
+      isWidescreen: true,
+      isStarNavyOrange: true,
     },
   },
 ];

@@ -30,6 +30,7 @@ import {
 } from './TataIplScoreboardBar';
 import { WorldCupScoreboardBar } from './WorldCupScoreboardBar';
 import { LightningProScoreboardBar } from './LightningProScoreboardBar';
+import { StarNavyOrangeScoreboardBar } from './StarNavyOrangeScoreboardBar';
 import { BroadcastMatchSummaryCard } from './BroadcastMatchSummaryCard';
 import { type PaidThemeId } from '../../lib/worldCupUnlock';
 
@@ -118,6 +119,9 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
   const useLightningProPatti =
     !state.user.customThemeColors?.enabled &&
     (theme.id === 'lightning-pro' || Boolean(theme.barStyle?.isLightningPro));
+  const useStarNavyOrangePatti =
+    !state.user.customThemeColors?.enabled &&
+    (theme.id === 'star-navy-orange' || Boolean(theme.barStyle?.isStarNavyOrange));
   const showTransition =
     activeTransition !== null && visibleTransitionId === activeTransition.id;
 
@@ -1072,6 +1076,40 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
     if (mode === 'EMPTY' && !customMsgPatiBanner && !liveActiveEvent) return null;
 
     if (!match || !activeInn) {
+      if (useStarNavyOrangePatti) {
+        return (
+          <div className="absolute bottom-3 inset-x-2 sm:inset-x-4 pointer-events-none">
+            <StarNavyOrangeScoreboardBar
+              batTeamName="TEAM A"
+              batTeamCode="TMA"
+              bowlTeamName="TEAM B"
+              bowlTeamCode="TMB"
+              showTeamLogo={overlay.showTeamLogo}
+              runs={0}
+              wickets={0}
+              oversText="0.0"
+              inningsNumber={1}
+              projectedScore={0}
+              crr="0.00"
+              batter1Name="BATTER 1"
+              batter1Runs={0}
+              batter1Balls={0}
+              batter2Name="BATTER 2"
+              batter2Runs={0}
+              batter2Balls={0}
+              strikerIndex={1}
+              bowlerName="BOWLER"
+              bowlerFigs="0-0"
+              bowlerOvers="0.0"
+              balls={[]}
+              tickerTitle={(tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE').toUpperCase()}
+              patiBanner={customMsgPatiBanner}
+              activeEvent={liveActiveEvent}
+            />
+          </div>
+        );
+      }
+
       if (useLightningProPatti) {
         return (
           <div className="absolute bottom-5 inset-x-4 sm:inset-x-6 pointer-events-none">
@@ -1540,6 +1578,73 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
             showBalls
             topHoodText={topHoodText}
             bottomTickerText={bottomTickerText}
+            winnerInfo={winnerInfo}
+            patiBanner={patiBanner}
+            bottomNeed={bottomNeedInfo}
+            activeEvent={liveActiveEvent}
+          />
+        </div>
+      );
+    }
+
+    if (useStarNavyOrangePatti) {
+      const ballList = (mode === 'Last 15 Balls' ? last15Balls : thisOverBalls).map((b) => ({
+        id: b.id,
+        label: getBallPillLabel(b),
+        isBoundary4: b.isBoundary4,
+        isBoundary6: b.isBoundary6,
+        isWicket: b.isWicket,
+        isExtra: b.extraType !== 'none',
+      }));
+
+      const inningsNumber: 1 | 2 = match.currentInningsIndex === 1 ? 2 : 1;
+      const numericCrr = Number(crr);
+      const projectedScore =
+        Number.isFinite(numericCrr) && numericCrr > 0
+          ? Math.max(activeInn.runs, Math.round(numericCrr * activeInn.maxOvers))
+          : activeInn.runs;
+
+      const navyTickerTitle =
+        mode === 'Score'
+          ? (
+              tournament?.name ||
+              state.user.channelTitle ||
+              'STAR EVENT LIVE'
+            ).toUpperCase()
+          : infoStrip;
+
+      return (
+        <div className="absolute bottom-3 inset-x-2 sm:inset-x-4 pointer-events-none">
+          <StarNavyOrangeScoreboardBar
+            batTeamName={displayLeftTeam?.name || displayLeftTeam?.shortName || 'BATTING'}
+            batTeamCode={displayLeftTeam?.shortName || 'BAT'}
+            batTeamLogo={displayLeftTeam?.logoUrl}
+            bowlTeamName={displayRightTeam?.name || displayRightTeam?.shortName || 'BOWLING'}
+            bowlTeamCode={displayRightTeam?.shortName || 'BOWL'}
+            bowlTeamLogo={displayRightTeam?.logoUrl}
+            showTeamLogo={displayShowLogo}
+            runs={activeInn.runs}
+            wickets={activeInn.wickets}
+            oversText={formatOvers(activeInn.legalBalls)}
+            inningsNumber={inningsNumber}
+            projectedScore={projectedScore}
+            crr={crr}
+            rrr={rrr}
+            target={target}
+            needRuns={needRuns}
+            needBalls={remBalls}
+            batter1Name={striker?.playerName || 'NEXT BATTER'}
+            batter1Runs={striker ? striker.runs : 0}
+            batter1Balls={striker ? striker.balls : 0}
+            batter2Name={nonStriker?.playerName || 'NEXT BATTER'}
+            batter2Runs={nonStriker ? nonStriker.runs : 0}
+            batter2Balls={nonStriker ? nonStriker.balls : 0}
+            strikerIndex={1}
+            bowlerName={bowler?.playerName || 'BOWLER'}
+            bowlerFigs={`${bowler?.wickets ?? 0}-${bowler?.runs ?? 0}`}
+            bowlerOvers={bowler?.overs ?? '0.0'}
+            balls={ballList}
+            tickerTitle={navyTickerTitle}
             winnerInfo={winnerInfo}
             patiBanner={patiBanner}
             bottomNeed={bottomNeedInfo}
