@@ -152,11 +152,7 @@ export function QuickOverlayBottomSheet({
   const { overlay } = state;
 
   const handleSelectBottomMode = (mode: BottomScoreMode) => {
-    const isAlreadyActive =
-      mode !== 'EMPTY' &&
-      overlay.bottomScoreMode === mode &&
-      overlay.mainCard.kind === 'NONE';
-    const nextMode: BottomScoreMode = mode === 'EMPTY' || isAlreadyActive ? 'EMPTY' : mode;
+    const nextMode: BottomScoreMode = mode === 'EMPTY' ? 'EMPTY' : mode;
     updateState((prev) => ({
       ...prev,
       activeMatchId: match.id,

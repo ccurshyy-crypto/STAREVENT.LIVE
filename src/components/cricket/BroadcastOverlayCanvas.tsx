@@ -1422,9 +1422,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
 
       const pattiTargetText =
         mode === 'Score'
-          ? target !== null
-            ? `TARGET ${target}${needRuns !== null ? ` • NEED ${needRuns} IN ${remBalls}B` : ''}`
-            : `CRR ${crr} • ${activeInn.maxOvers} OVERS`
+          ? `CRR ${crr} • ${activeInn.maxOvers} OVERS`
           : infoStrip;
 
       const pattiMatchTitle = `${(
@@ -1480,14 +1478,12 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
         isExtra: b.extraType !== 'none',
       }));
 
-      const isChasing = match.currentInningsIndex === 1 && target !== null && needRuns !== null;
-      const wcRateLabel = isChasing ? 'REQ RUN RATE' : 'RUN RATE';
-      const wcRateValue = isChasing ? rrr : crr;
+      const showChaseRate = (mode === 'Bottom Need' || mode === 'Need') && target !== null && needRuns !== null;
+      const wcRateLabel = showChaseRate ? 'REQ RUN RATE' : 'RUN RATE';
+      const wcRateValue = showChaseRate ? rrr : crr;
       const wcTickerText =
         mode === 'Score'
-          ? isChasing
-            ? `${(batTeam?.shortName || 'BAT').toUpperCase()} NEED ${needRuns} RUNS FROM ${remBalls} BALLS`
-            : (tournament?.name || 'LIVE SCORE WORLD CUP').toUpperCase()
+          ? (tournament?.name || 'LIVE SCORE WORLD CUP').toUpperCase()
           : infoStrip;
 
       return (
@@ -1539,15 +1535,13 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
         isExtra: b.extraType !== 'none',
       }));
 
-      const isChasing = match.currentInningsIndex === 1 && target !== null && needRuns !== null;
-      const topHoodText = isChasing
+      const showChaseTicker = (mode === 'Bottom Need' || mode === 'Need') && target !== null && needRuns !== null;
+      const topHoodText = showChaseTicker
         ? `TARGET - ${target}`
         : `CRR - ${crr}`;
       const bottomTickerText =
         mode === 'Score'
-          ? isChasing
-            ? `NEED ${needRuns} RUNS FROM ${remBalls} BALLS`
-            : (tournament?.name || `${batTeam?.name || 'BATTING'} VS ${bowlTeam?.name || 'BOWLING'}`).toUpperCase()
+          ? (tournament?.name || `${batTeam?.name || 'BATTING'} VS ${bowlTeam?.name || 'BOWLING'}`).toUpperCase()
           : infoStrip;
 
       return (

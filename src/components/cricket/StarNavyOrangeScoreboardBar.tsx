@@ -357,7 +357,9 @@ export function StarNavyOrangeScoreboardBar({
     };
   }, []);
 
-  // 3. Stat Box Rotator (TARGET -> CRR -> RRR in chase/Bottom Need; PROJECTED <-> CRR in 1st inn)
+  // 3. Stat Box Rotator:
+  //    - Bottom Need mode (with target): TARGET -> CRR -> RRR
+  //    - Score / normal mode (1st or 2nd innings): PROJECTED <-> CRR (never forces chase mode on 2nd innings)
   const statItems = useMemo(() => {
     if (bottomNeed && target !== null && target > 0) {
       return [
@@ -366,18 +368,11 @@ export function StarNavyOrangeScoreboardBar({
         { label: 'RRR', value: rrr || '0.00' },
       ];
     }
-    if (inningsNumber === 2 && target !== null && target > 0) {
-      return [
-        { label: 'RRR', value: rrr || '0.00' },
-        { label: 'TARGET', value: String(target) },
-        { label: 'CRR', value: crr || '0.00' },
-      ];
-    }
     return [
       { label: 'PROJECTED', value: String(Math.max(runs, Math.round(projectedScore || 0))) },
       { label: 'CRR', value: crr || '0.00' },
     ];
-  }, [bottomNeed, inningsNumber, target, rrr, crr, projectedScore, runs]);
+  }, [bottomNeed, target, rrr, crr, projectedScore, runs]);
 
   const [statIdx, setStatIdx] = useState(0);
   const [statSliding, setStatSliding] = useState(false);

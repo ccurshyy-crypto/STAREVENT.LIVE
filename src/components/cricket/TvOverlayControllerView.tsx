@@ -426,10 +426,8 @@ export function TvOverlayControllerView({
       return;
     }
     setActiveTransitionType(null);
-    const isCurrentlyActive =
-      overlay.bottomScoreMode === mode && overlay.mainCard.kind === 'NONE';
 
-    if (mode === 'EMPTY' || isCurrentlyActive) {
+    if (mode === 'EMPTY') {
       cancelAutoHide();
       updateState((prev) => ({
         ...prev,
@@ -454,10 +452,10 @@ export function TvOverlayControllerView({
       },
     }));
 
-    // Keep live main 'Score' steady; auto-hide all temporary bottom ticker modes
-    if (mode === 'Score') {
+    // Keep live Score and Bottom Need steady until operator switches them manually
+    if (mode === 'Score' || mode === 'Bottom Need') {
       cancelAutoHide();
-      onToast('Bottom score: Score (Live)');
+      onToast(`Bottom score: ${mode} (Live)`);
     } else if (autoHideSeconds > 0) {
       scheduleAutoHide(autoHideSeconds);
       onToast(`Bottom score: ${mode} (auto-off in ${autoHideSeconds}s)`);
