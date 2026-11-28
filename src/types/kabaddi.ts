@@ -10,8 +10,30 @@ export type KabaddiTeamColor =
 
 export type KabaddiHalf = '1ST HALF' | 'HALF TIME' | '2ND HALF' | 'FULL TIME' | 'TIE BREAKER';
 
+export type KabaddiOverlayThemeId =
+  | 'royal-blue'
+  | 'silver-navy'
+  | 'crimson-noir'
+  | 'saffron-chrome'
+  | 'star-classic';
+
+export const KABADDI_OVERLAY_THEMES: ReadonlyArray<{
+  id: KabaddiOverlayThemeId;
+  name: string;
+  swatchPrimary: string;
+  swatchSecondary: string;
+}> = [
+  { id: 'royal-blue', name: 'Royal Blue', swatchPrimary: '#1D4ED8', swatchSecondary: '#09090B' },
+  { id: 'silver-navy', name: 'Silver Ocean', swatchPrimary: '#E5E7EB', swatchSecondary: '#062B45' },
+  { id: 'crimson-noir', name: 'Red & Black', swatchPrimary: '#DC2626', swatchSecondary: '#111114' },
+  { id: 'saffron-chrome', name: 'Orange Chrome', swatchPrimary: '#F97316', swatchSecondary: '#E5E7EB' },
+  { id: 'star-classic', name: 'Star Classic', swatchPrimary: '#8F050E', swatchSecondary: '#FFE600' },
+];
+
 export type KabaddiAlertType =
   | 'NONE'
+  | 'RAID_POINT'
+  | 'TACKLE_POINT'
   | 'SUPER_RAID'
   | 'SUPER_TACKLE'
   | 'ALL_OUT'
@@ -98,6 +120,7 @@ export interface KabaddiScoreboardState {
   matchClock: KabaddiTimerState;
   raidClock: KabaddiTimerState;
   showScoreboard: boolean;
+  overlayTheme?: KabaddiOverlayThemeId;
   activeCard: KabaddiCardView;
   alert: KabaddiAlertState | null;
   gameLog?: KabaddiLogEntry[];
@@ -255,6 +278,7 @@ export function createInitialKabaddiState(uid: string): KabaddiScoreboardState {
       startedAtMs: null,
     },
     showScoreboard: true,
+    overlayTheme: 'royal-blue',
     activeCard: 'NONE',
     alert: null,
     gameLog: [],

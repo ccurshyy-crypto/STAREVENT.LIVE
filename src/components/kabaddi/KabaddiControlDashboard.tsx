@@ -30,17 +30,19 @@ import {
   createInitialKabaddiState,
   ensureKabaddiPlayers,
   formatClockMMSS,
+  KABADDI_OVERLAY_THEMES,
   KABADDI_TEAM_PALETTES,
   KabaddiAlertType,
   KabaddiCardView,
   KabaddiHalf,
   KabaddiLogEntry,
+  KabaddiOverlayThemeId,
   KabaddiPlayer,
   KabaddiScoreboardState,
   KabaddiTeamColor,
   KabaddiTeamSide,
 } from '../../types/kabaddi';
-import { KabaddiOverlayCanvas } from './KabaddiOverlayCanvas';
+import { KabaddiOverlayCanvas, KabaddiScoreboardBar } from './KabaddiOverlayCanvas';
 
 interface KabaddiControlDashboardProps {
   uid: string;
@@ -239,8 +241,10 @@ export function KabaddiControlDashboard({
   const [subInNumber, setSubInNumber] = useState<string>('');
 
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const barPreviewRef = useRef<HTMLDivElement | null>(null);
   const loadFileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewScale, setPreviewScale] = useState(0.55);
+  const [barPreviewScale, setBarPreviewScale] = useState(0.72);
 
   const teamAPlayers = useMemo(
     () => ensureKabaddiPlayers(state.teamA, 'A'),
@@ -369,6 +373,27 @@ export function KabaddiControlDashboard({
     return () => ro.disconnect();
   }, [showBroadcastMonitor]);
 
+  // Responsive inline scoreboard bar preview scaling (1232px canonical width)
+  useEffect(() => {
+    const el = barPreviewRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const updateBarScale = () => {
+      const width = el.clientWidth;
+      if (width > 32) setBarPreviewScale(Math.max(0.25, Math.min(1, (width - 28) / 1232)));
+    };
+    updateBarScale();
+    const ro = new ResizeObserver(updateBarScale);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const activeLiveAlert =
+    state.alert && state.alert.type !== 'NONE' && state.alert.expiresAtMs > nowMs
+      ? state.alert
+      : null;
+
+  const activeThemeId: KabaddiOverlayThemeId = state.overlayTheme || 'royal-blue';
+
   const overlayUrl = useMemo(() => {
     const path = `/kabaddi-overlay?id=${encodeURIComponent(uid)}`;
     if (typeof window === 'undefined') return path;
@@ -389,7 +414,8 @@ export function KabaddiControlDashboard({
     teamSide: KabaddiTeamSide | null,
     title: string,
     subtitle: string,
-    pointsBadge?: string
+    pointsBadge?: string,
+    durationMs: number = ALERT_DURATION_MS
   ) => {
     const now = Date.now();
     return {
@@ -399,7 +425,7 @@ export function KabaddiControlDashboard({
       subtitle,
       pointsBadge,
       triggeredAtMs: now,
-      expiresAtMs: now + ALERT_DURATION_MS,
+      expiresAtMs: now + durationMs,
     };
   };
 
@@ -422,6 +448,8 @@ export function KabaddiControlDashboard({
         Exclude<KabaddiAlertType, 'NONE'>,
         { title: string; subtitle: string; badge?: string }
       > = {
+        RAID_POINT: { title: 'RAID POINT!', subtitle: teamName, badge: '+1 PT' },
+        TACKLE_POINT: { title: 'TACKLE POINT!', subtitle: teamName, badge: '+1 PT' },
         SUPER_RAID: { title: 'SUPER RAID!', subtitle: teamName, badge: '3+ PTS' },
         SUPER_TACKLE: { title: 'SUPER TACKLE!', subtitle: teamName, badge: '+2 PTS' },
         ALL_OUT: { title: 'ALL OUT!', subtitle: teamName, badge: '+2 BONUS' },
@@ -778,14 +806,63 @@ export function KabaddiControlDashboard({
           scoringSide,
           'ALL OUT!',
           `${team.name} +2 POINTS`,
-          '+2 ALL OUT'
+          '+2 ALL OUT',
+          4200
         );
-      } else if (autoAlert === 'SUPER_RAID') {
-        nextAlert = buildAlert('SUPER_RAID', scoringSide, 'SUPER RAID!', team.name, `+${points} PTS`);
-      } else if (autoAlert === 'SUPER_TACKLE') {
-        nextAlert = buildAlert('SUPER_TACKLE', scoringSide, 'SUPER TACKLE!', team.name, '+2 PTS');
-      } else if (autoAlert === 'BONUS') {
-        nextAlert = buildAlert('BONUS', scoringSide, 'BONUS POINT!', team.name, '+1 PT');
+      } else if (autoAlert === 'SUPER_RAID' || (kind === 'raid' && points >= 3)) {
+        nextAlert = buildAlert(
+          'SUPER_RAID',
+          scoringSide,
+          'SUPER RAID!',
+          team.name,
+          `+${points} PTS`,
+          4200
+        );
+      } else if (kind === 'raid' && points > 0) {
+        nextAlert = buildAlert(
+          'RAID_POINT',
+          scoringSide,
+          points === 2 ? '2 POINT RAID!' : 'RAID POINT!',
+          team.name,
+          `+${points} ${points === 1 ? 'PT' : 'PTS'}`,
+          2800
+        );
+      } else if (autoAlert === 'SUPER_TACKLE' || (kind === 'tackle' && points >= 2)) {
+        nextAlert = buildAlert(
+          'SUPER_TACKLE',
+          scoringSide,
+          'SUPER TACKLE!',
+          team.name,
+          `+${points} PTS`,
+          4200
+        );
+      } else if (kind === 'tackle' && points > 0) {
+        nextAlert = buildAlert(
+          'TACKLE_POINT',
+          scoringSide,
+          'TACKLE POINT!',
+          team.name,
+          `+${points} PT`,
+          2800
+        );
+      } else if (autoAlert === 'BONUS' || (kind === 'bonus' && points > 0)) {
+        nextAlert = buildAlert(
+          'BONUS',
+          scoringSide,
+          'BONUS POINT!',
+          team.name,
+          `+${points} PT`,
+          3200
+        );
+      } else if (kind === 'adjust' && points > 0) {
+        nextAlert = buildAlert(
+          'RAID_POINT',
+          scoringSide,
+          'POINT SCORED!',
+          team.name,
+          `+${points} ${points === 1 ? 'PT' : 'PTS'}`,
+          2600
+        );
       }
 
       const shouldEndRaid = kind === 'raid' || kind === 'tackle';
@@ -1861,6 +1938,77 @@ export function KabaddiControlDashboard({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {renderTeamPlayersCard('A')}
             {renderTeamPlayersCard('B')}
+          </div>
+
+          {/* Broadcast Scoreboard Themes + Live In-Bar Animation Preview */}
+          <div className="rounded-xl bg-white border border-orange-200 border-t-[3px] border-t-[#FF8C00] shadow-xs p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#FF8C00]" aria-hidden="true" />
+                <h3 className="font-display text-sm font-black uppercase tracking-wide text-slate-900">
+                  Broadcast Scoreboard Themes
+                </h3>
+                <span className="text-[10px] font-mono font-bold uppercase text-[#EA580C] bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
+                  In-Bar Score Animation
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {KABADDI_OVERLAY_THEMES.map((themeOpt) => {
+                  const selected = activeThemeId === themeOpt.id;
+                  return (
+                    <button
+                      key={themeOpt.id}
+                      type="button"
+                      onClick={() => {
+                        updateState(
+                          (prev) => ({ ...prev, overlayTheme: themeOpt.id }),
+                          false
+                        );
+                        notify(`Theme switched to ${themeOpt.name}`);
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                        selected
+                          ? 'bg-[#FF8C00] text-white border-[#EA580C] shadow-xs'
+                          : 'bg-orange-50/70 hover:bg-orange-100 text-slate-800 border-orange-200'
+                      }`}
+                    >
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border border-white/80 shrink-0 shadow-xs"
+                        style={{
+                          background: `linear-gradient(135deg, ${themeOpt.swatchPrimary} 50%, ${themeOpt.swatchSecondary} 50%)`,
+                        }}
+                      />
+                      <span>{themeOpt.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Live Scaled Scoreboard Bar Preview */}
+            <div
+              ref={barPreviewRef}
+              className="relative w-full rounded-xl overflow-hidden border border-orange-200 bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 px-3 py-4 flex items-center justify-center"
+              style={{
+                minHeight: `${Math.max(96, Math.round(166 * barPreviewScale) + 24)}px`,
+              }}
+            >
+              <div
+                className="shrink-0"
+                style={{
+                  width: '1232px',
+                  transform: `scale(${barPreviewScale})`,
+                  transformOrigin: 'center center',
+                }}
+              >
+                <KabaddiScoreboardBar
+                  state={state}
+                  matchSec={liveMatchSec}
+                  raidSec={liveRaidSec}
+                  activeAlert={activeLiveAlert}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Collapsible OBS / vMix Broadcast Monitor, Graphics & Alerts Panel */}
