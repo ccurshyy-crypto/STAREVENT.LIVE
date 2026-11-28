@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import {
   auth,
-  signInWithGooglePopup,
+  getGoogleRedirectResult,
+  signInWithGoogleRedirect,
   signOutFirebaseAuth,
   subscribeFirebaseAuth,
 } from '../firebase';
@@ -102,11 +103,48 @@ export function AdminTournamentCodesPanel({
   const totalPriceInr = safeDays * TOURNAMENT_PRICE_PER_DAY_INR;
 
   useEffect(() => {
+    let active = true;
+    let authStateInitialized = false;
+    let redirectSettled = false;
+
+    const markReadyIfDone = () => {
+      if (active && authStateInitialized && redirectSettled) {
+        setFbAuthReady(true);
+      }
+    };
+
     const unsub = subscribeFirebaseAuth((user) => {
+      if (!active) return;
       setFbUser(user);
-      setFbAuthReady(true);
+      authStateInitialized = true;
+      markReadyIfDone();
     });
-    return () => unsub();
+
+    void getGoogleRedirectResult().then((outcome) => {
+      if (!active) return;
+      if (outcome.error) {
+        setErrorMsg(
+          `Google sign-in redirect failed: ${outcome.error.message || 'Please check authorized redirect URLs and try again.'}`
+        );
+      } else if (outcome.user) {
+        setFbUser(outcome.user);
+        if (!isFirebaseOwnerAdminUser(outcome.user)) {
+          setErrorMsg(
+            `Signed in as ${outcome.user.email || 'unknown account'}, but Firestore Admin access is restricted to ${OWNER_ADMIN_EMAIL}.`
+          );
+        } else {
+          setFeedbackMsg(`Connected to Firebase Cloud Firestore as ${outcome.user.email}.`);
+        }
+      }
+      redirectSettled = true;
+      setSigningInFb(false);
+      markReadyIfDone();
+    });
+
+    return () => {
+      active = false;
+      unsub();
+    };
   }, []);
 
   // Real-time Firestore onSnapshot listener for tournamentUnlockCodes
@@ -179,21 +217,17 @@ export function AdminTournamentCodesPanel({
 
   const handleFirebaseAdminSignIn = async () => {
     setErrorMsg(null);
+    setFeedbackMsg(null);
     setSigningInFb(true);
     try {
-      const user = await signInWithGooglePopup();
-      setFbUser(user);
-      if (!isFirebaseOwnerAdminUser(user)) {
-        setErrorMsg(
-          `Signed in as ${user.email || 'unknown account'}, but Firestore Admin access is restricted to ${OWNER_ADMIN_EMAIL}.`
-        );
-      } else {
-        setFeedbackMsg(`Connected to Firebase Cloud Firestore as ${user.email}.`);
-      }
-    } catch {
-      setErrorMsg('Google sign-in was cancelled or blocked. Please allow popups and try again.');
-    } finally {
+      await signInWithGoogleRedirect();
+    } catch (err) {
       setSigningInFb(false);
+      setErrorMsg(
+        err instanceof Error
+          ? `Could not start Google redirect sign-in: ${err.message}`
+          : 'Could not start Google redirect sign-in. Please check your Firebase redirect settings and try again.'
+      );
     }
   };
 
@@ -434,7 +468,7 @@ export function AdminTournamentCodesPanel({
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl btn-gold-pro disabled:opacity-60 text-[#070B28] font-display font-black text-xs uppercase tracking-wider shrink-0"
           >
             <ShieldCheck className="w-4 h-4" aria-hidden="true" />
-            <span>{signingInFb ? 'Connecting...' : 'Sign in with Google'}</span>
+            <span>{signingInFb ? 'Redirecting...' : 'Sign in with Google'}</span>
           </button>
         </div>
       )}

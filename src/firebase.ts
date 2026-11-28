@@ -1,9 +1,11 @@
 import { initializeApp } from 'firebase/app';
 import {
   getAuth,
+  getRedirectResult,
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   type User,
 } from 'firebase/auth';
@@ -71,6 +73,33 @@ export function handleFirestoreError(
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
+}
+
+export interface GoogleRedirectOutcome {
+  user: User | null;
+  error: Error | null;
+}
+
+// Handle Firebase Google redirect sign-in result immediately on page load
+const initialRedirectResultPromise: Promise<GoogleRedirectOutcome> =
+  typeof window !== 'undefined'
+    ? getRedirectResult(auth)
+        .then((result) => ({
+          user: result?.user ?? null,
+          error: null,
+        }))
+        .catch((err: unknown) => ({
+          user: null,
+          error: err instanceof Error ? err : new Error(String(err)),
+        }))
+    : Promise.resolve({ user: null, error: null });
+
+export function getGoogleRedirectResult(): Promise<GoogleRedirectOutcome> {
+  return initialRedirectResultPromise;
+}
+
+export async function signInWithGoogleRedirect(): Promise<void> {
+  await signInWithRedirect(auth, googleProvider);
 }
 
 export async function signInWithGooglePopup(): Promise<User> {
