@@ -80,7 +80,7 @@ export const DIRTY_DOZEN_PAYLOADS: DirtyDozenCase[] = [
     name: 'Unverified Admin Email Spoof',
     operation: 'create',
     path: '/tournamentUnlockCodes/TRN-7D-SPOO-F123',
-    auth: { uid: 'spoof_uid', email: 'ccurshyy@gmail.com', email_verified: false },
+    auth: { uid: 'spoof_uid', email: 'crushyyphotography@gmail.com', email_verified: false },
     payload: {
       id: 'TRN-7D-SPOO-F123',
       unlockCode: 'TRN-7D-SPOO-F123',
@@ -110,7 +110,7 @@ export const DIRTY_DOZEN_PAYLOADS: DirtyDozenCase[] = [
     name: 'Path Variable ID Poisoning',
     operation: 'create',
     path: '/tournamentUnlockCodes/bad$$$id_with_special_chars_and_oversized_segment',
-    auth: { uid: 'admin_uid', email: 'ccurshyy@gmail.com', email_verified: true },
+    auth: { uid: 'admin_uid', email: 'crushyyphotography@gmail.com', email_verified: true },
     payload: { status: 'ACTIVE', durationDays: 3, amount: 297 },
     expected: 'PERMISSION_DENIED',
   },
@@ -147,7 +147,7 @@ export const DIRTY_DOZEN_PAYLOADS: DirtyDozenCase[] = [
     name: 'Historical Code Deletion & Admin Escalation',
     operation: 'delete',
     path: '/tournamentUnlockCodes/TRN-3D-ABCD-EFGH',
-    auth: { uid: 'admin_uid', email: 'ccurshyy@gmail.com', email_verified: true },
+    auth: { uid: 'admin_uid', email: 'crushyyphotography@gmail.com', email_verified: true },
     expected: 'PERMISSION_DENIED',
   },
 ];

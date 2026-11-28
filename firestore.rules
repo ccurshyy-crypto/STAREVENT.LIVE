@@ -36,13 +36,13 @@ service cloud.firestore {
     }
 
     function isBootstrappedOwnerAdmin() {
-      return isVerifiedUser() && request.auth.token.email == 'ccurshyy@gmail.com';
+      return isVerifiedUser() && request.auth.token.email == 'crushyyphotography@gmail.com';
     }
 
     function isAdmin() {
       return isVerifiedUser() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.token.email == 'ccurshyy@gmail.com'
+        request.auth.token.email == 'crushyyphotography@gmail.com'
       );
     }
 

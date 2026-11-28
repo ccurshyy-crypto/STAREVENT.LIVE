@@ -20,7 +20,7 @@ export const TOURNAMENT_UNLOCK_CODES_COLLECTION = 'tournamentUnlockCodes';
 export const TOURNAMENT_PRICE_PER_DAY_INR = 99;
 export const MIN_TOURNAMENT_UNLOCK_DAYS = 1;
 export const MAX_TOURNAMENT_UNLOCK_DAYS = 365;
-export const OWNER_ADMIN_EMAIL = 'ccurshyy@gmail.com';
+export const OWNER_ADMIN_EMAIL = 'crushyyphotography@gmail.com';
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 

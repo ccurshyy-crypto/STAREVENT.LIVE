@@ -10,7 +10,7 @@
 5. **Verified Auth & Strict Server Timestamps**: All writes require `request.auth != null && request.auth.token.email_verified == true`. `createdAt` must equal `request.time` on create and remain immutable on update; `updatedAt` must equal `request.time` on every write.
 6. **Bounded Scoring Values & Arrays**: `runs` (`0..9999`), `wickets` (`0..10`), `legalBalls` (`0..6000`), `extrasTotal` (`0..999`), `target` (`0..9999`), `revision` (`>= 1`), `teams` list (`size() <= 4`), and every string field have strict `.size()` upper bounds.
 7. **Terminal State Locking**: Once `matchStatus` transitions to `'archived'`, regular scorers can no longer mutate the document.
-8. **Admin Isolation**: `/admins/{adminUid}` denies all client writes (`allow create, update, delete: if false`) and checks `email_verified == true` for bootstrapped owner admin `ccurshyy@gmail.com`.
+8. **Admin Isolation**: `/admins/{adminUid}` denies all client writes (`allow create, update, delete: if false`) and checks `email_verified == true` for bootstrapped owner admin `crushyyphotography@gmail.com`.
 
 ### B. Tournament Unlock Codes (`/tournamentUnlockCodes/{codeId}`)
 9. **Admin-Only Code Generation & Revocation**: Only verified admins (`isAdmin()`) can create or revoke documents in `/tournamentUnlockCodes/{codeId}`. Customers can never generate codes, alter duration, price (`amount == durationDays * 99`), expiry (`expiresAt`), `lockedCustomerId`, or `createdBy`.
@@ -30,7 +30,7 @@
 4. **Shadow / Ghost Field Injection**: User A writes `{ isVerified: true, password: "leak" }` alongside valid fields into `/liveScoreboards/ROOM_A` or `/tournamentUnlockCodes/TRN-3D-AAAA-BBBB`.
 5. **Unauthenticated Write**: Unauthenticated client attempts to `create` or `update` `/liveScoreboards/ROOM_A` or `/tournamentUnlockCodes/TRN-3D-AAAA-BBBB`.
 6. **Collection Scraping (`list`)**: Regular customer attempts unbounded `list` on `/liveScoreboards` or `/tournamentUnlockCodes` without `where('redeemedByUid', '==', uid)`.
-7. **Unverified Admin Email Spoof**: Authenticated user with `email: "ccurshyy@gmail.com"` and `email_verified: false` attempts to create or list `/tournamentUnlockCodes`.
+7. **Unverified Admin Email Spoof**: Authenticated user with `email: "crushyyphotography@gmail.com"` and `email_verified: false` attempts to create or list `/tournamentUnlockCodes`.
 8. **Customer Code Generation Escalation**: Non-admin customer attempts to `create` `/tournamentUnlockCodes/TRN-30D-HACK-9999`.
 9. **Customer Price / Duration / Expiry Tampering**: Customer attempts to `update` `durationDays`, `amount`, or `expiresAt` during redemption.
 10. **Expired Code Redemption**: Customer attempts to redeem an `ACTIVE` code whose `expiresAt <= request.time`.
