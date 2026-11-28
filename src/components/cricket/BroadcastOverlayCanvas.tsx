@@ -1056,12 +1056,16 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
               overlay.mainCard.heading ||
               overlay.mainCard.description ||
               (overlay.mainCard.tab === 'OTHER' ? 'MATCH HIGHLIGHT' : 'LIVE UPDATE')
-            ).toUpperCase(),
+            )
+              .replace(/!+/g, '')
+              .toUpperCase(),
             subline: (
               overlay.mainCard.heading && overlay.mainCard.description
                 ? overlay.mainCard.description
                 : tournament?.name || state.user.channelTitle || 'STAR EVENT LIVE'
-            ).toUpperCase(),
+            )
+              .replace(/!+/g, '')
+              .toUpperCase(),
           }
         : null;
 
@@ -1212,7 +1216,7 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
                   className="font-display font-black text-2xl uppercase tracking-wider"
                   style={{ color: theme.accent }}
                 >
-                  {liveActiveEvent.type}
+                  {liveActiveEvent.type.replace(/!+/g, '')}
                 </span>
               </div>
             ) : customMsgPatiBanner ? (
@@ -1258,10 +1262,10 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
     const isMatchTied = scoreDiff === 0;
     const winnerTeam = isMatchTied ? undefined : scoreDiff > 0 ? inn1BatTeam : inn2BatTeam;
     const winnerHeadline = isMatchTied
-      ? 'MATCH TIED!'
+      ? 'MATCH TIED'
       : match.resultText?.trim()
-        ? match.resultText.trim().toUpperCase()
-        : `${(winnerTeam?.name || 'WINNER').toUpperCase()} WON!`;
+        ? match.resultText.trim().replace(/!+/g, '').toUpperCase()
+        : `${(winnerTeam?.name || 'WINNER').replace(/!+/g, '').toUpperCase()} WON`;
     const winnerSummaryLine = `${inn1BatTeam?.shortName || 'T1'} ${inn1?.runs ?? 0}/${inn1?.wickets ?? 0} (${formatOvers(inn1?.legalBalls ?? 0)})  •  ${inn2BatTeam?.shortName || 'T2'} ${inn2?.runs ?? 0}/${inn2?.wickets ?? 0} (${formatOvers(inn2?.legalBalls ?? 0)})`;
     const winnerInfo = isMatchCompleted
       ? {
@@ -1611,14 +1615,14 @@ export const BroadcastOverlayCanvas = memo(function BroadcastOverlayCanvas({
 
     const fallbackEventLabel = liveActiveEvent
       ? (() => {
-          const u = liveActiveEvent.type.toUpperCase();
-          if (u === 'FOUR' || u === '4') return { badge: 'BOUNDARY', label: 'FOUR!', caption: '4 RUNS', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.accent}, ${theme.primary})` };
-          if (u === 'SIX' || u === '6') return { badge: 'MAXIMUM', label: 'SIX!', caption: '6 RUNS', bg: `linear-gradient(90deg, ${theme.secondary}, ${theme.primary}, ${theme.secondary})` };
-          if (u === 'WICKET' || u === 'OUT') return { badge: 'OUT', label: 'WICKET!', caption: 'BATTER DISMISSED', bg: 'linear-gradient(90deg, #7F1D1D, #DC2626, #7F1D1D)' };
-          if (u.includes('NO')) return { badge: 'EXTRA', label: 'NO BALL!', caption: 'FREE HIT COMING UP', bg: `linear-gradient(90deg, ${theme.primary}, #EA580C, ${theme.primary})` };
-          if (u.includes('WIDE')) return { badge: 'EXTRA', label: 'WIDE BALL!', caption: '+1 EXTRA RUN', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
-          if (u.includes('FREE')) return { badge: 'BONUS', label: 'FREE HIT!', caption: 'NO DISMISSAL OFF BAT', bg: `linear-gradient(90deg, #065F46, #059669, #065F46)` };
-          return { badge: 'LIVE', label: u, caption: state.user.channelTitle || 'STAR EVENT LIVE', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
+          const u = liveActiveEvent.type.replace(/!+/g, '').toUpperCase();
+          if (u === 'FOUR' || u === '4') return { badge: 'BOUNDARY', label: 'FOUR', caption: '4 RUNS', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.accent}, ${theme.primary})` };
+          if (u === 'SIX' || u === '6') return { badge: 'MAXIMUM', label: 'SIX', caption: '6 RUNS', bg: `linear-gradient(90deg, ${theme.secondary}, ${theme.primary}, ${theme.secondary})` };
+          if (u === 'WICKET' || u === 'OUT') return { badge: 'OUT', label: 'WICKET', caption: 'BATTER DISMISSED', bg: 'linear-gradient(90deg, #7F1D1D, #DC2626, #7F1D1D)' };
+          if (u.includes('NO')) return { badge: 'EXTRA', label: 'NO BALL', caption: 'FREE HIT COMING UP', bg: `linear-gradient(90deg, ${theme.primary}, #EA580C, ${theme.primary})` };
+          if (u.includes('WIDE')) return { badge: 'EXTRA', label: 'WIDE BALL', caption: '+1 EXTRA RUN', bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
+          if (u.includes('FREE')) return { badge: 'BONUS', label: 'FREE HIT', caption: 'NO DISMISSAL OFF BAT', bg: `linear-gradient(90deg, #065F46, #059669, #065F46)` };
+          return { badge: 'LIVE', label: u, caption: (state.user.channelTitle || 'STAR EVENT LIVE').replace(/!+/g, ''), bg: `linear-gradient(90deg, ${theme.primary}, ${theme.secondary}, ${theme.primary})` };
         })()
       : null;
 

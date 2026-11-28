@@ -71,12 +71,14 @@ function resolveLightningEvent(
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
+  const cleanCaption = customCaption ? customCaption.replace(/!+/g, '').trim() : '';
+
   if (normalized === 'WICKET' || normalized === 'W' || normalized === 'OUT') {
     return {
       hoodText: 'WICKET FALLS',
       badge: bowlTeamCode,
-      label: 'WICKET! OUT!',
-      caption: customCaption || `${bowlerName} STRIKES`,
+      label: 'WICKET OUT',
+      caption: cleanCaption || `${bowlerName} STRIKES`,
       bg: 'linear-gradient(90deg, #08123D 0%, #991B1B 24%, #DC2626 50%, #991B1B 76%, #08123D 100%)',
       border: '#FCA5A5',
       text: '#FFFFFF',
@@ -88,8 +90,8 @@ function resolveLightningEvent(
     return {
       hoodText: 'MAXIMUM SIX',
       badge: `${batTeamCode} • 6 RUNS`,
-      label: 'SUPER SIX!',
-      caption: customCaption || `${strikerName} • MASSIVE HIT`,
+      label: 'SUPER SIX',
+      caption: cleanCaption || `${strikerName} • MASSIVE HIT`,
       bg: 'linear-gradient(90deg, #001A5C 0%, #7E22CE 24%, #F61A9A 50%, #7E22CE 76%, #001A5C 100%)',
       border: '#F9A8D4',
       text: '#FFFFFF',
@@ -101,8 +103,8 @@ function resolveLightningEvent(
     return {
       hoodText: 'BOUNDARY 4',
       badge: `${batTeamCode} • 4 RUNS`,
-      label: 'CRACKING FOUR!',
-      caption: customCaption || `${strikerName} • SUPER FOUR`,
+      label: 'CRACKING FOUR',
+      caption: cleanCaption || `${strikerName} • SUPER FOUR`,
       bg: 'linear-gradient(90deg, #001040 0%, #0044C7 26%, #0EA5E9 50%, #0044C7 74%, #001040 100%)',
       border: '#7DD3FC',
       text: '#FFFFFF',
@@ -114,8 +116,8 @@ function resolveLightningEvent(
     return {
       hoodText: 'NO BALL +1',
       badge: 'FREE HIT NEXT',
-      label: 'NO BALL!',
-      caption: customCaption || `${bowlerName} OVERSTEPPED • ${strikerName}`,
+      label: 'NO BALL',
+      caption: cleanCaption || `${bowlerName} OVERSTEPPED • ${strikerName}`,
       bg: 'linear-gradient(90deg, #001A5C 0%, #B45309 24%, #F59E0B 50%, #B45309 76%, #001A5C 100%)',
       border: '#FEF08A',
       text: '#FFFFFF',
@@ -127,8 +129,8 @@ function resolveLightningEvent(
     return {
       hoodText: 'FREE HIT',
       badge: batTeamCode,
-      label: 'FREE HIT!',
-      caption: customCaption || `${strikerName} ON STRIKE`,
+      label: 'FREE HIT',
+      caption: cleanCaption || `${strikerName} ON STRIKE`,
       bg: 'linear-gradient(90deg, #43087A 0%, #D97706 26%, #FACC15 50%, #D97706 74%, #43087A 100%)',
       border: '#FEF9C3',
       text: '#09154A',
@@ -140,8 +142,8 @@ function resolveLightningEvent(
     return {
       hoodText: 'WIDE +1',
       badge: 'EXTRA RUN',
-      label: 'WIDE BALL!',
-      caption: customCaption || `${bowlerName} • RE-BOWL`,
+      label: 'WIDE BALL',
+      caption: cleanCaption || `${bowlerName} • RE-BOWL`,
       bg: 'linear-gradient(90deg, #001A5C 0%, #5B21B6 26%, #9333EA 50%, #5B21B6 74%, #001A5C 100%)',
       border: '#E879F9',
       text: '#FFFFFF',
@@ -152,8 +154,8 @@ function resolveLightningEvent(
   return {
     hoodText: 'LIVE EVENT',
     badge: batTeamCode,
-    label: String(type || 'LIVE').toUpperCase(),
-    caption: customCaption || `${batTeamCode} LIVE`,
+    label: String(type || 'LIVE').replace(/!+/g, '').toUpperCase(),
+    caption: cleanCaption || `${batTeamCode} LIVE`,
     bg: 'linear-gradient(90deg, #001A5C 0%, #CC0A7B 50%, #001A5C 100%)',
     border: '#F9A8D4',
     text: '#FFFFFF',

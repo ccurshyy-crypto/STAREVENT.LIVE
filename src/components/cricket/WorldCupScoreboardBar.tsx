@@ -63,11 +63,13 @@ function resolveWorldCupEvent(
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
+  const cleanCaption = customCaption ? customCaption.replace(/!+/g, '').trim() : '';
+
   if (normalized === 'WICKET' || normalized === 'W' || normalized === 'OUT') {
     return {
       badge: `${bowlTeam} WICKET`,
-      label: 'WICKET! OUT!',
-      caption: customCaption || `${bowlerName} STRIKES`,
+      label: 'WICKET OUT',
+      caption: cleanCaption || `${bowlerName} STRIKES`,
       bg: 'linear-gradient(180deg, #DC2626 0%, #991B1B 52%, #450A0A 100%)',
       border: '#FCA5A5',
       text: '#FFFFFF',
@@ -78,8 +80,8 @@ function resolveWorldCupEvent(
   if (normalized === 'FOUR' || normalized === '4') {
     return {
       badge: `${batTeam} • 4 RUNS`,
-      label: 'FOUR!',
-      caption: customCaption || `${strikerName} • BOUNDARY`,
+      label: 'FOUR',
+      caption: cleanCaption || `${strikerName} • BOUNDARY`,
       bg: 'linear-gradient(180deg, #0046C7 0%, #0035A0 44%, #001A5C 100%)',
       border: '#93C5FD',
       text: '#FFFFFF',
@@ -90,8 +92,8 @@ function resolveWorldCupEvent(
   if (normalized === 'SIX' || normalized === '6') {
     return {
       badge: `${batTeam} • 6 RUNS`,
-      label: 'MAXIMUM SIX!',
-      caption: customCaption || `${strikerName} • HUGE SIXER`,
+      label: 'MAXIMUM SIX',
+      caption: cleanCaption || `${strikerName} • HUGE SIXER`,
       bg: 'linear-gradient(180deg, #FEF08A 0%, #FACC15 48%, #CA8A04 100%)',
       border: '#FEF9C3',
       text: '#09090B',
@@ -102,8 +104,8 @@ function resolveWorldCupEvent(
   if (normalized === 'NOBALL' || normalized === 'NB') {
     return {
       badge: 'NO BALL +1',
-      label: 'NO BALL!',
-      caption: customCaption || `FREE HIT COMING UP • ${strikerName}`,
+      label: 'NO BALL',
+      caption: cleanCaption || `FREE HIT COMING UP • ${strikerName}`,
       bg: 'linear-gradient(180deg, #B91C1C 0%, #7F1D1D 52%, #001A5C 100%)',
       border: '#FDE047',
       text: '#FFFFFF',
@@ -114,8 +116,8 @@ function resolveWorldCupEvent(
   if (normalized === 'FREEHIT') {
     return {
       badge: 'FREE HIT',
-      label: 'FREE HIT!',
-      caption: customCaption || `${strikerName} ON STRIKE`,
+      label: 'FREE HIT',
+      caption: cleanCaption || `${strikerName} ON STRIKE`,
       bg: 'linear-gradient(180deg, #FDE047 0%, #F59E0B 55%, #B45309 100%)',
       border: '#FEF9C3',
       text: '#09090B',
@@ -126,8 +128,8 @@ function resolveWorldCupEvent(
   if (normalized === 'WIDE' || normalized === 'WD' || normalized === 'WIDEBALL') {
     return {
       badge: 'WIDE +1',
-      label: 'WIDE BALL!',
-      caption: customCaption || `${bowlerName} • EXTRA RUN`,
+      label: 'WIDE BALL',
+      caption: cleanCaption || `${bowlerName} • EXTRA RUN`,
       bg: 'linear-gradient(180deg, #1E3A8A 0%, #00237B 55%, #09090B 100%)',
       border: '#E2E8F0',
       text: '#FFFFFF',
@@ -137,8 +139,8 @@ function resolveWorldCupEvent(
   }
   return {
     badge: batTeam,
-    label: String(type || 'LIVE').toUpperCase(),
-    caption: customCaption || `${batTeam} LIVE`,
+    label: String(type || 'LIVE').replace(/!+/g, '').toUpperCase(),
+    caption: cleanCaption || `${batTeam} LIVE`,
     bg: 'linear-gradient(180deg, #0046C7 0%, #00237B 60%, #001A5C 100%)',
     border: '#93C5FD',
     text: '#FFFFFF',

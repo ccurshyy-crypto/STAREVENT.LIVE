@@ -2439,7 +2439,7 @@ export function ScoringDashboardView({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
-                        MATCH COMPLETED!
+                        MATCH COMPLETED
                       </span>
                       <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
                         CONFIRM TO OPEN SUMMARY
@@ -2541,7 +2541,7 @@ export function ScoringDashboardView({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-display font-black text-base sm:text-lg tracking-wide uppercase">
-                        1ST INNINGS COMPLETED!
+                        1ST INNINGS COMPLETED
                       </span>
                       <span className="px-2 py-0.5 rounded bg-white/20 text-[10px] font-bold uppercase tracking-wider">
                         TARGET {inn1.runs + 1} RUNS
@@ -2678,7 +2678,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery(
                           { runsOffBat: 4, isBoundary4: true, isBoundary6: false },
-                          'FOUR! +4 Runs'
+                          'FOUR +4 Runs'
                         )
                       }
                       className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] bg-gradient-to-b from-[#FDE047] via-[#FACC15] to-[#EAB308] hover:from-[#FEF08A] hover:to-[#CA8A04] border border-[#CA8A04] shadow-sm disabled:opacity-45 text-slate-950 font-display font-black text-sm sm:text-base transition-colors"
@@ -2697,7 +2697,7 @@ export function ScoringDashboardView({
                       onClick={() =>
                         recordDelivery(
                           { runsOffBat: 6, isBoundary4: false, isBoundary6: true },
-                          'SIX! +6 Runs'
+                          'SIX +6 Runs'
                         )
                       }
                       className="w-full sm:w-[58px] h-[44px] sm:h-[48px] rounded-[11px] bg-gradient-to-b from-[#FF8C00] via-[#EA580C] to-[#C2410C] hover:from-[#FFA02E] hover:to-[#9A3412] border border-[#9A3412] shadow-sm disabled:opacity-45 text-white font-display font-black text-sm sm:text-base transition-colors"
@@ -5196,7 +5196,7 @@ export function ScoringDashboardView({
                         id="over-completed-title"
                         className="font-display font-black text-lg sm:text-xl tracking-wide text-white leading-tight"
                       >
-                        OVER COMPLETED!
+                        OVER COMPLETED
                       </h3>
                       <p className="text-xs sm:text-sm font-extrabold text-orange-100 tracking-wider uppercase mt-0.5">
                         PLEASE CHANGE BOWLER
@@ -5424,7 +5424,7 @@ export function ScoringDashboardView({
                       id="new-batter-title"
                       className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
-                      WICKET FALLEN! SELECT NEXT BATTER
+                      WICKET FALLEN · SELECT NEXT BATTER
                     </h3>
                     <p className="text-xs font-bold text-orange-100 mt-0.5">
                       Scoring is paused until the next batter is selected or added
@@ -5624,7 +5624,7 @@ export function ScoringDashboardView({
                       className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
                       {isFirstInningsEnded
-                        ? '1ST INNINGS COMPLETED!'
+                        ? '1ST INNINGS COMPLETED'
                         : 'END 1ST INNINGS & SWITCH'}
                     </h3>
                     <p className="text-xs font-bold text-orange-100 mt-0.5">
@@ -6027,7 +6027,7 @@ export function ScoringDashboardView({
                       id="match-complete-title"
                       className="font-display font-black text-base sm:text-lg tracking-wide text-white uppercase"
                     >
-                      MATCH COMPLETED!
+                      MATCH COMPLETED
                     </h3>
                     <p className="text-xs font-bold text-orange-100 mt-0.5">
                       Confirm match over to open complete Match Summary &amp; Overs

@@ -181,46 +181,49 @@ export function ProScoreboardBar({
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '')
     : '';
+  const cleanEvtCaption = activeEvent?.caption
+    ? activeEvent.caption.replace(/!+/g, '').trim()
+    : '';
   const proEvent = activeEvent
     ? normalizedEvt === 'WICKET' || normalizedEvt === 'OUT' || normalizedEvt === 'W'
       ? {
           badge: `${rightTeam} WICKET`,
-          headline: 'WICKET! OUT!',
-          caption: activeEvent.caption || `${bowlerName} STRIKES`,
+          headline: 'WICKET OUT',
+          caption: cleanEvtCaption || `${bowlerName} STRIKES`,
           bg: 'linear-gradient(90deg, #7F1D1D 0%, #DC2626 50%, #7F1D1D 100%)',
         }
       : normalizedEvt === 'SIX' || normalizedEvt === '6'
         ? {
             badge: `${leftTeam} • 6 RUNS`,
-            headline: 'MAXIMUM SIX!',
-            caption: activeEvent.caption || `${strikerName} • HUGE SIXER`,
+            headline: 'MAXIMUM SIX',
+            caption: cleanEvtCaption || `${strikerName} • HUGE SIXER`,
             bg: `linear-gradient(90deg, ${primaryColor} 0%, #D97706 50%, ${primaryColor} 100%)`,
           }
         : normalizedEvt === 'FOUR' || normalizedEvt === '4'
           ? {
               badge: `${leftTeam} • 4 RUNS`,
-              headline: 'CRACKING FOUR!',
-              caption: activeEvent.caption || `${strikerName} • BOUNDARY`,
+              headline: 'CRACKING FOUR',
+              caption: cleanEvtCaption || `${strikerName} • BOUNDARY`,
               bg: `linear-gradient(90deg, ${primaryColor} 0%, #1D4ED8 50%, ${primaryColor} 100%)`,
             }
           : normalizedEvt === 'NOBALL' || normalizedEvt === 'NB'
             ? {
                 badge: 'NO BALL +1',
-                headline: 'NO BALL!',
-                caption: activeEvent.caption || `FREE HIT NEXT • ${strikerName}`,
+                headline: 'NO BALL',
+                caption: cleanEvtCaption || `FREE HIT NEXT • ${strikerName}`,
                 bg: `linear-gradient(90deg, ${primaryColor} 0%, #B45309 50%, ${primaryColor} 100%)`,
               }
             : normalizedEvt === 'WIDE' || normalizedEvt === 'WD' || normalizedEvt === 'WIDEBALL'
               ? {
                   badge: 'WIDE +1',
-                  headline: 'WIDE BALL!',
-                  caption: activeEvent.caption || `${bowlerName} • EXTRA RUN`,
+                  headline: 'WIDE BALL',
+                  caption: cleanEvtCaption || `${bowlerName} • EXTRA RUN`,
                   bg: `linear-gradient(90deg, ${primaryColor} 0%, #0F172A 50%, ${primaryColor} 100%)`,
                 }
               : {
                   badge: leftTeam,
-                  headline: activeEvent.type.toUpperCase(),
-                  caption: activeEvent.caption || `${strikerName} ON STRIKE`,
+                  headline: activeEvent.type.replace(/!+/g, '').toUpperCase(),
+                  caption: cleanEvtCaption || `${strikerName} ON STRIKE`,
                   bg: `linear-gradient(90deg, ${primaryColor} 0%, #0F172A 50%, ${primaryColor} 100%)`,
                 }
     : null;

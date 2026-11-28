@@ -102,75 +102,77 @@ function resolveEventPreset(
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, '');
 
+  const cleanCaption = customCaption ? customCaption.replace(/!+/g, '').trim() : '';
+
   if (normalized === 'FOUR' || normalized === '4') {
     return {
       theme: 'theme-four',
       badge: `${batTeam} • 4 RUNS`,
-      headline: 'FOUR!',
-      caption: customCaption || `${strikerName} • CRACKING BOUNDARY`,
+      headline: 'FOUR',
+      caption: cleanCaption || `${strikerName} • CRACKING BOUNDARY`,
     };
   }
   if (normalized === 'SIX' || normalized === '6') {
     return {
       theme: 'theme-six',
       badge: `${batTeam} • 6 RUNS`,
-      headline: 'MAXIMUM SIX!',
-      caption: customCaption || `${strikerName} • OUT OF THE PARK`,
+      headline: 'MAXIMUM SIX',
+      caption: cleanCaption || `${strikerName} • OUT OF THE PARK`,
     };
   }
   if (normalized === 'WICKET' || normalized === 'W' || normalized === 'OUT') {
     return {
       theme: 'theme-wicket',
       badge: bowlTeam,
-      headline: 'WICKET! OUT!',
-      caption: customCaption || `${bowlerName} STRIKES • ${scoreText}`,
+      headline: 'WICKET OUT',
+      caption: cleanCaption || `${bowlerName} STRIKES • ${scoreText}`,
     };
   }
   if (normalized === 'NOBALL' || normalized === 'NB') {
     return {
       theme: 'theme-noball',
       badge: 'NO BALL +1',
-      headline: 'NO BALL!',
-      caption: customCaption || `FREE HIT NEXT • ${strikerName}`,
+      headline: 'NO BALL',
+      caption: cleanCaption || `FREE HIT NEXT • ${strikerName}`,
     };
   }
   if (normalized === 'FREEHIT') {
     return {
       theme: 'theme-freehit',
       badge: 'FREE HIT',
-      headline: 'FREE HIT!',
-      caption: customCaption || `${strikerName} ON STRIKE`,
+      headline: 'FREE HIT',
+      caption: cleanCaption || `${strikerName} ON STRIKE`,
     };
   }
   if (normalized === 'WIDE' || normalized === 'WD' || normalized === 'WIDEBALL') {
     return {
       theme: 'theme-wide',
       badge: 'WIDE +1',
-      headline: 'WIDE BALL!',
-      caption: customCaption || `${bowlerName} • EXTRA RUN`,
+      headline: 'WIDE BALL',
+      caption: cleanCaption || `${bowlerName} • EXTRA RUN`,
     };
   }
   if (normalized === 'CHASED' || normalized === 'MATCHWON' || normalized === 'WIN') {
     return {
       theme: 'theme-chased',
       badge: `${batTeam} WIN`,
-      headline: 'TARGET CHASED!',
-      caption: customCaption || `${batTeam} DEFEAT ${bowlTeam}`,
+      headline: 'TARGET CHASED',
+      caption: cleanCaption || `${batTeam} DEFEAT ${bowlTeam}`,
     };
   }
   if (normalized.includes('100') || normalized.includes('CENTURY') || normalized.includes('50') || normalized.includes('FIFTY')) {
     return {
       theme: 'theme-six',
       badge: batTeam,
-      headline: type.toUpperCase(),
-      caption: customCaption || `${strikerName} • MILESTONE`,
+      headline: type.replace(/!+/g, '').toUpperCase(),
+      caption: cleanCaption || `${strikerName} • MILESTONE`,
     };
   }
   return {
     theme: 'theme-four',
     badge: batTeam,
-    headline: type.toUpperCase(),
-    caption: customCaption || `${batTeam} ${scoreText}`,
+    headline: type.replace(/!+/g, '').toUpperCase(),
+    caption: cleanCaption || `${batTeam} ${scoreText}`,
   };
 }
 
