@@ -24,6 +24,29 @@ export type KabaddiAlertType =
 
 export type KabaddiCardView = 'NONE' | 'VERSUS' | 'SUMMARY';
 
+export interface KabaddiPlayer {
+  id: string;
+  number: number;
+  name: string;
+  status: 'in' | 'out';
+  raidPoints: number;
+  tacklePoints: number;
+}
+
+export interface KabaddiSubstitute {
+  id: string;
+  number: number;
+  name: string;
+}
+
+export interface KabaddiLogEntry {
+  id: string;
+  timeLabel: string;
+  text: string;
+  side?: KabaddiTeamSide | null;
+  kind?: 'raid' | 'tackle' | 'bonus' | 'allout' | 'timeout' | 'system';
+}
+
 export interface KabaddiTeamState {
   name: string;
   shortName: string;
@@ -36,6 +59,9 @@ export interface KabaddiTeamState {
   bonusPoints: number;
   timeoutsLeft: number; // 0..2
   emptyRaids: number; // 0..2 (2 means next raid is DO OR DIE)
+  players?: KabaddiPlayer[];
+  revivalQueue?: string[]; // Ordered FIFO player IDs waiting for revival
+  substitutes?: KabaddiSubstitute[];
 }
 
 export interface KabaddiTimerState {
@@ -66,6 +92,7 @@ export interface KabaddiScoreboardState {
   tickerText: string;
   half: KabaddiHalf;
   raidingTeam: KabaddiTeamSide | null;
+  selectedRaider?: { side: KabaddiTeamSide; playerId: string } | null;
   teamA: KabaddiTeamState;
   teamB: KabaddiTeamState;
   matchClock: KabaddiTimerState;
@@ -73,6 +100,7 @@ export interface KabaddiScoreboardState {
   showScoreboard: boolean;
   activeCard: KabaddiCardView;
   alert: KabaddiAlertState | null;
+  gameLog?: KabaddiLogEntry[];
 }
 
 export const KABADDI_TEAM_PALETTES: Record<
@@ -136,6 +164,40 @@ export const KABADDI_TEAM_PALETTES: Record<
   },
 };
 
+export function createDefaultKabaddiPlayers(side: KabaddiTeamSide): KabaddiPlayer[] {
+  return Array.from({ length: 7 }, (_, idx) => ({
+    id: `${side.toLowerCase()}_p${idx + 1}`,
+    number: idx + 1,
+    name: `Player ${idx + 1}`,
+    status: 'in' as const,
+    raidPoints: 0,
+    tacklePoints: 0,
+  }));
+}
+
+export function createDefaultKabaddiSubstitutes(side: KabaddiTeamSide): KabaddiSubstitute[] {
+  return Array.from({ length: 5 }, (_, idx) => ({
+    id: `${side.toLowerCase()}_sub${idx + 8}`,
+    number: idx + 8,
+    name: `Sub ${idx + 8}`,
+  }));
+}
+
+export function ensureKabaddiPlayers(
+  team: KabaddiTeamState,
+  side: KabaddiTeamSide
+): KabaddiPlayer[] {
+  if (Array.isArray(team.players) && team.players.length === 7) {
+    return team.players;
+  }
+  const base = createDefaultKabaddiPlayers(side);
+  const inCount = Math.max(0, Math.min(7, team.playersOnMat ?? 7));
+  return base.map((p, idx) => ({
+    ...p,
+    status: idx < inCount ? 'in' : 'out',
+  }));
+}
+
 export function createInitialKabaddiState(uid: string): KabaddiScoreboardState {
   return {
     version: 1,
@@ -147,9 +209,26 @@ export function createInitialKabaddiState(uid: string): KabaddiScoreboardState {
     tickerText: 'LIVE ON YOUTUBE @STAREVENTLIVE01 · BOOKING: 9890175727',
     half: '1ST HALF',
     raidingTeam: 'A',
+    selectedRaider: null,
     teamA: {
-      name: 'NERAL WARRIORS',
-      shortName: 'NER',
+      name: 'Team A',
+      shortName: 'TMA',
+      color: 'saffron',
+      score: 0,
+      playersOnMat: 7,
+      allOuts: 0,
+      raidPoints: 0,
+      tacklePoints: 0,
+      bonusPoints: 0,
+      timeoutsLeft: 2,
+      emptyRaids: 0,
+      players: createDefaultKabaddiPlayers('A'),
+      revivalQueue: [],
+      substitutes: createDefaultKabaddiSubstitutes('A'),
+    },
+    teamB: {
+      name: 'Team B',
+      shortName: 'TMB',
       color: 'crimson',
       score: 0,
       playersOnMat: 7,
@@ -159,23 +238,13 @@ export function createInitialKabaddiState(uid: string): KabaddiScoreboardState {
       bonusPoints: 0,
       timeoutsLeft: 2,
       emptyRaids: 0,
-    },
-    teamB: {
-      name: 'KARJAT LIONS',
-      shortName: 'KAR',
-      color: 'royal-blue',
-      score: 0,
-      playersOnMat: 7,
-      allOuts: 0,
-      raidPoints: 0,
-      tacklePoints: 0,
-      bonusPoints: 0,
-      timeoutsLeft: 2,
-      emptyRaids: 0,
+      players: createDefaultKabaddiPlayers('B'),
+      revivalQueue: [],
+      substitutes: createDefaultKabaddiSubstitutes('B'),
     },
     matchClock: {
-      durationSec: 20 * 60,
-      remainingSec: 20 * 60,
+      durationSec: 40 * 60,
+      remainingSec: 40 * 60,
       running: false,
       startedAtMs: null,
     },
@@ -188,6 +257,7 @@ export function createInitialKabaddiState(uid: string): KabaddiScoreboardState {
     showScoreboard: true,
     activeCard: 'NONE',
     alert: null,
+    gameLog: [],
   };
 }
 

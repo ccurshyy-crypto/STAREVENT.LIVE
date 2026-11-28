@@ -12,7 +12,7 @@ import {
 import { Language, STUDIO_CONTACT } from '../data/content';
 
 export const BOOKED_MONTH_INDEX = 11; // December (0-indexed)
-export const BOOKED_DAY_NUMBERS: readonly number[] = [9, 10, 11, 12, 13, 14, 18, 19, 20];
+export const BOOKED_DAY_NUMBERS: readonly number[] = [6, 9, 10, 11, 12, 13, 14, 18, 19, 20];
 const BOOKED_DAY_SET = new Set<number>(BOOKED_DAY_NUMBERS);
 
 const MONTH_NAMES: Record<Language, readonly string[]> = {
