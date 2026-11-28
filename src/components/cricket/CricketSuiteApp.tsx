@@ -16,6 +16,7 @@ import {
   Radio,
   RefreshCw,
   Settings,
+  ShieldCheck,
   Table2,
   Trophy,
   Tv,
@@ -48,12 +49,14 @@ interface CricketSuiteAppProps {
   session: UnlockedOverlaySession;
   onLogout: () => void;
   onBackHome: () => void;
+  onOpenOwnerAdmin?: () => void;
 }
 
 export function CricketSuiteApp({
   session,
   onLogout,
   onBackHome,
+  onOpenOwnerAdmin,
 }: CricketSuiteAppProps) {
   const {
     uid,
@@ -510,6 +513,20 @@ export function CricketSuiteApp({
             <span>USER ACCOUNT</span>
           </button>
 
+          {onOpenOwnerAdmin && (
+            <button
+              type="button"
+              onClick={() => {
+                setDrawerOpen(false);
+                onOpenOwnerAdmin();
+              }}
+              className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-left text-xs font-extrabold tracking-wide bg-slate-900 hover:bg-slate-800 text-[#FFE600] border border-[#FF8C00]/50 shadow-sm transition-all"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#FF8C00] shrink-0" aria-hidden="true" />
+              <span>ADMIN PANEL</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setShowLogoutConfirm(true)}
@@ -629,6 +646,17 @@ export function CricketSuiteApp({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 shrink-0">
+            {onOpenOwnerAdmin && (
+              <button
+                type="button"
+                onClick={onOpenOwnerAdmin}
+                className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-[#FFE600] border border-[#FF8C00]/60 text-[11px] sm:text-xs font-extrabold whitespace-nowrap shadow-xs transition-colors"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-[#FF8C00] shrink-0" aria-hidden="true" />
+                <span>Admin Panel</span>
+              </button>
+            )}
+
             {activeRoute !== 'kabaddi' && (
               <button
                 type="button"

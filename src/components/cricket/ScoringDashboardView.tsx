@@ -51,7 +51,6 @@ import {
   CricketSuiteState,
   OverlayThemeId,
   Player,
-  PlayerRole,
   TransitionOverlayType,
   WicketType,
 } from '../../types/cricketSuite';
@@ -177,7 +176,6 @@ export function ScoringDashboardView({
   const [editBowlerRuns, setEditBowlerRuns] = useState('0');
   const [editBowlerWickets, setEditBowlerWickets] = useState('0');
   const [quickPlayerName, setQuickPlayerName] = useState('');
-  const [quickPlayerRole, setQuickPlayerRole] = useState<PlayerRole>('All-Rounder');
 
   const [editScoreModalOpen, setEditScoreModalOpen] = useState(false);
   const [editInningsIdx, setEditInningsIdx] = useState<0 | 1>(0);
@@ -1334,7 +1332,7 @@ export function ScoringDashboardView({
       role:
         assignToSlot === 'overBowler' || assignToSlot === 'inn2Bowl'
           ? 'Bowler'
-          : quickPlayerRole,
+          : 'All-Rounder',
       battingStyle: 'Right-Hand Bat',
       bowlingStyle: 'Right-Arm Medium',
       jerseyNo: teamObj.players.length + 1,
@@ -4446,26 +4444,14 @@ export function ScoringDashboardView({
                           <Users className="w-3.5 h-3.5 text-[#FF8C00]" aria-hidden="true" />
                           Quick Add Player to {targetTeam.name}
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                        <div>
                           <input
                             type="text"
                             value={quickPlayerName}
                             onChange={(e) => setQuickPlayerName(e.target.value)}
                             placeholder="Enter player name"
-                            className="px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                            className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
                           />
-                          <select
-                            value={quickPlayerRole}
-                            onChange={(e) =>
-                              setQuickPlayerRole(e.target.value as PlayerRole)
-                            }
-                            className="px-2.5 py-2 rounded-lg border border-slate-300 text-xs bg-white"
-                          >
-                            <option value="Batsman">Batsman</option>
-                            <option value="Bowler">Bowler</option>
-                            <option value="All-Rounder">All-Rounder</option>
-                            <option value="Wicket-Keeper">Wicket-Keeper</option>
-                          </select>
                         </div>
                         <button
                           type="button"

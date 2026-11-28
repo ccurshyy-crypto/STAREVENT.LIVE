@@ -1,5 +1,5 @@
 import { type MouseEvent, useState } from 'react';
-import { KeyRound, LockOpen, Menu, Phone, X } from 'lucide-react';
+import { KeyRound, LockOpen, Menu, Phone, ShieldCheck, X } from 'lucide-react';
 import { useOverlayAccess } from '../context/OverlayAccessContext';
 import { Language, STUDIO_CONTACT, UI_COPY } from '../data/content';
 import { LanguageSwitcher } from './LanguageSwitcher';
@@ -17,6 +17,7 @@ interface NavbarProps {
   onNavigatePackages: () => void;
   onNavigateBooking: () => void;
   onOpenAccessModal: () => void;
+  onOpenOwnerAdmin?: () => void;
 }
 
 export function Navbar({
@@ -30,6 +31,7 @@ export function Navbar({
   onNavigatePackages,
   onNavigateBooking,
   onOpenAccessModal,
+  onOpenOwnerAdmin,
 }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { session, isUnlocked } = useOverlayAccess();
@@ -173,6 +175,18 @@ export function Navbar({
             )}
           </button>
 
+          {onOpenOwnerAdmin && (
+            <button
+              type="button"
+              onClick={onOpenOwnerAdmin}
+              className="min-h-[36px] sm:min-h-[38px] inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs font-extrabold rounded-xl bg-amber-950/90 hover:bg-amber-900 text-[#FFE600] border border-[#FFE600]/60 transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFE600]"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-[#FFE600] shrink-0" aria-hidden="true" />
+              <span className="hidden sm:inline">Admin Panel</span>
+              <span className="sm:hidden">Admin</span>
+            </button>
+          )}
+
           <a
             href={STUDIO_CONTACT.phoneHref}
             className="btn-primary-pro hidden sm:inline-flex min-h-[38px] items-center gap-1.5 px-3 py-1.5 text-xs sm:text-sm font-semibold rounded-xl whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FACC15] tabular-nums"
@@ -219,7 +233,20 @@ export function Navbar({
             );
           })}
 
-          <div className="pt-2 border-t border-white/10">
+          <div className="pt-2 border-t border-white/10 space-y-2">
+            {onOpenOwnerAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  onOpenOwnerAdmin();
+                }}
+                className="w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-extrabold rounded-xl bg-amber-950/95 hover:bg-amber-900 text-[#FFE600] border border-[#FFE600]/55"
+              >
+                <ShieldCheck className="w-4 h-4 text-[#FFE600]" aria-hidden="true" />
+                <span>Admin Panel</span>
+              </button>
+            )}
             <a
               href={STUDIO_CONTACT.phoneHref}
               className="btn-primary-pro w-full min-h-[46px] inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold rounded-xl tabular-nums"

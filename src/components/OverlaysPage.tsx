@@ -13,9 +13,10 @@ import { CricketSuiteApp } from './cricket/CricketSuiteApp';
 interface OverlaysPageProps {
   lang: Language;
   onBackHome: () => void;
+  onOpenOwnerAdmin?: () => void;
 }
 
-export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
+export function OverlaysPage({ lang, onBackHome, onOpenOwnerAdmin }: OverlaysPageProps) {
   const { session, isUnlocked, isReady, unlockWithCredentials, lockAndLogout } =
     useOverlayAccess();
 
@@ -185,6 +186,7 @@ export function OverlaysPage({ lang, onBackHome }: OverlaysPageProps) {
       session={session}
       onLogout={lockAndLogout}
       onBackHome={onBackHome}
+      onOpenOwnerAdmin={onOpenOwnerAdmin}
     />
   );
 }

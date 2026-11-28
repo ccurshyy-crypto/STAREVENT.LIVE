@@ -296,6 +296,7 @@ export default function App() {
           onNavigatePackages={navigateToPackages}
           onNavigateBooking={navigateToBooking}
           onOpenAccessModal={handleOpenAccessModal}
+          onOpenOwnerAdmin={isOwnerAccount ? navigateToOwnerAdmin : undefined}
         />
       )}
 
@@ -311,6 +312,7 @@ export default function App() {
             <OverlaysPage
               lang={lang}
               onBackHome={() => navigateHome('top')}
+              onOpenOwnerAdmin={isOwnerAccount ? navigateToOwnerAdmin : undefined}
             />
           ) : currentPage === 'kabaddi' ? (
             <KabaddiControlDashboard
